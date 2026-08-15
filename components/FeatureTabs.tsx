@@ -62,7 +62,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{featureLabel(t, item)}</span>
-                <span className="text-[8px] font-bold text-codex-faint">{item.disabledReason}</span>
+                <span className="text-[10px] font-bold text-codex-faint">{item.disabledReason}</span>
               </span>
             );
           }

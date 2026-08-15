@@ -333,7 +333,7 @@ function getSelectedExpressionPresetId(slot: PosePlanSlot | null | undefined) {
 }
 
 function getPoseAngleBadgeClass(angle?: PosePlanAngle) {
-  const base = "rounded-full px-1.5 py-0.5 text-[9px] font-black ring-1";
+  const base = "rounded-full px-1.5 py-0.5 text-[10px] font-black ring-1";
   if (angle === "front") return `${base} bg-blue-50 text-blue-700 ring-blue-100`;
   if (angle === "side") return `${base} bg-indigo-50 text-indigo-700 ring-indigo-100`;
   if (angle === "back") return `${base} bg-amber-50 text-amber-700 ring-amber-100`;
@@ -2134,7 +2134,7 @@ export default function PosePage() {
                       <span className={`min-w-0 truncate text-xs font-black ${selected ? "text-blue-800 dark:text-[#cfd8ff]" : "text-slate-800 dark:text-stone-200"}`}>
                         {t(preset.labelKey)}
                       </span>
-                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black ${
                         selected ? "bg-white dark:bg-white/5 text-blue-700" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400"
                       }`}>
                         {t(preset.countLabelKey)}
@@ -2365,7 +2365,7 @@ export default function PosePage() {
                 )}
 
                 {activePosePlan && (
-                  <div className="mt-3 overflow-hidden rounded-[18px] border border-slate-200 dark:border-white/10/90 bg-white dark:bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10/90 bg-white dark:bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                     {posePlanSummaries.map((item, index) => {
                       const slot = activePosePlan.slots[index];
                       const editing = showPosePlanEditor && index === selectedPosePlanSlotIndex && selectedPosePlanSlot;

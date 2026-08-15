@@ -397,7 +397,7 @@ export function PricingSection() {
           ))}
         </div>
 
-        <div className="mt-12 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <div className="mt-12 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[var(--codex-surface)]">
           <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-center">
             <div>
               <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">{t("usageTitle")}</p>
@@ -405,7 +405,7 @@ export function PricingSection() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {usageRules.map((rule) => (
-                <div key={rule.id} className="rounded-xl bg-zinc-50 p-4 dark:bg-stone-900">
+                <div key={rule.id} className="rounded-xl bg-zinc-50 p-4 dark:bg-[var(--codex-surface)]">
                   <p className="mb-2 text-lg font-black tabular-nums text-zinc-900 dark:text-stone-100">{t(rule.valueKey, rule.valueVars)}</p>
                   <p className="text-xs font-medium leading-relaxed text-zinc-700 dark:text-stone-300">{t(rule.labelKey)}</p>
                 </div>

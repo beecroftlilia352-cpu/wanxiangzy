@@ -54,7 +54,7 @@ export function ModelConfigPanel({
                 <RawPreviewImage src={model.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
                 <span className="min-w-0 truncate text-[11px] font-black">{model.label}</span>
                 {model.badge ? (
-                  <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-black text-[var(--codex-accent)]">
+                  <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[10px] font-black text-[var(--codex-accent)]">
                     {model.badge}
                   </span>
                 ) : null}

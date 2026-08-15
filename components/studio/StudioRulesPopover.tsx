@@ -72,7 +72,7 @@ export function StudioRulesPopover({
       <div
         role="region"
         aria-label={title}
-        className="fixed z-[240] overflow-hidden rounded-[24px] border border-white/80 dark:border-white/10 bg-white/[0.96] dark:bg-stone-900/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
+        className="fixed z-[240] overflow-hidden rounded-3xl border border-white/80 dark:border-white/10 bg-white/[0.96] dark:bg-[var(--codex-surface)]/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
         style={{
           top: style.top,
           left: style.left,

@@ -108,7 +108,7 @@ export function OutfitFusionComposer({
           style={{ transformOrigin: "bottom center" }}
           className={cn("pointer-events-auto mx-auto w-full max-w-[760px] will-change-[transform,opacity,filter] motion-reduce:transform-none", className)}
         >
-          <div className="flex min-h-[64px] items-center gap-3 rounded-[8px] bg-white dark:bg-stone-900 px-3 py-3 shadow-[0_12px_34px_rgba(15,23,42,0.14)] ring-1 ring-slate-200 dark:ring-white/10 transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(15,23,42,0.16)] sm:gap-4 sm:px-4">
+          <div className="flex min-h-[64px] items-center gap-3 rounded-[8px] bg-white dark:bg-[var(--codex-surface)] px-3 py-3 shadow-[0_12px_34px_rgba(15,23,42,0.14)] ring-1 ring-slate-200 dark:ring-white/10 transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(15,23,42,0.16)] sm:gap-4 sm:px-4">
             <button
               type="button"
               onClick={(event) => {
@@ -294,7 +294,7 @@ function UploadSlot({
       onClick={() => onClick(role)}
       disabled={uploading}
       className={cn(
-        "group flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-stone-900 text-slate-400 dark:text-stone-500 transition duration-200 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-500 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
+        "group flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-[var(--codex-surface)] text-slate-400 dark:text-stone-500 transition duration-200 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-500 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
         isDragging && "border-blue-500 bg-blue-50 text-blue-500 ring-2 ring-blue-500/20"
       )}
       {...dragHandlers}
@@ -491,7 +491,7 @@ function HighlightedPromptTextarea({
         <div
           id="outfit-fusion-mention-list"
           role="listbox"
-          className="absolute bottom-full left-3 z-40 mb-2 w-[min(360px,calc(100%-24px))] overflow-hidden rounded-[8px] border border-slate-200 dark:border-white/10 bg-white dark:bg-stone-900 p-1 shadow-[0_18px_42px_rgba(15,23,42,0.18)]"
+          className="absolute bottom-full left-3 z-40 mb-2 w-[min(360px,calc(100%-24px))] overflow-hidden rounded-[8px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[var(--codex-surface)] p-1 shadow-[0_18px_42px_rgba(15,23,42,0.18)]"
         >
           {filteredOptions.length ? (
             filteredOptions.map((option, index) => (
@@ -789,7 +789,7 @@ function InlineConfigSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-[6px] border border-[rgba(91,124,255,0.20)] bg-white dark:bg-stone-900 px-3 text-left text-[13px] font-medium text-slate-700 dark:text-stone-300 shadow-sm outline-none transition hover:border-[rgba(91,124,255,0.34)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.26)]"
+        className="flex h-9 w-full items-center justify-between gap-2 rounded-[6px] border border-[rgba(91,124,255,0.20)] bg-white dark:bg-[var(--codex-surface)] px-3 text-left text-[13px] font-medium text-slate-700 dark:text-stone-300 shadow-sm outline-none transition hover:border-[rgba(91,124,255,0.34)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.26)]"
       >
         <span className="min-w-0 truncate">{active?.label || value}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-stone-400 transition-transform", open && "rotate-180")} />
@@ -797,7 +797,7 @@ function InlineConfigSelect({
       {open ? (
         <div
           role="listbox"
-          className="absolute left-0 top-[calc(100%+4px)] z-[80] w-full rounded-[7px] border border-slate-200 dark:border-white/10 bg-white dark:bg-stone-900 p-1 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
+          className="absolute left-0 top-[calc(100%+4px)] z-[80] w-full rounded-[7px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[var(--codex-surface)] p-1 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
         >
           {options.map((option) => {
             const selected = option.value === value;

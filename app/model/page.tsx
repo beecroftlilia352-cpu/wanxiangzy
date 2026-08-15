@@ -880,17 +880,17 @@ export default function ModelPage() {
                     </span>
                     <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
                       <span className="block text-[10px] font-bold text-purple-700">{t("uploadedHairRef")}</span>
-                      <span className="block truncate text-[9px] text-slate-400 dark:text-stone-500">{t("hairOutlineOnly")}</span>
+                      <span className="block truncate text-[11px] text-slate-400 dark:text-stone-500">{t("hairOutlineOnly")}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5 mb-1.5" />
                     <span className="text-[10px] font-bold">{t("uploadHairRef")}</span>
-                    <span className="mt-1 max-w-[78px] text-[9px] leading-snug text-slate-400 dark:text-stone-500">
+                    <span className="mt-1 max-w-[78px] text-[11px] leading-snug text-slate-400 dark:text-stone-500">
                       {t("hairOnlyNoFace")}
                     </span>
-                    <span className="mt-1 text-[8px] text-slate-300">≤15MB</span>
+                    <span className="mt-1 text-[10px] text-slate-400">≤15MB</span>
                   </>
                 )}
               </button>
@@ -956,17 +956,17 @@ export default function ModelPage() {
                     </span>
                     <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
                       <span className="block text-[10px] font-bold text-purple-700">{t("uploadedHairColorRef")}</span>
-                      <span className="block truncate text-[9px] text-slate-400 dark:text-stone-500">{t("hairColorToneOnly")}</span>
+                      <span className="block truncate text-[11px] text-slate-400 dark:text-stone-500">{t("hairColorToneOnly")}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5 mb-1.5" />
                     <span className="text-[10px] font-bold">{t("uploadHairColorRef")}</span>
-                    <span className="mt-1 max-w-[78px] text-[9px] leading-snug text-slate-400 dark:text-stone-500">
+                    <span className="mt-1 max-w-[78px] text-[11px] leading-snug text-slate-400 dark:text-stone-500">
                       {t("hairColorNoIdentity")}
                     </span>
-                    <span className="mt-1 text-[8px] text-slate-300">≤15MB</span>
+                    <span className="mt-1 text-[10px] text-slate-400">≤15MB</span>
                   </>
                 )}
               </button>

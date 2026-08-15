@@ -310,7 +310,7 @@ function MarketingAccountActions({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50 dark:border-stone-700 dark:bg-stone-900 dark:shadow-black/40"
+        className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50 dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:shadow-black/40"
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
         <AccountMenuLink href="/account" icon={UserRound} label={t("accountMenu.account")} />
@@ -355,7 +355,7 @@ function MarketingMobileMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/45 dark:border-stone-700 dark:bg-stone-900 dark:shadow-black/40"
+        className="z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/45 dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:shadow-black/40"
       >
         {marketingNav.map((item) => (
           <DropdownMenuItem key={item.href} asChild>
@@ -819,7 +819,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
                 <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
                   <span className="truncate">{item.labelKey ? tAny(item.labelKey) : item.label}</span>
                   {item.badge && (
-                    <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[8px] font-black leading-none text-white">
+                    <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[9px] font-black leading-none text-white">
                       {item.badge}
                     </span>
                   )}

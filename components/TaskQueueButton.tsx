@@ -307,7 +307,7 @@ function StatusDot({ item }: { item: TaskQueueItem }) {
       <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-[var(--mac-accent-soft)] text-[var(--mac-accent)]">
         <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         {progress > 0 && (
-          <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[9px] font-black leading-3 text-[var(--mac-accent)] shadow-sm">
+          <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[10px] font-black leading-3 text-[var(--mac-accent)] shadow-sm">
             {progress}
           </span>
         )}

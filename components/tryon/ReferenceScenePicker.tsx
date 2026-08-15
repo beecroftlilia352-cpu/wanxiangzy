@@ -115,7 +115,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
           className
         )}
       >
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-stone-900">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[var(--codex-surface)]">
           <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-slate-100 px-12">
             <div className="min-w-0 text-center">
               <DialogTitle className="truncate text-[13px] font-bold leading-normal text-slate-950">{pickerTitle}</DialogTitle>
@@ -144,7 +144,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                         "h-8 rounded-full px-4 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
                         activeTab === item.value
                           ? "bg-violet-100 text-[var(--codex-accent)]"
-                          : "bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:bg-stone-900 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-200"
+                          : "bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:bg-[var(--codex-surface)] dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-200"
                       )}
                     >
                       {item.label}
@@ -155,10 +155,10 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                   <button type="button" className="h-7 rounded-full bg-violet-100 px-3 text-[10px] font-bold text-[var(--codex-accent)]">
                     {t("scenePicker.allScenes")}
                   </button>
-                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-stone-900 dark:text-stone-400">
+                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-[var(--codex-surface)] dark:text-stone-400">
                     {t("scenePicker.studioLook")}
                   </button>
-                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-stone-900 dark:text-stone-400">
+                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-[var(--codex-surface)] dark:text-stone-400">
                     {t("scenePicker.realScene")}
                   </button>
                 </div>
@@ -168,7 +168,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 <select
                   value={viewFilter}
                   onChange={(event) => onViewFilterChange(event.target.value as ReferenceScenePickerViewFilter)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-stone-400"
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-[var(--codex-surface)] dark:text-stone-400"
                   aria-label={t("scenePicker.viewFilterLabel")}
                 >
                   <option value="all">{t("scenePicker.viewAll")}</option>
@@ -178,7 +178,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 <select
                   value={bodyFilter}
                   onChange={(event) => onBodyFilterChange(event.target.value as ReferenceScenePickerBodyFilter)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-stone-400"
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-[var(--codex-surface)] dark:text-stone-400"
                   aria-label={t("scenePicker.bodyFilterLabel")}
                 >
                   <option value="all">{t("scenePicker.bodyAll")}</option>

@@ -47,7 +47,7 @@ export function ImageTranslationHero({
           </div>
         ) : null}
 
-        <div className="relative overflow-hidden rounded-[28px] border border-white/80 bg-white/90 shadow-[0_28px_90px_rgba(91,124,255,0.18),0_8px_26px_rgba(15,23,42,0.08)] ring-1 ring-slate-950/[0.04] backdrop-blur dark:border-white/10 dark:bg-white/5 dark:ring-white/5">
+        <div className="relative overflow-hidden rounded-3xl border border-white/80 bg-white/90 shadow-[0_28px_90px_rgba(91,124,255,0.18),0_8px_26px_rgba(15,23,42,0.08)] ring-1 ring-slate-950/[0.04] backdrop-blur dark:border-white/10 dark:bg-white/5 dark:ring-white/5">
           <div className="relative aspect-[16/9] w-full">
             <picture>
               <source media="(max-width: 640px)" srcSet={mobileImageSrc} />
@@ -63,7 +63,7 @@ export function ImageTranslationHero({
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/5 via-transparent to-transparent" />
           </div>
           {actions ? (
-            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-100/80 bg-white/70 px-4 py-3 text-[12px] font-semibold text-slate-500 backdrop-blur dark:border-white/10 dark:bg-stone-900/40 dark:text-stone-300 sm:gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-100/80 bg-white/70 px-4 py-3 text-[12px] font-semibold text-slate-500 backdrop-blur dark:border-white/10 dark:bg-[var(--codex-surface)]/40 dark:text-stone-300 sm:gap-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-violet-700 dark:bg-[rgba(91,124,255,0.1)]0/15 dark:text-violet-200">
                 <Sparkles className="h-3 w-3" />
                 {t("oneClickLocalize")}

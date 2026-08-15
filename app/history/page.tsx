@@ -667,7 +667,7 @@ export default function HistoryPage() {
           );
         })}
         {filteredRows.length === 0 && !loadingMore && (
-          <div className="col-span-full rounded-[28px] border border-white/80 bg-white/70 p-8 text-center shadow-[0_18px_54px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
+          <div className="col-span-full rounded-3xl border border-white/80 bg-white/70 p-8 text-center shadow-[0_18px_54px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
             <ImageIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
             <h2 className="text-base font-black text-slate-950 dark:text-stone-100">{t("noMatchTitle")}</h2>
             <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/75 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
@@ -715,7 +715,7 @@ export default function HistoryPage() {
             showCloseButton={false}
             returnFocusRef={detailReturnFocusRef}
             overlayClassName="z-[139] bg-slate-950/30 backdrop-blur-xl"
-            className="z-[140] flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-6xl flex-col gap-0 overflow-hidden rounded-[28px] border border-white/70 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-6xl"
+            className="z-[140] flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-6xl flex-col gap-0 overflow-hidden rounded-3xl border border-white/70 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-6xl"
           >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 bg-white/70 px-4 py-3 backdrop-blur-xl sm:px-5">
               <div className="min-w-0">
@@ -1008,7 +1008,7 @@ function DetailLoadingSkeleton({ open }: { open: boolean }) {
       <DialogContent
         showCloseButton={false}
         overlayClassName="z-[119] bg-slate-950/25 backdrop-blur-xl"
-        className="z-[120] grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-5xl gap-0 overflow-y-auto rounded-[28px] border border-white/75 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl [overscroll-behavior:contain] sm:max-w-5xl lg:grid-cols-[minmax(0,1.2fr)_340px] lg:overflow-hidden"
+        className="z-[120] grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-5xl gap-0 overflow-y-auto rounded-3xl border border-white/75 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl [overscroll-behavior:contain] sm:max-w-5xl lg:grid-cols-[minmax(0,1.2fr)_340px] lg:overflow-hidden"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
         aria-busy="true"
@@ -1020,7 +1020,7 @@ function DetailLoadingSkeleton({ open }: { open: boolean }) {
             <SkeletonBlock className="h-4 w-20 rounded-full" />
             <SkeletonBlock className="h-8 w-24 rounded-full" />
           </div>
-          <SkeletonBlock className="h-[52vh] min-h-72 rounded-[24px]" />
+          <SkeletonBlock className="h-[52vh] min-h-72 rounded-3xl" />
           <div className="mt-4 flex items-center gap-3">
             <SkeletonBlock className="h-2 flex-1 rounded-full" />
             <SkeletonBlock className="h-8 w-16 rounded-full" />

@@ -31,7 +31,7 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
             type="button"
             onClick={() => onChange(style.value)}
             aria-pressed={selected}
-            className={`group relative min-h-[92px] overflow-hidden rounded-[18px] border p-2.5 text-left transition-[background-color,border-color,box-shadow] duration-150 ${
+            className={`group relative min-h-[92px] overflow-hidden rounded-2xl border p-2.5 text-left transition-[background-color,border-color,box-shadow] duration-150 ${
               selected
                 ? "border-[rgba(91,124,255,0.22)] bg-white shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-1 ring-[rgba(91,124,255,0.18)]"
                 : "border-slate-200/80 bg-white/78 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:shadow-[0_14px_32px_rgba(15,23,42,0.06)]"

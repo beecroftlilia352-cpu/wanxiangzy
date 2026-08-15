@@ -1276,7 +1276,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
   return (
     <div className="relative" onMouseLeave={() => setPreviewTemplate(null)}>
       {previewTemplate && (
-        <div className="pointer-events-none absolute bottom-[94px] left-0 z-30 aspect-[4/5] w-[232px] overflow-hidden rounded-[18px] border border-white/90 bg-slate-950 shadow-[0_28px_70px_rgba(15,23,42,0.22)] ring-1 ring-blue-200/80">
+        <div className="pointer-events-none absolute bottom-[94px] left-0 z-30 aspect-[4/5] w-[232px] overflow-hidden rounded-2xl border border-white/90 bg-slate-950 shadow-[0_28px_70px_rgba(15,23,42,0.22)] ring-1 ring-blue-200/80">
           <RawPreviewImage src={previewTemplate.previewImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <video
             ref={previewVideoRef}

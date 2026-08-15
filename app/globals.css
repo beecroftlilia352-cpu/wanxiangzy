@@ -336,6 +336,13 @@ a,
     --codex-warning: #a66a00;
     --codex-danger: #d13b35;
     --codex-running: #5b7cff;
+    /* Motion — 统一节奏：fast 微交互 150ms / base 状态过渡 250ms / slow 场景过渡 400ms；
+       缓动用 spring-feel out-cubic（进入快出慢，符合高级质感） */
+    --codex-motion-fast: 150ms;
+    --codex-motion-base: 250ms;
+    --codex-motion-slow: 400ms;
+    --codex-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --codex-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --font-ui-sans: var(--font-sans);
     --codex-font:
       var(--font-ui-sans),

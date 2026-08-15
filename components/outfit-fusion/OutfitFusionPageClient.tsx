@@ -1057,7 +1057,7 @@ function OutfitFusionTaskCard({
 
   return (
     <article
-      className="animate-slide-up rounded-[8px] bg-white dark:bg-stone-900 p-3 shadow-sm ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
+      className="animate-slide-up rounded-[8px] bg-white dark:bg-[var(--codex-surface)] p-3 shadow-sm ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
       style={{ animationDelay: `${Math.min(index * 40, 160)}ms` }}
     >
       <div className="flex items-start gap-1.5">
@@ -1129,7 +1129,7 @@ function OutfitFusionTaskCard({
                 key={`${task.id}-${index}`}
                 role="status"
                 aria-live="polite"
-                className="studio-result-card group/slot relative aspect-[3/4] overflow-hidden bg-white dark:bg-stone-900 text-sm text-white"
+                className="studio-result-card group/slot relative aspect-[3/4] overflow-hidden bg-white dark:bg-[var(--codex-surface)] text-sm text-white"
               >
                 <div className={cn("gen-card studio-result-pending-card outfit-fusion-pending-card relative z-[1] flex h-full w-full flex-col items-center justify-center gap-2", failed && "studio-result-pending-card-failed")}>
                   {failed ? (
@@ -1240,14 +1240,14 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                   <span
                     key={asset.id}
                     className={cn(
-                      "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white dark:bg-stone-900 shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
+                      "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white dark:bg-[var(--codex-surface)] shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
                       index === 0 && "left-0 -rotate-6",
                       index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
                       index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")
                     )}
                     title={`${label} · ${roleLabel}`}
                   >
-                    <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[9px] font-semibold leading-none text-white">
+                    <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[10px] font-semibold leading-none text-white">
                       {label}
                     </span>
                     <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="h-full w-full object-cover" />

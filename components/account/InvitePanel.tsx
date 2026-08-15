@@ -117,7 +117,7 @@ export function InvitePanel() {
 
   if (error || !info) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-white/10 dark:bg-stone-900">
+      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-white/10 dark:bg-[var(--codex-surface)]">
         <p className="text-sm font-bold text-red-500">{error || t("loadFailed")}</p>
         <Button className="mt-4" onClick={() => void load()}>
           {t("retry")}
@@ -213,7 +213,7 @@ function InviteStatsRow({ info }: { info: InviteInfo }) {
   return (
     <div className="grid gap-3 sm:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.label} className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-stone-900">
+        <div key={stat.label} className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[var(--codex-surface)]">
           <p className="text-xs text-slate-500 dark:text-stone-400">{stat.label}</p>
           <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-stone-100">{stat.value}</p>
         </div>

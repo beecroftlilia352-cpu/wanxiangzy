@@ -685,7 +685,7 @@ export default function AllCategoryProductImagePage() {
 
           <div className="mt-4 grid items-start gap-8 lg:grid-cols-[350px_minmax(0,760px)]">
             <aside className="space-y-5">
-              <section className="rounded-[18px] border border-slate-200 bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <input
                   ref={inputRef}
                   type="file"
@@ -774,7 +774,7 @@ export default function AllCategoryProductImagePage() {
                 )}
               </section>
 
-              <section className="rounded-[18px] border border-slate-200 bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { value: "main", label: t("mainImage") },
@@ -846,7 +846,7 @@ export default function AllCategoryProductImagePage() {
               </button>
             </aside>
 
-            <section className="min-h-[820px] rounded-[18px] border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="min-h-[820px] rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">

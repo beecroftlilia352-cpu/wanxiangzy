@@ -197,7 +197,7 @@ export default function LoginPage() {
   const copy = viewCopy[view];
 
   return (
-    <div className="min-h-[calc(100dvh-64px)] bg-[var(--codex-gradient-page)] px-4 py-8 text-codex-ink transition-colors sm:px-6 lg:px-8 dark:bg-stone-950 dark:text-stone-100">
+    <div className="min-h-[calc(100dvh-64px)] bg-[var(--codex-gradient-page)] px-4 py-8 text-codex-ink transition-colors sm:px-6 lg:px-8 dark:bg-[#07080d] dark:text-stone-100">
       <div className="mx-auto grid min-h-[calc(100dvh-128px)] max-w-6xl items-start gap-8 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-center lg:pt-0">
         <section className="hidden lg:block" aria-hidden="true">
           <div className="studio-surface studio-surface-elevated relative overflow-hidden rounded-[34px] p-8">
@@ -218,7 +218,7 @@ export default function LoginPage() {
                 {showcaseImages.map((src, index) => (
                   <div
                     key={src}
-                    className={`relative aspect-[3/4] overflow-hidden rounded-[24px] bg-[var(--codex-ice)] shadow-[0_18px_48px_rgba(14,18,38,0.14)] ${index % 2 === 1 ? "translate-y-8" : ""}`}
+                    className={`relative aspect-[3/4] overflow-hidden rounded-3xl bg-[var(--codex-ice)] shadow-[0_18px_48px_rgba(14,18,38,0.14)] ${index % 2 === 1 ? "translate-y-8" : ""}`}
                   >
                     <Image src={src} alt="" fill sizes="180px" className="object-cover" />
                   </div>
@@ -228,7 +228,7 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="studio-surface studio-surface-elevated mx-0 w-full max-w-[350px] rounded-[28px] p-6 sm:mx-auto sm:max-w-[440px] sm:p-8">
+        <section className="studio-surface studio-surface-elevated mx-0 w-full max-w-[350px] rounded-3xl p-6 sm:mx-auto sm:max-w-[440px] sm:p-8">
           <div className="mb-8">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-codex-dark shadow-lg shadow-slate-300/70">
               <CheckCircle aria-hidden="true" className="h-6 w-6 text-white" />
@@ -258,7 +258,7 @@ export default function LoginPage() {
                     spellCheck={false}
                     aria-invalid={error ? "true" : undefined}
                     aria-describedby={error ? "login-error" : undefined}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
                     placeholder={t("emailPlaceholder")}
                   />
                 </div>
@@ -278,7 +278,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     aria-invalid={error ? "true" : undefined}
                     aria-describedby={error ? "login-error" : undefined}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
                     placeholder={t("passwordPlaceholderLogin")}
                   />
                   <button
@@ -362,7 +362,7 @@ export default function LoginPage() {
                     autoComplete="email"
                     inputMode="email"
                     spellCheck={false}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder={t("emailPlaceholder")}
                   />
                 </div>
@@ -379,7 +379,7 @@ export default function LoginPage() {
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     required
                     autoComplete="one-time-code"
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 rtl:pl-4 rtl:pr-10 rtl:tracking-normal focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 rtl:pl-4 rtl:pr-10 rtl:tracking-normal focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder={t("inviteCodePlaceholder")}
                   />
                 </div>
@@ -398,7 +398,7 @@ export default function LoginPage() {
                     required
                     minLength={6}
                     autoComplete="new-password"
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder={t("passwordPlaceholder")}
                   />
                   <button
@@ -475,7 +475,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setView("signup")}
-                  className="h-11 flex-1 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
+                  className="h-11 flex-1 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:text-stone-200 dark:hover:bg-stone-800"
                 >
                   {t("changeEmail")}
                 </button>
@@ -506,7 +506,7 @@ export default function LoginPage() {
                     autoComplete="email"
                     inputMode="email"
                     spellCheck={false}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder="you@example.com…"
                   />
                 </div>

@@ -52,7 +52,7 @@ export function StudioGenerationLoader({
   return (
     <div className="studio-loading-stage flex min-h-[280px] items-center justify-center p-5 sm:min-h-[380px] sm:p-8 lg:h-full">
       <div className="w-full max-w-5xl">
-        <div className="mx-auto mb-5 flex max-w-[720px] flex-col gap-3 rounded-[24px] border border-white/62 bg-white/58 p-3 shadow-[0_18px_54px_rgba(14,18,38,0.12)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto mb-5 flex max-w-[720px] flex-col gap-3 rounded-3xl border border-white/62 bg-white/58 p-3 shadow-[0_18px_54px_rgba(14,18,38,0.12)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-black tracking-[-0.01em] text-codex-ink">{t("moduleGenerating", { name: resolvedModuleName })}</p>
             <p className="mt-1 text-xs font-semibold text-codex-muted">{label}</p>
@@ -88,7 +88,7 @@ export function StudioGenerationLoader({
 
         <div className={`mx-auto grid ${gridClass} gap-3 sm:gap-4`}>
           {Array.from({ length: safeCount }).map((_, index) => (
-            <div key={index} className="gen-card relative overflow-hidden rounded-[28px]" style={{ aspectRatio }}>
+            <div key={index} className="gen-card relative overflow-hidden rounded-3xl" style={{ aspectRatio }}>
               <StudioHomeHeroLoadingBackdrop />
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2">
                 <div className="relative flex h-14 w-14 items-center justify-center">

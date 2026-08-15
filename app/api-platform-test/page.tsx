@@ -393,9 +393,9 @@ export default function ApiPlatformTestPage() {
             )}
 
             {!isLoading && !result && outputImages.length === 0 && (
-              <div className="studio-empty-stage flex min-h-[460px] items-center justify-center rounded-[28px] border border-white/70 p-6 text-center shadow-inner">
+              <div className="studio-empty-stage flex min-h-[460px] items-center justify-center rounded-3xl border border-white/70 p-6 text-center shadow-inner">
                 <div className="max-w-sm">
-                  <div className="studio-glass-card mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[28px]">
+                  <div className="studio-glass-card mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-3xl">
                     <ImagePlus className="h-10 w-10 text-[var(--codex-accent)]" />
                   </div>
                   <p className="text-sm font-bold text-gray-900">{t("preview.waitingTitle")}</p>
@@ -438,14 +438,14 @@ export default function ApiPlatformTestPage() {
             )}
 
             {!isLoading && Boolean(result?.request_body) && (
-              <details className="mt-4 rounded-[18px] border border-white/70 bg-white/72 p-3 shadow-sm">
+              <details className="mt-4 rounded-2xl border border-white/70 bg-white/72 p-3 shadow-sm">
                 <summary className="cursor-pointer text-xs font-bold text-gray-700">{t("preview.requestBody")}</summary>
                 <pre className="mt-3 max-h-64 overflow-auto text-xs text-gray-600">{JSON.stringify(result?.request_body, null, 2)}</pre>
               </details>
             )}
 
             {!isLoading && result?.raw_preview && (
-              <details className="mt-4 rounded-[18px] border border-white/70 bg-white/72 p-3 shadow-sm">
+              <details className="mt-4 rounded-2xl border border-white/70 bg-white/72 p-3 shadow-sm">
                 <summary className="cursor-pointer text-xs font-bold text-gray-700">{t("preview.rawPreview")}</summary>
                 <pre className="mt-3 max-h-64 overflow-auto text-xs text-gray-600">{result.raw_preview}</pre>
               </details>

@@ -360,7 +360,7 @@ export function TryOnRulePopover({
   return (
     <ClientPortal>
       <div
-        className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
+        className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-3xl border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
         style={style}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}

@@ -4,13 +4,13 @@
    不支持的浏览器自动降级为无动画）。
    ============================================================ */
 
-/* ---- 1. 路由切换过渡：新页淡入 + 上浮 16px ---- */
+/* ---- 1. 路由切换过渡：新页淡入 + 上浮 16px（时长引用 codex motion token） ---- */
 ::view-transition-old(root) {
-  animation: motion-page-out 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+  animation: motion-page-out var(--codex-motion-fast) cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 ::view-transition-new(root) {
-  animation: motion-page-in 0.3s cubic-bezier(0, 0, 0.2, 1) both;
+  animation: motion-page-in var(--codex-motion-base) var(--codex-ease-out) both;
 }
 
 @keyframes motion-page-out {

@@ -33,7 +33,7 @@ export function TryOnSourceLibraryDialog({
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent
         overlayClassName="z-[210] bg-slate-950/38 backdrop-blur-xl"
-        className="z-[211] flex max-h-[86dvh] w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.96] p-0 shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl sm:max-w-5xl"
+        className="z-[211] flex max-h-[86dvh] w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-3xl border border-white/80 bg-white/[0.96] p-0 shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl sm:max-w-5xl"
       >
           <DialogHeader className="flex-row items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 pr-14 text-left">
             <div className="min-w-0">

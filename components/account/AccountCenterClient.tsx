@@ -669,7 +669,7 @@ function AccountInfoPanel({
 function AccountAssetCard({ displayName, maskedAccount, credits }: { displayName: string; maskedAccount: string; credits: number }) {
   const t = useTranslations("Account");
   return (
-    <section className="rounded-xl bg-[#eef3f4] px-7 py-5 dark:bg-stone-900">
+    <section className="rounded-xl bg-[#eef3f4] px-7 py-5 dark:bg-[var(--codex-surface)]">
       <div className="mb-4 flex items-center gap-3">
         <Avatar size={28} src="/logo.png" className="!bg-[#f9d66d]" />
         <span className="text-sm font-semibold">{maskedAccount || displayName}</span>
@@ -938,7 +938,7 @@ function HelpPanel() {
     <Panel title={t("panels.help.title")} description={t("panels.help.description")}>
       <div className="space-y-3">
         {helpItems.map((item) => (
-          <div key={item.title} className="rounded-md border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-stone-900">
+          <div key={item.title} className="rounded-md border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[var(--codex-surface)]">
             <p className="font-medium">{item.titleKey ? tAny(item.titleKey) : item.title}</p>
             <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-stone-400">{item.bodyKey ? t(item.bodyKey) : item.body}</p>
           </div>
@@ -1089,7 +1089,7 @@ function InfoLine({ label, value, hint, action }: { label: string; value: string
 
 function SmallMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-stone-900">
+    <div className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[var(--codex-surface)]">
       <Statistic title={label} value={value} styles={{ content: { fontSize: 18, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }} />
     </div>
   );

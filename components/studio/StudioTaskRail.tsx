@@ -770,7 +770,7 @@ function TaskThumb({
         </span>
       )}
       {running && (
-        <span className="absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1 rounded bg-blue-600/90 px-1.5 py-0.5 text-[9px] font-black leading-none text-white shadow-sm">
+        <span className="absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1 rounded bg-blue-600/90 px-1.5 py-0.5 text-[10px] font-black leading-none text-white shadow-sm">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" />
           <span className="truncate">{t("generating")}</span>
         </span>

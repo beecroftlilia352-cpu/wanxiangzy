@@ -136,7 +136,7 @@ export function ResultsCanvas({
 
         {error ? (
           <div className="studio-result-stage flex min-h-[360px] items-center justify-center px-4" role="alert">
-            <div className="max-w-md rounded-[28px] border border-red-100 bg-white p-6 text-center shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
+            <div className="max-w-md rounded-3xl border border-red-100 bg-white p-6 text-center shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
               <div aria-hidden="true" className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
                 <X className="h-7 w-7 text-red-400" />
               </div>
@@ -155,7 +155,7 @@ export function ResultsCanvas({
 
         {hasResultStage && !error ? (
           <section aria-label={t("create.results.resultAria")} className="studio-result-stage animate-fade-in motion-reduce:animate-none">
-            <div className="mb-5 rounded-[28px] border border-white/80 bg-white/82 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur">
+            <div className="mb-5 rounded-3xl border border-white/80 bg-white/82 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-black text-slate-950 text-pretty dark:text-stone-100">{isGenerating ? t("create.results.generatingTitle") : t("create.results.resultTitle")}</h2>
@@ -191,7 +191,7 @@ export function ResultsCanvas({
                 const cardTitle = template?.name || t("create.results.cardFallback", { index: index + 1 });
 
                 return (
-                  <article key={`${template?.source || "result"}-${template?.id || module?.moduleKey || index}`} className="flex h-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+                  <article key={`${template?.source || "result"}-${template?.id || module?.moduleKey || index}`} className="flex h-full flex-col overflow-hidden rounded-3xl border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                     {url ? (
                       <button
                         type="button"

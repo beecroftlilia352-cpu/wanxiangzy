@@ -52,7 +52,7 @@ export function OnboardingCoach({ show }: { show: boolean }) {
 
   return (
     <div className="fixed inset-0 z-[260] flex items-end justify-center bg-slate-950/45 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label={t("onboardingAria")}>
-      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/60 bg-white/95 p-6 shadow-[0_32px_90px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-stone-900/95">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/60 bg-white/95 p-6 shadow-[0_32px_90px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-[var(--codex-surface)]/95">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--codex-accent)]">{t("quickStart")}</p>

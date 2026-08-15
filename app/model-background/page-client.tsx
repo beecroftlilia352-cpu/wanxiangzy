@@ -742,7 +742,7 @@ export default function ModelBackgroundPage() {
             <section>
               <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
                 <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> {t("modelReference")} <span className="text-purple-400 font-normal text-xs">· {t("required")}</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[9px]">{t("pleaseSelect")}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[10px]">{t("pleaseSelect")}</span>
               </h3>
               <p className="text-[11px] text-gray-400 mb-3">
                 {mode === "model_only" ? t("modelOnlyDesc") : t("modelBackgroundDesc")}

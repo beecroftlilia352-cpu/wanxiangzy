@@ -39,7 +39,7 @@ type DialogFrameProps = {
 function DialogFrame({ title, description, children, footer, onClose, maxWidth = "sm:max-w-3xl" }: DialogFrameProps) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent overlayClassName="z-[134] bg-slate-950/35 backdrop-blur-xl" className={`${maxWidth} z-[135] flex max-h-[92dvh] flex-col gap-0 overflow-hidden rounded-[28px] bg-white p-0 shadow-[0_30px_120px_rgba(15,23,42,0.28)]`}>
+      <DialogContent overlayClassName="z-[134] bg-slate-950/35 backdrop-blur-xl" className={`${maxWidth} z-[135] flex max-h-[92dvh] flex-col gap-0 overflow-hidden rounded-3xl bg-white p-0 shadow-[0_30px_120px_rgba(15,23,42,0.28)]`}>
         <DialogHeader className="shrink-0 border-b border-slate-100 px-5 py-4 pr-16 text-left">
           <DialogTitle className="text-lg font-black leading-6 text-slate-950 dark:text-stone-100">{title}</DialogTitle>
           <DialogDescription className="text-xs leading-5 text-slate-400">{description}</DialogDescription>

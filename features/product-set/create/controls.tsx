@@ -17,7 +17,7 @@ export function ProductModeTabs({ imageType, onChange }: { imageType: ProductSet
   ];
 
   return (
-    <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-1.5 shadow-sm dark:border-white/10 dark:bg-white/5">
+    <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-1.5 shadow-sm dark:border-white/10 dark:bg-white/5">
       <div className="grid grid-cols-2 items-stretch gap-1.5" role="tablist" aria-label={t("create.modeTab.ariaLabel")}>
         {options.map((item) => {
           const selected = imageType === item.value;
@@ -28,7 +28,7 @@ export function ProductModeTabs({ imageType, onChange }: { imageType: ProductSet
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(item.value)}
-              className={`flex h-14 items-center gap-2.5 rounded-[18px] border px-3 text-left transition-[border-color,background-color,color,box-shadow] ${interactiveRing} ${
+              className={`flex h-14 items-center gap-2.5 rounded-2xl border px-3 text-left transition-[border-color,background-color,color,box-shadow] ${interactiveRing} ${
                 selected
                   ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-slate-950 shadow-[0_10px_26px_rgba(124,58,237,0.12)] dark:border-[rgba(91,140,255,0.45)] dark:bg-[rgba(91,140,255,0.18)] dark:text-stone-100"
                   : "border-transparent bg-white/70 text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)] dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10"
