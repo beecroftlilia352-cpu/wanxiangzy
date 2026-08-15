@@ -18,7 +18,7 @@ import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZ
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -217,6 +217,7 @@ function formatVisualAudienceSuggestion(audience: TryOnGarmentAudience | null, a
 
 export default function CreatePage() {
   const t = useTranslations("Create");
+  const locale = useLocale();
   // 服装角色分类标签键（lib TRYON_CLOTHING_ROLE_LABELS 为中文兜底）
   const ROLE_LABEL_KEYS: Record<string, string> = {
     single: "clothing.roleSingle",
@@ -2456,7 +2457,7 @@ export default function CreatePage() {
     if (!uploadedClothingUrls.length) return t("reason.needClothing");
     return undefined;
   })();
-  const clothingAnalysisLabel = getClothingAnalysisLabel(clothingAnalysis);
+  const clothingAnalysisLabel = getClothingAnalysisLabel(clothingAnalysis, t, locale);
   const visibleSceneModeTabs = SCENE_MODE_TABS.filter((tab) => tab.value !== "system_reference");
   const clothingAnalysisStatus = isAnalyzingClothing
     ? { tone: "loading" as const, text: t("status.readingClothing") }
@@ -2483,8 +2484,8 @@ export default function CreatePage() {
       const isFallback = referenceAnalysisSource === "fallback";
       return {
         key: ref.url || `${analysis.index}-${index}`,
-        title: t("status.imageSummary", { index: index + 1, summary: getReferenceAnalysisSummary(analysis, { fallback: isFallback }) }),
-        detail: getReferenceAnalysisDetailText(analysis, {
+        title: t("status.imageSummary", { index: index + 1, summary: getReferenceAnalysisSummary(analysis, t, { fallback: isFallback }) }),
+        detail: getReferenceAnalysisDetailText(analysis, t, {
           fallback: isFallback,
           reasonText: referenceAnalysisError,
         }),

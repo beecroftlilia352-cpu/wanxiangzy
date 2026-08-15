@@ -1158,6 +1158,111 @@
       "3": "Conserver la direction d'éclairage d'origine et des ombres naturelles sans surexposition",
       "4": "Proportions stables (épaules, cou, bras et jambes inchangés)",
       "5": "Tous les détails du produit visibles : logos, boutons et fermetures intactes"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3236,7 +3341,70 @@
       "infoAnalyzed": "Infos produit analysées",
       "infoWritten": "Infos produit rédigées pour vous",
       "noInfoReturned": "L'API n'a renvoyé aucune info produit. Veuillez ré-analyser ou remplir manuellement.",
-      "visualIncomplete": "Analyse visuelle incomplète; infos de base organisées depuis l'image"
+      "visualIncomplete": "Analyse visuelle incomplète; infos de base organisées depuis l'image",
+      "fallbackMessage": {
+        "missingConfig": "Le service d'analyse visuelle n'est pas configuré ; informations de modèle de base affichées.",
+        "apiError": "L'analyse visuelle a renvoyé {code} ; informations de modèle de base affichées.",
+        "allFailed": "Analyse visuelle sans résultat exploitable, génération suspendue. Relancez ou confirmez le nom et la catégorie du produit.",
+        "default": "Aucun résultat d'analyse fiable, génération suspendue. Réessayez ou remplissez le nom et la catégorie du produit."
+      },
+      "status": {
+        "running": {
+          "title": "Analyse de l'image produit en cours",
+          "description": "Reconnaissance du nom, de la catégorie, des arguments de vente et du plan de série adapté.",
+          "message": "Le bouton générer est désactivé jusqu'à la fin de l'analyse pour éviter un envoi incomplet.",
+          "metric": "Analyse"
+        },
+        "fallback": {
+          "title": "Analyse visuelle incomplète",
+          "description": "Infos produit de base remplies, mais produit précis non encore reconnu.",
+          "message": "Résultat de reconnaissance incomplet ; génération suspendue. Relancez l'analyse ou complétez le nom manuellement.",
+          "metric": "À confirmer"
+        },
+        "failed": {
+          "title": "Échec de l'analyse",
+          "description": "Analyse produit échouée ; relancez ou remplissez manuellement.",
+          "message": "L'analyse n'a renvoyé aucun résultat exploitable.",
+          "metric": "Échec"
+        },
+        "ai": {
+          "title": "Analyse terminée",
+          "description": "Informations produit structurées générées ; poursuivez l'édition.",
+          "metric": "Terminé"
+        },
+        "manual": {
+          "title": "Saisie manuelle",
+          "description": "Infos produit saisies manuellement.",
+          "metric": "Manuel"
+        },
+        "history": {
+          "title": "Paramètres historiques",
+          "description": "Infos produit historiques appliquées ; poursuivez l'édition.",
+          "metric": "Historique"
+        },
+        "idle": {
+          "title": "À analyser",
+          "description": {
+            "filled": "Infos produit remplies ; cliquez « Écrire pour moi » pour optimiser le plan.",
+            "empty": "Écrivez un besoin, ou téléversez une image produit puis cliquez « Écrire pour moi »."
+          },
+          "metric": {
+            "filled": "Rempli",
+            "empty": "Vide"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Nom de marque",
+        "productName": "Nom du produit",
+        "sellingPoints": "Arguments de vente",
+        "productSize": "Taille",
+        "targetAudience": "Public cible",
+        "modelImage": "Image modèle",
+        "faceReference": "Référence visage",
+        "backgroundReference": "Référence fond",
+        "logo": "Logo"
+      }
     },
     "analysisSection": {
       "analyzing": "Analyse…",
@@ -3377,7 +3545,11 @@
       "referenceNotice": "Les références ne fournissent qu'une direction de style et ne sont pas décomposées en modèles pour le moment. Choisissez un préréglage ou téléversez une référence, puis cliquez sur « Rédiger les infos produit » pour analyser.",
       "smartModeHint": "Le mode intelligent décompose automatiquement le plan depuis vos images produit, infos produit et quantité choisie de {count}. Cliquez d'abord sur « Rédiger les infos produit ».",
       "title": "Source du plan",
-      "uploadRef": "Téléverser la référence"
+      "uploadRef": "Téléverser la référence",
+      "smartDesc": "Analyse visuelle",
+      "presetDesc": "Modèles",
+      "uploadDesc": "Référence personnalisée",
+      "favoritesDesc": "Réutilisation de compte"
     },
     "preset": {
       "countryUS": "États-Unis",
@@ -3459,6 +3631,22 @@
       "bold": "Gras / marketing",
       "handwritten": "Manuscrite / calligraphie",
       "custom": "Personnalisée"
+    },
+    "modelDescMax4k": "Jusqu'à 4K",
+    "modelBadgeDefault": "Défaut",
+    "modelBadgeQuality": "Haute qualité",
+    "modelBadgePro": "Qualité pro",
+    "previewAction": {
+      "download": "Télécharger l'image",
+      "copy": "Copier le lien",
+      "regenerateOne": "Régénérer ceci",
+      "aiVideo": "Vidéo IA",
+      "modelBackground": "Changer le fond",
+      "pose": "Variation de pose",
+      "feedback": "Commentaire"
+    },
+    "aspectRatio": {
+      "auto": "Auto"
     }
   },
   "Shared": {

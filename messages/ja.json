@@ -2572,7 +2572,70 @@
       "infoAnalyzed": "商品情報を分析しました",
       "infoWritten": "商品情報を作成しました",
       "visualIncomplete": "ビジュアル分析が未完了です。画像から基本情報を整理しました",
-      "noInfoReturned": "分析APIが商品情報を返しませんでした。再分析するか手動で入力してください。"
+      "noInfoReturned": "分析APIが商品情報を返しませんでした。再分析するか手動で入力してください。",
+      "fallbackMessage": {
+        "missingConfig": "ビジュアル解析サービスが未設定のため、基本テンプレート情報を表示しています。",
+        "apiError": "ビジュアル解析が {code} を返しました。基本テンプレート情報を表示しています。",
+        "allFailed": "ビジュアル解析で利用可能な結果が得られなかったため生成を一時停止しました。再解析するか商品名とカテゴリを手動で確認してください。",
+        "default": "信頼できるビジュアル解析結果が得られなかったため生成を一時停止しました。再試行するか商品名とカテゴリを手動で補完してください。"
+      },
+      "status": {
+        "running": {
+          "title": "商品画像を解析中",
+          "description": "商品名・カテゴリ・セールスポイント・適切なセットプランを認識しています。",
+          "message": "解析完了まで生成ボタンを無効にし、不完全な情報での送信を防いでいます。",
+          "metric": "解析中"
+        },
+        "fallback": {
+          "title": "ビジュアル解析が未完了",
+          "description": "基本商品情報を入力済みですが、まだ具体的な商品を認識できていません。",
+          "message": "完全な認識結果ではないため生成を一時停止しました。再解析するか商品名を手動で補完してください。",
+          "metric": "要確認"
+        },
+        "failed": {
+          "title": "解析に失敗",
+          "description": "商品解析に失敗しました。再解析するか手動で入力してください。",
+          "message": "解析から利用可能な結果が返りませんでした。",
+          "metric": "失敗"
+        },
+        "ai": {
+          "title": "解析完了",
+          "description": "構造化された商品情報を生成しました。編集を続けられます。",
+          "metric": "完了"
+        },
+        "manual": {
+          "title": "手動情報",
+          "description": "手動入力の商品情報を使用しています。",
+          "metric": "手動"
+        },
+        "history": {
+          "title": "履歴パラメータ",
+          "description": "履歴の商品情報を適用しました。編集を続けられます。",
+          "metric": "履歴"
+        },
+        "idle": {
+          "title": "解析待ち",
+          "description": {
+            "filled": "商品情報を入力済みです。「書いてもらう」をクリックするとプラン最適化を続けられます。",
+            "empty": "一言要件を書くか、商品画像をアップロードして「書いてもらう」をクリックできます。"
+          },
+          "metric": {
+            "filled": "入力済み",
+            "empty": "未入力"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "ブランド名",
+        "productName": "商品名",
+        "sellingPoints": "セールスポイント",
+        "productSize": "サイズ",
+        "targetAudience": "対象ユーザー",
+        "modelImage": "モデル画像",
+        "faceReference": "顔参照",
+        "backgroundReference": "背景参照",
+        "logo": "ロゴ"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "まず商品画像をアップロードしてください",
@@ -2678,7 +2741,11 @@
       "uploadRef": "参照をアップロード",
       "favorites": "保存済み",
       "openTemplateLibrary": "テンプレートライブラリを開く",
-      "referenceNotice": "参照はスタイルの方向性のみで、テンプレートへの展開はまだ行いません。プリセットを選ぶか参照画像をアップロードしてから「商品情報を作成」をクリックして分析してください。"
+      "referenceNotice": "参照はスタイルの方向性のみで、テンプレートへの展開はまだ行いません。プリセットを選ぶか参照画像をアップロードしてから「商品情報を作成」をクリックして分析してください。",
+      "smartDesc": "ビジュアル解析",
+      "presetDesc": "テンプレート",
+      "uploadDesc": "カスタム参照",
+      "favoritesDesc": "アカウント再利用"
     },
     "generationPlan": {
       "title": "生成プラン",
@@ -2741,6 +2808,22 @@
       "bold": "力強い太字/マーケティング体",
       "handwritten": "手書き/書道体",
       "custom": "カスタム"
+    },
+    "modelDescMax4k": "最高4K",
+    "modelBadgeDefault": "デフォルト",
+    "modelBadgeQuality": "高品質",
+    "modelBadgePro": "高品質仕上げ",
+    "previewAction": {
+      "download": "画像をダウンロード",
+      "copy": "リンクをコピー",
+      "regenerateOne": "これを再生成",
+      "aiVideo": "AI動画",
+      "modelBackground": "背景変更",
+      "pose": "ポーズ展開",
+      "feedback": "フィードバック"
+    },
+    "aspectRatio": {
+      "auto": "自動"
     }
   },
   "Shared": {
@@ -3948,6 +4031,111 @@
       "3": "元画像のライト方向を保ち、影を自然に、露光を飛ばさない",
       "4": "人物のプロポーションを安定させ、肩・首・腕・脚を変形させない",
       "5": "商品ディテールを完全に見える状態に。ロゴ・ボタン・ファスナーを失わない"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "全身",
+        "threeQuarter": "七分身",
+        "upperBody": "上半身",
+        "lowerBody": "下半身",
+        "closeup": "クローズアップ",
+        "sceneOnly": "シーンのみ",
+        "partialUnknown": "部分不明"
+      },
+      "summary": {
+        "fallback": "認識不可 / 元の構図を維持",
+        "referenceImage": "参考画像"
+      },
+      "part": {
+        "faceVisible": "顔あり",
+        "noFace": "顔なし",
+        "noHead": "頭部なし",
+        "upperOnly": "上半身のみ",
+        "lowerOnly": "下半身のみ",
+        "handsVisible": "手が見える",
+        "feetVisible": "足が見える",
+        "noPerson": "人物なし"
+      },
+      "fallbackDefault": "元の構図に従い保守的に処理",
+      "listSeparator": "・",
+      "focusPrefix": "重点：{details}",
+      "gender": {
+        "unisex": "ユニセックス"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "toast": {

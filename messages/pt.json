@@ -1158,6 +1158,111 @@
       "3": "Manter a direção da luz original e sombras naturais sem superexposição",
       "4": "Proporções estáveis (ombros, pescoço, braços e pernas inalterados)",
       "5": "Todos os detalhes do produto visíveis: logotipos, botões e zíperes intactos"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "Informações do produto analisadas",
       "infoWritten": "Informações do produto escritas para você",
       "visualIncomplete": "Análise visual incompleta; informações básicas organizadas a partir da imagem",
-      "noInfoReturned": "A API não retornou informações do produto. Reanalise ou preencha manualmente."
+      "noInfoReturned": "A API não retornou informações do produto. Reanalise ou preencha manualmente.",
+      "fallbackMessage": {
+        "missingConfig": "Serviço de análise visual não configurado; exibindo informações de modelo básico.",
+        "apiError": "A análise visual retornou {code}; exibindo informações de modelo básico.",
+        "allFailed": "Análise visual sem resultado utilizável, geração pausada. Analise novamente ou confirme o nome e a categoria.",
+        "default": "Sem resultado de análise confiável, geração pausada. Tente novamente ou preencha o nome e a categoria."
+      },
+      "status": {
+        "running": {
+          "title": "Analisando imagem do produto",
+          "description": "Reconhecendo nome, categoria, argumentos de venda e plano de conjunto adequado.",
+          "message": "Gerar fica desativado até a análise terminar para evitar envio incompleto.",
+          "metric": "Analisando"
+        },
+        "fallback": {
+          "title": "Análise visual incompleta",
+          "description": "Informações básicas preenchidas, mas produto específico ainda não reconhecido.",
+          "message": "Resultado de reconhecimento incompleto; geração pausada. Analise novamente ou complete o nome manualmente.",
+          "metric": "A confirmar"
+        },
+        "failed": {
+          "title": "Falha na análise",
+          "description": "Análise do produto falhou; analise novamente ou preencha manualmente.",
+          "message": "A análise não retornou resultados utilizáveis.",
+          "metric": "Falhou"
+        },
+        "ai": {
+          "title": "Análise concluída",
+          "description": "Informações estruturadas do produto geradas; continue editando.",
+          "metric": "Concluído"
+        },
+        "manual": {
+          "title": "Informação manual",
+          "description": "Usando informações do produto inseridas manualmente.",
+          "metric": "Manual"
+        },
+        "history": {
+          "title": "Parâmetros históricos",
+          "description": "Informações históricas do produto aplicadas; continue editando.",
+          "metric": "Histórico"
+        },
+        "idle": {
+          "title": "Para analisar",
+          "description": {
+            "filled": "Informações preenchidas; clique em «Escrever para mim» para otimizar o plano.",
+            "empty": "Escreva uma necessidade ou envie uma imagem e clique em «Escrever para mim»."
+          },
+          "metric": {
+            "filled": "Preenchido",
+            "empty": "Vazio"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Nome da marca",
+        "productName": "Nome do produto",
+        "sellingPoints": "Argumentos de venda",
+        "productSize": "Tamanho",
+        "targetAudience": "Público-alvo",
+        "modelImage": "Imagem do modelo",
+        "faceReference": "Referência de rosto",
+        "backgroundReference": "Referência de fundo",
+        "logo": "Logo"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "Envie primeiro as imagens de produto",
@@ -3396,7 +3564,11 @@
       "uploadRef": "Enviar referência",
       "favorites": "Salvo",
       "openTemplateLibrary": "Abrir biblioteca de modelos completa",
-      "referenceNotice": "As referências fornecem apenas a direção do estilo e ainda não são desdobradas em modelos. Escolha uma predefinição ou envie uma referência, depois clique em \"Escrever informações do produto\" para analisar."
+      "referenceNotice": "As referências fornecem apenas a direção do estilo e ainda não são desdobradas em modelos. Escolha uma predefinição ou envie uma referência, depois clique em \"Escrever informações do produto\" para analisar.",
+      "smartDesc": "Análise visual",
+      "presetDesc": "Modelos",
+      "uploadDesc": "Referência personalizada",
+      "favoritesDesc": "Reutilização de conta"
     },
     "generationPlan": {
       "title": "Plano de geração",
@@ -3459,6 +3631,22 @@
       "bold": "Negrito / marketing",
       "handwritten": "Manuscrita / caligrafia",
       "custom": "Personalizada"
+    },
+    "modelDescMax4k": "Até 4K",
+    "modelBadgeDefault": "Padrão",
+    "modelBadgeQuality": "Alta qualidade",
+    "modelBadgePro": "Qualidade pro",
+    "previewAction": {
+      "download": "Baixar imagem",
+      "copy": "Copiar link",
+      "regenerateOne": "Regenerar esta",
+      "aiVideo": "Vídeo IA",
+      "modelBackground": "Mudar fundo",
+      "pose": "Variação de pose",
+      "feedback": "Feedback"
+    },
+    "aspectRatio": {
+      "auto": "Auto"
     }
   },
   "Shared": {

@@ -1158,6 +1158,111 @@
       "3": "Behalte die ursprüngliche Lichtrichtung und natürliche Schatten ohne Überbelichtung bei",
       "4": "Stabile Proportionen – Schultern, Hals, Arme und Beine unverändert",
       "5": "Alle Produktdetails sichtbar – Logos, Knöpfe und Reißverschlüsse bleiben erhalten"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3236,7 +3341,70 @@
       "infoAnalyzed": "Produktinfos analysiert",
       "infoWritten": "Produktinfos für dich geschrieben",
       "noInfoReturned": "Die API hat keine Produktinfos zurückgegeben. Bitte erneut analysieren oder manuell ausfüllen.",
-      "visualIncomplete": "Visuelle Analyse unvollständig; Basisinfos aus dem Bild organisiert"
+      "visualIncomplete": "Visuelle Analyse unvollständig; Basisinfos aus dem Bild organisiert",
+      "fallbackMessage": {
+        "missingConfig": "Visueller Analysedienst nicht konfiguriert; Basisvorlagen-Infos werden angezeigt.",
+        "apiError": "Visuelle Analyse gab {code} zurück; Basisvorlagen-Infos werden angezeigt.",
+        "allFailed": "Keine verwertbaren AnalySergebnisse, Generieren pausiert. Erneut analysieren oder Name und Kategorie bestätigen.",
+        "default": "Kein verlässliches Analyseergebnis, Generieren pausiert. Erneut versuchen oder Name und Kategorie ergänzen."
+      },
+      "status": {
+        "running": {
+          "title": "Produktbild wird analysiert",
+          "description": "Produktname, Kategorie, Verkaufsargumente und passender Set-Plan werden erkannt.",
+          "message": "Generieren ist bis zum Analyseabschluss deaktiviert, um unvollständige Eingaben zu vermeiden.",
+          "metric": "Analyse"
+        },
+        "fallback": {
+          "title": "Visuelle Analyse unvollständig",
+          "description": "Grunddaten ausgefüllt, aber noch kein konkretes Produkt erkannt.",
+          "message": "Unvollständiges Erkennungsergebnis; Generieren pausiert. Erneut analysieren oder Namen manuell ergänzen.",
+          "metric": "Zu bestätigen"
+        },
+        "failed": {
+          "title": "Analyse fehlgeschlagen",
+          "description": "Produktanalyse fehlgeschlagen; erneut analysieren oder manuell ausfüllen.",
+          "message": "Keine verwertbaren Ergebnisse von der Analyse.",
+          "metric": "Fehlgeschlagen"
+        },
+        "ai": {
+          "title": "Analyse abgeschlossen",
+          "description": "Strukturierte Produktdaten erstellt; Bearbeitung fortsetzen.",
+          "metric": "Fertig"
+        },
+        "manual": {
+          "title": "Manuelle Angaben",
+          "description": "Manuell eingegebene Produktdaten verwendet.",
+          "metric": "Manuell"
+        },
+        "history": {
+          "title": "Historische Parameter",
+          "description": "Historische Produktdaten übernommen; Bearbeitung fortsetzen.",
+          "metric": "Verlauf"
+        },
+        "idle": {
+          "title": "Zu analysieren",
+          "description": {
+            "filled": "Produktdaten ausgefüllt; „Für mich schreiben“ klicken, um den Plan zu optimieren.",
+            "empty": "Anforderung eintippen oder Produktbild hochladen und „Für mich schreiben“ klicken."
+          },
+          "metric": {
+            "filled": "Ausgefüllt",
+            "empty": "Leer"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Markenname",
+        "productName": "Produktname",
+        "sellingPoints": "Verkaufsargumente",
+        "productSize": "Größe",
+        "targetAudience": "Zielgruppe",
+        "modelImage": "Modellbild",
+        "faceReference": "Gesichtsreferenz",
+        "backgroundReference": "Hintergrundreferenz",
+        "logo": "Logo"
+      }
     },
     "analysisSection": {
       "analyzing": "Analysieren…",
@@ -3377,7 +3545,11 @@
       "referenceNotice": "Referenzen liefern nur eine Stilrichtung und werden noch nicht in Vorlagen zerlegt. Wähle eine Voreinstellung oder lade eine Referenz hoch und klicke auf „Produktinfos schreiben“, um zu analysieren.",
       "smartModeHint": "Der intelligente Modus zerlegt den Plan automatisch aus deinen Produktbildern, Produktinfos und der gewählten Anzahl von {count}. Klicke zuerst auf „Produktinfos schreiben“.",
       "title": "Planquelle",
-      "uploadRef": "Referenz hochladen"
+      "uploadRef": "Referenz hochladen",
+      "smartDesc": "Visuelle Analyse",
+      "presetDesc": "Vorlagen",
+      "uploadDesc": "Eigene Referenz",
+      "favoritesDesc": "Konto-Wiederverwendung"
     },
     "preset": {
       "countryUS": "Vereinigte Staaten",
@@ -3459,6 +3631,22 @@
       "bold": "Kräftig / Marketing",
       "handwritten": "Handschrift / Kalligrafie",
       "custom": "Benutzerdefiniert"
+    },
+    "modelDescMax4k": "Bis zu 4K",
+    "modelBadgeDefault": "Standard",
+    "modelBadgeQuality": "Hohe Qualität",
+    "modelBadgePro": "Pro-Qualität",
+    "previewAction": {
+      "download": "Bild herunterladen",
+      "copy": "Link kopieren",
+      "regenerateOne": "Dieses neu generieren",
+      "aiVideo": "KI-Video",
+      "modelBackground": "Hintergrund ändern",
+      "pose": "Posenvariante",
+      "feedback": "Feedback"
+    },
+    "aspectRatio": {
+      "auto": "Auto"
     }
   },
   "Shared": {

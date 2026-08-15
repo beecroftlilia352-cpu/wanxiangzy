@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { ChevronRight, Settings2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { ReferenceUploadButton, ToggleButton } from "@/features/product-set/create/controls";
 import {
   CUSTOM_ASPECTS,
@@ -58,6 +59,7 @@ export function ReferenceQuickStart({
   onUploadCustomReference,
   onAddCustomTemplate,
 }: ReferenceQuickStartProps) {
+  const t = useTranslations("ProductSet");
   const unit = imageType === "main" ? "张" : "屏";
   const intentOptions = REFERENCE_INTENT_OPTIONS[imageType];
   const activeIntent = intentOptions.find((option) => option.role === customDraft.moduleRole) || intentOptions[0];
@@ -135,7 +137,7 @@ export function ReferenceQuickStart({
                   onClick={() => onCustomDraftChange((current) => ({ ...current, aspectRatio: value }))}
                   className={`h-8 touch-manipulation rounded-lg border px-2 text-[11px] transition-colors ${focusRing} ${customDraft.aspectRatio === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)]"}`}
                 >
-                  {getAspectRatioLabel(value)}
+                  {getAspectRatioLabel(value, t)}
                 </button>
               ))}
             </div>

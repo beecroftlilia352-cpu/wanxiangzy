@@ -1158,6 +1158,111 @@
       "3": "الحفاظ على اتجاه الإضاءة الأصلي والظلال الطبيعية دون تعريض زائد",
       "4": "ثبات النسب — الكتفان والرقبة والذراعان والساقان دون تغيير",
       "5": "ظهور جميع تفاصيل المنتج — الشعارات والأزرار والسحّابات لا تضيع"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -2927,7 +3032,70 @@
       "infoAnalyzed": "تم تحليل معلومات المنتج",
       "infoWritten": "تمت كتابة معلومات المنتج لك",
       "visualIncomplete": "التحليل المرئي غير مكتمل، نُظّمت المعلومات الأساسية مبدئيًا من الصور",
-      "noInfoReturned": "لم تُرجع واجهة التحليل معلومات المنتج؛ يرجى إعادة التحليل أو التعبئة يدويًا."
+      "noInfoReturned": "لم تُرجع واجهة التحليل معلومات المنتج؛ يرجى إعادة التحليل أو التعبئة يدويًا.",
+      "fallbackMessage": {
+        "missingConfig": "خدمة التحليل البصري غير مهيأة؛ يتم عرض معلومات القالب الأساسية.",
+        "apiError": "أعاد التحليل البصري {code}؛ يتم عرض معلومات القالب الأساسية.",
+        "allFailed": "لم يحقق التحليل البصري نتيجة قابلة للاستخدام، توقف الإنشاء. أعد التحليل أو أكد الاسم والفئة.",
+        "default": "لا توجد نتيجة تحليل موثوقة، توقف الإنشاء. أعد المحاولة أو املأ الاسم والفئة."
+      },
+      "status": {
+        "running": {
+          "title": "جارٍ تحليل صورة المنتج",
+          "description": "جارٍ التعرف على الاسم والفئة ونقاط البيع وخطة المجموعة المناسبة.",
+          "message": "تم تعطيل زر الإنشاء حتى اكتمال التحليل لتجنب الإرسال غير المكتمل.",
+          "metric": "جارٍ التحليل"
+        },
+        "fallback": {
+          "title": "التحليل البصري غير مكتمل",
+          "description": "تمت تعبئة المعلومات الأساسية، لكن لم يتم التعرف على منتج محدد بعد.",
+          "message": "نتيجة تعرف غير مكتملة؛ توقف الإنشاء. أعد التحليل أو أكمل الاسم يدويًا.",
+          "metric": "بحاجة للتأكيد"
+        },
+        "failed": {
+          "title": "فشل التحليل",
+          "description": "فشل تحليل المنتج؛ أعد التحليل أو املأ يدويًا.",
+          "message": "لم يرجع التحليل نتائج قابلة للاستخدام.",
+          "metric": "فشل"
+        },
+        "ai": {
+          "title": "اكتمل التحليل",
+          "description": "تم إنشاء معلومات منظمة للمنتج؛ يمكنك متابعة التعديل.",
+          "metric": "تم"
+        },
+        "manual": {
+          "title": "معلومات يدوية",
+          "description": "جارٍ استخدام معلومات المنتج المدخلة يدويًا.",
+          "metric": "يدوي"
+        },
+        "history": {
+          "title": "معاملات السجل",
+          "description": "تم تطبيق معلومات المنتج من السجل؛ يمكنك متابعة التعديل.",
+          "metric": "السجل"
+        },
+        "idle": {
+          "title": "للتحليل",
+          "description": {
+            "filled": "تمت تعبئة المعلومات؛ انقر على «اكتب لي» لمتابعة تحسين الخطة.",
+            "empty": "اكتب متطلبًا أو ارفع صورة منتج ثم انقر على «اكتب لي»."
+          },
+          "metric": {
+            "filled": "معبأ",
+            "empty": "فارغ"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "اسم العلامة",
+        "productName": "اسم المنتج",
+        "sellingPoints": "نقاط البيع",
+        "productSize": "المقاس",
+        "targetAudience": "الجمهور المستهدف",
+        "modelImage": "صورة العارض",
+        "faceReference": "مرجع الوجه",
+        "backgroundReference": "مرجع الخلفية",
+        "logo": "الشعار"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "حمّل صور المنتج أولًا",
@@ -3033,7 +3201,11 @@
       "uploadRef": "مرجع محمّل",
       "favorites": "المفضلة",
       "openTemplateLibrary": "فتح مكتبة القوالب الكاملة",
-      "referenceNotice": "المرجع مجرد اتجاه أسلوب دون تفكيك القالب فورًا. يرجى اختيار أسلوب مسبق أو تحميل مرجع أولًا، ثم النقر \"اكتب معلومات المنتج\" لبدء التحليل."
+      "referenceNotice": "المرجع مجرد اتجاه أسلوب دون تفكيك القالب فورًا. يرجى اختيار أسلوب مسبق أو تحميل مرجع أولًا، ثم النقر \"اكتب معلومات المنتج\" لبدء التحليل.",
+      "smartDesc": "تحليل بصري",
+      "presetDesc": "قوالب",
+      "uploadDesc": "مرجع مخصص",
+      "favoritesDesc": "إعادة استخدام الحساب"
     },
     "generationPlan": {
       "title": "خطة التوليد",
@@ -3096,6 +3268,22 @@
       "bold": "عريض / تسويقي",
       "handwritten": "خط يد / خط عربي",
       "custom": "مخصص"
+    },
+    "modelDescMax4k": "حتى 4K",
+    "modelBadgeDefault": "افتراضي",
+    "modelBadgeQuality": "جودة عالية",
+    "modelBadgePro": "جودة احترافية",
+    "previewAction": {
+      "download": "تنزيل الصورة",
+      "copy": "نسخ الرابط",
+      "regenerateOne": "أعد إنشاء هذا",
+      "aiVideo": "فيديو بالذكاء الاصطناعي",
+      "modelBackground": "تغيير الخلفية",
+      "pose": "تنويع الوضعية",
+      "feedback": "ملاحظات"
+    },
+    "aspectRatio": {
+      "auto": "تلقائي"
     }
   },
   "Pose": {

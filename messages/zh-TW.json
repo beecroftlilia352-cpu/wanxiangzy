@@ -2572,7 +2572,70 @@
       "infoAnalyzed": "商品資訊已分析",
       "infoWritten": "已幫你寫好商品資訊",
       "visualIncomplete": "視覺分析未完成，已先根據圖片整理基礎資訊",
-      "noInfoReturned": "分析介面沒有回傳商品資訊，請重新分析或手動填寫。"
+      "noInfoReturned": "分析介面沒有回傳商品資訊，請重新分析或手動填寫。",
+      "fallbackMessage": {
+        "missingConfig": "視覺分析服務沒有設定完成，目前展示的是基礎範本資訊。",
+        "apiError": "視覺分析介面返回 {code}，目前展示的是基礎範本資訊。",
+        "allFailed": "視覺分析沒有拿到可用結果，已暫停生成。請重試分析或手動確認商品名稱與類目。",
+        "default": "沒有拿到可靠的視覺分析結果，已暫停生成。請重試或手動補充商品名稱與類目。"
+      },
+      "status": {
+        "running": {
+          "title": "正在分析商品圖",
+          "description": "正在識別商品名稱、類目、賣點和適合的套圖計劃。",
+          "message": "分析完成前已停用生成按鈕，避免用不完整資訊提交。",
+          "metric": "分析中"
+        },
+        "fallback": {
+          "title": "未完成視覺分析",
+          "description": "已填入基礎商品資訊，但還沒有識別出具體商品。",
+          "message": "這不是完整識別結果，生成按鈕已暫停；請重新分析或手動補充商品名稱。",
+          "metric": "待確認"
+        },
+        "failed": {
+          "title": "分析失敗",
+          "description": "商品分析失敗，可重新分析或手動填寫。",
+          "message": "分析介面沒有返回可用結果。",
+          "metric": "失敗"
+        },
+        "ai": {
+          "title": "分析已完成",
+          "description": "已生成結構化商品資訊，可繼續編輯。",
+          "metric": "已完成"
+        },
+        "manual": {
+          "title": "手動資訊",
+          "description": "已使用手動填寫的商品資訊。",
+          "metric": "手動"
+        },
+        "history": {
+          "title": "歷史參數",
+          "description": "已套用歷史商品資訊，可繼續編輯。",
+          "metric": "歷史"
+        },
+        "idle": {
+          "title": "待分析",
+          "description": {
+            "filled": "已填寫商品資訊，點擊幫我寫可繼續最佳化規劃。",
+            "empty": "可以先寫一句需求，也可以上傳商品圖後點幫我寫。"
+          },
+          "metric": {
+            "filled": "已填寫",
+            "empty": "未填寫"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "品牌名",
+        "productName": "商品名",
+        "sellingPoints": "核心賣點",
+        "productSize": "尺碼/尺寸",
+        "targetAudience": "目標人群",
+        "modelImage": "模特圖",
+        "faceReference": "人臉參考",
+        "backgroundReference": "背景參考",
+        "logo": "Logo"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "請先上傳商品圖",
@@ -2678,7 +2741,11 @@
       "uploadRef": "上傳參考",
       "favorites": "收藏",
       "openTemplateLibrary": "開啟完整範本庫",
-      "referenceNotice": "參考只是風格方向，不會立即拆解範本。請先選擇預設風格或上傳參考圖，再點擊「幫我寫商品資訊」開始分析。"
+      "referenceNotice": "參考只是風格方向，不會立即拆解範本。請先選擇預設風格或上傳參考圖，再點擊「幫我寫商品資訊」開始分析。",
+      "smartDesc": "視覺分析",
+      "presetDesc": "項目範本",
+      "uploadDesc": "自訂參考",
+      "favoritesDesc": "帳號重用"
     },
     "generationPlan": {
       "title": "生成計畫",
@@ -2741,6 +2808,22 @@
       "bold": "力量粗體/行銷體",
       "handwritten": "手寫/書法體",
       "custom": "自訂"
+    },
+    "modelDescMax4k": "最高4K",
+    "modelBadgeDefault": "預設",
+    "modelBadgeQuality": "高質感",
+    "modelBadgePro": "高質精修",
+    "previewAction": {
+      "download": "下載圖片",
+      "copy": "複製連結",
+      "regenerateOne": "重生本張",
+      "aiVideo": "AI影片",
+      "modelBackground": "換背景",
+      "pose": "姿勢裂變",
+      "feedback": "反饋"
+    },
+    "aspectRatio": {
+      "auto": "智能"
     }
   },
   "Shared": {
@@ -3948,6 +4031,111 @@
       "3": "保持原圖光線方向，陰影自然不過曝",
       "4": "人物比例穩定，肩頸、手臂和腿部不變形",
       "5": "商品細節完整可見，logo、鈕扣、拉鏈不丟失"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "全身",
+        "threeQuarter": "七分身",
+        "upperBody": "上半身",
+        "lowerBody": "下半身局部",
+        "closeup": "局部特寫",
+        "sceneOnly": "純場景",
+        "partialUnknown": "局部未知"
+      },
+      "summary": {
+        "fallback": "識別不可用 / 保持原圖構圖",
+        "referenceImage": "參考圖"
+      },
+      "part": {
+        "faceVisible": "露臉",
+        "noFace": "無臉",
+        "noHead": "無頭部",
+        "upperOnly": "只見上身",
+        "lowerOnly": "只見下身",
+        "handsVisible": "手部可見",
+        "feetVisible": "腳部可見",
+        "noPerson": "無人像"
+      },
+      "fallbackDefault": "按原圖結構保守處理",
+      "listSeparator": "、",
+      "focusPrefix": "重點：{details}",
+      "gender": {
+        "unisex": "通用"
+      },
+      "material": {
+        "tweed": "粗花呢",
+        "denim": "牛仔",
+        "lace": "蕾絲",
+        "leather": "皮革",
+        "knit": "針織",
+        "satin": "緞面",
+        "chiffon": "雪紡",
+        "cotton": "棉質",
+        "wool": "羊毛"
+      },
+      "cut": {
+        "shortSleeve": "短袖",
+        "longSleeve": "長袖",
+        "sleeveless": "無袖",
+        "pointedToe": "尖頭",
+        "chainStrap": "鏈條肩帶",
+        "lettering": "字母"
+      },
+      "item": {
+        "midiDress": "中長連衣裙",
+        "miniDress": "短款連衣裙",
+        "dress": "連衣裙",
+        "tights": "連褲襪",
+        "shoes": "鞋",
+        "bag": "包",
+        "bracelet": "手鍊",
+        "necklace": "項鍊",
+        "earrings": "耳飾",
+        "strap": "肩帶",
+        "skirt": "半裙",
+        "jeans": "牛仔褲",
+        "pants": "褲裝",
+        "shirt": "襯衫",
+        "tShirt": "T 恤",
+        "jacket": "外套",
+        "top": "上衣"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "toast": {

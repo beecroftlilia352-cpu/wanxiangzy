@@ -1,4 +1,5 @@
 import { Activity } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { MODELS } from "@/features/product-set/create/config";
 import { getCreditCost, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -27,6 +28,7 @@ export function ModelConfigPanel({
   onSizeChange,
   onQualityChange,
 }: ModelConfigPanelProps) {
+  const t = useTranslations("ProductSet");
   return (
     <section id="product-set-generation-settings" aria-label="生成设置选项" className="space-y-3">
       <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
@@ -52,11 +54,11 @@ export function ModelConfigPanel({
                 <span className="min-w-0 truncate text-[11px] font-black">{model.label}</span>
                 {model.badge ? (
                   <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-black text-[var(--codex-accent)]">
-                    {model.badge}
+                    {model.badgeKey ? t(model.badgeKey) : model.badge}
                   </span>
                 ) : null}
               </span>
-              <span className="mt-1 line-clamp-2 block pl-5 text-[11px] font-semibold leading-tight text-slate-400" title={model.desc}>{model.desc}</span>
+              <span className="mt-1 line-clamp-2 block pl-5 text-[11px] font-semibold leading-tight text-slate-400" title={model.descKey ? t(model.descKey) : model.desc}>{model.descKey ? t(model.descKey) : model.desc}</span>
             </button>
           ))}
         </div>

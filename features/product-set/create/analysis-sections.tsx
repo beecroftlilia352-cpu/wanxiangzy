@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity, Brush, Check, ChevronRight, Edit3, Loader2, Palette } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { VisualAnalysisStatusCard } from "@/components/studio/VisualAnalysisStatus";
 import {
   getProductSetModuleKey,
@@ -43,6 +44,7 @@ export function ProductBriefSummary({ fields, onEdit }: { fields: ProductInfoFie
 }
 
 export function AnalysisSummaryCard({ profile, analysis, stylePack, imageType, outputCount, expanded, onToggleExpanded, onEditProfile, onAdjust }: { profile: ProductSetProductProfile; analysis: ProductSetAnalysisDetail | null; stylePack: ProductSetStylePack; imageType: ProductSetImageType; outputCount: number; expanded: boolean; onToggleExpanded: () => void; onEditProfile: () => void; onAdjust: () => void }) {
+  const t = useTranslations("ProductSet");
   const qualityScore = analysis?.image_quality?.quality_score;
   const qualityLabel = typeof qualityScore === "number" && qualityScore > 0 ? `${qualityScore.toFixed(1)} / 10` : "已准备";
   const strategyName = analysis?.visual_director?.strategy_name || analysis?.generation_fit?.recommended_style || stylePack.name;
@@ -67,7 +69,7 @@ export function AnalysisSummaryCard({ profile, analysis, stylePack, imageType, o
         <button type="button" onClick={onAdjust} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-[11px] font-black text-slate-600 shadow-sm transition-colors hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)] ${actionClass}`}><Palette aria-hidden="true" className="h-3.5 w-3.5" /> 调整风格</button>
       </div>
       {keywords.length ? <div className="mt-2 flex flex-wrap gap-1.5">{keywords.map((item) => <span key={item} className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item}</span>)}</div> : null}
-      {missing.length ? <p className="mt-2 text-[11px] font-bold leading-4 text-amber-600">建议补充：{missing.map(formatMissingInfo).join("、")}</p> : null}
+      {missing.length ? <p className="mt-2 text-[11px] font-bold leading-4 text-amber-600">建议补充：{missing.map((item) => formatMissingInfo(item, t)).join("、")}</p> : null}
     </section>
   );
 }
@@ -90,6 +92,7 @@ export function ProductProfileCard({ profile, analysisSource, onEdit }: { profil
 }
 
 export function ProductVisualStrategyCard({ profile, analysis, stylePack, imageType, onAdjust }: { profile: ProductSetProductProfile; analysis: ProductSetAnalysisDetail | null; stylePack: ProductSetStylePack; imageType: ProductSetImageType; onAdjust: () => void }) {
+  const t = useTranslations("ProductSet");
   const qualityScore = analysis?.image_quality?.quality_score;
   const qualityText = typeof qualityScore === "number" && qualityScore > 0 ? `${qualityScore.toFixed(1)} / 10` : "待评估";
   const strategyName = analysis?.visual_director?.strategy_name || "视觉策略";
@@ -116,7 +119,7 @@ export function ProductVisualStrategyCard({ profile, analysis, stylePack, imageT
         <div className="min-h-[58px] rounded-xl bg-white/75 px-2 py-2"><p className="text-[10px] font-black text-slate-400">当前模式</p><p className="mt-1 text-xs font-black text-slate-800">{imageType === "main" ? "商品主图" : "详情页"}</p></div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">{(directions.length ? directions : [profile.displayName, profile.modelStrategy, "智能匹配"]).map((item) => <span key={item} className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item}</span>)}</div>
-      {missing.length ? <p className="mt-2 text-[11px] font-bold leading-4 text-amber-600">建议补充：{missing.map(formatMissingInfo).join("、")}</p> : null}
+      {missing.length ? <p className="mt-2 text-[11px] font-bold leading-4 text-amber-600">建议补充：{missing.map((item) => formatMissingInfo(item, t)).join("、")}</p> : null}
     </section>
   );
 }

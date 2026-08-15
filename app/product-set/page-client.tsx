@@ -217,7 +217,7 @@ export default function ProductSetPage() {
     source: isAnalyzing ? "running" : analysisSource,
     hasProductInfo: Boolean(productInfo.trim()),
     message: analysisMessage,
-  });
+  }, t);
   const hasAnalyzedProduct = analysisSource === "ai" || analysisSource === "history";
   const isReferenceMode = planSourceTab !== "smart";
   const canResolvePlan = hasAnalyzedProduct;
@@ -608,7 +608,7 @@ export default function ProductSetPage() {
         const nextAnalysisSource = resolveAnalysisSource(data, nextProductInfo);
         setProductInfo(nextProductInfo);
         setAnalysisSource(nextAnalysisSource);
-        setAnalysisMessage(nextAnalysisSource === "fallback" ? getAnalysisFallbackMessage(data.reason) : "");
+        setAnalysisMessage(nextAnalysisSource === "fallback" ? getAnalysisFallbackMessage(data.reason, t) : "");
         const nextProfile = normalizeProductSetProductProfile(data.product_profile, nextProductInfo);
         setProductProfile(nextProfile);
         setAnalysisDetail(nextAnalysisSource === "ai" && data.analysis && typeof data.analysis === "object" ? data.analysis as ProductSetAnalysisDetail : null);
@@ -1448,7 +1448,7 @@ export default function ProductSetPage() {
         { label: t("meta.count"), value: resultSlotCount },
       ],
       titles: resultSlots.map((slot, index) => slot.template?.name || slot.module?.name || t("preview.resultTitle", { index: index + 1 })),
-      subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? t("meta.detailsModule") : t("meta.mainAux")} · ${getAspectRatioLabel(slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio)}`),
+      subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? t("meta.detailsModule") : t("meta.mainAux")} · ${getAspectRatioLabel(slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio, t)}`),
       statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.module?.status || (hasCompletedPartialResults ? "failed" : isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
       errors: resultSlots.map((slot) => slot.module?.error || (!slot.url && hasCompletedPartialResults ? partialFailureMessage : null)),
       qualities: resultSlots.map((slot) => {
@@ -1705,7 +1705,7 @@ export default function ProductSetPage() {
                         }`}
                       >
                         <span className="block truncate text-xs font-black">{tab.value === "preset" ? t("planSource.presetRef") : tab.value === "upload" ? t("planSource.uploadRef") : t("planSource.favorites")}</span>
-                        <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{tab.description}</span>
+                        <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{t(tab.descriptionKey)}</span>
                       </button>
                     );
                   })}

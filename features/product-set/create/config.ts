@@ -7,29 +7,29 @@ import {
 import type { ProductSetPlanSourceTab } from "@/lib/product-set-ui-state";
 import type { CustomDraft } from "./types";
 
-export const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "默认", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "高质感", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+export const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "modelDescMax4k", badge: "默认", badgeKey: "modelBadgeDefault", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "modelDescMax4k", badge: "高质感", badgeKey: "modelBadgeQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "modelDescMax4k", badge: "高质精修", badgeKey: "modelBadgePro", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 export const CUSTOM_ASPECTS: AspectRatio[] = ["auto", "3:4", "4:5", "1:1", "4:3", "9:16", "16:9", "3:2", "2:3", "21:9"];
 
-export const PLAN_SOURCE_TABS: { value: ProductSetPlanSourceTab; label: string; description: string }[] = [
-  { value: "smart", label: "智能模式", description: "视觉分析" },
-  { value: "preset", label: "系统预设", description: "项目模板" },
-  { value: "upload", label: "上传模板", description: "自定义参考" },
-  { value: "favorites", label: "我的收藏", description: "账号复用" },
+export const PLAN_SOURCE_TABS: { value: ProductSetPlanSourceTab; label: string; description: string; descriptionKey: string }[] = [
+  { value: "smart", label: "智能模式", description: "视觉分析", descriptionKey: "planSource.smartDesc" },
+  { value: "preset", label: "系统预设", description: "项目模板", descriptionKey: "planSource.presetDesc" },
+  { value: "upload", label: "上传模板", description: "自定义参考", descriptionKey: "planSource.uploadDesc" },
+  { value: "favorites", label: "我的收藏", description: "账号复用", descriptionKey: "planSource.favoritesDesc" },
 ];
 
-export const PRODUCT_SET_PREVIEW_ACTIONS: ImagePreviewAction[] = [
-  { kind: "download", label: "下载图片" },
-  { kind: "copy", label: "复制链接" },
-  { kind: "regenerateOne", label: "重生本张" },
-  { kind: "aiVideo", label: "AI视频" },
-  { kind: "modelBackground", label: "换背景" },
-  { kind: "pose", label: "姿势裂变" },
-  { kind: "feedback", label: "反馈" },
+export const PRODUCT_SET_PREVIEW_ACTIONS: (ImagePreviewAction & { labelKey: string })[] = [
+  { kind: "download", label: "下载图片", labelKey: "previewAction.download" },
+  { kind: "copy", label: "复制链接", labelKey: "previewAction.copy" },
+  { kind: "regenerateOne", label: "重生本张", labelKey: "previewAction.regenerateOne" },
+  { kind: "aiVideo", label: "AI视频", labelKey: "previewAction.aiVideo" },
+  { kind: "modelBackground", label: "换背景", labelKey: "previewAction.modelBackground" },
+  { kind: "pose", label: "姿势裂变", labelKey: "previewAction.pose" },
+  { kind: "feedback", label: "反馈", labelKey: "previewAction.feedback" },
 ];
 
 export const COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -102,8 +102,8 @@ export const DEFAULT_DRAFT: CustomDraft = {
   copyDensity: "standard",
 };
 
-export function getAspectRatioLabel(value: string) {
-  return value === "auto" ? "智能" : value;
+export function getAspectRatioLabel(value: string, t?: (key: string) => string) {
+  return value === "auto" ? (t ? t("aspectRatio.auto") : "智能") : value;
 }
 
 export function buildReferenceStyleBrief(plan: typeof PRODUCT_SET_PRESET_PLANS[number]) {

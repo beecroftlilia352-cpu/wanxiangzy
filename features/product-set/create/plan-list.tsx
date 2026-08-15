@@ -1,4 +1,5 @@
 import { Edit3, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { getAspectRatioLabel } from "@/features/product-set/create/config";
 import {
   getProductSetModuleReason,
@@ -24,6 +25,7 @@ export function PlanList({
   onEdit,
   onRemove,
 }: PlanListProps) {
+  const t = useTranslations("ProductSet");
   if (!templates.length) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-400">
@@ -43,7 +45,7 @@ export function PlanList({
             <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-[var(--codex-accent)] shadow-sm">{index + 1}</span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-black text-slate-800">{template.name}</p>
-              <p className="truncate text-[11px] text-slate-400">{template.imageType === "details" ? "详情页" : "主图/辅图"} · {getAspectRatioLabel(template.aspectRatio)} · {template.moduleRole}</p>
+              <p className="truncate text-[11px] text-slate-400">{template.imageType === "details" ? "详情页" : "主图/辅图"} · {getAspectRatioLabel(template.aspectRatio, t)} · {template.moduleRole}</p>
               <p className="mt-1 line-clamp-1 text-[10px] text-slate-400">{getProductSetModuleReason(template, productProfile)}</p>
             </div>
             {shouldUseModelForTemplate(template, productProfile) ? (

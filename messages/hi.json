@@ -1158,6 +1158,111 @@
       "3": "ओरिजनल लाइटिंग दिशा बनाए रखें, नैचुरल शैडो बिना ओवरएक्सपोज़र",
       "4": "प्रपोर्शन स्टेबल — कंधे, गर्दन, हाथ और पैर न बदलें",
       "5": "प्रोडक्ट डिटेल्स पूरे दिखें — लोगो, बटन और ज़िपर न छूटें"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "प्रोडक्ट जानकारी एनालाइज़ हुई",
       "infoWritten": "आपके लिए प्रोडक्ट जानकारी लिखी गई",
       "visualIncomplete": "विज़ुअल एनालिसिस अधूरा; इमेज से बेसिक जानकारी व्यवस्थित की गई",
-      "noInfoReturned": "API ने कोई प्रोडक्ट जानकारी नहीं लौटाई। कृपया फिर एनालाइज़ करें या मैन्युअली भरें।"
+      "noInfoReturned": "API ने कोई प्रोडक्ट जानकारी नहीं लौटाई। कृपया फिर एनालाइज़ करें या मैन्युअली भरें।",
+      "fallbackMessage": {
+        "missingConfig": "विज़ुअल विश्लेषण सेवा कॉन्फ़िगर नहीं है; मूल टेम्पलेट जानकारी दिखाई जा रही है।",
+        "apiError": "विज़ुअल विश्लेषण ने {code} लौटाया; मूल टेम्पलेट जानकारी दिखाई जा रही है।",
+        "allFailed": "विज़ुअल विश्लेषण से कोई उपयोगी परिणाम नहीं मिला, जनरेशन रुका हुआ है। पुनः विश्लेषण करें या नाम और श्रेणी की पुष्टि करें।",
+        "default": "कोई विश्वसनीय विश्लेषण परिणाम नहीं, जनरेशन रुका हुआ है। पुनः प्रयास करें या नाम और श्रेणी भरें।"
+      },
+      "status": {
+        "running": {
+          "title": "उत्पाद छवि का विश्लेषण हो रहा है",
+          "description": "उत्पाद का नाम, श्रेणी, विक्रय बिंदु और उपयुक्त सेट योजना पहचानी जा रही है।",
+          "message": "विश्लेषण पूर्ण होने तक जनरेट बटन अक्षम है, ताकि अधूरी जानकारी न भेजी जाए।",
+          "metric": "विश्लेषण"
+        },
+        "fallback": {
+          "title": "विज़ुअल विश्लेषण अधूरा",
+          "description": "बुनियादी जानकारी भरी गई, लेकिन विशिष्ट उत्पाद अभी पहचाना नहीं गया।",
+          "message": "पहचान परिणाम अधूरा है; जनरेशन रुका हुआ है। पुनः विश्लेषण करें या नाम मैन्युअल रूप से भरें।",
+          "metric": "पुष्टि हेतु"
+        },
+        "failed": {
+          "title": "विश्लेषण विफल",
+          "description": "उत्पाद विश्लेषण विफल; पुनः विश्लेषण करें या मैन्युअल भरें।",
+          "message": "विश्लेषण ने कोई उपयोगी परिणाम नहीं दिया।",
+          "metric": "विफल"
+        },
+        "ai": {
+          "title": "विश्लेषण पूर्ण",
+          "description": "संरचित उत्पाद जानकारी तैयार; संपादन जारी रखें।",
+          "metric": "पूर्ण"
+        },
+        "manual": {
+          "title": "मैन्युअल जानकारी",
+          "description": "मैन्युअल रूप से भरी उत्पाद जानकारी उपयोग में है।",
+          "metric": "मैन्युअल"
+        },
+        "history": {
+          "title": "इतिहास पैरामीटर",
+          "description": "इतिहास की उत्पाद जानकारी लागू; संपादन जारी रखें।",
+          "metric": "इतिहास"
+        },
+        "idle": {
+          "title": "विश्लेषण हेतु",
+          "description": {
+            "filled": "जानकारी भर दी गई; योजना अनुकूलित करने के लिए «मेरे लिए लिखें» क्लिक करें।",
+            "empty": "एक आवश्यकता लिखें या उत्पाद छवि अपलोड करके «मेरे लिए लिखें» क्लिक करें।"
+          },
+          "metric": {
+            "filled": "भरा गया",
+            "empty": "खाली"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "ब्रांड नाम",
+        "productName": "उत्पाद का नाम",
+        "sellingPoints": "विक्रय बिंदु",
+        "productSize": "आकार",
+        "targetAudience": "लक्षित दर्शक",
+        "modelImage": "मॉडल छवि",
+        "faceReference": "चेहरा संदर्भ",
+        "backgroundReference": "पृष्ठभूमि संदर्भ",
+        "logo": "लोगो"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "कृपया पहले प्रोडक्ट इमेज अपलोड करें",
@@ -3396,7 +3564,11 @@
       "uploadRef": "रेफ़रेंस अपलोड",
       "favorites": "सेव किया",
       "openTemplateLibrary": "पूरी टेम्प्लेट लाइब्रेरी खोलें",
-      "referenceNotice": "रेफ़रेंस केवल स्टाइल दिशा देते हैं और अभी टेम्प्लेट में नहीं टूटते। प्रीसेट चुनें या रेफ़रेंस अपलोड करें, फिर एनालाइज़ करने के लिए \"प्रोडक्ट जानकारी लिखें\" पर क्लिक करें।"
+      "referenceNotice": "रेफ़रेंस केवल स्टाइल दिशा देते हैं और अभी टेम्प्लेट में नहीं टूटते। प्रीसेट चुनें या रेफ़रेंस अपलोड करें, फिर एनालाइज़ करने के लिए \"प्रोडक्ट जानकारी लिखें\" पर क्लिक करें।",
+      "smartDesc": "विज़ुअल विश्लेषण",
+      "presetDesc": "टेम्पलेट",
+      "uploadDesc": "कस्टम संदर्भ",
+      "favoritesDesc": "खाता पुनः उपयोग"
     },
     "generationPlan": {
       "title": "जेनरेशन प्लान",
@@ -3459,6 +3631,22 @@
       "bold": "बोल्ड / मार्केटिंग",
       "handwritten": "हस्तलेखन / सुलेख",
       "custom": "कस्टम"
+    },
+    "modelDescMax4k": "4K तक",
+    "modelBadgeDefault": "डिफ़ॉल्ट",
+    "modelBadgeQuality": "उच्च गुणवत्ता",
+    "modelBadgePro": "प्रो गुणवत्ता",
+    "previewAction": {
+      "download": "छवि डाउनलोड करें",
+      "copy": "लिंक कॉपी करें",
+      "regenerateOne": "इसे पुनः बनाएं",
+      "aiVideo": "AI वीडियो",
+      "modelBackground": "पृष्ठभूमि बदलें",
+      "pose": "मुद्रा रूपांतर",
+      "feedback": "प्रतिक्रिया"
+    },
+    "aspectRatio": {
+      "auto": "स्वतः"
     }
   },
   "Shared": {

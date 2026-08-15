@@ -1158,6 +1158,111 @@
       "3": "Сохранить исходное направление света и естественные тени без пересвета",
       "4": "Стабильные пропорции — плечи, шея, руки и ноги без изменений",
       "5": "Все детали товара видны: логотипы, пуговицы и молнии сохранены"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "Информация о товаре проанализирована",
       "infoWritten": "Информация о товаре записана",
       "visualIncomplete": "Визуальный анализ не завершён; базовые сведения собраны по изображению",
-      "noInfoReturned": "API не вернул информацию о товаре. Проанализируйте заново или заполните вручную."
+      "noInfoReturned": "API не вернул информацию о товаре. Проанализируйте заново или заполните вручную.",
+      "fallbackMessage": {
+        "missingConfig": "Служба визуального анализа не настроена; показаны базовые данные шаблона.",
+        "apiError": "Визуальный анализ вернул {code}; показаны базовые данные шаблона.",
+        "allFailed": "Визуальный анализ не дал пригодного результата, генерация приостановлена. Повторите анализ или подтвердите название и категорию.",
+        "default": "Нет надёжного результата анализа, генерация приостановлена. Повторите или заполните название и категорию."
+      },
+      "status": {
+        "running": {
+          "title": "Анализ изображения товара",
+          "description": "Распознаём название, категорию, преимущества и подходящий план съёмки.",
+          "message": "Генерация отключена до завершения анализа, чтобы не отправлять неполные данные.",
+          "metric": "Анализ"
+        },
+        "fallback": {
+          "title": "Визуальный анализ не завершён",
+          "description": "Базовая информация заполнена, но конкретный товар ещё не распознан.",
+          "message": "Неполный результат распознавания; генерация приостановлена. Повторите анализ или дополните название вручную.",
+          "metric": "К подтверждению"
+        },
+        "failed": {
+          "title": "Ошибка анализа",
+          "description": "Анализ товара не удался; повторите анализ или заполните вручную.",
+          "message": "Анализ не вернул пригодных результатов.",
+          "metric": "Ошибка"
+        },
+        "ai": {
+          "title": "Анализ завершён",
+          "description": "Структурированные данные товара сформированы; можно продолжать редактирование.",
+          "metric": "Готово"
+        },
+        "manual": {
+          "title": "Ручной ввод",
+          "description": "Использованы данные товара, введённые вручную.",
+          "metric": "Вручную"
+        },
+        "history": {
+          "title": "Параметры истории",
+          "description": "Применены данные товара из истории; можно продолжать редактирование.",
+          "metric": "История"
+        },
+        "idle": {
+          "title": "К анализу",
+          "description": {
+            "filled": "Данные заполнены; нажмите «Написать за меня», чтобы оптимизировать план.",
+            "empty": "Напишите запрос или загрузите изображение и нажмите «Написать за меня»."
+          },
+          "metric": {
+            "filled": "Заполнено",
+            "empty": "Пусто"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Бренд",
+        "productName": "Название товара",
+        "sellingPoints": "Преимущества",
+        "productSize": "Размер",
+        "targetAudience": "Целевая аудитория",
+        "modelImage": "Фото модели",
+        "faceReference": "Ссылка на лицо",
+        "backgroundReference": "Ссылка на фон",
+        "logo": "Логотип"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "Сначала загрузите изображения товара",
@@ -3396,7 +3564,11 @@
       "uploadRef": "Загруженный референс",
       "favorites": "Сохранённые",
       "openTemplateLibrary": "Открыть полную библиотеку шаблонов",
-      "referenceNotice": "Референсы задают только направление стиля и не разбиваются на шаблоны. Выберите пресет или загрузите референс, затем нажмите «Написать информацию о товаре»."
+      "referenceNotice": "Референсы задают только направление стиля и не разбиваются на шаблоны. Выберите пресет или загрузите референс, затем нажмите «Написать информацию о товаре».",
+      "smartDesc": "Визуальный анализ",
+      "presetDesc": "Шаблоны",
+      "uploadDesc": "Своя ссылка",
+      "favoritesDesc": "Повторное использование аккаунта"
     },
     "generationPlan": {
       "title": "План генерации",
@@ -3459,6 +3631,22 @@
       "bold": "Жирный / маркетинг",
       "handwritten": "Рукописный / каллиграфия",
       "custom": "Пользовательский"
+    },
+    "modelDescMax4k": "До 4K",
+    "modelBadgeDefault": "По умолчанию",
+    "modelBadgeQuality": "Высокое качество",
+    "modelBadgePro": "Pro-качество",
+    "previewAction": {
+      "download": "Скачать изображение",
+      "copy": "Копировать ссылку",
+      "regenerateOne": "Перегенерировать",
+      "aiVideo": "AI-видео",
+      "modelBackground": "Сменить фон",
+      "pose": "Вариация позы",
+      "feedback": "Отзыв"
+    },
+    "aspectRatio": {
+      "auto": "Авто"
     }
   },
   "Shared": {

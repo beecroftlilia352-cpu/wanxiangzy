@@ -2871,7 +2871,70 @@
       "infoAnalyzed": "Информацията за продукта е анализирана",
       "infoWritten": "Информацията за продукта е написана",
       "visualIncomplete": "Визуалният анализ не е завършен; базовата информация е подредена от изображението.",
-      "noInfoReturned": "Интерфейсът не върна информация за продукта; анализирайте отново или попълнете ръчно."
+      "noInfoReturned": "Интерфейсът не върна информация за продукта; анализирайте отново или попълнете ръчно.",
+      "fallbackMessage": {
+        "missingConfig": "Услугата за визуален анализ не е конфигурирана; показана е базова шаблонна информация.",
+        "apiError": "Визуалният анализ върна {code}; показана е базова шаблонна информация.",
+        "allFailed": "Визуалният анализ не даде използваем резултат, генерирането е на пауза. Анализирайте отново или потвърдете името и категорията.",
+        "default": "Няма надежден резултат от анализа, генерирането е на пауза. Опитайте отново или допълнете името и категорията."
+      },
+      "status": {
+        "running": {
+          "title": "Анализиране на снимката на продукта",
+          "description": "Разпознаваме име, категория, предимства и подходящ план на серията.",
+          "message": "Генерирането е изключено до края на анализа, за да не се подаде непълна информация.",
+          "metric": "Анализ"
+        },
+        "fallback": {
+          "title": "Визуалният анализ не е завършен",
+          "description": "Базовата информация е попълнена, но конкретен продукт все още не е разпознат.",
+          "message": "Непълен резултат от разпознаването; генерирането е на пауза. Анализирайте отново или допълнете името ръчно.",
+          "metric": "За потвърждение"
+        },
+        "failed": {
+          "title": "Грешка при анализа",
+          "description": "Анализът на продукта не успя; анализирайте отново или попълнете ръчно.",
+          "message": "Анализът не върна използваеми резултати.",
+          "metric": "Грешка"
+        },
+        "ai": {
+          "title": "Анализът е завършен",
+          "description": "Генерирана е структурирана информация за продукта; продължете редактирането.",
+          "metric": "Готово"
+        },
+        "manual": {
+          "title": "Ръчна информация",
+          "description": "Използвана е ръчно въведена информация за продукта.",
+          "metric": "Ръчно"
+        },
+        "history": {
+          "title": "Исторически параметри",
+          "description": "Приложена е историческа информация за продукта; продължете редактирането.",
+          "metric": "История"
+        },
+        "idle": {
+          "title": "За анализ",
+          "description": {
+            "filled": "Информацията е попълнена; натиснете «Пиши вместо мен», за да оптимизирате плана.",
+            "empty": "Напишете заявка или качете снимка и натиснете «Пиши вместо мен»."
+          },
+          "metric": {
+            "filled": "Попълнено",
+            "empty": "Празно"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Марка",
+        "productName": "Име на продукта",
+        "sellingPoints": "Предимства",
+        "productSize": "Размер",
+        "targetAudience": "Целева аудитория",
+        "modelImage": "Снимка на модел",
+        "faceReference": "Референция за лице",
+        "backgroundReference": "Референция за фон",
+        "logo": "Лого"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "Моля първо качете продуктово изображение",
@@ -2977,7 +3040,11 @@
       "uploadRef": "Качена референция",
       "favorites": "Запазени",
       "openTemplateLibrary": "Отвори пълната библиотека с шаблони",
-      "referenceNotice": "Референцията е само посока на стила, без незабавно разбиване. Изберете предварителна настройка или качете референция, след което кликнете «Помощ при писане»."
+      "referenceNotice": "Референцията е само посока на стила, без незабавно разбиване. Изберете предварителна настройка или качете референция, след което кликнете «Помощ при писане».",
+      "smartDesc": "Визуален анализ",
+      "presetDesc": "Шаблони",
+      "uploadDesc": "Собствена референция",
+      "favoritesDesc": "Повторно използване на акаунт"
     },
     "generationPlan": {
       "title": "План за генериране",
@@ -3040,6 +3107,22 @@
       "bold": "Удебелен / маркетинг",
       "handwritten": "Ръкописен / калиграфия",
       "custom": "Персонализиран"
+    },
+    "modelDescMax4k": "До 4K",
+    "modelBadgeDefault": "По подразбиране",
+    "modelBadgeQuality": "Високо качество",
+    "modelBadgePro": "Pro качество",
+    "previewAction": {
+      "download": "Изтегли изображение",
+      "copy": "Копирай линк",
+      "regenerateOne": "Генерирай отново",
+      "aiVideo": "AI видео",
+      "modelBackground": "Смени фон",
+      "pose": "Вариант на поза",
+      "feedback": "Обратна връзка"
+    },
+    "aspectRatio": {
+      "auto": "Авто"
     }
   },
   "Video": {
@@ -3585,6 +3668,111 @@
       "3": "Запази оригиналната посока на светлината и естествени сенки без преекспониране",
       "4": "Стабилни пропорции — рамене, врат, ръце и крака без промяна",
       "5": "Всички детайли на продукта са видими — лого, копчета и ципове не се губят"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "Pose": {

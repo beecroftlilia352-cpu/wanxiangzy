@@ -1,4 +1,5 @@
 import { Download, Loader2, RefreshCw, X, ZoomIn } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -95,6 +96,7 @@ export function ResultsCanvas({
   onRegenerate,
   onDownload,
 }: ResultsCanvasProps) {
+  const t = useTranslations("ProductSet");
   return (
     <main className="studio-canvas relative min-h-[70dvh] flex-1 overflow-visible lg:overflow-hidden">
       <div className="relative overflow-y-visible p-4 pb-24 sm:p-6 lg:absolute lg:inset-0 lg:overflow-y-auto lg:p-8">
@@ -223,7 +225,7 @@ export function ResultsCanvas({
                       <div className="flex w-full items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-black text-slate-900 dark:text-stone-100">{cardTitle}</h3>
-                          <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : slotFailed ? "生成失败" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio)}</p>
+                          <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : slotFailed ? "生成失败" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio, t)}</p>
                           {module?.qualityScore !== undefined ? (
                             <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               <QualityBadge score={module.qualityScore} />
@@ -269,7 +271,7 @@ export function ResultsCanvas({
               selectedIndex={previewIndex || 0}
               onSelectedIndexChange={onPreviewIndexChange}
               filenamePrefix="product-set"
-              actions={PRODUCT_SET_PREVIEW_ACTIONS}
+              actions={PRODUCT_SET_PREVIEW_ACTIONS.map((a) => ({ ...a, label: t(a.labelKey) }))}
               onRegenerateOne={(_, index) => onRegenerate(index)}
             />
           </section>

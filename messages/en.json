@@ -1158,6 +1158,111 @@
       "3": "Keep the original light direction and natural shadows",
       "4": "Stable proportions - shoulders, arms and legs unchanged",
       "5": "All product details visible - logos, buttons and zippers intact"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "Product info analyzed",
       "infoWritten": "Product info written for you",
       "visualIncomplete": "Visual analysis incomplete; basic info organized from the image",
-      "noInfoReturned": "The API returned no product info. Please re-analyze or fill it in manually."
+      "noInfoReturned": "The API returned no product info. Please re-analyze or fill it in manually.",
+      "fallbackMessage": {
+        "missingConfig": "Visual analysis is not configured; showing basic template info.",
+        "apiError": "Visual analysis returned {code}; showing basic template info.",
+        "allFailed": "Visual analysis produced no usable result, generation paused. Retry analysis or confirm the product name and category manually.",
+        "default": "No reliable visual analysis result, generation paused. Retry or fill in the product name and category manually."
+      },
+      "status": {
+        "running": {
+          "title": "Analyzing product image",
+          "description": "Recognizing product name, category, selling points, and suitable photo-set plan.",
+          "message": "Generate is disabled until analysis completes to avoid submitting incomplete info.",
+          "metric": "Analyzing"
+        },
+        "fallback": {
+          "title": "Visual analysis incomplete",
+          "description": "Basic product info filled in, but no specific product recognized yet.",
+          "message": "This is not a complete recognition result; generate is paused. Re-analyze or fill in the product name manually.",
+          "metric": "To confirm"
+        },
+        "failed": {
+          "title": "Analysis failed",
+          "description": "Product analysis failed; re-analyze or fill in manually.",
+          "message": "Analysis returned no usable result.",
+          "metric": "Failed"
+        },
+        "ai": {
+          "title": "Analysis complete",
+          "description": "Structured product info generated; you can continue editing.",
+          "metric": "Done"
+        },
+        "manual": {
+          "title": "Manual info",
+          "description": "Using manually entered product info.",
+          "metric": "Manual"
+        },
+        "history": {
+          "title": "Historical params",
+          "description": "Historical product info applied; you can continue editing.",
+          "metric": "History"
+        },
+        "idle": {
+          "title": "To analyze",
+          "description": {
+            "filled": "Product info filled in; click \"Write for me\" to continue optimizing the plan.",
+            "empty": "You can write a brief requirement, or upload a product image and click \"Write for me\"."
+          },
+          "metric": {
+            "filled": "Filled",
+            "empty": "Empty"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Brand name",
+        "productName": "Product name",
+        "sellingPoints": "Selling points",
+        "productSize": "Size",
+        "targetAudience": "Target audience",
+        "modelImage": "Model image",
+        "faceReference": "Face reference",
+        "backgroundReference": "Background reference",
+        "logo": "Logo"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "Please upload product images first",
@@ -3396,7 +3564,11 @@
       "uploadRef": "Upload reference",
       "favorites": "Saved",
       "openTemplateLibrary": "Open full template library",
-      "referenceNotice": "References only provide style direction and are not broken into templates yet. Pick a preset or upload a reference, then click \"Write product info\" to analyze."
+      "referenceNotice": "References only provide style direction and are not broken into templates yet. Pick a preset or upload a reference, then click \"Write product info\" to analyze.",
+      "smartDesc": "Visual analysis",
+      "presetDesc": "Templates",
+      "uploadDesc": "Custom reference",
+      "favoritesDesc": "Account reuse"
     },
     "generationPlan": {
       "title": "Generation Plan",
@@ -3459,6 +3631,22 @@
       "bold": "Bold / marketing font",
       "handwritten": "Handwritten / calligraphy",
       "custom": "Custom"
+    },
+    "modelDescMax4k": "Up to 4K",
+    "modelBadgeDefault": "Default",
+    "modelBadgeQuality": "High quality",
+    "modelBadgePro": "Pro quality",
+    "previewAction": {
+      "download": "Download image",
+      "copy": "Copy link",
+      "regenerateOne": "Regenerate this",
+      "aiVideo": "AI video",
+      "modelBackground": "Change background",
+      "pose": "Pose variation",
+      "feedback": "Feedback"
+    },
+    "aspectRatio": {
+      "auto": "Auto"
     }
   },
   "Shared": {

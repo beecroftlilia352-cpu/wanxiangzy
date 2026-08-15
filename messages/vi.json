@@ -1158,6 +1158,111 @@
       "3": "Giữ hướng ánh sáng gốc, bóng đổ tự nhiên không bị cháy sáng",
       "4": "Tỷ lệ người ổn định, cổ vai, cánh tay và chân không biến dạng",
       "5": "Chi tiết sản phẩm hiển thị đầy đủ, logo, cúc và khóa kéo không bị mất"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "Thông tin sản phẩm đã được phân tích",
       "infoWritten": "Đã viết giúp thông tin sản phẩm",
       "visualIncomplete": "Phân tích hình ảnh chưa xong, đã sắp thông tin cơ bản từ ảnh",
-      "noInfoReturned": "API phân tích không trả về thông tin sản phẩm, hãy phân tích lại hoặc điền thủ công."
+      "noInfoReturned": "API phân tích không trả về thông tin sản phẩm, hãy phân tích lại hoặc điền thủ công.",
+      "fallbackMessage": {
+        "missingConfig": "Dịch vụ phân tích hình ảnh chưa được cấu hình; đang hiển thị thông tin mẫu cơ bản.",
+        "apiError": "Phân tích hình ảnh trả về {code}; đang hiển thị thông tin mẫu cơ bản.",
+        "allFailed": "Phân tích hình ảnh không có kết quả dùng được, tạm dừng tạo. Hãy phân tích lại hoặc xác nhận tên và danh mục sản phẩm.",
+        "default": "Không có kết quả phân tích đáng tin, tạm dừng tạo. Hãy thử lại hoặc bổ sung tên và danh mục sản phẩm."
+      },
+      "status": {
+        "running": {
+          "title": "Đang phân tích ảnh sản phẩm",
+          "description": "Đang nhận diện tên sản phẩm, danh mục, điểm bán và kế hoạch bộ ảnh phù hợp.",
+          "message": "Nút tạo bị tắt cho đến khi phân tích xong để tránh gửi thông tin chưa đầy đủ.",
+          "metric": "Đang phân tích"
+        },
+        "fallback": {
+          "title": "Phân tích hình ảnh chưa hoàn tất",
+          "description": "Đã điền thông tin cơ bản nhưng chưa nhận diện được sản phẩm cụ thể.",
+          "message": "Kết quả nhận diện chưa đầy đủ; tạm dừng tạo. Hãy phân tích lại hoặc bổ sung tên sản phẩm thủ công.",
+          "metric": "Cần xác nhận"
+        },
+        "failed": {
+          "title": "Phân tích thất bại",
+          "description": "Phân tích sản phẩm thất bại; phân tích lại hoặc điền thủ công.",
+          "message": "Phân tích không trả về kết quả dùng được.",
+          "metric": "Thất bại"
+        },
+        "ai": {
+          "title": "Phân tích hoàn tất",
+          "description": "Đã tạo thông tin sản phẩm có cấu trúc; tiếp tục chỉnh sửa.",
+          "metric": "Xong"
+        },
+        "manual": {
+          "title": "Thông tin thủ công",
+          "description": "Đang dùng thông tin sản phẩm nhập thủ công.",
+          "metric": "Thủ công"
+        },
+        "history": {
+          "title": "Tham số lịch sử",
+          "description": "Đã áp dụng thông tin sản phẩm từ lịch sử; tiếp tục chỉnh sửa.",
+          "metric": "Lịch sử"
+        },
+        "idle": {
+          "title": "Cần phân tích",
+          "description": {
+            "filled": "Đã điền thông tin; nhấn «Viết giúp tôi» để tiếp tục tối ưu kế hoạch.",
+            "empty": "Nhập một yêu cầu hoặc tải ảnh sản phẩm rồi nhấn «Viết giúp tôi»."
+          },
+          "metric": {
+            "filled": "Đã điền",
+            "empty": "Trống"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Tên thương hiệu",
+        "productName": "Tên sản phẩm",
+        "sellingPoints": "Điểm bán",
+        "productSize": "Kích cỡ",
+        "targetAudience": "Đối tượng mục tiêu",
+        "modelImage": "Ảnh người mẫu",
+        "faceReference": "Tham chiếu khuôn mặt",
+        "backgroundReference": "Tham chiếu nền",
+        "logo": "Logo"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "Vui lòng tải ảnh sản phẩm lên trước",
@@ -3396,7 +3564,11 @@
       "uploadRef": "Tham chiếu tải lên",
       "favorites": "Yêu thích",
       "openTemplateLibrary": "Mở thư viện mẫu đầy đủ",
-      "referenceNotice": "Tham chiếu chỉ là hướng phong cách, không tách mẫu ngay. Chọn phong cách cài sẵn hoặc tải ảnh tham chiếu trước, nhấn \"viết thông tin sản phẩm\" để bắt đầu phân tích."
+      "referenceNotice": "Tham chiếu chỉ là hướng phong cách, không tách mẫu ngay. Chọn phong cách cài sẵn hoặc tải ảnh tham chiếu trước, nhấn \"viết thông tin sản phẩm\" để bắt đầu phân tích.",
+      "smartDesc": "Phân tích hình ảnh",
+      "presetDesc": "Mẫu",
+      "uploadDesc": "Tham chiếu tùy chỉnh",
+      "favoritesDesc": "Tái sử dụng tài khoản"
     },
     "generationPlan": {
       "title": "Kế hoạch tạo",
@@ -3459,6 +3631,22 @@
       "bold": "Đậm / marketing",
       "handwritten": "Viết tay / thư pháp",
       "custom": "Tùy chỉnh"
+    },
+    "modelDescMax4k": "Lên đến 4K",
+    "modelBadgeDefault": "Mặc định",
+    "modelBadgeQuality": "Chất lượng cao",
+    "modelBadgePro": "Chất lượng pro",
+    "previewAction": {
+      "download": "Tải ảnh",
+      "copy": "Sao chép liên kết",
+      "regenerateOne": "Tạo lại cái này",
+      "aiVideo": "Video AI",
+      "modelBackground": "Đổi nền",
+      "pose": "Biến thể tư thế",
+      "feedback": "Phản hồi"
+    },
+    "aspectRatio": {
+      "auto": "Tự động"
     }
   },
   "Shared": {

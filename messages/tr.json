@@ -1158,6 +1158,111 @@
       "3": "Orijinal ışık yönünü ve doğal gölgeleri aşırı pozlama olmadan koru",
       "4": "Sabit oranlar — omuzlar, boyun, kollar ve bacaklar değişmesin",
       "5": "Tüm ürün detayları görünür — logolar, düğmeler ve fermuarlar kaybolmasın"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "Ürün bilgisi analiz edildi",
       "infoWritten": "Sizin için ürün bilgisi yazıldı",
       "visualIncomplete": "Görsel analiz eksik; görselden temel bilgiler düzenlendi",
-      "noInfoReturned": "API hiç ürün bilgisi döndürmedi. Lütfen yeniden analiz edin veya elle doldurun."
+      "noInfoReturned": "API hiç ürün bilgisi döndürmedi. Lütfen yeniden analiz edin veya elle doldurun.",
+      "fallbackMessage": {
+        "missingConfig": "Görsel analiz hizmeti yapılandırılmadı; temel şablon bilgisi gösteriliyor.",
+        "apiError": "Görsel analiz {code} döndürdü; temel şablon bilgisi gösteriliyor.",
+        "allFailed": "Görsel analiz kullanılabilir sonuç üretmedi, oluşturma duraklatıldı. Yeniden analiz edin veya ad ve kategoriyi onaylayın.",
+        "default": "Güvenilir analiz sonucu yok, oluşturma duraklatıldı. Tekrar deneyin veya ad ve kategoriyi doldurun."
+      },
+      "status": {
+        "running": {
+          "title": "Ürün görseli analiz ediliyor",
+          "description": "Ürün adı, kategori, satış noktaları ve uygun set planı tanınıyor.",
+          "message": "Analiz tamamlanana kadar oluşturma devre dışı; eksik bilgi göndermeyi önlemek için.",
+          "metric": "Analiz"
+        },
+        "fallback": {
+          "title": "Görsel analiz eksik",
+          "description": "Temel bilgiler girildi ancak belirli ürün henüz tanınmadı.",
+          "message": "Eksik tanıma sonucu; oluşturma duraklatıldı. Yeniden analiz edin veya ürün adını elle tamamlayın.",
+          "metric": "Onaylanacak"
+        },
+        "failed": {
+          "title": "Analiz başarısız",
+          "description": "Ürün analizi başarısız; yeniden analiz edin veya elle doldurun.",
+          "message": "Analiz kullanılabilir sonuç döndürmedi.",
+          "metric": "Başarısız"
+        },
+        "ai": {
+          "title": "Analiz tamamlandı",
+          "description": "Yapılandırılmış ürün bilgisi oluşturuldu; düzenlemeye devam edin.",
+          "metric": "Bitti"
+        },
+        "manual": {
+          "title": "Elle bilgi",
+          "description": "Elle girilen ürün bilgisi kullanılıyor.",
+          "metric": "Elle"
+        },
+        "history": {
+          "title": "Geçmiş parametreleri",
+          "description": "Geçmiş ürün bilgisi uygulandı; düzenlemeye devam edin.",
+          "metric": "Geçmiş"
+        },
+        "idle": {
+          "title": "Analiz edilecek",
+          "description": {
+            "filled": "Bilgi girildi; planı optimize etmek için «Benim için yaz»a tıklayın.",
+            "empty": "Bir gereksinim yazın veya ürün görseli yükleyip «Benim için yaz»a tıklayın."
+          },
+          "metric": {
+            "filled": "Dolu",
+            "empty": "Boş"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Marka adı",
+        "productName": "Ürün adı",
+        "sellingPoints": "Satış noktaları",
+        "productSize": "Beden",
+        "targetAudience": "Hedef kitle",
+        "modelImage": "Model görseli",
+        "faceReference": "Yüz referansı",
+        "backgroundReference": "Arka plan referansı",
+        "logo": "Logo"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "Lütfen önce ürün görsellerini yükleyin",
@@ -3396,7 +3564,11 @@
       "uploadRef": "Referans yükle",
       "favorites": "Kayıtlı",
       "openTemplateLibrary": "Tam şablon kütüphanesini aç",
-      "referenceNotice": "Referanslar yalnızca stil yönü verir ve henüz şablonlara ayrılmaz. Hazır ayar seçin veya referans yükleyin, sonra analiz için \"Ürün bilgisini yaz\" seçeneğine tıklayın."
+      "referenceNotice": "Referanslar yalnızca stil yönü verir ve henüz şablonlara ayrılmaz. Hazır ayar seçin veya referans yükleyin, sonra analiz için \"Ürün bilgisini yaz\" seçeneğine tıklayın.",
+      "smartDesc": "Görsel analiz",
+      "presetDesc": "Şablonlar",
+      "uploadDesc": "Özel referans",
+      "favoritesDesc": "Hesap yeniden kullanımı"
     },
     "generationPlan": {
       "title": "Üretim Planı",
@@ -3459,6 +3631,22 @@
       "bold": "Kalın / pazarlama",
       "handwritten": "El yazısı / kaligrafi",
       "custom": "Özel"
+    },
+    "modelDescMax4k": "4K'ya kadar",
+    "modelBadgeDefault": "Varsayılan",
+    "modelBadgeQuality": "Yüksek kalite",
+    "modelBadgePro": "Pro kalite",
+    "previewAction": {
+      "download": "Görseli indir",
+      "copy": "Bağlantıyı kopyala",
+      "regenerateOne": "Bunu yeniden oluştur",
+      "aiVideo": "AI video",
+      "modelBackground": "Arka planı değiştir",
+      "pose": "Poz varyasyonu",
+      "feedback": "Geri bildirim"
+    },
+    "aspectRatio": {
+      "auto": "Otomatik"
     }
   },
   "Shared": {

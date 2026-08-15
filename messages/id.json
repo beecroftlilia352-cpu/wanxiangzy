@@ -1158,6 +1158,111 @@
       "3": "Pertahankan arah cahaya asli dan bayangan alami tanpa overexposure",
       "4": "Proporsi stabil — bahu, leher, lengan, dan kaki tidak berubah",
       "5": "Semua detail produk terlihat — logo, kancing, dan ritsleting tetap utuh"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "Info produk telah dianalisis",
       "infoWritten": "Info produk dituliskan untuk Anda",
       "visualIncomplete": "Analisis visual belum selesai, info dasar disusun dari gambar",
-      "noInfoReturned": "API analisis tidak mengembalikan info produk, analisis ulang atau isi manual."
+      "noInfoReturned": "API analisis tidak mengembalikan info produk, analisis ulang atau isi manual.",
+      "fallbackMessage": {
+        "missingConfig": "Layanan analisis visual belum dikonfigurasi; menampilkan info templat dasar.",
+        "apiError": "Analisis visual mengembalikan {code}; menampilkan info templat dasar.",
+        "allFailed": "Analisis visual tidak mendapat hasil yang bisa dipakai, generate dijeda. Analisis ulang atau konfirmasi nama dan kategori.",
+        "default": "Tidak ada hasil analisis yang bisa diandalkan, generate dijeda. Coba lagi atau lengkapi nama dan kategori."
+      },
+      "status": {
+        "running": {
+          "title": "Menganalisis gambar produk",
+          "description": "Mengenali nama produk, kategori, nilai jual, dan rencana set yang sesuai.",
+          "message": "Tombol generate dinonaktifkan hingga analisis selesai untuk menghindari kiriman tidak lengkap.",
+          "metric": "Menganalisis"
+        },
+        "fallback": {
+          "title": "Analisis visual belum selesai",
+          "description": "Info dasar sudah diisi, tetapi produk spesifik belum dikenali.",
+          "message": "Hasil pengenalan tidak lengkap; generate dijeda. Analisis ulang atau lengkapi nama produk secara manual.",
+          "metric": "Perlu konfirmasi"
+        },
+        "failed": {
+          "title": "Analisis gagal",
+          "description": "Analisis produk gagal; analisis ulang atau isi manual.",
+          "message": "Analisis tidak mengembalikan hasil yang bisa dipakai.",
+          "metric": "Gagal"
+        },
+        "ai": {
+          "title": "Analisis selesai",
+          "description": "Info produk terstruktur dibuat; lanjutkan pengeditan.",
+          "metric": "Selesai"
+        },
+        "manual": {
+          "title": "Info manual",
+          "description": "Menggunakan info produk yang diisi manual.",
+          "metric": "Manual"
+        },
+        "history": {
+          "title": "Parameter riwayat",
+          "description": "Info produk riwayat diterapkan; lanjutkan pengeditan.",
+          "metric": "Riwayat"
+        },
+        "idle": {
+          "title": "Untuk dianalisis",
+          "description": {
+            "filled": "Info sudah diisi; klik «Tulis untuk saya» untuk melanjutkan optimasi rencana.",
+            "empty": "Tulis kebutuhan atau unggah gambar produk lalu klik «Tulis untuk saya»."
+          },
+          "metric": {
+            "filled": "Terisi",
+            "empty": "Kosong"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "Nama merek",
+        "productName": "Nama produk",
+        "sellingPoints": "Nilai jual",
+        "productSize": "Ukuran",
+        "targetAudience": "Target audiens",
+        "modelImage": "Gambar model",
+        "faceReference": "Referensi wajah",
+        "backgroundReference": "Referensi latar",
+        "logo": "Logo"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "Silakan unggah gambar produk terlebih dahulu",
@@ -3396,7 +3564,11 @@
       "uploadRef": "Referensi unggah",
       "favorites": "Favorit",
       "openTemplateLibrary": "Buka pustaka template lengkap",
-      "referenceNotice": "Referensi hanya arah gaya, tidak langsung memecah template. Pilih preset atau unggah gambar referensi dulu, klik \"tulis info produk\" untuk mulai analisis."
+      "referenceNotice": "Referensi hanya arah gaya, tidak langsung memecah template. Pilih preset atau unggah gambar referensi dulu, klik \"tulis info produk\" untuk mulai analisis.",
+      "smartDesc": "Analisis visual",
+      "presetDesc": "Templat",
+      "uploadDesc": "Referensi khusus",
+      "favoritesDesc": "Pemakaian ulang akun"
     },
     "generationPlan": {
       "title": "Rencana generate",
@@ -3459,6 +3631,22 @@
       "bold": "Tebal / pemasaran",
       "handwritten": "Tulisan tangan / kaligrafi",
       "custom": "Kustom"
+    },
+    "modelDescMax4k": "Hingga 4K",
+    "modelBadgeDefault": "Bawaan",
+    "modelBadgeQuality": "Kualitas tinggi",
+    "modelBadgePro": "Kualitas pro",
+    "previewAction": {
+      "download": "Unduh gambar",
+      "copy": "Salin tautan",
+      "regenerateOne": "Regenerasi ini",
+      "aiVideo": "Video AI",
+      "modelBackground": "Ganti latar",
+      "pose": "Variasi pose",
+      "feedback": "Umpan balik"
+    },
+    "aspectRatio": {
+      "auto": "Otomatis"
     }
   },
   "Shared": {

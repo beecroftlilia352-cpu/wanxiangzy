@@ -2871,7 +2871,70 @@
       "infoAnalyzed": "วิเคราะห์ข้อมูลสินค้าแล้ว",
       "infoWritten": "เขียนข้อมูลสินค้าให้แล้ว",
       "visualIncomplete": "วิเคราะห์ภาพยังไม่เสร็จ จัดข้อมูลพื้นฐานจากภาพก่อน",
-      "noInfoReturned": "อินเทอร์เฟซวิเคราะห์ไม่ส่งข้อมูลสินค้ากลับ กรุณาวิเคราะห์ใหม่หรือกรอกด้วยตนเอง"
+      "noInfoReturned": "อินเทอร์เฟซวิเคราะห์ไม่ส่งข้อมูลสินค้ากลับ กรุณาวิเคราะห์ใหม่หรือกรอกด้วยตนเอง",
+      "fallbackMessage": {
+        "missingConfig": "บริการวิเคราะห์ภาพยังไม่ได้ตั้งค่า กำลังแสดงข้อมูลเทมเพลตพื้นฐาน",
+        "apiError": "การวิเคราะห์ภาพส่ง {code} กลับมา กำลังแสดงข้อมูลเทมเพลตพื้นฐาน",
+        "allFailed": "การวิเคราะห์ภาพไม่ได้ผลลัพธ์ที่ใช้ได้ หยุดการสร้างชั่วคราว วิเคราะห์ใหม่หรือยืนยันชื่อและหมวดหมู่",
+        "default": "ไม่มีผลการวิเคราะห์ที่น่าเชื่อถือ หยุดการสร้างชั่วคราว ลองใหม่หรือเติมชื่อและหมวดหมู่"
+      },
+      "status": {
+        "running": {
+          "title": "กำลังวิเคราะห์ภาพสินค้า",
+          "description": "กำลังจดจำชื่อสินค้า หมวดหมู่ จุดขาย และแผนชุดภาพที่เหมาะสม",
+          "message": "ปุ่มสร้างถูกปิดใช้งานจนกว่าการวิเคราะห์จะเสร็จเพื่อเลี่ยงการส่งข้อมูลไม่ครบ",
+          "metric": "กำลังวิเคราะห์"
+        },
+        "fallback": {
+          "title": "การวิเคราะห์ภาพยังไม่เสร็จ",
+          "description": "กรอกข้อมูลพื้นฐานแล้ว แต่ยังจดจำสินค้าเฉพาะไม่ได้",
+          "message": "ผลการจดจำไม่ครบถ้วน หยุดการสร้างชั่วคราว กรุณาวิเคราะห์ใหม่หรือเติมชื่อสินค้าด้วยตนเอง",
+          "metric": "รอยืนยัน"
+        },
+        "failed": {
+          "title": "การวิเคราะห์ล้มเหลว",
+          "description": "การวิเคราะห์สินค้าล้มเหลว วิเคราะห์ใหม่หรือกรอกด้วยตนเอง",
+          "message": "การวิเคราะห์ไม่ส่งผลลัพธ์ที่ใช้ได้กลับมา",
+          "metric": "ล้มเหลว"
+        },
+        "ai": {
+          "title": "การวิเคราะห์เสร็จสิ้น",
+          "description": "สร้างข้อมูลสินค้าแบบมีโครงสร้างแล้ว แก้ไขต่อได้",
+          "metric": "เสร็จ"
+        },
+        "manual": {
+          "title": "ข้อมูลมือ",
+          "description": "กำลังใช้ข้อมูลสินค้าที่กรอกด้วยตนเอง",
+          "metric": "มือ"
+        },
+        "history": {
+          "title": "พารามิเตอร์ประวัติ",
+          "description": "ใช้ข้อมูลสินค้าจากประวัติแล้ว แก้ไขต่อได้",
+          "metric": "ประวัติ"
+        },
+        "idle": {
+          "title": "รอวิเคราะห์",
+          "description": {
+            "filled": "กรอกข้อมูลแล้ว คลิก «เขียนให้ฉัน» เพื่อปรับแผนต่อ",
+            "empty": "เขียนความต้องการ หรืออัปโหลดภาพสินค้าแล้วคลิก «เขียนให้ฉัน»"
+          },
+          "metric": {
+            "filled": "กรอกแล้ว",
+            "empty": "ว่าง"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "ชื่อแบรนด์",
+        "productName": "ชื่อสินค้า",
+        "sellingPoints": "จุดขาย",
+        "productSize": "ขนาด",
+        "targetAudience": "กลุ่มเป้าหมาย",
+        "modelImage": "ภาพนางแบบ",
+        "faceReference": "อ้างอิงใบหน้า",
+        "backgroundReference": "อ้างอิงพื้นหลัง",
+        "logo": "โลโก้"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "กรุณาอัปโหลดภาพสินค้าก่อน",
@@ -2977,7 +3040,11 @@
       "uploadRef": "อัปโหลดภาพอ้างอิง",
       "favorites": "ที่เก็บไว้",
       "openTemplateLibrary": "เปิดคลังเทมเพลตทั้งหมด",
-      "referenceNotice": "ภาพอ้างอิงเป็นเพียงทิศทางสไตล์ ไม่แยกเทมเพลตทันที กรุณาเลือกสไตล์ที่ตั้งไว้หรืออัปโหลดภาพอ้างอิงก่อน แล้วคลิก「ช่วยเขียนข้อมูลสินค้า」เพื่อเริ่มวิเคราะห์"
+      "referenceNotice": "ภาพอ้างอิงเป็นเพียงทิศทางสไตล์ ไม่แยกเทมเพลตทันที กรุณาเลือกสไตล์ที่ตั้งไว้หรืออัปโหลดภาพอ้างอิงก่อน แล้วคลิก「ช่วยเขียนข้อมูลสินค้า」เพื่อเริ่มวิเคราะห์",
+      "smartDesc": "การวิเคราะห์ภาพ",
+      "presetDesc": "เทมเพลต",
+      "uploadDesc": "อ้างอิงกำหนดเอง",
+      "favoritesDesc": "ใช้บัญชีซ้ำ"
     },
     "generationPlan": {
       "title": "แผนการสร้าง",
@@ -3040,6 +3107,22 @@
       "bold": "หนา / การตลาด",
       "handwritten": "เขียนมือ / อักษรวิจิตร",
       "custom": "กำหนดเอง"
+    },
+    "modelDescMax4k": "สูงสุด 4K",
+    "modelBadgeDefault": "ค่าเริ่มต้น",
+    "modelBadgeQuality": "คุณภาพสูง",
+    "modelBadgePro": "คุณภาพโปร",
+    "previewAction": {
+      "download": "ดาวน์โหลดภาพ",
+      "copy": "คัดลอกลิงก์",
+      "regenerateOne": "สร้างอันนี้ใหม่",
+      "aiVideo": "วิดีโอ AI",
+      "modelBackground": "เปลี่ยนพื้นหลัง",
+      "pose": "ท่าทางรูปแบบ",
+      "feedback": "ข้อเสนอแนะ"
+    },
+    "aspectRatio": {
+      "auto": "อัตโนมัติ"
     }
   },
   "Video": {
@@ -3585,6 +3668,111 @@
       "3": "คงทิศทางแสงของภาพต้นฉบับและเงาที่เป็นธรรมชาติ ไม่โอเวอร์เอ็กซ์โพส",
       "4": "สัดส่วนรูปร่างคงที่ ไหล่ คอ แขน และขาไม่ผิดรูป",
       "5": "รายละเอียดสินค้ามองเห็นครบ โลโก้ กระดุม และซิปไม่หายไป"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "Full body",
+        "threeQuarter": "Three-quarter",
+        "upperBody": "Upper body",
+        "lowerBody": "Lower body",
+        "closeup": "Close-up",
+        "sceneOnly": "Scene only",
+        "partialUnknown": "Partial"
+      },
+      "summary": {
+        "fallback": "Recognition unavailable / keep original composition",
+        "referenceImage": "Reference image"
+      },
+      "part": {
+        "faceVisible": "Face visible",
+        "noFace": "No face",
+        "noHead": "No head",
+        "upperOnly": "Upper body only",
+        "lowerOnly": "Lower body only",
+        "handsVisible": "Hands visible",
+        "feetVisible": "Feet visible",
+        "noPerson": "No person"
+      },
+      "fallbackDefault": "Processed conservatively per original composition",
+      "listSeparator": ", ",
+      "focusPrefix": "Focus: {details}",
+      "gender": {
+        "unisex": "Unisex"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "Pose": {

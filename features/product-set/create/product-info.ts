@@ -2,6 +2,8 @@ import type { ProductSetImageType, ProductSetProductProfile } from "@/lib/produc
 
 export type ProductAnalysisSource = "idle" | "running" | "ai" | "fallback" | "manual" | "history" | "failed";
 
+type Translate = (key: string, values?: Record<string, string | number>) => string;
+
 export function parseProductInfo(text: string) {
   return {
     name: extractProductField(text, ["产品名称", "商品名称", "品名"]),
@@ -33,75 +35,75 @@ export function isPlaceholderProductName(name: string) {
   return !normalized || /待分析|待确认|待识别|未识别/.test(normalized);
 }
 
-export function getAnalysisFallbackMessage(reason: unknown) {
+export function getAnalysisFallbackMessage(reason: unknown, t: Translate) {
   const value = typeof reason === "string" ? reason : "";
-  if (value === "missing_api_key" || value === "missing_base_url") return "视觉分析服务没有配置完成，当前展示的是基础模板信息。";
-  if (value.startsWith("api_")) return `视觉分析接口返回 ${value.replace("api_", "")}，当前展示的是基础模板信息。`;
-  if (value.startsWith("all_failed:")) return "视觉分析没有拿到可用结果，已暂停生成。请重试分析或手动确认商品名称与类目。";
-  return "没有拿到可靠的视觉分析结果，已暂停生成。请重试或手动补充商品名称与类目。";
+  if (value === "missing_api_key" || value === "missing_base_url") return t("analysis.fallbackMessage.missingConfig");
+  if (value.startsWith("api_")) return t("analysis.fallbackMessage.apiError", { code: value.replace("api_", "") });
+  if (value.startsWith("all_failed:")) return t("analysis.fallbackMessage.allFailed");
+  return t("analysis.fallbackMessage.default");
 }
 
-export function getProductAnalysisStatus(params: { source: ProductAnalysisSource; hasProductInfo: boolean; message: string }) {
+export function getProductAnalysisStatus(params: { source: ProductAnalysisSource; hasProductInfo: boolean; message: string }, t: Translate) {
   if (params.source === "running") {
     return {
       tone: "running" as const,
-      title: "正在分析商品图",
-      description: "正在识别商品名称、类目、卖点和适合的套图计划。",
-      message: "分析完成前已禁用生成按钮，避免用不完整信息提交。",
-      metric: "分析中",
+      title: t("analysis.status.running.title"),
+      description: t("analysis.status.running.description"),
+      message: t("analysis.status.running.message"),
+      metric: t("analysis.status.running.metric"),
     };
   }
   if (params.source === "fallback") {
     return {
       tone: "warning" as const,
-      title: "未完成视觉分析",
-      description: "已填入基础商品信息，但还没有识别出具体商品。",
-      message: params.message || "当前不是完整识别结果，生成按钮已暂停；请重新分析或手动补充商品名称。",
-      metric: "待确认",
+      title: t("analysis.status.fallback.title"),
+      description: t("analysis.status.fallback.description"),
+      message: params.message || t("analysis.status.fallback.message"),
+      metric: t("analysis.status.fallback.metric"),
     };
   }
   if (params.source === "failed") {
     return {
       tone: "error" as const,
-      title: "分析失败",
-      description: "商品分析失败，可重新分析或手动填写。",
-      message: params.message || "分析接口没有返回可用结果。",
-      metric: "失败",
+      title: t("analysis.status.failed.title"),
+      description: t("analysis.status.failed.description"),
+      message: params.message || t("analysis.status.failed.message"),
+      metric: t("analysis.status.failed.metric"),
     };
   }
   if (params.source === "ai") {
     return {
       tone: "quiet" as const,
-      title: "分析已完成",
-      description: "已生成结构化商品信息，可继续编辑。",
+      title: t("analysis.status.ai.title"),
+      description: t("analysis.status.ai.description"),
       message: "",
-      metric: "已完成",
+      metric: t("analysis.status.ai.metric"),
     };
   }
   if (params.source === "manual") {
     return {
       tone: "quiet" as const,
-      title: "手动信息",
-      description: "已使用手动填写的商品信息。",
+      title: t("analysis.status.manual.title"),
+      description: t("analysis.status.manual.description"),
       message: "",
-      metric: "手动",
+      metric: t("analysis.status.manual.metric"),
     };
   }
   if (params.source === "history") {
     return {
       tone: "quiet" as const,
-      title: "历史参数",
-      description: "已套用历史商品信息，可继续编辑。",
+      title: t("analysis.status.history.title"),
+      description: t("analysis.status.history.description"),
       message: "",
-      metric: "历史",
+      metric: t("analysis.status.history.metric"),
     };
   }
   return {
     tone: "quiet" as const,
-    title: "待分析",
-    description: params.hasProductInfo ? "已填写商品信息，点击帮我写可继续优化规划。" : "可以先写一句需求，也可以上传商品图后点帮我写。",
+    title: t("analysis.status.idle.title"),
+    description: params.hasProductInfo ? t("analysis.status.idle.description.filled") : t("analysis.status.idle.description.empty"),
     message: "",
-    metric: params.hasProductInfo ? "已填写" : "未填写",
+    metric: params.hasProductInfo ? t("analysis.status.idle.metric.filled") : t("analysis.status.idle.metric.empty"),
   };
 }
 
@@ -116,19 +118,19 @@ export function getDefaultGenerationCount(imageType: ProductSetImageType, profil
   return 5;
 }
 
-export function formatMissingInfo(value: string) {
-  const map: Record<string, string> = {
-    brand_name: "品牌名",
-    product_name: "商品名",
-    selling_points: "核心卖点",
-    product_size: "尺码/尺寸",
-    target_audience: "目标人群",
-    model_image: "模特图",
-    face_reference: "人脸参考",
-    background_reference: "背景参考",
-    logo: "Logo",
+export function formatMissingInfo(value: string, t: Translate) {
+  const keyMap: Record<string, string> = {
+    brand_name: "analysis.missingInfo.brandName",
+    product_name: "analysis.missingInfo.productName",
+    selling_points: "analysis.missingInfo.sellingPoints",
+    product_size: "analysis.missingInfo.productSize",
+    target_audience: "analysis.missingInfo.targetAudience",
+    model_image: "analysis.missingInfo.modelImage",
+    face_reference: "analysis.missingInfo.faceReference",
+    background_reference: "analysis.missingInfo.backgroundReference",
+    logo: "analysis.missingInfo.logo",
   };
-  return map[value] || value;
+  return keyMap[value] ? t(keyMap[value]) : value;
 }
 
 function extractProductField(text: string, labels: string[] | string) {

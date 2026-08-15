@@ -1158,6 +1158,111 @@
       "3": "保持原图光线方向，阴影自然不过曝",
       "4": "人物比例稳定，肩颈、手臂和腿部不变形",
       "5": "商品细节完整可见，logo、纽扣、拉链不丢失"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "全身",
+        "threeQuarter": "七分身",
+        "upperBody": "上半身",
+        "lowerBody": "下半身局部",
+        "closeup": "局部特写",
+        "sceneOnly": "纯场景",
+        "partialUnknown": "局部未知"
+      },
+      "summary": {
+        "fallback": "识别不可用 / 保持原图构图",
+        "referenceImage": "参考图"
+      },
+      "part": {
+        "faceVisible": "露脸",
+        "noFace": "无脸",
+        "noHead": "无头部",
+        "upperOnly": "只见上身",
+        "lowerOnly": "只见下身",
+        "handsVisible": "手部可见",
+        "feetVisible": "脚部可见",
+        "noPerson": "无人像"
+      },
+      "fallbackDefault": "按原图结构保守处理",
+      "listSeparator": "、",
+      "focusPrefix": "重点：{details}",
+      "gender": {
+        "unisex": "通用"
+      },
+      "material": {
+        "tweed": "粗花呢",
+        "denim": "牛仔",
+        "lace": "蕾丝",
+        "leather": "皮革",
+        "knit": "针织",
+        "satin": "缎面",
+        "chiffon": "雪纺",
+        "cotton": "棉质",
+        "wool": "羊毛"
+      },
+      "cut": {
+        "shortSleeve": "短袖",
+        "longSleeve": "长袖",
+        "sleeveless": "无袖",
+        "pointedToe": "尖头",
+        "chainStrap": "链条肩带",
+        "lettering": "字母"
+      },
+      "item": {
+        "midiDress": "中长连衣裙",
+        "miniDress": "短款连衣裙",
+        "dress": "连衣裙",
+        "tights": "连裤袜",
+        "shoes": "鞋",
+        "bag": "包",
+        "bracelet": "手链",
+        "necklace": "项链",
+        "earrings": "耳饰",
+        "strap": "肩带",
+        "skirt": "半裙",
+        "jeans": "牛仔裤",
+        "pants": "裤装",
+        "shirt": "衬衫",
+        "tShirt": "T 恤",
+        "jacket": "外套",
+        "top": "上衣"
+      },
+      "lighting": {
+        "soft": "柔和",
+        "even": "均匀",
+        "studio": "棚拍光",
+        "lowShadow": "少阴影",
+        "natural": "自然光",
+        "warm": "暖调",
+        "cool": "冷调",
+        "recognized": "光线已识别"
+      },
+      "framing": {
+        "fullBody": "全身构图",
+        "threeQuarter": "七分身构图",
+        "upperBody": "上半身构图",
+        "lowerBody": "下半身构图",
+        "closeup": "局部特写"
+      },
+      "color": {
+        "lightBlue": "浅蓝",
+        "darkBlue": "深蓝",
+        "blue": "蓝色",
+        "ivory": "米白",
+        "white": "白色",
+        "black": "黑色",
+        "burgundy": "酒红",
+        "red": "红色",
+        "gold": "金色",
+        "silver": "银色",
+        "gray": "灰色",
+        "beige": "米色",
+        "pink": "粉色",
+        "green": "绿色",
+        "brown": "棕色",
+        "yellow": "黄色",
+        "purple": "紫色"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "商品信息已分析",
       "infoWritten": "已帮你写好商品信息",
       "visualIncomplete": "视觉分析未完成，已先根据图片整理基础信息",
-      "noInfoReturned": "分析接口没有返回商品信息，请重新分析或手动填写。"
+      "noInfoReturned": "分析接口没有返回商品信息，请重新分析或手动填写。",
+      "fallbackMessage": {
+        "missingConfig": "视觉分析服务没有配置完成，当前展示的是基础模板信息。",
+        "apiError": "视觉分析接口返回 {code}，当前展示的是基础模板信息。",
+        "allFailed": "视觉分析没有拿到可用结果，已暂停生成。请重试分析或手动确认商品名称与类目。",
+        "default": "没有拿到可靠的视觉分析结果，已暂停生成。请重试或手动补充商品名称与类目。"
+      },
+      "status": {
+        "running": {
+          "title": "正在分析商品图",
+          "description": "正在识别商品名称、类目、卖点和适合的套图计划。",
+          "message": "分析完成前已禁用生成按钮，避免用不完整信息提交。",
+          "metric": "分析中"
+        },
+        "fallback": {
+          "title": "未完成视觉分析",
+          "description": "已填入基础商品信息，但还没有识别出具体商品。",
+          "message": "当前不是完整识别结果，生成按钮已暂停；请重新分析或手动补充商品名称。",
+          "metric": "待确认"
+        },
+        "failed": {
+          "title": "分析失败",
+          "description": "商品分析失败，可重新分析或手动填写。",
+          "message": "分析接口没有返回可用结果。",
+          "metric": "失败"
+        },
+        "ai": {
+          "title": "分析已完成",
+          "description": "已生成结构化商品信息，可继续编辑。",
+          "metric": "已完成"
+        },
+        "manual": {
+          "title": "手动信息",
+          "description": "已使用手动填写的商品信息。",
+          "metric": "手动"
+        },
+        "history": {
+          "title": "历史参数",
+          "description": "已套用历史商品信息，可继续编辑。",
+          "metric": "历史"
+        },
+        "idle": {
+          "title": "待分析",
+          "description": {
+            "filled": "已填写商品信息，点击帮我写可继续优化规划。",
+            "empty": "可以先写一句需求，也可以上传商品图后点帮我写。"
+          },
+          "metric": {
+            "filled": "已填写",
+            "empty": "未填写"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "品牌名",
+        "productName": "商品名",
+        "sellingPoints": "核心卖点",
+        "productSize": "尺码/尺寸",
+        "targetAudience": "目标人群",
+        "modelImage": "模特图",
+        "faceReference": "人脸参考",
+        "backgroundReference": "背景参考",
+        "logo": "Logo"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "请先上传商品图",
@@ -3396,7 +3564,11 @@
       "uploadRef": "上传参考",
       "favorites": "收藏",
       "openTemplateLibrary": "打开完整模板库",
-      "referenceNotice": "参考只是风格方向，不会立即拆解模板。请先选择预设风格或上传参考图，再点击“帮我写商品信息”开始分析。"
+      "referenceNotice": "参考只是风格方向，不会立即拆解模板。请先选择预设风格或上传参考图，再点击“帮我写商品信息”开始分析。",
+      "smartDesc": "视觉分析",
+      "presetDesc": "项目模板",
+      "uploadDesc": "自定义参考",
+      "favoritesDesc": "账号复用"
     },
     "generationPlan": {
       "title": "生成计划",
@@ -3459,6 +3631,22 @@
       "bold": "力量粗体/营销体",
       "handwritten": "手写/书法体",
       "custom": "自定义"
+    },
+    "modelDescMax4k": "最高4K",
+    "modelBadgeDefault": "默认",
+    "modelBadgeQuality": "高质感",
+    "modelBadgePro": "高质精修",
+    "previewAction": {
+      "download": "下载图片",
+      "copy": "复制链接",
+      "regenerateOne": "重生本张",
+      "aiVideo": "AI视频",
+      "modelBackground": "换背景",
+      "pose": "姿势裂变",
+      "feedback": "反馈"
+    },
+    "aspectRatio": {
+      "auto": "智能"
     }
   },
   "Shared": {

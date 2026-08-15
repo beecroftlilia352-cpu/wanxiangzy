@@ -1158,6 +1158,111 @@
       "3": "원본의 광원 방향 유지, 그림자 자연스럽게, 과노출 없이",
       "4": "인물 비율을 안정적으로, 어깨·목·팔·다리 변형 없이",
       "5": "상품 디테일 완전 노출, 로고·단추·지퍼 보존"
+    },
+    "analysisLabels": {
+      "bodyCrop": {
+        "fullBody": "전신",
+        "threeQuarter": "칠분신",
+        "upperBody": "상반신",
+        "lowerBody": "하반신",
+        "closeup": "클로즈업",
+        "sceneOnly": "배경만",
+        "partialUnknown": "부분 불명"
+      },
+      "summary": {
+        "fallback": "인식 불가 / 원본 구도 유지",
+        "referenceImage": "참조 이미지"
+      },
+      "part": {
+        "faceVisible": "얼굴 보임",
+        "noFace": "얼굴 없음",
+        "noHead": "머리 없음",
+        "upperOnly": "상반신만",
+        "lowerOnly": "하반신만",
+        "handsVisible": "손 보임",
+        "feetVisible": "발 보임",
+        "noPerson": "인물 없음"
+      },
+      "fallbackDefault": "원본 구도 기준 보수 처리",
+      "listSeparator": "·",
+      "focusPrefix": "중점: {details}",
+      "gender": {
+        "unisex": "남녀 공용"
+      },
+      "material": {
+        "tweed": "Tweed",
+        "denim": "Denim",
+        "lace": "Lace",
+        "leather": "Leather",
+        "knit": "Knit",
+        "satin": "Satin",
+        "chiffon": "Chiffon",
+        "cotton": "Cotton",
+        "wool": "Wool"
+      },
+      "cut": {
+        "shortSleeve": "Short sleeve",
+        "longSleeve": "Long sleeve",
+        "sleeveless": "Sleeveless",
+        "pointedToe": "Pointed toe",
+        "chainStrap": "Chain strap",
+        "lettering": "Lettering"
+      },
+      "item": {
+        "midiDress": "Midi dress",
+        "miniDress": "Mini dress",
+        "dress": "Dress",
+        "tights": "Tights",
+        "shoes": "Shoes",
+        "bag": "Bag",
+        "bracelet": "Bracelet",
+        "necklace": "Necklace",
+        "earrings": "Earrings",
+        "strap": "Strap",
+        "skirt": "Skirt",
+        "jeans": "Jeans",
+        "pants": "Pants",
+        "shirt": "Shirt",
+        "tShirt": "T-shirt",
+        "jacket": "Jacket",
+        "top": "Top"
+      },
+      "lighting": {
+        "soft": "Soft",
+        "even": "Even",
+        "studio": "Studio light",
+        "lowShadow": "Low shadow",
+        "natural": "Natural light",
+        "warm": "Warm tone",
+        "cool": "Cool tone",
+        "recognized": "Lighting detected"
+      },
+      "framing": {
+        "fullBody": "Full-body shot",
+        "threeQuarter": "Three-quarter shot",
+        "upperBody": "Upper-body shot",
+        "lowerBody": "Lower-body shot",
+        "closeup": "Close-up"
+      },
+      "color": {
+        "lightBlue": "Light blue",
+        "darkBlue": "Dark blue",
+        "blue": "Blue",
+        "ivory": "Ivory",
+        "white": "White",
+        "black": "Black",
+        "burgundy": "Burgundy",
+        "red": "Red",
+        "gold": "Gold",
+        "silver": "Silver",
+        "gray": "Gray",
+        "beige": "Beige",
+        "pink": "Pink",
+        "green": "Green",
+        "brown": "Brown",
+        "yellow": "Yellow",
+        "purple": "Purple"
+      }
     }
   },
   "FaceSwap": {
@@ -3290,7 +3395,70 @@
       "infoAnalyzed": "상품 정보 분석됨",
       "infoWritten": "상품 정보를 대신 작성했습니다",
       "visualIncomplete": "비주얼 분석 미완료, 이미지를 기반으로 기본 정보를 우선 정리했습니다",
-      "noInfoReturned": "분석 API가 상품 정보를 반환하지 않았습니다. 다시 분석하거나 수동으로 입력하세요."
+      "noInfoReturned": "분석 API가 상품 정보를 반환하지 않았습니다. 다시 분석하거나 수동으로 입력하세요.",
+      "fallbackMessage": {
+        "missingConfig": "시각 분석 서비스가 설정되지 않아 기본 템플릿 정보를 표시하고 있습니다.",
+        "apiError": "시각 분석이 {code}을(를) 반환했습니다. 기본 템플릿 정보를 표시하고 있습니다.",
+        "allFailed": "시각 분석에서 사용 가능한 결과를 얻지 못해 생성을 일시 중지했습니다. 다시 분석하거나 상품명과 카테고리를 수동으로 확인하세요.",
+        "default": "신뢰할 수 있는 시각 분석 결과를 얻지 못해 생성을 일시 중지했습니다. 다시 시도하거나 상품명과 카테고리를 수동으로 보완하세요."
+      },
+      "status": {
+        "running": {
+          "title": "상품 이미지 분석 중",
+          "description": "상품명·카테고리·판매 포인트·적합한 세트 계획을 인식하고 있습니다.",
+          "message": "분석 완료 전까지 생성 버튼을 비활성화해 불완전한 정보로 제출하지 않도록 합니다.",
+          "metric": "분석 중"
+        },
+        "fallback": {
+          "title": "시각 분석 미완료",
+          "description": "기본 상품 정보를 입력했지만 아직 구체적인 상품을 인식하지 못했습니다.",
+          "message": "완전한 인식 결과가 아니므로 생성 버튼을 일시 중지했습니다. 다시 분석하거나 상품명을 수동으로 보완하세요.",
+          "metric": "확인 필요"
+        },
+        "failed": {
+          "title": "분석 실패",
+          "description": "상품 분석에 실패했습니다. 다시 분석하거나 수동으로 입력하세요.",
+          "message": "분석에서 사용 가능한 결과가 반환되지 않았습니다.",
+          "metric": "실패"
+        },
+        "ai": {
+          "title": "분석 완료",
+          "description": "구조화된 상품 정보를 생성했습니다. 계속 편집할 수 있습니다.",
+          "metric": "완료"
+        },
+        "manual": {
+          "title": "수동 정보",
+          "description": "수동 입력 상품 정보를 사용했습니다.",
+          "metric": "수동"
+        },
+        "history": {
+          "title": "이력 매개변수",
+          "description": "이력 상품 정보를 적용했습니다. 계속 편집할 수 있습니다.",
+          "metric": "이력"
+        },
+        "idle": {
+          "title": "분석 대기",
+          "description": {
+            "filled": "상품 정보를 입력했습니다. '작성 도움'을 클릭하면 계획 최적화를 이어갈 수 있습니다.",
+            "empty": "요구사항을 한 줄 쓰거나 상품 이미지를 업로드한 뒤 '작성 도움'을 클릭할 수 있습니다."
+          },
+          "metric": {
+            "filled": "입력됨",
+            "empty": "미입력"
+          }
+        }
+      },
+      "missingInfo": {
+        "brandName": "브랜드명",
+        "productName": "상품명",
+        "sellingPoints": "핵심 판매 포인트",
+        "productSize": "사이즈",
+        "targetAudience": "대상 고객",
+        "modelImage": "모델 이미지",
+        "faceReference": "얼굴 참조",
+        "backgroundReference": "배경 참조",
+        "logo": "로고"
+      }
     },
     "analyze": {
       "pleaseUploadFirst": "상품 이미지를 먼저 업로드하세요",
@@ -3396,7 +3564,11 @@
       "uploadRef": "업로드 레퍼런스",
       "favorites": "저장됨",
       "openTemplateLibrary": "전체 템플릿 라이브러리 열기",
-      "referenceNotice": "레퍼런스는 스타일 방향만 제공하며 아직 템플릿으로 분해되지 않습니다. 프리셋 스타일을 선택하거나 레퍼런스를 업로드한 후 \"상품 정보 작성\"을 클릭해 분석하세요."
+      "referenceNotice": "레퍼런스는 스타일 방향만 제공하며 아직 템플릿으로 분해되지 않습니다. 프리셋 스타일을 선택하거나 레퍼런스를 업로드한 후 \"상품 정보 작성\"을 클릭해 분석하세요.",
+      "smartDesc": "시각 분석",
+      "presetDesc": "템플릿",
+      "uploadDesc": "사용자 정의 참조",
+      "favoritesDesc": "계정 재사용"
     },
     "generationPlan": {
       "title": "생성 기획",
@@ -3459,6 +3631,22 @@
       "bold": "강렬한 굵은 글씨/마케팅체",
       "handwritten": "손글씨/서예체",
       "custom": "사용자 지정"
+    },
+    "modelDescMax4k": "최대 4K",
+    "modelBadgeDefault": "기본",
+    "modelBadgeQuality": "고품질",
+    "modelBadgePro": "고급 보정",
+    "previewAction": {
+      "download": "이미지 다운로드",
+      "copy": "링크 복사",
+      "regenerateOne": "이 항목 재생성",
+      "aiVideo": "AI 동영상",
+      "modelBackground": "배경 변경",
+      "pose": "포즈 변형",
+      "feedback": "피드백"
+    },
+    "aspectRatio": {
+      "auto": "자동"
     }
   },
   "Shared": {
