@@ -140,19 +140,19 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-white text-[#050505] dark:bg-stone-950 dark:text-stone-100">
       <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505] dark:bg-stone-950 dark:text-stone-100">
-        {/* Artistry：iridescent 光斑 + Liquid Glass scrim（大师级氛围层） */}
-        <div className="artistry-hero-glow" aria-hidden="true">
-          <div className="artistry-hero-blob artistry-hero-blob--violet" />
-          <div className="artistry-hero-blob artistry-hero-blob--pink" />
-          <div className="artistry-hero-blob artistry-hero-blob--ice" />
-        </div>
         {/* P2.1 hero video: preload=metadata saves bandwidth, hidden on mobile,
             poster fallback so reduced-motion / mobile users see a still frame. */}
         <video className="home-hero-video-bg hidden md:block" autoPlay muted loop playsInline preload="metadata" poster="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a-poster.jpg" aria-hidden="true">
           <source src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
         </video>
-        <div className="home-hero-video-scrim" aria-hidden="true" />
+        {/* Artistry：iridescent 光斑 + Liquid Glass scrim（大师级氛围层，位于视频之上） */}
+        <div className="artistry-hero-glow" aria-hidden="true">
+          <div className="artistry-hero-blob artistry-hero-blob--violet" />
+          <div className="artistry-hero-blob artistry-hero-blob--pink" />
+          <div className="artistry-hero-blob artistry-hero-blob--ice" />
+        </div>
         <div className="artistry-hero-glass" aria-hidden="true" />
+        <div className="home-hero-video-scrim" aria-hidden="true" />
         <div className="home-hero-frame relative mx-auto flex min-h-[640px] max-w-[1440px] flex-col items-center px-5 pb-0 pt-[88px] text-center sm:min-h-[760px] sm:px-8 sm:pt-[108px] md:min-h-[960px] md:pt-[138px] lg:min-h-[1100px] lg:px-10 lg:pt-[156px] xl:min-h-[1240px] xl:pt-[176px]">
           <div className="home-logo-tile">
             <Image src="/gemini-icon.png" alt="" width={52} height={52} className="h-[52px] w-[52px] object-contain" priority />
