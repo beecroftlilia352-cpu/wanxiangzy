@@ -343,6 +343,7 @@ a,
     --codex-motion-slow: 400ms;
     --codex-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --codex-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --codex-selection: rgba(91, 124, 255, 0.22);
     --font-ui-sans: var(--font-sans);
     --codex-font:
       var(--font-ui-sans),
@@ -659,4 +660,9 @@ a,
 .dark .home-no-dark .dark\:border-white\/5,
 .dark [data-no-dark="true"] .dark\:border-white\/5 {
   border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* 选中文本：品牌色调 */
+::selection {
+  background: var(--codex-selection, rgba(91, 124, 255, 0.22));
 }

@@ -299,7 +299,7 @@ export function PricingSection() {
   }
 
   return (
-    <section className="min-h-screen px-4 py-16 transition-colors sm:px-6" aria-labelledby="pricing-title" style={{ backgroundImage: "var(--codex-gradient-page)", backgroundAttachment: "fixed" }}>
+    <section className="min-h-screen px-4 py-16 transition-colors sm:px-6 [font-variant-numeric:tabular-nums]" aria-labelledby="pricing-title" style={{ backgroundImage: "var(--codex-gradient-page)", backgroundAttachment: "fixed" }}>
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
           <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">{t("eyebrow")}</p>

@@ -138,8 +138,8 @@ const footerGroups = [
 export default async function HomePage() {
   const t = await getTranslations("Home");
   return (
-    <div className="home-marketing-page min-h-screen bg-white text-[#050505] dark:bg-stone-950 dark:text-stone-100">
-      <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505] dark:bg-stone-950 dark:text-stone-100">
+    <div className="home-marketing-page min-h-screen bg-white text-[#050505] dark:bg-[#07080d] dark:text-stone-100">
+      <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505] dark:bg-[#07080d] dark:text-stone-100">
         {/* P2.1 hero video: preload=metadata saves bandwidth, hidden on mobile,
             poster fallback so reduced-motion / mobile users see a still frame. */}
         <video className="home-hero-video-bg hidden md:block" autoPlay muted loop playsInline preload="metadata" poster="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a-poster.jpg" aria-hidden="true">
@@ -186,7 +186,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <main className="bg-white text-[#050505] dark:bg-stone-950 dark:text-stone-100">
+      <main className="bg-white text-[#050505] dark:bg-[#07080d] dark:text-stone-100">
         <section id="partners" className="home-partner-band" aria-label={t("partnersAria")}>
           {partnerLogos.map((partner) => (
             <div key={partner.name} className="home-partner-item" aria-label={partner.name}>
