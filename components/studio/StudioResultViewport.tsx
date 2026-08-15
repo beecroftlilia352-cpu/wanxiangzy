@@ -18,7 +18,7 @@ export function StudioResultViewport({
   results,
 }: StudioResultViewportProps) {
   return (
-    <div className="studio-result-viewport">
+    <div id="studio-results-panel" className="studio-result-viewport scroll-mt-24">
       {status === "empty" && emptyState}
       {status === "loading" && loadingState}
       {status === "error" && errorState}

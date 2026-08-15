@@ -1798,6 +1798,13 @@ export default function CreatePage() {
       }
       const controller = statusWatcherControllersRef.current.get(syncedActiveQueueTask.id);
       controller?.abort();
+
+      // 生成完成：结果区平滑滚动到视野（用户体感反馈）
+      if (completedWithResults) {
+        window.setTimeout(() => {
+          document.getElementById("studio-results-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 120);
+      }
     }
 
     if (effectiveSyncedActiveQueueTask.statusGroup === "failed" && store.isGenerating) {
