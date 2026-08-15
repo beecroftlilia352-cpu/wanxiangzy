@@ -1,0 +1,44 @@
+/* ============================================================
+   i18n 排版适配（18 语言，含阿拉伯语 RTL）
+   最佳实践：
+   - 方向性图标在 RTL 下水平翻转（箭头、返回、外部链接等）
+   - 阿拉伯文是连写文字，禁止 letter-spacing（会切断连字）
+   - 数字用 tabular-nums 保证表格对齐
+   ============================================================ */
+
+/* 方向性图标：RTL 环境水平翻转 */
+[dir="rtl"] .ltr-flip-icon,
+[dir="rtl"] svg.lucide-arrow-up-right,
+[dir="rtl"] svg.lucide-arrow-right,
+[dir="rtl"] svg.lucide-arrow-left,
+[dir="rtl"] svg.lucide-chevron-right,
+[dir="rtl"] svg.lucide-chevron-left,
+[dir="rtl"] svg.lucide-log-out,
+[dir="rtl"] svg.lucide-external-link {
+  transform: scaleX(-1);
+}
+
+/* 阿拉伯文（连写文字）：禁用字距 */
+[dir="rtl"] .tracking-widest,
+[dir="rtl"] [class*="tracking-"] {
+  letter-spacing: 0 !important;
+}
+
+/* 阿拉伯文/波斯文数字保持可用性：代码类文本允许回行 */
+[dir="rtl"] code,
+[dir="rtl"] .font-mono {
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+/* 长语言（德语/俄语等）在固定宽度按钮内自动截断 */
+html[lang="de"] .truncate,
+html[lang="ru"] .truncate {
+  text-overflow: ellipsis;
+}
+
+/* 泰文/印地文需要依赖浏览器的字典分词，禁止强制换行破坏词 */
+html[lang="th"] body,
+html[lang="hi"] body {
+  overflow-wrap: normal;
+}

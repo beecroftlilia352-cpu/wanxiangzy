@@ -9,10 +9,13 @@ import {
 } from "@/components/admin/AdminPrimitives";
 import { AdminInviteCodeActions } from "@/components/admin/AdminInviteCodeActions";
 import { AdminInviteCodeForm } from "@/components/admin/AdminInviteCodeForm";
+import { AdminInviteRewardActions } from "@/components/admin/AdminInviteRewardActions";
+import { AdminInviteRewardConfigForm } from "@/components/admin/AdminInviteRewardConfigForm";
 import {
   getAdminInviteCodeOverview,
   type AdminInviteCode,
   type AdminInviteCodeUsage,
+  type AdminInviteReward,
 } from "@/lib/admin/invite-codes";
 
 export const dynamic = "force-dynamic";
@@ -64,12 +67,14 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
       )}
       {overview.warnings.length > 0 && <AdminNotice tone="info">邀请码数据源提示：{overview.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
         <AdminMetricCard label="邀请码" value={overview.metrics.totalCodes} hint="当前筛选范围" />
         <AdminMetricCard label="启用" value={overview.metrics.activeCodes} tone="good" />
         <AdminMetricCard label="已使用" value={overview.metrics.usedSlots} />
         <AdminMetricCard label="剩余额度" value={overview.metrics.remainingSlots} tone={overview.metrics.remainingSlots > 0 ? "good" : "warning"} />
         <AdminMetricCard label="使用记录" value={overview.metrics.usageRecords} />
+        <AdminMetricCard label="奖励发放" value={overview.rewardMetrics.grantedRewards} tone="good" />
+        <AdminMetricCard label="发放灵点" value={overview.rewardMetrics.totalGrantedCredits} />
       </div>
 
       <AdminSection title="生成邀请码" description="默认单码一次。主流运营配置包括批次渠道、生效时间、过期时间、单码次数和停用开关。">
@@ -185,6 +190,89 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
                   {row.releasedAt && <p className="mt-1">释放 {formatDateTime(row.releasedAt)}</p>}
                 </div>
               ),
+            },
+          ]}
+        />
+      </AdminSection>
+
+      <AdminSection
+        title="奖励配置"
+        description="邀请人与被邀请人的灵点额度统一在后台管理，发布后运行时读取（无需环境变量）。新注册用户按发布时的额度发放。"
+      >
+        <AdminInviteRewardConfigForm />
+      </AdminSection>
+
+      <AdminSection
+        title="邀请奖励"
+        description={`好友通过邀请码注册后自动发放的灵点奖励。当前已发放 ${overview.rewardMetrics.grantedRewards} 笔、共 ${overview.rewardMetrics.totalGrantedCredits} 灵点，已撤销 ${overview.rewardMetrics.revokedRewards} 笔。撤销会回收双方已发放的灵点（余额不会扣为负）。`}
+      >
+        {!overview.rewardsAvailable && (
+          <AdminNotice>邀请奖励数据尚未就绪。请在 Supabase 中执行 invite-rewards.sql 后刷新本页。</AdminNotice>
+        )}
+        <AdminTable<AdminInviteReward>
+          rows={overview.rewards}
+          rowKey={(row) => row.id}
+          empty="暂无邀请奖励记录"
+          columns={[
+            {
+              key: "code",
+              label: "邀请码",
+              render: (row) => <code className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.code || "-"}</code>,
+            },
+            {
+              key: "inviter",
+              label: "邀请人",
+              render: (row) => (
+                <div className="min-w-[200px]">
+                  <p className="truncate text-sm font-black text-[var(--admin-fg)]">{row.inviterEmail || "-"}</p>
+                  {row.inviterUserId ? (
+                    <a href={`/admin/users/${row.inviterUserId}`} className="text-[11px] font-semibold text-[var(--admin-link)] hover:underline">
+                      查看用户详情
+                    </a>
+                  ) : (
+                    <p className="text-[11px] font-semibold text-[var(--admin-muted)]">无邀请人（管理员码）</p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "invitee",
+              label: "被邀请人",
+              render: (row) => <span className="min-w-[200px] text-sm font-black text-[var(--admin-fg)]">{row.inviteeEmail || "-"}</span>,
+            },
+            {
+              key: "credits",
+              label: "奖励",
+              render: (row) => (
+                <span className="font-mono text-sm font-black text-[var(--admin-fg)]">
+                  +{row.inviterCredits} / +{row.inviteeCredits}
+                </span>
+              ),
+            },
+            {
+              key: "status",
+              label: "状态",
+              render: (row) => <AdminStatusBadge status={row.status === "granted" ? "completed" : "failed"} />,
+            },
+            {
+              key: "created",
+              label: "发放时间",
+              render: (row) => (
+                <div className="min-w-[140px] text-xs font-semibold text-[var(--admin-muted)]">
+                  <p>{formatDateTime(row.createdAt)}</p>
+                  {row.revokedAt && (
+                    <p className="mt-1">
+                      撤销 {formatDateTime(row.revokedAt)}
+                      {row.revokeReason ? ` · ${row.revokeReason}` : ""}
+                    </p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "actions",
+              label: "操作",
+              render: (row) => (row.status === "granted" ? <AdminInviteRewardActions id={row.id} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">-</span>),
             },
           ]}
         />

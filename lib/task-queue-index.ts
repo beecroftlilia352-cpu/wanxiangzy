@@ -89,6 +89,34 @@ const MODULE_LABELS: Record<string, string> = {
   workflow: "工作流",
 };
 
+export const TASK_QUEUE_MODULE_LABEL_KEYS: Record<string, string> = {
+  tryon: "LibShared.taskQueue.module.tryon",
+  model: "LibShared.taskQueue.module.model",
+  face: "LibShared.taskQueue.module.faceSwap",
+  seeding: "LibShared.taskQueue.module.grass",
+  productSet: "LibShared.taskQueue.module.productSet",
+  productRetouch: "LibShared.taskQueue.module.productRetouch",
+  faceSwap: "LibShared.taskQueue.module.faceSwap",
+  grass: "LibShared.taskQueue.module.grass",
+  modelBackground: "LibShared.taskQueue.module.modelBackground",
+  garment3d: "LibShared.taskQueue.module.garment3d",
+  generalImage: "LibShared.taskQueue.module.generalImage",
+  outfitFusion: "LibShared.taskQueue.module.outfitFusion",
+  background: "LibShared.taskQueue.module.modelBackground",
+  pose: "LibShared.taskQueue.module.pose",
+  "3d": "LibShared.taskQueue.module.garment3d",
+  image: "LibShared.taskQueue.module.imageToImage",
+  videoImageToVideo: "LibShared.taskQueue.module.videoImageToVideo",
+  videoMotion: "LibShared.taskQueue.module.videoMotion",
+  videoFirstLastFrame: "LibShared.taskQueue.module.videoFirstLastFrame",
+  workflow: "LibShared.taskQueue.module.workflow",
+};
+
+export const TASK_QUEUE_FALLBACK_TITLE = "任务";
+export const TASK_QUEUE_FALLBACK_TITLE_KEY = "LibShared.taskQueue.fallbackTitle";
+export const TASK_QUEUE_ELAPSED_JUST_NOW = "刚刚";
+export const TASK_QUEUE_ELAPSED_JUST_NOW_KEY = "LibShared.taskQueue.justNow";
+
 const MODULE_PATHS: Record<string, string> = {
   tryon: "/create",
   model: "/model",
@@ -261,7 +289,7 @@ export function normalizeModule(module: string): string {
 }
 
 export function moduleTitle(module: string): string {
-  return MODULE_LABELS[module] || module || "任务";
+  return MODULE_LABELS[module] || module || TASK_QUEUE_FALLBACK_TITLE;
 }
 
 export function modulePath(module: string): string {
@@ -542,7 +570,7 @@ function inferProgress(status: string | null | undefined, payload: Record<string
 function formatElapsed(createdAt: string | null | undefined, completedAt: string | null | undefined): string {
   const start = createdAt ? Date.parse(createdAt) : NaN;
   if (!Number.isFinite(start)) {
-    return "刚刚";
+    return TASK_QUEUE_ELAPSED_JUST_NOW;
   }
   const end = completedAt ? Date.parse(completedAt) : Date.now();
   const seconds = Math.max(0, Math.floor((end - start) / 1000));

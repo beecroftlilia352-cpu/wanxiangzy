@@ -1,14 +1,16 @@
+import { getTranslations } from "next-intl/server";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function Loading() {
+export default async function Loading() {
+  const t = await getTranslations("MaterialEnhancement");
   return (
     <div className="studio-workbench flex min-h-[calc(100dvh-64px)] flex-col lg:h-[calc(100vh-64px)] lg:flex-row" aria-busy="true" aria-live="polite">
       <aside className="hidden w-[72px] shrink-0 border-r border-border/70 lg:block" />
-      <section className="w-full border-b border-border/70 p-5 lg:w-[472px] lg:border-b-0 lg:border-r" aria-label="材质增强参数加载中">
+      <section className="w-full border-b border-border/70 p-5 lg:w-[472px] lg:border-b-0 lg:border-r" aria-label={t("loading.paramsAria")}>
         <Skeleton className="h-7 w-28 rounded-md" />
         <Skeleton className="mt-2 h-4 w-72 max-w-full rounded-md" />
         <div className="mt-6 space-y-5">
-          {["上传原图", "上传高清服装图"].map((label) => (
+          {[t("upload.sourceSectionTitle"), t("upload.garmentSectionTitle")].map((label) => (
             <div key={label}>
               <Skeleton className="mb-3 h-4 w-28 rounded-md" />
               <div className="grid min-h-36 place-items-center rounded-lg border border-dashed border-border bg-muted/25 p-4">
@@ -25,7 +27,7 @@ export default function Loading() {
           </div>
         </div>
       </section>
-      <section className="grid min-h-[360px] flex-1 place-items-center p-6" aria-label="预览区域加载中">
+      <section className="grid min-h-[360px] flex-1 place-items-center p-6" aria-label={t("loading.previewAria")}>
         <div className="w-full max-w-[720px] space-y-4">
           <Skeleton className="mx-auto aspect-[4/3] max-h-[520px] w-full rounded-lg" />
           <Skeleton className="mx-auto h-4 w-52 rounded-md" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
+import { useTranslations } from "next-intl";
 import {
   BadgeCheck,
   Bot,
@@ -127,10 +128,10 @@ const STEPS: Array<{ key: StepKey; label: string }> = [
 const MAX_PRODUCT_UPLOADS = 6;
 const API_PRODUCT_IMAGE_LIMIT = 3;
 
-const MODELS: Array<{ value: LingyaModel; label: string; badge?: string }> = [
-  { value: "nano-banana-2", label: "Nano Banana 2", badge: "默认" },
-  { value: "gpt-image-2", label: "GPT Image 2", badge: "高质感" },
-  { value: "nano-banana-pro", label: "Nano Banana Pro", badge: "质感" },
+const MODELS: Array<{ value: LingyaModel; label: string; badge?: string; badgeKey?: string }> = [
+  { value: "nano-banana-2", label: "Nano Banana 2", badge: "默认", badgeKey: "AllCategoryProduct.models.badgeDefault" },
+  { value: "gpt-image-2", label: "GPT Image 2", badge: "高质感", badgeKey: "AllCategoryProduct.models.badgeHighQuality" },
+  { value: "nano-banana-pro", label: "Nano Banana Pro", badge: "质感", badgeKey: "AllCategoryProduct.models.badgeTexture" },
 ];
 
 const MAIN_ASPECTS: AspectRatio[] = ["auto", "1:1", "3:4", "4:3"];
@@ -264,6 +265,8 @@ function getProgressMessage(step: StepKey, progress: number) {
 }
 
 export default function AllCategoryProductImagePage() {
+  const t = useTranslations("AllCategoryProduct");
+  const tAny = useTranslations(); // 数据键全路径（AllCategoryProduct.models.*）
   const inputRef = useRef<HTMLInputElement>(null);
   const aiPlansReturnFocusRef = useRef<HTMLElement | null>(null);
   const [activeStep, setActiveStep] = useState<StepKey>("input");
@@ -354,9 +357,9 @@ export default function AllCategoryProductImagePage() {
   useEffect(() => {
     const sourceImage = takeSourceImageFromLocation();
     if (sourceImage) {
-      setProductImages([{ url: sourceImage, name: "来自结果预览", uploadedUrl: sourceImage }]);
+      setProductImages([{ url: sourceImage, name: t("fromPreview"), uploadedUrl: sourceImage }]);
       setActiveStep("input");
-      toast.success("已带入预览图片");
+      toast.success(t("broughtInPreview"));
     }
   }, []);
 
@@ -392,13 +395,13 @@ export default function AllCategoryProductImagePage() {
 
   async function handleFiles(files: FileList | File[]) {
     const incoming = Array.from(files).filter((file) => file.type.startsWith("image/"));
-    if (!incoming.length) return toast.error("请上传图片文件");
+    if (!incoming.length) return toast.error(t("uploadImageFile"));
     const remaining = Math.max(0, MAX_PRODUCT_UPLOADS - productImages.length);
-    if (!remaining) return toast.error(`最多上传 ${MAX_PRODUCT_UPLOADS} 张 SKU 参考图`);
+    if (!remaining) return toast.error(t("maxSkuImages", { max: MAX_PRODUCT_UPLOADS }));
     const selected = incoming.slice(0, remaining);
-    if (incoming.length > selected.length) toast.info(`已自动忽略超过 ${MAX_PRODUCT_UPLOADS} 张的图片`);
+    if (incoming.length > selected.length) toast.info(t("ignoredOverMax", { max: MAX_PRODUCT_UPLOADS }));
     const oversized = selected.find((file) => file.size > MAX_FILE_SIZE);
-    if (oversized) return toast.error(`单张图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
+    if (oversized) return toast.error(t("singleImageMax", { mb: MAX_FILE_SIZE_MB }));
 
     setIsUploading(true);
     const optimistic = selected.map((file) => ({ url: URL.createObjectURL(file), name: file.name }));
@@ -418,7 +421,7 @@ export default function AllCategoryProductImagePage() {
         });
       } catch (err) {
         uploaded.push(optimistic[index]);
-        toast.warning(err instanceof Error ? err.message : "图片上传失败，已保留本地预览");
+        toast.warning(err instanceof Error ? err.message : t("uploadFailedLocalPreview"));
       }
     }
 
@@ -439,12 +442,12 @@ export default function AllCategoryProductImagePage() {
 
   async function runAnalyze(options: { openPlans?: boolean } = {}) {
     if (!productImages.length) {
-      toast.error("请先上传商品 SKU 图");
+      toast.error(t("uploadSkuFirst"));
       return null;
     }
     const imageUrls = getApiImageUrls(productImages);
     if (!imageUrls.length) {
-      toast.error("当前图片只有本地预览，请重新上传后再分析");
+      toast.error(t("localPreviewOnlyAnalyze"));
       return null;
     }
 
@@ -464,7 +467,7 @@ export default function AllCategoryProductImagePage() {
       });
       window.clearInterval(progressTimer);
       const data = (await res.json().catch(() => ({}))) as AnalyzeResponse;
-      if (!res.ok) throw new Error(data.error || "视觉分析失败");
+      if (!res.ok) throw new Error(data.error || t("visualAnalyzeFailed"));
 
       const nextProductInfo = data.product_info?.trim() || userBrief || productInfo || "";
       const nextAnalysis = data.analysis || null;
@@ -497,11 +500,11 @@ export default function AllCategoryProductImagePage() {
       setActiveStep("planning");
       setShowAiPlans(Boolean(options.openPlans));
 
-      if (data.source === "ai") toast.success("视觉分析师已完成商品分析");
-      else toast.warning("视觉分析使用了基础结果，可继续编辑规划");
+      if (data.source === "ai") toast.success(t("analyzeDone"));
+      else toast.warning(t("analyzeFallback"));
       return data;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "视觉分析失败";
+      const message = err instanceof Error ? err.message : t("visualAnalyzeFailed");
       setError(message);
       setProgress(0);
       setActiveStep("input");
@@ -517,7 +520,7 @@ export default function AllCategoryProductImagePage() {
       ? document.activeElement
       : null;
     if (!productImages.length) {
-      toast.error("请先上传商品 SKU 图");
+      toast.error(t("uploadSkuFirst"));
       return;
     }
     if (!aiWritingPlans.length) {
@@ -540,7 +543,7 @@ export default function AllCategoryProductImagePage() {
     }));
     setShowAiPlans(false);
     setActiveStep("planning");
-    toast.success(`已选择方案 ${selectedPlanIndex + 1}`);
+    toast.success(t("planSelected", { index: selectedPlanIndex + 1 }));
   }
 
   function buildProductSetSettings(): ProductSetSettings {
@@ -582,8 +585,8 @@ export default function AllCategoryProductImagePage() {
   }
 
   async function submitGeneration(regenerateIndex?: number) {
-    if (!productImages.length) return toast.error("请先上传商品 SKU 图");
-    if (!getApiImageUrls(productImages).length) return toast.error("当前图片只有本地预览，请重新上传后再生成");
+    if (!productImages.length) return toast.error(t("uploadSkuFirst"));
+    if (!getApiImageUrls(productImages).length) return toast.error(t("localPreviewOnlyGenerate"));
     const isRegenerate = typeof regenerateIndex === "number";
     if (!isRegenerate) {
       setActiveStep("generating");
@@ -615,7 +618,7 @@ export default function AllCategoryProductImagePage() {
         body: JSON.stringify(buildGenerationBody(regenerateIndex)),
       });
       const data = (await res.json().catch(() => ({}))) as GenerationResponse;
-      if (!res.ok || !data.generation_id) throw new Error(data.error || "生成任务提交失败");
+      if (!res.ok || !data.generation_id) throw new Error(data.error || t("generationSubmitFailed"));
       const initialModules = readModuleResults(data.module_results);
       if (initialModules.length) setModuleResults(initialModules);
 
@@ -623,7 +626,7 @@ export default function AllCategoryProductImagePage() {
         await delay(2000);
         const poll = await fetch(`/api/product-set?generation_id=${encodeURIComponent(data.generation_id)}`);
         const state = (await poll.json().catch(() => ({}))) as GenerationResponse;
-        if (!poll.ok) throw new Error(state.error || "生成状态查询失败");
+        if (!poll.ok) throw new Error(state.error || t("generationStatusQueryFailed"));
 
         const nextModules = readModuleResults(state.module_results);
         if (nextModules.length) setModuleResults(nextModules);
@@ -637,17 +640,17 @@ export default function AllCategoryProductImagePage() {
           if (nextModules.length) setModuleResults(nextModules);
           setProgress(100);
           setActiveStep("done");
-          toast.success(isRegenerate ? "单张图片已重生完成" : "全品类商品图生成完成");
+          toast.success(isRegenerate ? t("regenerateOneDone") : t("allDone"));
           return;
         }
 
-        if (state.status === "failed") throw new Error(state.error || "生成失败");
+        if (state.status === "failed") throw new Error(state.error || t("generationFailed"));
       }
 
-      toast.info("生成仍在后台继续，可稍后在作品库查看");
+      toast.info(t("continueBackground"));
       setActiveStep("done");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "生成失败";
+      const message = err instanceof Error ? err.message : t("generationFailed");
       setError(message);
       toast.error(message);
       if (!isRegenerate) setActiveStep("planning");
@@ -675,11 +678,11 @@ export default function AllCategoryProductImagePage() {
           <header className="text-center">
             <div className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm">
               <PackageCheck aria-hidden="true" className="h-4 w-4" />
-              全品类商品图
+              {t("moduleLabel")}
             </div>
-            <h1 className="mt-6 text-[30px] font-black tracking-normal text-slate-950 sm:text-[34px]" style={{ textWrap: "balance" }}>一键生成主图 & 详情图组</h1>
+            <h1 className="mt-6 text-[30px] font-black tracking-normal text-slate-950 sm:text-[34px]" style={{ textWrap: "balance" }}>{t("heroTitle")}</h1>
             <p className="mx-auto mt-3 max-w-3xl text-base leading-7 text-slate-500">
-              上传产品图，自动分析产品特征，自动生成电商主图及多角度、多场景的详情图组
+              {t("heroSubtitle")}
             </p>
           </header>
 
@@ -696,7 +699,7 @@ export default function AllCategoryProductImagePage() {
                   accept="image/png,image/jpeg,image/webp"
                   multiple
                   className="hidden"
-                  aria-label="上传商品图片"
+                  aria-label={t("uploadProductImageAria")}
                   onChange={(event: ChangeEvent<HTMLInputElement>) => {
                     if (event.target.files) void handleFiles(event.target.files);
                     event.target.value = "";
@@ -708,8 +711,8 @@ export default function AllCategoryProductImagePage() {
                       <ImagePlus aria-hidden="true" className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-sm font-black text-slate-950">产品图</h2>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">上传清晰的产品图片</p>
+                      <h2 className="text-sm font-black text-slate-950">{t("productImagesTitle")}</h2>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{t("productImagesSubtitle")}</p>
                     </div>
                   </div>
                   <span className="text-xs font-semibold text-slate-500">{productImages.length}/{MAX_PRODUCT_UPLOADS}</span>
@@ -725,7 +728,7 @@ export default function AllCategoryProductImagePage() {
                           type="button"
                           onClick={() => removeProductImage(index)}
                           className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-slate-950/65 text-white group-hover:flex group-focus-within:flex focus-visible:flex"
-                          aria-label={`删除图片 ${index + 1}`}
+                          aria-label={t("deleteImage", { index: index + 1 })}
                         >
                           <X aria-hidden="true" className="h-3.5 w-3.5" />
                         </button>
@@ -751,7 +754,7 @@ export default function AllCategoryProductImagePage() {
                       {isUploading ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Upload aria-hidden="true" className="h-5 w-5" />}
                     </span>
                     <span className="mt-4 max-w-[230px] text-xs font-semibold leading-5 text-slate-950">
-                      多图上传时建议仅上传必要的视角或sku图，图片不是越多越好
+                      {t("multiUploadHint")}
                     </span>
                   </button>
                 )}
@@ -764,13 +767,13 @@ export default function AllCategoryProductImagePage() {
                       className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white hover:bg-slate-800"
                     >
                       <Upload aria-hidden="true" className="h-4 w-4" />
-                      上传商品图
+                      {t("uploadProduct")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setProductImages([])}
                       className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500"
-                      aria-label="清空图片"
+                      aria-label={t("clearImages")}
                     >
                       <Trash2 aria-hidden="true" className="h-4 w-4" />
                     </button>
@@ -781,8 +784,8 @@ export default function AllCategoryProductImagePage() {
               <section className="rounded-[18px] border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: "main", label: "商品主图" },
-                    { value: "details", label: "商品详情图" },
+                    { value: "main", label: t("mainImage") },
+                    { value: "details", label: t("detailImage") },
                   ].map((item) => (
                     <button
                       key={item.value}
@@ -797,15 +800,15 @@ export default function AllCategoryProductImagePage() {
                 </div>
 
                 <div className="mt-5 grid gap-4">
-                  <SelectField icon={<MonitorSmartphone aria-hidden="true" className="h-4 w-4" />} label="目标平台" value={platform} options={ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS} onChange={(value) => { setPlatform(value as AllCategoryProductImagePlatform); resetOutput(); }} />
+                  <SelectField icon={<MonitorSmartphone aria-hidden="true" className="h-4 w-4" />} label={t("targetPlatform")} value={platform} options={ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS} onChange={(value) => { setPlatform(value as AllCategoryProductImagePlatform); resetOutput(); }} />
                   <label className="block">
-                    <span className="mb-2 block text-xs font-semibold text-slate-500">{imageType === "main" ? "主图要求" : "详情图要求"}</span>
+                    <span className="mb-2 block text-xs font-semibold text-slate-500">{imageType === "main" ? t("mainRequirement") : t("detailRequirement")}</span>
                     <div className="relative">
                       <textarea
                         value={userBrief}
                         onChange={(event) => { setUserBrief(event.target.value); resetOutput(); }}
-                        placeholder="建议输入：产品名称、卖点、目标人群、目标电商平台、图片风格等…"
-                        aria-label={imageType === "main" ? "主图要求说明" : "详情图要求说明"}
+                        placeholder={t("briefPlaceholder")}
+                        aria-label={imageType === "main" ? t("mainRequirementAria") : t("detailRequirementAria")}
                         className="h-[118px] w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 pr-28 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400"
                       />
                       <button
@@ -815,24 +818,24 @@ export default function AllCategoryProductImagePage() {
                         className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                       >
                         <Brush aria-hidden="true" className="h-3.5 w-3.5" />
-                        AI帮写
+                        {t("aiAssist")}
                       </button>
                     </div>
                   </label>
-                  <SelectField icon={<Languages aria-hidden="true" className="h-4 w-4" />} label="目标语言" value={language} options={ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES} onChange={(value) => { setLanguage(value as AllCategoryProductImageLanguage); resetOutput(); }} />
+                  <SelectField icon={<Languages aria-hidden="true" className="h-4 w-4" />} label={t("targetLanguage")} value={language} options={ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES} onChange={(value) => { setLanguage(value as AllCategoryProductImageLanguage); resetOutput(); }} />
                   <div className="grid grid-cols-2 gap-3">
-                    <SelectField label="模型" value={aiModel} options={visibleModelEntries.map((item) => item.value)} labels={Object.fromEntries(visibleModelEntries.map((item) => [item.value, item.badge ? `${item.label} · ${item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />
-                    <SelectField label="尺寸比例" value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
+                    <SelectField label={t("modelLabel")} value={aiModel} options={visibleModelEntries.map((item) => item.value)} labels={Object.fromEntries(visibleModelEntries.map((item) => [item.value, item.badge ? `${item.label} · ${item.badgeKey ? tAny(item.badgeKey) : item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />
+                    <SelectField label={t("sizeRatio")} value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <SelectField label="画质" value={imageSize} options={supportedSizes} onChange={(value) => { setImageSize(value as ImageSize); resetOutput(); }} />
+                    <SelectField label={t("quality")} value={imageSize} options={supportedSizes} onChange={(value) => { setImageSize(value as ImageSize); resetOutput(); }} />
                     <div>
-                      <span className="mb-2 block text-xs font-semibold text-slate-500">生成数量</span>
+                      <span className="mb-2 block text-xs font-semibold text-slate-500">{t("genCount")}</span>
                       <StudioGenerationCountSelector
                         value={imageCount}
                         onChange={changeCount}
                         counts={countOptions}
-                        ariaLabel="生成数量"
+                        ariaLabel={t("genCount")}
                       />
                     </div>
                   </div>
@@ -846,7 +849,7 @@ export default function AllCategoryProductImagePage() {
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-[16px] bg-slate-950 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-[#929292] disabled:text-white disabled:opacity-100"
               >
                 {isAnalyzing || isGenerating ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : activeStepIndex >= stepIndex("planning") ? <PackageCheck aria-hidden="true" className="h-5 w-5" /> : <Brush aria-hidden="true" className="h-5 w-5" />}
-                {isAnalyzing ? "分析中…" : isGenerating ? "生成中…" : activeStepIndex >= stepIndex("planning") ? `确认生成 ${modules.length} 张图片` : "分析产品"}
+                {isAnalyzing ? t("analyzingDots") : isGenerating ? t("generatingDots") : activeStepIndex >= stepIndex("planning") ? t("confirmGenerate", { count: modules.length }) : t("analyzeProduct")}
               </button>
             </aside>
 
@@ -857,9 +860,9 @@ export default function AllCategoryProductImagePage() {
                       <PackageCheck aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black text-slate-950">{activeStep === "done" ? "生成完成" : activeStep === "generating" ? "生成中…" : activeStep === "analyzing" ? "分析中…" : activeStep === "planning" ? "设计规划预览" : "生成结果"}</h2>
+                    <h2 className="text-sm font-black text-slate-950">{activeStep === "done" ? t("generationDone") : activeStep === "generating" ? t("generatingDots") : activeStep === "analyzing" ? t("analyzingDots") : activeStep === "planning" ? t("designPreview") : t("generationResult")}</h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {activeStep === "input" ? "上传产品图并点击分析开始" : activeStep === "planning" ? "请确认设计规范和图片规划" : activeStep === "done" ? "所有图片已生成完成" : getProgressMessage(activeStep, progress)}
+                      {activeStep === "input" ? t("inputStepHint") : activeStep === "planning" ? t("planningStepHint") : activeStep === "done" ? t("doneStepHint") : getProgressMessage(activeStep, progress)}
                     </p>
                   </div>
                 </div>
@@ -867,11 +870,11 @@ export default function AllCategoryProductImagePage() {
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => void openAiWritingPlans()} disabled={!productImages.length || isAnalyzing || isGenerating} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50">
                     <Bot aria-hidden="true" className="h-4 w-4" />
-                    AI帮写
+                    {t("aiAssist")}
                   </button>
                   <button type="button" onClick={() => void runAnalyze()} disabled={!canAnalyze} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50">
                     <RefreshCw aria-hidden="true" className="h-4 w-4" />
-                    重新分析
+                    {t("reanalyze")}
                   </button>
                 </div>
                 )}
@@ -898,8 +901,8 @@ export default function AllCategoryProductImagePage() {
 
               {activeStep === "input" && !resultUrls.length && (
                 <EmptyState
-                  title="上传产品图并填写要求后"
-                  description="点击分析产品开始"
+                  title={t("emptyStateTitle")}
+                  description={t("emptyStateDesc")}
                 />
               )}
 
@@ -960,6 +963,14 @@ export default function AllCategoryProductImagePage() {
 }
 
 function StepBar({ activeIndex }: { activeIndex: number }) {
+  const t = useTranslations("AllCategoryProduct");
+  const stepLabels: Record<StepKey, string> = {
+    input: t("stepInput"),
+    analyzing: t("stepAnalyzing"),
+    planning: t("stepPlanning"),
+    generating: t("stepGenerating"),
+    done: t("stepDone"),
+  };
   return (
     <div className="mx-auto flex max-w-[620px] items-center justify-center gap-2">
       {STEPS.map((step, index) => {
@@ -970,7 +981,7 @@ function StepBar({ activeIndex }: { activeIndex: number }) {
             <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-xs font-black", isDone || isActive ? "bg-slate-950 text-white" : "bg-transparent text-slate-500")}>
               {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
             </span>
-            <span className={cn("hidden text-xs font-semibold sm:inline", isActive || isDone ? "text-slate-950" : "text-slate-500")}>{step.label}</span>
+            <span className={cn("hidden text-xs font-semibold sm:inline", isActive || isDone ? "text-slate-950" : "text-slate-500")}>{stepLabels[step.key]}</span>
             {index < STEPS.length - 1 && <span className="h-px w-8 bg-slate-300 sm:w-10" />}
           </div>
         );
@@ -1074,6 +1085,7 @@ function PlanningPreview({
   onModuleChange: (id: string, patch: Partial<PlanningModule>) => void;
   onGenerate: () => void;
 }) {
+  const t = useTranslations("AllCategoryProduct");
   return (
     <div className="mt-5 space-y-4">
       <div className="rounded-lg border border-slate-200 bg-white">
@@ -1083,13 +1095,13 @@ function PlanningPreview({
               <BadgeCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <h3 className="text-sm font-black text-slate-950">整体设计规划预览</h3>
-              <p className="truncate text-xs text-slate-500">{productName} · 所有图片遵循统一视觉标准</p>
+              <h3 className="text-sm font-black text-slate-950">{t("overallPlanPreview")}</h3>
+              <p className="truncate text-xs text-slate-500">{t("allFollowSameStandard", { name: productName })}</p>
             </div>
           </div>
           <button type="button" onClick={onEditDesignSpec} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-black text-slate-600 hover:bg-slate-50">
             <Edit3 aria-hidden="true" className="h-3.5 w-3.5" />
-            {editingDesignSpec ? "预览" : "编辑"}
+            {editingDesignSpec ? t("previewMode") : t("editMode")}
           </button>
         </div>
         <div className="p-4">
@@ -1104,12 +1116,12 @@ function PlanningPreview({
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-sm font-black text-slate-950">图片规划</h3>
-            <p className="mt-1 text-xs text-slate-500">共 {modules.length} 张图片，点击可编辑标题和描述</p>
+            <h3 className="text-sm font-black text-slate-950">{t("imagePlan")}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("imagePlanSub", { count: modules.length })}</p>
           </div>
           <button type="button" onClick={onGenerate} disabled={!canGenerate} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
             <PackageCheck aria-hidden="true" className="h-4 w-4" />
-            确认生成 {modules.length} 张图片
+            {t("confirmGenerateBtn", { count: modules.length })}
           </button>
         </div>
 
@@ -1128,10 +1140,10 @@ function PlanningPreview({
               </button>
               {module.expanded && (
                 <div className="grid gap-3 border-t border-slate-100 bg-slate-50 p-4 md:grid-cols-2">
-                  <EditField label="标题" value={module.title} onChange={(value) => onModuleChange(module.id, { title: value })} />
-                  <SelectField label="图片比例" value={module.aspectRatio} options={imageType === "main" ? MAIN_ASPECTS : DETAILS_ASPECTS} onChange={(value) => onModuleChange(module.id, { aspectRatio: value as AspectRatio })} />
-                  <EditField label="描述" value={module.description} onChange={(value) => onModuleChange(module.id, { description: value })} textarea />
-                  <EditField label="生成细则" value={module.detailPrompt} onChange={(value) => onModuleChange(module.id, { detailPrompt: value })} textarea />
+                  <EditField label={t("editTitle")} value={module.title} onChange={(value) => onModuleChange(module.id, { title: value })} />
+                  <SelectField label={t("imageRatio")} value={module.aspectRatio} options={imageType === "main" ? MAIN_ASPECTS : DETAILS_ASPECTS} onChange={(value) => onModuleChange(module.id, { aspectRatio: value as AspectRatio })} />
+                  <EditField label={t("editDescription")} value={module.description} onChange={(value) => onModuleChange(module.id, { description: value })} textarea />
+                  <EditField label={t("editDetailRules")} value={module.detailPrompt} onChange={(value) => onModuleChange(module.id, { detailPrompt: value })} textarea />
                 </div>
               )}
             </article>
@@ -1143,6 +1155,7 @@ function PlanningPreview({
 }
 
 function GenerationSkeleton({ title, progress }: { title: string; progress: number }) {
+  const t = useTranslations("AllCategoryProduct");
   return (
     <div className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white dark:bg-white/10 text-slate-500 shadow-sm">
@@ -1150,7 +1163,7 @@ function GenerationSkeleton({ title, progress }: { title: string; progress: numb
       </div>
       <p className="mt-4 text-sm font-black text-slate-700">{title}</p>
       <p className="mt-1 px-4 text-xs text-slate-500">{getProgressMessage("generating", progress)}</p>
-      <p className="mt-1 text-[11px] font-semibold text-slate-400">{progress ? `${progress}%` : "等待渲染…"}</p>
+      <p className="mt-1 text-[11px] font-semibold text-slate-400">{progress ? `${progress}%` : t("waitingRender")}</p>
     </div>
   );
 }
@@ -1168,12 +1181,13 @@ function ResultGrid({
   onDownload: (url: string, index: number) => void;
   onRegenerate: (index: number) => void;
 }) {
+  const t = useTranslations("AllCategoryProduct");
   return (
     <div className="mt-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-black text-slate-950">生成完成</h3>
-          <p className="mt-1 text-xs text-slate-500">支持预览、下载和单张重生。</p>
+          <h3 className="text-base font-black text-slate-950">{t("generationDoneTitle")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("generationDoneSub")}</p>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1185,26 +1199,26 @@ function ResultGrid({
               ) : slot.status === "failed" ? (
                 <div className="flex h-full flex-col items-center justify-center px-6 text-center text-red-500">
                   <X aria-hidden="true" className="h-7 w-7" />
-                  <p className="mt-3 text-sm font-black">生成失败</p>
-                  <p className="mt-1 text-xs leading-5">{slot.error || "可尝试单张重生"}</p>
+                  <p className="mt-3 text-sm font-black">{t("generationFailedTitle")}</p>
+                  <p className="mt-1 text-xs leading-5">{slot.error || t("trySingleRegenerate")}</p>
                 </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center text-slate-500">
                   <Loader2 aria-hidden="true" className="h-6 w-6 animate-spin" />
-                  <p className="mt-3 text-sm font-black">等待结果</p>
+                  <p className="mt-3 text-sm font-black">{t("waitingResult")}</p>
                 </div>
               )}
               {slot.url && (
                 <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-950/0 opacity-0 transition hover:bg-slate-950/35 hover:opacity-100">
-                  <IconButton label="预览" onClick={() => onPreview(slot.url!, slot.module.title, index)} icon={<ZoomIn aria-hidden="true" className="h-4 w-4" />} />
-                  <IconButton label="下载" onClick={() => onDownload(slot.url!, index)} icon={<Download aria-hidden="true" className="h-4 w-4" />} />
-                  <IconButton label="重生" onClick={() => onRegenerate(index)} icon={regeneratingIndex === index ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />} />
+                  <IconButton label={t("previewMode")} onClick={() => onPreview(slot.url!, slot.module.title, index)} icon={<ZoomIn aria-hidden="true" className="h-4 w-4" />} />
+                  <IconButton label={t("actionDownload")} onClick={() => onDownload(slot.url!, index)} icon={<Download aria-hidden="true" className="h-4 w-4" />} />
+                  <IconButton label={t("regenerate")} onClick={() => onRegenerate(index)} icon={regeneratingIndex === index ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />} />
                 </div>
               )}
             </div>
             <div className="p-3">
               <h4 className="truncate text-sm font-black text-slate-950">{slot.module.title}</h4>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{slot.url ? "已生成" : slot.status === "failed" ? "失败" : "生成中"} · {getAspectRatioLabel(slot.module.aspectRatio)}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{slot.url ? t("regenerated") : slot.status === "failed" ? t("failedStatus") : t("generatingStatus")} · {getAspectRatioLabel(slot.module.aspectRatio)}</p>
             </div>
           </article>
         ))}
@@ -1253,6 +1267,7 @@ function AiWritingModal({
   onRefresh: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("AllCategoryProduct");
   return (
     <Dialog
       open={open}
@@ -1271,12 +1286,12 @@ function AiWritingModal({
               <Brush aria-hidden="true" className="h-5 w-5 text-slate-700" />
             </span>
             <div>
-              <DialogTitle className="text-base font-black leading-6 text-slate-950">AI帮写方案选择</DialogTitle>
-              <DialogDescription className="mt-1 text-xs text-slate-500">选择方案后可自由编辑，确认即可使用。</DialogDescription>
+              <DialogTitle className="text-base font-black leading-6 text-slate-950">{t("aiWritingPlanTitle")}</DialogTitle>
+              <DialogDescription className="mt-1 text-xs text-slate-500">{t("aiWritingPlanDesc")}</DialogDescription>
             </div>
           </div>
         </div>
-        <div className="border-b border-slate-100 px-5 py-3" role="group" aria-label="AI 帮写方案">
+        <div className="border-b border-slate-100 px-5 py-3" role="group" aria-label={t("aiWritingPlanGroup")}>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {plans.map((_, index) => (
               <button
@@ -1286,22 +1301,22 @@ function AiWritingModal({
                 onClick={() => onSelect(index)}
                 className={cn("h-9 shrink-0 rounded-full border px-4 text-sm font-black outline-none transition-[color,background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2", selectedIndex === index ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400")}
               >
-                方案{index + 1}
+                {t("planN", { index: index + 1 })}
               </button>
             ))}
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-5 [overscroll-behavior:contain]">
-          <pre className="min-h-64 whitespace-pre-wrap rounded-lg bg-white p-4 text-sm leading-7 text-slate-800 shadow-sm sm:min-h-[360px]">{plans[selectedIndex] || "暂无方案"}</pre>
+          <pre className="min-h-64 whitespace-pre-wrap rounded-lg bg-white p-4 text-sm leading-7 text-slate-800 shadow-sm sm:min-h-[360px]">{plans[selectedIndex] || t("noPlan")}</pre>
         </div>
         <div className="flex flex-col gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-between">
           <button type="button" onClick={onRefresh} className="inline-flex h-11 touch-manipulation items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-600 outline-none transition-[color,background-color,border-color,box-shadow] hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
-            重新帮写
+            {t("rewrite")}
           </button>
           <button type="button" onClick={onConfirm} className="inline-flex h-11 touch-manipulation items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 text-sm font-black text-white outline-none transition-[background-color,box-shadow] hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
             <Check aria-hidden="true" className="h-4 w-4" />
-            确认选择
+            {t("confirmSelect")}
           </button>
         </div>
       </DialogContent>

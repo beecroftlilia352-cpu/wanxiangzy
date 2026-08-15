@@ -2,6 +2,7 @@
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Loader2, Sparkles, Upload, X, XCircle, ZoomIn } from "lucide-react";
@@ -52,10 +53,10 @@ import {
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
 
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Grass.models.desc", badge: "推荐", badgeKey: "Grass.models.badgeRecommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Grass.models.desc", badge: "最新", badgeKey: "Grass.models.badgeLatest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Grass.models.desc", badge: "高质精修", badgeKey: "Grass.models.badgeHighQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type GrassHistoryPayload = Extract<HistoryJobPayload, { kind: "grass" }>;
@@ -66,13 +67,13 @@ type GrassGenerateOptions = {
   toastMessage?: string;
 };
 
-const ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "auto", label: "智能" },
-  { value: "4:5", label: "4:5 种草" },
-  { value: "3:4", label: "3:4 竖版" },
-  { value: "1:1", label: "1:1 方图" },
-  { value: "9:16", label: "9:16 手机" },
-  { value: "4:3", label: "4:3 横图" },
+const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
+  { value: "auto", label: "智能", labelKey: "Grass.aspects.auto" },
+  { value: "4:5", label: "4:5 种草", labelKey: "Grass.aspects.plant" },
+  { value: "3:4", label: "3:4 竖版", labelKey: "Grass.aspects.portrait" },
+  { value: "1:1", label: "1:1 方图", labelKey: "Grass.aspects.square" },
+  { value: "9:16", label: "9:16 手机", labelKey: "Grass.aspects.phone" },
+  { value: "4:3", label: "4:3 横图", labelKey: "Grass.aspects.landscape" },
 ];
 
 const GRASS_PREVIEW_ACTIONS: ImagePreviewAction[] = [
@@ -87,19 +88,9 @@ const GRASS_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "feedback", label: "反馈" },
 ];
 
-const GRASS_SCENE_MODE_LABELS: Record<GrassSceneMode, string> = {
-  system_reference: "系统参考图",
-  upload_reference: "上传参考图",
-  custom_prompt: "用户自定义",
-};
-
-const GRASS_SCENE_BACKGROUND_MODE_LABELS: Record<GrassSceneBackgroundMode, string> = {
-  reference_scene: "沿用参考场景",
-  similar_style: "AI 重构相似场景",
-};
-
 export default function GrassPage() {
   const router = useRouter();
+  const t = useTranslations("Grass");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
 
@@ -166,20 +157,20 @@ export default function GrassPage() {
   const effectiveReferenceName = sceneMode === "system_reference"
     ? selectedTemplate.name
     : sceneMode === "upload_reference"
-      ? uploadedReferenceName || "上传参考图"
-      : "用户自定义";
+      ? uploadedReferenceName || t("sceneModeUpload")
+      : t("sceneModeCustom");
   const promptImages = useMemo(() => [
-    ...(garmentUrl ? [{ imageNumber: 1, url: garmentUrl, role: "服装/穿搭硬参考" }] : []),
+    ...(garmentUrl ? [{ imageNumber: 1, url: garmentUrl, role: t("garmentHardRef") }] : []),
     ...(effectiveReferenceUrl ? [{
       imageNumber: 2,
       url: effectiveReferenceUrl,
       role: sceneMode === "system_reference"
-        ? `系统种草参考图 / ${selectedTemplate.name}`
+        ? t("systemGrassRef", { template: selectedTemplate.name })
         : sceneBackgroundMode === "similar_style"
-          ? "上传种草参考图 / 场景风格参考"
-          : "上传种草参考图 / 场景姿势构图参考",
+          ? t("uploadSceneStyleRef")
+          : t("uploadScenePoseRef"),
     }] : []),
-  ], [garmentUrl, effectiveReferenceUrl, sceneMode, sceneBackgroundMode, selectedTemplate.name]);
+  ], [garmentUrl, effectiveReferenceUrl, sceneMode, sceneBackgroundMode, selectedTemplate.name, t]);
   const taskInputThumbnails = useMemo(
     () => promptImages.map((item) => item.url).filter(Boolean),
     [promptImages]
@@ -216,51 +207,51 @@ export default function GrassPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retryPendingToast", { index: index + 1 }),
     });
   }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "grass",
-      title: "种草图",
+      title: t("title"),
       urls: resultUrls,
       expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       references: promptImages.map((item) => ({
         url: item.url,
-        label: item.imageNumber === 1 ? "服装参考" : effectiveReferenceName,
+        label: item.imageNumber === 1 ? t("garmentReferenceLabel") : effectiveReferenceName,
         role: item.imageNumber === 1 ? "garment" : "reference",
       })),
       promptText: activePrompt,
       metaItems: [
-        { label: "种草方式", value: GRASS_SCENE_MODE_LABELS[sceneMode] },
-        { label: "场景控制", value: sceneMode === "custom_prompt" ? null : GRASS_SCENE_BACKGROUND_MODE_LABELS[sceneBackgroundMode] },
-        { label: "参考模板", value: selectedTemplate.name },
-        { label: "模型", value: aiModel },
-        { label: "比例", value: aspectRatio },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: genCount },
+        { label: t("metaSceneMode"), value: sceneMode === "system_reference" ? t("sceneModeSystem") : sceneMode === "upload_reference" ? t("sceneModeUpload") : t("sceneModeCustom") },
+        { label: t("metaSceneControl"), value: sceneMode === "custom_prompt" ? null : sceneBackgroundMode === "reference_scene" ? t("sceneBgReferenceScene") : t("sceneBgSimilarStyle") },
+        { label: t("metaTemplate"), value: selectedTemplate.name },
+        { label: t("metaModel"), value: aiModel },
+        { label: t("metaRatio"), value: aspectRatio },
+        { label: t("metaResolution"), value: imageSize },
+        { label: t("metaGenCount"), value: genCount },
       ],
-      resultTitlePrefix: "种草图结果",
+      resultTitlePrefix: t("resultTitlePrefix"),
       aspectRatio,
     }),
-    [activePrompt, activeResultExpectedCount, aiModel, aspectRatio, effectiveReferenceName, genCount, imageSize, isGenerating, promptImages, resultUrls, sceneBackgroundMode, sceneMode, selectedTemplate.name]
+    [activePrompt, activeResultExpectedCount, aiModel, aspectRatio, effectiveReferenceName, genCount, imageSize, isGenerating, promptImages, resultUrls, sceneBackgroundMode, sceneMode, selectedTemplate.name, t]
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const cost = costPerImage * genCount;
   const taskQueue = useTaskQueueGeneration({
     module: "grass",
-    title: "种草图",
+    title: t("taskQueueTitle"),
     defaultExpectedCount: genCount,
     applyPath: "/grass",
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !garmentUrl
-    ? "请先上传服装或穿搭图"
+    ? t("runDisabledNoGarment")
     : credits !== null && credits < cost
-      ? `灵点不足，生成需要 ${cost} 灵点`
+      ? t("runDisabledNoCredits", { cost })
       : undefined;
 
   useEffect(() => {
@@ -275,7 +266,7 @@ export default function GrassPage() {
     setSceneMode(nextSceneMode);
     setSceneBackgroundMode(normalizeGrassSceneBackgroundMode(payload.sceneBackgroundMode));
     setUploadedReferenceUrl(payload.referenceUrl || "");
-    setUploadedReferenceName(payload.referenceUrl ? "历史参考图" : "");
+    setUploadedReferenceName(payload.referenceUrl ? t("historyReference") : "");
     setChangeModel(payload.changeModel);
     if (nextSceneMode === "custom_prompt") {
       setUserPrompt(payload.userPrompt || "");
@@ -293,7 +284,7 @@ export default function GrassPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("historyParamsApplied"));
   }
 
   useEffect(() => {
@@ -308,7 +299,7 @@ export default function GrassPage() {
     setSceneMode(nextSceneMode);
     setSceneBackgroundMode(normalizeGrassSceneBackgroundMode(payload.sceneBackgroundMode));
     setUploadedReferenceUrl(payload.referenceUrl || "");
-    setUploadedReferenceName(payload.referenceUrl ? "历史参考图" : "");
+    setUploadedReferenceName(payload.referenceUrl ? t("historyReference") : "");
     setChangeModel(payload.changeModel);
     if (nextSceneMode === "custom_prompt") {
       setUserPrompt(payload.userPrompt || "");
@@ -326,7 +317,7 @@ export default function GrassPage() {
     setIsGenerating(false);
     setProgress(detail.resultUrls.length ? 100 : 0);
     setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
-    toast.success("已套用历史参数");
+    toast.success(t("historyParamsApplied"));
     })();
     return () => {
       cancelled = true;
@@ -335,18 +326,18 @@ export default function GrassPage() {
 
   async function handleFile(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
-    if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
-    toast.info("正在上传服装图…");
+    if (!file.type.startsWith("image/")) return toast.error(t("uploadImage"));
+    if (file.size > MAX_FILE_SIZE) return toast.error(t("imageTooLarge", { mb: MAX_FILE_SIZE_MB }));
+    toast.info(t("uploadingGarment"));
     setIsUploadingGarment(true);
     try {
       const result = await uploadImage(file);
       setGarmentUrl(result.url);
       setGarmentName(file.name);
       setPromptOverride(null);
-      toast.success("服装图已上传");
+      toast.success(t("garmentUploaded"));
     } catch {
-      toast.error("上传失败，请重试");
+      toast.error(t("uploadFailedRetry"));
     } finally {
       setIsUploadingGarment(false);
     }
@@ -354,9 +345,9 @@ export default function GrassPage() {
 
   async function handleReferenceFile(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
-    if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
-    toast.info("正在上传种草参考图…");
+    if (!file.type.startsWith("image/")) return toast.error(t("uploadImage"));
+    if (file.size > MAX_FILE_SIZE) return toast.error(t("imageTooLarge", { mb: MAX_FILE_SIZE_MB }));
+    toast.info(t("uploadingReference"));
     setIsUploadingReference(true);
     try {
       const result = await uploadImage(file);
@@ -364,9 +355,9 @@ export default function GrassPage() {
       setUploadedReferenceName(file.name);
       setSceneMode("upload_reference");
       setPromptOverride(null);
-      toast.success("参考图已作为图2接入");
+      toast.success(t("referenceAttached"));
     } catch {
-      toast.error("参考图上传失败，请重试");
+      toast.error(t("referenceUploadFailed"));
     } finally {
       setIsUploadingReference(false);
       if (referenceInputRef.current) referenceInputRef.current.value = "";
@@ -378,7 +369,7 @@ export default function GrassPage() {
     setGarmentName(demo.title);
     setPromptOverride(null);
     closeRulesPopover();
-    toast.success("已套用示例图");
+    toast.success(t("demoApplied"));
   }
 
   function applyPromptReference(text: string) {
@@ -389,12 +380,12 @@ export default function GrassPage() {
 
   async function generate(promptForRun?: string, options: GrassGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("loginFirst"));
       router.push("/login");
       return;
     }
-    if (!garmentUrl) return toast.error("请先上传服装图");
-    if (sceneMode === "upload_reference" && !uploadedReferenceUrl) return toast.error("请先上传种草参考图");
+    if (!garmentUrl) return toast.error(t("uploadGarmentFirst"));
+    if (sceneMode === "upload_reference" && !uploadedReferenceUrl) return toast.error(t("uploadReferenceFirst"));
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
     const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
@@ -458,7 +449,7 @@ export default function GrassPage() {
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generationFailed"));
       }
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
@@ -508,13 +499,13 @@ export default function GrassPage() {
           });
           if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`种草图部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(t("partialDoneToast", { done: finalResultCount, total: displayExpectedCount }));
           } else {
-            toast.success("服装种草图生成完成");
+            toast.success(t("garmentGrassDone"));
           }
           return;
         }
-        if (state.status === "failed") throw new Error(state.error || "生成失败");
+        if (state.status === "failed") throw new Error(state.error || t("generationFailed"));
         const nextProgress = Number(state.progress);
         const runningProgress = Number.isFinite(nextProgress)
           ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
@@ -528,9 +519,9 @@ export default function GrassPage() {
           status: state.status,
         });
       }
-      throw new Error("生成超时");
+      throw new Error(t("generationTimeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("generationFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
@@ -559,12 +550,12 @@ export default function GrassPage() {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generationFailed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyParamsLoadFailed"));
       return true;
     }
   }
@@ -598,12 +589,12 @@ export default function GrassPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="grass" />
-      <ModuleTaskRail module="grass" moduleLabel="种草图" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="grass" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
-            title="服装种草图"
-            tooltip="上传服装或穿搭图，保持同款穿搭不变，生成街拍、咖啡店、自拍、居家等真实种草内容图。"
+            title={t("moduleHeaderTitle")}
+            tooltip={t("moduleHeaderTooltip")}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -616,13 +607,13 @@ export default function GrassPage() {
                 aria-controls="grass-rules-popover"
                 className="studio-upload-rule-button"
               >
-                图片规则 <ChevronRight className="h-3 w-3" />
+                {t("imageRule")} <ChevronRight className="h-3 w-3" />
               </button>
             )}
           />
 
           <StudioUploadSection
-            title="上传服装"
+            title={t("uploadSectionTitle")}
             inputRef={fileInputRef}
             isDragging={isDragging}
             setDragging={setIsDragging}
@@ -633,23 +624,23 @@ export default function GrassPage() {
             {(openFileDialog, dragContext) => (
               <>
                 <StudioUploadTile
-                  title="上传服装或穿搭图"
-                  description="平铺图、人台图、上身图都可以，主体越完整越稳定。"
+                  title={t("uploadTileTitle")}
+                  description={t("uploadTileDescription")}
                   imageUrl={garmentUrl || null}
-                  imageAlt="服装图"
+                  imageAlt={t("garmentImageAlt")}
                   isDragging={isDragging}
                   loading={isUploadingGarment}
                   onUploadClick={openFileDialog}
-                  onLibraryClick={() => toast.info("作品库选择即将接入")}
+                  onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                   onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
                   onRemove={garmentUrl ? () => setGarmentUrl("") : undefined}
                   onDropFile={(file) => handleFile(file)}
                   dragContext={dragContext}
-                  uploadLabel="从本地上传"
-                  libraryLabel="从作品选择"
-                  footnote={garmentUrl ? garmentName || "已上传" : "款式图上传无遮挡、无码图；平铺、人台或自然上身图都可以。"}
+                  uploadLabel={t("uploadFromLocal")}
+                  libraryLabel={t("uploadFromWorks")}
+                  footnote={garmentUrl ? garmentName || t("alreadyUploaded") : t("garmentFootnote")}
                   examples={{
-                    label: "试一试",
+                    label: t("tryIt"),
                     images: GRASS_UPLOAD_RULE.demos.map((demo) => ({ url: demo.imageUrl, title: demo.title })),
                     onSelect: (image) => applyDemo({ title: image.title, imageUrl: image.url }),
                   }}
@@ -660,22 +651,22 @@ export default function GrassPage() {
 
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="font-bold text-sm">参考图 / 场景</h3>
+              <h3 className="font-bold text-sm">{t("referenceSceneSection")}</h3>
               <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-600">
-                {sceneMode === "custom_prompt" ? "提示词为准" : effectiveReferenceName}
+                {sceneMode === "custom_prompt" ? t("promptPriority") : effectiveReferenceName}
               </span>
             </div>
 
             <StudioOptionGrid
               options={[
-                { value: "system_reference" as const, label: "系统参考图" },
-                { value: "upload_reference" as const, label: "上传参考图" },
-                { value: "custom_prompt" as const, label: "用户自定义" },
+                { value: "system_reference" as const, label: t("sceneModeSystem") },
+                { value: "upload_reference" as const, label: t("sceneModeUpload") },
+                { value: "custom_prompt" as const, label: t("sceneModeCustom") },
               ]}
               value={sceneMode}
               onChange={(value) => { setSceneMode(value); setPromptOverride(null); }}
               columns={3}
-              ariaLabel="种草方式"
+              ariaLabel={t("sceneModeAria")}
             />
 
             {sceneMode === "system_reference" && (
@@ -700,7 +691,7 @@ export default function GrassPage() {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(tpl.imageUrl); }}
                         className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)]"
-                        title="放大预览"
+                        title={t("zoomPreview")}
                       >
                         <ZoomIn className="h-3.5 w-3.5" />
                       </button>
@@ -732,15 +723,15 @@ export default function GrassPage() {
                 />
                 {uploadedReferenceUrl ? (
                   <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
-                    <RawPreviewImage src={uploadedReferenceUrl} alt="种草参考图" className="h-full w-full object-contain p-2" />
+                    <RawPreviewImage src={uploadedReferenceUrl} alt={t("uploadedReferenceAlt")} className="h-full w-full object-contain p-2" />
                     <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
-                      <span className="truncate rounded-full bg-white dark:bg-white/10/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || "已上传参考图"}</span>
+                      <span className="truncate rounded-full bg-white dark:bg-white/10/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || t("uploadedReferenceBadge")}</span>
                       <span className="flex gap-1">
                         <button
                           type="button"
                           onClick={() => setLightboxSrc(uploadedReferenceUrl)}
                           className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)]"
-                          title="放大预览"
+                          title={t("zoomPreview")}
                         >
                           <ZoomIn className="h-3.5 w-3.5" />
                         </button>
@@ -767,8 +758,8 @@ export default function GrassPage() {
                     ) : (
                       <Upload className="mb-3 h-7 w-7 text-violet-400" />
                     )}
-                    <span className="text-sm font-semibold text-slate-800">{isUploadingReference ? "上传中…" : "上传种草参考图"}</span>
-                    <span className="mt-1 text-[11px] text-slate-400">姿势、场景、构图会作为图2进入提示词</span>
+                    <span className="text-sm font-semibold text-slate-800">{isUploadingReference ? t("uploadingDots") : t("uploadReferenceHint")}</span>
+                    <span className="mt-1 text-[11px] text-slate-400">{t("uploadReferenceSub")}</span>
                   </button>
                 )}
               </div>
@@ -779,11 +770,11 @@ export default function GrassPage() {
                 <StudioPromptTextarea
                   value={userPrompt}
                   onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}
-                  placeholder="改变模特、背景、构图、姿势，保持服装与穿搭单品不变。"
+                  placeholder={t("customPromptPlaceholder")}
                   className="studio-prompt-textarea-compact"
                 />
                 <div>
-                  <p className="mb-2 text-[11px] font-bold text-slate-500">参考提示词</p>
+                  <p className="mb-2 text-[11px] font-bold text-slate-500">{t("referencePromptsLabel")}</p>
                   <div className="space-y-2">
                     {GRASS_PROMPT_REFERENCES.map((item) => (
                       <button
@@ -802,13 +793,13 @@ export default function GrassPage() {
             ) : (
               <div className="mt-3">
                 <StudioPromptTextarea
-                  title="补充要求"
-                  badge="可选"
+                  title={t("supplementTitle")}
+                  badge={t("supplementBadge")}
                   value={supplementPrompt}
                   onChange={(e) => { setSupplementPrompt(e.target.value); setPromptOverride(null); }}
-                  placeholder="例如：突出显瘦、通勤、高级感；保留真实肤色，不要过度美颜。"
+                  placeholder={t("supplementPlaceholder")}
                   rows={3}
-                  description="不影响图2参考优先级。"
+                  description={t("supplementDescription")}
                 />
               </div>
             )}
@@ -817,21 +808,21 @@ export default function GrassPage() {
           {sceneMode !== "custom_prompt" && (
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-bold">人物控制</h3>
-                <span className="text-[11px] text-slate-400">只影响人物，不改服装</span>
+                <h3 className="text-sm font-bold">{t("personControlTitle")}</h3>
+                <span className="text-[11px] text-slate-400">{t("personControlSub")}</span>
               </div>
               <p className="mb-3 text-[11px] leading-5 text-slate-500">
-                选择是否替换画面中的模特；服装、单品、颜色和穿搭关系仍以图1为准。
+                {t("personControlDesc")}
               </p>
               <StudioOptionGrid
                 options={[
-                  { value: "replace", label: "更换模特", description: "新真人模特" },
-                  { value: "keep", label: "保持模特", description: "沿用原图人物" },
+                  { value: "replace", label: t("replaceModel"), description: t("replaceModelDesc") },
+                  { value: "keep", label: t("keepModel"), description: t("keepModelDesc") },
                 ]}
                 value={changeModel ? "replace" : "keep"}
                 onChange={(value) => { setChangeModel(value === "replace"); setPromptOverride(null); }}
                 columns={2}
-                ariaLabel="人物控制"
+                ariaLabel={t("personControlAria")}
               />
             </section>
           )}
@@ -839,60 +830,60 @@ export default function GrassPage() {
           {sceneMode !== "custom_prompt" && (
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-bold">场景控制</h3>
-                <span className="text-[11px] text-slate-400">控制背景相似度</span>
+                <h3 className="text-sm font-bold">{t("sceneControlTitle")}</h3>
+                <span className="text-[11px] text-slate-400">{t("sceneControlSub")}</span>
               </div>
               <p className="mb-3 text-[11px] leading-5 text-slate-500">
-                可让 AI 只学习参考图的光线、色调和空间气质，重新生成同风格但不完全相同的背景，降低照搬风险。
+                {t("sceneControlDesc")}
               </p>
               <StudioOptionGrid
                 options={[
-                  { value: "reference_scene" as const, label: "沿用参考场景", description: "保持现有效果" },
-                  { value: "similar_style" as const, label: "AI 重构相似场景", description: "保留滤镜氛围" },
+                  { value: "reference_scene" as const, label: t("sceneBgReferenceScene"), description: t("sceneReferenceDesc") },
+                  { value: "similar_style" as const, label: t("sceneBgSimilarStyle"), description: t("sceneSimilarDesc") },
                 ]}
                 value={sceneBackgroundMode}
                 onChange={(value) => { setSceneBackgroundMode(value); setPromptOverride(null); }}
                 columns={2}
-                ariaLabel="场景控制"
+                ariaLabel={t("sceneControlAria")}
               />
             </section>
           )}
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> 生成模型</h3>
-            <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel="生成模型" />
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("generationModelTitle")}</h3>
+            <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel={t("generationModelAria")} />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">图片比例</h3>
-            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel="图片比例" />
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("aspectRatioTitle")}</h3>
+            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("aspectRatioAria")} />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("resolutionTitle")}</h3>
             <StudioOptionGrid
-              options={imageSizes.map((s) => ({ value: s, label: `${s} · ${getCreditCost(aiModel, s, aspectRatio)}灵点` }))}
+              options={imageSizes.map((s) => ({ value: s, label: `${s} · ${getCreditCost(aiModel, s, aspectRatio)}${t("resolutionCreditUnit")}` }))}
               value={imageSize}
               onChange={setImageSize}
-              ariaLabel="分辨率"
+              ariaLabel={t("resolutionAria")}
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成数量</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("genCountTitle")}</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
-              ariaLabel="生成数量"
+              ariaLabel={t("genCountAria")}
             />
           </section>
         </div>
 
         <StudioRunBar
-          summary={`${garmentUrl ? `${effectiveReferenceUrl ? 2 : 1} 张输入图` : "未上传"} · ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          summary={`${garmentUrl ? t("summaryInputCount", { count: effectiveReferenceUrl ? 2 : 1 }) : t("summaryNoInput")} · ${t("summaryGenCount", { count: genCount })}`}
+          costLabel={authIsAnonymous ? t("costLoginView") : t("costSummary", { cost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? t("primaryLogin") : isGenerating ? t("primaryGenerating") : t("primaryGenerate", { count: genCount })}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />
@@ -902,14 +893,14 @@ export default function GrassPage() {
         {!isGenerating && resultUrls.length === 0 && !error && (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
-              title="生成服装种草图"
-              subtitle="图1始终是服装硬参考，图2或文字只决定场景、姿势、构图和社媒氛围。"
+              title={t("emptyTitle")}
+              subtitle={t("emptySubtitle")}
               imageSrc="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-grey-tank-denim.jpg"
-              imageAlt="服装种草图指引"
+              imageAlt={t("emptyImageAlt")}
               steps={[
-                { title: "上传服装图", desc: "服装与穿搭单品会作为最高优先级保留，不改款式和颜色。" },
-                { title: "选择种草方式", desc: "可用系统模板、上传场景参考图，或切到用户自定义补充要求。" },
-                { title: "生成社媒成片", desc: "输出真实自然的小红书、电商封面和穿搭分享图。" },
+                { title: t("stepUploadTitle"), desc: t("stepUploadDesc") },
+                { title: t("stepModeTitle"), desc: t("stepModeDesc") },
+                { title: t("stepResultTitle"), desc: t("stepResultDesc") },
               ]}
             />
           </div>
@@ -927,9 +918,9 @@ export default function GrassPage() {
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
                 markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel="本张生成失败"
+                missingFailureLabel={t("missingFailureLabel")}
                 missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel="重试本张"
+                missingFailureActionLabel={t("missingFailureAction")}
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
@@ -956,7 +947,7 @@ export default function GrassPage() {
             onRetry={() => { setError(""); void generate(); }}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
-            retryLabel="重新生成"
+            retryLabel={t("retryLabel")}
             notice={FAILED_RETRY_NOTICE}
           />
         )}
@@ -965,10 +956,10 @@ export default function GrassPage() {
       {showRules && rulesPopoverStyle && (
         <ClientPortal>
           <div id="grass-rules-popover" role="region" aria-labelledby="grass-rules-title" className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in" style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }} onMouseEnter={cancelRulesHide} onMouseLeave={scheduleRulesHide}>
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 id="grass-rules-title" className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={closeRulesPopover} className="rounded-full p-1.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" aria-label="关闭图片规则"><X aria-hidden="true" className="h-4 w-4" /></button></div>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 id="grass-rules-title" className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={closeRulesPopover} className="rounded-full p-1.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" aria-label={t("closeImageRule")}><X aria-hidden="true" className="h-4 w-4" /></button></div>
             <div className="max-h-[inherit] overflow-y-auto p-5">
-              <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[var(--codex-accent)]">试一试</button></div>)}</div>
-              <p className="my-4 text-center text-xs font-medium text-slate-500">请勿上传以下错误图片，会极大影响生成效果</p>
+              <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[var(--codex-accent)]">{t("tryIt")}</button></div>)}</div>
+              <p className="my-4 text-center text-xs font-medium text-slate-500">{t("doNotUploadWrong")}</p>
               <div className="mx-auto grid max-w-md grid-cols-3 gap-3">{GRASS_UPLOAD_RULE.badExamples.map((image) => <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={image.imageUrl} alt={image.title} className="aspect-square w-full object-cover" /><XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-red-500" /></div><p className="mt-1 text-xs text-slate-500">{image.title}</p></div>)}</div>
             </div>
           </div>
@@ -977,7 +968,7 @@ export default function GrassPage() {
 
       <StudioMediaLightbox
         src={lightboxSrc}
-        alt="种草输入图预览"
+        alt={t("lightboxAlt")}
         onClose={() => setLightboxSrc(null)}
       />
       {unsavedDialog}

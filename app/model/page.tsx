@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, ChevronRight, Sparkles, UserRound, XCircle } from "lucide-react";
@@ -54,56 +55,59 @@ type ModelGenerateOptions = {
   toastMessage?: string;
 };
 
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "推荐", badgeKey: "Model.models.badge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "最新", badgeKey: "Model.models.badge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "高质精修", badgeKey: "Model.models.badge.premium", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
 
-const ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "auto", label: "智能" },
-  { value: "3:4", label: "3:4 竖版" },
-  { value: "1:1", label: "1:1 头像" },
-  { value: "4:3", label: "4:3 横版" },
+const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
+  { value: "auto", label: "智能", labelKey: "Model.aspects.auto" },
+  { value: "3:4", label: "3:4 竖版", labelKey: "Model.aspects.portrait34" },
+  { value: "1:1", label: "1:1 头像", labelKey: "Model.aspects.square11" },
+  { value: "4:3", label: "4:3 横版", labelKey: "Model.aspects.landscape43" },
 ];
 
-const MODEL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
-  { kind: "download", label: "下载图片" },
-  { kind: "copy", label: "复制链接" },
-  { kind: "repair", label: "AI修图" },
-  { kind: "aiVideo", label: "AI视频" },
-  { kind: "modelBackground", label: "换背景" },
-  { kind: "pose", label: "姿势裂变" },
-  { kind: "productSet", label: "商品套图" },
-  { kind: "regenerateAll", label: "重新创作" },
-  { kind: "feedback", label: "反馈" },
+type ModelPreviewAction = ImagePreviewAction & { labelKey?: string };
+
+const MODEL_PREVIEW_ACTIONS: ModelPreviewAction[] = [
+  { kind: "download", label: "下载图片", labelKey: "Model.previewActions.download" },
+  { kind: "copy", label: "复制链接", labelKey: "Model.previewActions.copy" },
+  { kind: "repair", label: "AI修图", labelKey: "Model.previewActions.repair" },
+  { kind: "aiVideo", label: "AI视频", labelKey: "Model.previewActions.aiVideo" },
+  { kind: "modelBackground", label: "换背景", labelKey: "Model.previewActions.modelBackground" },
+  { kind: "pose", label: "姿势裂变", labelKey: "Model.previewActions.pose" },
+  { kind: "productSet", label: "商品套图", labelKey: "Model.previewActions.productSet" },
+  { kind: "regenerateAll", label: "重新创作", labelKey: "Model.previewActions.regenerateAll" },
+  { kind: "feedback", label: "反馈", labelKey: "Model.previewActions.feedback" },
 ];
 
 const HAIR_STYLES = {
   female: [
-    { value: "自然黑长直发，偏分，发丝顺滑垂落", label: "黑长直", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
-    { value: "齐肩短波波头，空气刘海，发尾内扣", label: "短波波", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-short-bob.png" },
-    { value: "高丸子头，干净利落，露出脸部轮廓", label: "丸子头", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-high-bun.png" },
-    { value: "侧边低马尾，柔和自然，发束垂在肩侧", label: "侧马尾", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-side-ponytail.png" },
-    { value: "长卷发，大波浪，发丝蓬松有层次", label: "大波浪", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-wavy.png" },
+    { value: "自然黑长直发，偏分，发丝顺滑垂落", label: "黑长直", labelKey: "hairStyles.female.blackLong", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
+    { value: "齐肩短波波头，空气刘海，发尾内扣", label: "短波波", labelKey: "hairStyles.female.shortBob", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-short-bob.png" },
+    { value: "高丸子头，干净利落，露出脸部轮廓", label: "丸子头", labelKey: "hairStyles.female.highBun", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-high-bun.png" },
+    { value: "侧边低马尾，柔和自然，发束垂在肩侧", label: "侧马尾", labelKey: "hairStyles.female.sidePonytail", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-side-ponytail.png" },
+    { value: "长卷发，大波浪，发丝蓬松有层次", label: "大波浪", labelKey: "hairStyles.female.wavy", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-wavy.png" },
   ],
   male: [
-    { value: "短寸头，清爽硬朗，发际线自然", label: "寸头", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-buzz-cut.png" },
-    { value: "短碎发，顶部自然蓬松，干净少年感", label: "短碎发", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-short-textured.png" },
-    { value: "蓬松微卷短发，前额自然碎刘海", label: "微卷发", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-wavy-volume.png" },
+    { value: "短寸头，清爽硬朗，发际线自然", label: "寸头", labelKey: "hairStyles.male.buzzCut", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-buzz-cut.png" },
+    { value: "短碎发，顶部自然蓬松，干净少年感", label: "短碎发", labelKey: "hairStyles.male.shortTextured", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-short-textured.png" },
+    { value: "蓬松微卷短发，前额自然碎刘海", label: "微卷发", labelKey: "hairStyles.male.wavyVolume", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-wavy-volume.png" },
   ],
 };
 
 const HAIR_COLORS = [
-  { value: "自然黑色", label: "黑色", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
-  { value: "深棕色", label: "深棕", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-brown-straight.png" },
-  { value: "冷灰色", label: "灰色", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-gray-long.png" },
-  { value: "铂金白色", label: "白金", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-platinum-long.png" },
-  { value: "柔粉色", label: "粉色", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-pink-long.png" },
+  { value: "自然黑色", label: "黑色", labelKey: "hairColors.black", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
+  { value: "深棕色", label: "深棕", labelKey: "hairColors.darkBrown", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-brown-straight.png" },
+  { value: "冷灰色", label: "灰色", labelKey: "hairColors.coolGray", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-gray-long.png" },
+  { value: "铂金白色", label: "白金", labelKey: "hairColors.platinum", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-platinum-long.png" },
+  { value: "柔粉色", label: "粉色", labelKey: "hairColors.pink", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-pink-long.png" },
 ];
 export default function ModelPage() {
+  const t = useTranslations("Model");
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hairInputRef = useRef<HTMLInputElement>(null);
@@ -157,9 +161,9 @@ export default function ModelPage() {
   const totalCost = cost * genCount;
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !referenceUrls.length
-    ? "请上传至少 1 张参考图"
+    ? t("uploadAtLeastOne")
     : credits !== null && credits < totalCost
-      ? `灵点不足，生成需要 ${totalCost} 灵点`
+      ? t("insufficientCredits", { totalCost })
       : undefined;
   const defaultPrompt = useMemo(
     () => buildDefaultPrompt(referenceUrls.length || 1, gender, hairStyle, hairColor, !!hairReferenceUrl, !!hairColorReferenceUrl, modelStyle),
@@ -170,8 +174,8 @@ export default function ModelPage() {
     [referenceUrls, hairReferenceUrl, hairColorReferenceUrl]
   );
   const previewReferences = useMemo(
-    () => referencesFromUrls(activeResultMeta?.inputThumbnails.length ? activeResultMeta.inputThumbnails : taskInputThumbnails, "reference", "参考图"),
-    [activeResultMeta, taskInputThumbnails]
+    () => referencesFromUrls(activeResultMeta?.inputThumbnails.length ? activeResultMeta.inputThumbnails : taskInputThumbnails, "reference", t("referenceImage")),
+    [activeResultMeta, taskInputThumbnails, t]
   );
   const activeResultExpectedCount = isGenerating
     ? runningExpectedCount || genCount
@@ -192,13 +196,13 @@ export default function ModelPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retryBackfillToast", { index: index + 1 }),
     });
   }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "model",
-      title: "专属模特",
+      title: t("title"),
       urls: resultUrls,
       expectedCount: activeResultExpectedCount,
       isGenerating,
@@ -207,33 +211,33 @@ export default function ModelPage() {
       references: previewReferences,
       promptText: userExtraPrompt,
       metaItems: [
-        { label: "性别", value: gender === "female" ? "女模特" : "男模特" },
-        { label: "拍摄风格", value: modelStyle },
-        { label: "模型", value: aiModel },
-        { label: "比例", value: aspectRatio },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: genCount },
+        { label: t("meta.gender"), value: gender === "female" ? t("genderModel.female") : t("genderModel.male") },
+        { label: t("meta.shootStyle"), value: modelStyle },
+        { label: t("meta.model"), value: aiModel },
+        { label: t("meta.aspectRatio"), value: aspectRatio },
+        { label: t("meta.resolution"), value: imageSize },
+        { label: t("meta.genCount"), value: genCount },
       ],
-      resultTitlePrefix: "专属模特结果",
+      resultTitlePrefix: t("resultTitlePrefix"),
       aspectRatio,
     }),
-    [activeResultExpectedCount, activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, userExtraPrompt]
+    [activeResultExpectedCount, activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, userExtraPrompt, t]
   );
   const referencePreviewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "model",
-      title: "专属模特参考图",
+      title: t("referenceTitle"),
       urls: referenceUrls,
       expectedCount: Math.max(referenceUrls.length, 1),
-      references: referencesFromUrls(referenceUrls, "reference", "参考图"),
-      resultTitlePrefix: "参考图",
+      references: referencesFromUrls(referenceUrls, "reference", t("referenceImage")),
+      resultTitlePrefix: t("referenceImage"),
       aspectRatio: "auto",
     }),
-    [referenceUrls]
+    [referenceUrls, t]
   );
   const taskQueue = useTaskQueueGeneration({
     module: "model",
-    title: "专属模特",
+    title: t("title"),
     defaultExpectedCount: genCount,
     applyPath: "/model",
   });
@@ -285,7 +289,7 @@ export default function ModelPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("historyApplied"));
   }
 
   useEffect(() => {
@@ -326,7 +330,7 @@ export default function ModelPage() {
     setIsGenerating(false);
     setProgress(detail?.resultUrls.length ? 100 : 0);
     setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
-    toast.success("已套用历史参数");
+    toast.success(t("historyApplied"));
     })();
     return () => {
       cancelled = true;
@@ -337,7 +341,7 @@ export default function ModelPage() {
     if (!files) return;
     const incoming = Array.from(files).slice(0, 3 - referenceUrls.length);
     if (!incoming.length) {
-      toast.error("最多上传 3 张参考图");
+      toast.error(t("maxThreeImages"));
       return;
     }
 
@@ -349,15 +353,15 @@ export default function ModelPage() {
     const accepted: File[] = [];
     for (const file of incoming) {
       if (!isLikelyImageFile(file)) {
-        toast.error(`${file.name} 不是图片文件，已跳过`);
+        toast.error(t("notImageFileSkipped", { name: file.name }));
         continue;
       }
       if (file.size < MODEL_UPLOAD_RULE.minFileSize) {
-        toast.error(`${file.name} 小于 ${MODEL_UPLOAD_RULE.minFileSize / 1024}KB，已跳过`);
+        toast.error(t("belowMinSizeSkipped", { name: file.name, kb: MODEL_UPLOAD_RULE.minFileSize / 1024 }));
         continue;
       }
       if (file.size > MODEL_UPLOAD_RULE.maxFileSize) {
-        toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+        toast.error(t("exceedsMaxSize", { name: file.name, mb: MAX_FILE_SIZE_MB }));
         continue;
       }
       accepted.push(file);
@@ -365,7 +369,7 @@ export default function ModelPage() {
     if (!accepted.length) return;
 
     setIsUploadingReference(true);
-    toast.info(`正在上传 ${accepted.length} 张参考图…`);
+    toast.info(t("uploadingCount", { count: accepted.length }));
     try {
       // Upload in parallel — each file's network round-trip runs
       // concurrently, cutting wall-clock time from N*RTT to ~RTT for
@@ -383,11 +387,11 @@ export default function ModelPage() {
       const next: string[] = [];
       for (const r of results) {
         if (r.ok) next.push(r.url);
-        else toast.error(`${r.name} 上传失败，请重试`);
+        else toast.error(t("uploadFailedRetry", { name: r.name }));
       }
       if (next.length) {
         setReferenceUrls((prev) => [...prev, ...next].slice(0, 3));
-        toast.success(`已添加 ${next.length} 张参考图`);
+        toast.success(t("addedCount", { count: next.length }));
       }
     } finally {
       setIsUploadingReference(false);
@@ -414,33 +418,33 @@ export default function ModelPage() {
     const file = files?.[0];
     if (!file) return;
     if (!isLikelyImageFile(file)) {
-      toast.error("请上传图片文件");
+      toast.error(t("pleaseUploadImage"));
       return;
     }
     if (file.size < MODEL_UPLOAD_RULE.minFileSize) {
-      toast.error(`${file.name} 小于 ${MODEL_UPLOAD_RULE.minFileSize / 1024}KB，已跳过`);
+      toast.error(t("belowMinSizeSkipped", { name: file.name, kb: MODEL_UPLOAD_RULE.minFileSize / 1024 }));
       return;
     }
     if (file.size > MODEL_UPLOAD_RULE.maxFileSize) {
-      toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+      toast.error(t("exceedsMaxSize", { name: file.name, mb: MAX_FILE_SIZE_MB }));
       return;
     }
     options.clearSelection();
 
-    toast.info(`正在上传${options.label}参考图…`);
+    toast.info(t("uploadingVariant", { label: options.label }));
     try {
       const result = await uploadImage(file);
       options.setUrl(result.url);
-      toast.success(`已上传${options.label}参考图`);
+      toast.success(t("variantUploaded", { label: options.label }));
     } catch {
       options.setUrl(null);
-      toast.error(`${options.label}参考图上传失败，请重试`);
+      toast.error(t("variantUploadFailed", { label: options.label }));
     }
   }
 
   function uploadHairReference(files?: FileList | File[]) {
     return uploadHairVariant(files, {
-      label: "发型",
+      label: t("hairStyle"),
       setUrl: setHairReferenceUrl,
       clearSelection: () => setHairStyle(null),
     });
@@ -448,7 +452,7 @@ export default function ModelPage() {
 
   function uploadHairColorReference(files?: FileList | File[]) {
     return uploadHairVariant(files, {
-      label: "发色",
+      label: t("hairColor"),
       setUrl: setHairColorReferenceUrl,
       clearSelection: () => setHairColor(null),
     });
@@ -463,12 +467,12 @@ export default function ModelPage() {
     // needs the in-function guard.
     if (isGenerating) return;
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
     if (!referenceUrls.length) {
-      toast.error("请上传至少 1 张参考图");
+      toast.error(t("uploadAtLeastOne"));
       return;
     }
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
@@ -542,7 +546,7 @@ export default function ModelPage() {
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generateFailed"));
       }
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
@@ -555,7 +559,7 @@ export default function ModelPage() {
         // guard the polling loop would happily call
         // `/api/model?generation_id=undefined` for the full 120-attempt
         // budget and surface a misleading '生成超时'.
-        throw new Error("生成服务未返回任务标识，请稍后重试");
+        throw new Error(t("noGenerationId"));
       }
       const generationId = data.generation_id;
       const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
@@ -582,7 +586,7 @@ export default function ModelPage() {
           if (poll.status >= 400 && poll.status < 500) {
             // Non-recoverable client error (missing/invalid id, auth,
             // rate limit). Bail immediately with the server's message.
-            let message = `生成服务返回 ${poll.status}`;
+            let message = t("serviceReturnedStatus", { status: poll.status });
             try {
               const errBody = await poll.json();
               if (errBody && typeof errBody.error === "string") message = errBody.error;
@@ -593,7 +597,7 @@ export default function ModelPage() {
           }
           consecutiveServerErrors += 1;
           if (consecutiveServerErrors >= MAX_CONSECUTIVE_SERVER_ERRORS) {
-            throw new Error("生成服务暂时不可用，请稍后重试");
+            throw new Error(t("serviceUnavailable"));
           }
           continue;
         }
@@ -638,18 +642,18 @@ export default function ModelPage() {
           });
           if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`专属模特部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(t("partialComplete", { count: finalResultCount, expected: displayExpectedCount }));
           } else {
-            toast.success("专属模特生成完成");
+            toast.success(t("generateComplete"));
           }
           return;
         } else if (state.status === "failed") {
-          throw new Error(state.error || "生成失败");
+          throw new Error(state.error || t("generateFailed"));
         }
       }
-      throw new Error("生成超时");
+      throw new Error(t("generateTimeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       setIsGenerating(false);
       taskQueue.markFailed(activeTaskId, message, {
@@ -666,7 +670,7 @@ export default function ModelPage() {
     setReferenceUrls(demo.imageUrls.slice(0, 3));
     setPromptTouched(false);
     closeRulesPopover();
-    toast.success(`已套用${demo.title}`);
+    toast.success(t("demoApplied", { title: demo.title }));
   }
 
   function handleRunningTask(item: TaskQueueItem) {
@@ -689,12 +693,12 @@ export default function ModelPage() {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
   }
@@ -731,12 +735,12 @@ export default function ModelPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="model" />
-      <ModuleTaskRail module="model" moduleLabel="模特生成" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="model" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
-            title="专属模特"
-            tooltip="上传 1-3 张人物参考图，融合脸型、五官比例、肤色、妆感和气质，生成稳定可复用的品牌模特形象。"
+            title={t("title")}
+            tooltip={t("headerTooltip")}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -748,12 +752,12 @@ export default function ModelPage() {
                 aria-expanded={showModelRules}
                 className="studio-upload-rule-button"
               >
-                图片规则 <ChevronRight className="h-3 w-3" />
+                {t("imageRules")} <ChevronRight className="h-3 w-3" />
               </button>
             )}
           />
           <StudioUploadSection
-            title="上传参考图"
+            title={t("uploadReference")}
             inputRef={fileInputRef}
             multiple
             isDragging={isReferenceDragging}
@@ -764,19 +768,19 @@ export default function ModelPage() {
               <StudioMultiImageUpload
                 urls={referenceUrls}
                 maxCount={3}
-                title="已上传人物参考图"
-                emptyTitle="上传 / 拖拽 1-3 张人物参考图"
-                description="图片已进入融合参考，可继续补充或移除单张。"
-                emptyDescription="用于融合脸型、肤色、妆感和气质。"
-                itemLabelPrefix="图"
+                title={t("uploadedReferenceTitle")}
+                emptyTitle={t("uploadEmptyTitle")}
+                description={t("uploadDescription")}
+                emptyDescription={t("uploadEmptyDescription")}
+                itemLabelPrefix={t("itemPrefix")}
                 loading={isUploadingReference}
                 isDragging={isReferenceDragging}
-                uploadLabel="从本地上传"
-                libraryLabel="从作品选择"
-                summary={referenceUrls.length ? "用于脸型 / 五官 / 肤色融合" : undefined}
-                footnote="建议 1-3 张清晰正脸或半身图；光线统一、无遮挡会更稳定。"
+                uploadLabel={t("uploadLocal")}
+                libraryLabel={t("uploadLibrary")}
+                summary={referenceUrls.length ? t("uploadSummary") : undefined}
+                footnote={t("uploadFootnote")}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                 onPreview={(_, index) => setReferencePreviewIndex(index)}
                 onRemove={(_, index) => {
                   setReferenceUrls((prev) => prev.filter((__, i) => i !== index));
@@ -792,7 +796,7 @@ export default function ModelPage() {
                   setReferencePreviewIndex(null);
                 }}
                 examples={{
-                  label: "试一试",
+                  label: t("tryIt"),
                   images: MODEL_UPLOAD_RULE.demos.map((demo) => ({
                     url: demo.imageUrls[0],
                     title: demo.title,
@@ -809,7 +813,7 @@ export default function ModelPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">模特风格</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("modelStyle")}</h3>
             <StudioOptionGrid
               options={MODEL_SHOOT_STYLES.map((style) => ({
                 value: style.value,
@@ -819,29 +823,29 @@ export default function ModelPage() {
               value={modelStyle}
               onChange={selectModelStyle}
               columns={2}
-              ariaLabel="模特风格"
+              ariaLabel={t("modelStyle")}
             />
             <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-stone-500">
-              风格只决定妆造、光线和商业气质；多图融合、肤色、脸型骨相和五官辨识度优先级更高。
+              {t("modelStyleHint")}
             </p>
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">性别</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("gender")}</h3>
             <StudioOptionGrid<Gender>
               options={[
-                { value: "female", label: "女" },
-                { value: "male", label: "男" },
+                { value: "female", label: t("genderFemale") },
+                { value: "male", label: t("genderMale") },
               ]}
               value={gender}
               onChange={selectGender}
               columns={2}
-              ariaLabel="性别"
+              ariaLabel={t("gender")}
             />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">参考发型</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("hairStyleRef")}</h3>
             <input
               ref={hairInputRef}
               type="file"
@@ -863,15 +867,15 @@ export default function ModelPage() {
                 }`}
               >
                 <UserRound className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">不选默认</span>
+                <span className="text-[10px] font-medium">{t("noDefault")}</span>
               </button>
               {HAIR_STYLES[gender].map((item) => (
                 <button key={item.value} onClick={() => { setHairStyle(item.value); setHairReferenceUrl(null); }}
                   className={`rounded-lg overflow-hidden border text-left transition-colors ${
                     hairStyle === item.value && !hairReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
                   }`}>
-                  <RawPreviewImage src={item.image} alt={item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
-                  <div className="px-1 py-1 text-[10px] text-center font-medium">{item.label}</div>
+                  <RawPreviewImage src={item.image} alt={item.labelKey ? t(item.labelKey) : item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
+                  <div className="px-1 py-1 text-[10px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
                 </button>
               ))}
               <button
@@ -884,22 +888,22 @@ export default function ModelPage() {
               >
                 {hairReferenceUrl ? (
                   <>
-                    <RawPreviewImage src={hairReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发型参考" />
+                    <RawPreviewImage src={hairReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairRef")} />
                     <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-white/5 text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                     <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
-                      <span className="block text-[10px] font-bold text-purple-700">已上传发型参考</span>
-                      <span className="block truncate text-[9px] text-slate-400 dark:text-stone-500">只参考发型轮廓</span>
+                      <span className="block text-[10px] font-bold text-purple-700">{t("uploadedHairRef")}</span>
+                      <span className="block truncate text-[9px] text-slate-400 dark:text-stone-500">{t("hairOutlineOnly")}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5 mb-1.5" />
-                    <span className="text-[10px] font-bold">上传发型参考</span>
+                    <span className="text-[10px] font-bold">{t("uploadHairRef")}</span>
                     <span className="mt-1 max-w-[78px] text-[9px] leading-snug text-slate-400 dark:text-stone-500">
-                      只参考发型，不参考脸
+                      {t("hairOnlyNoFace")}
                     </span>
                     <span className="mt-1 text-[8px] text-slate-300">≤15MB</span>
                   </>
@@ -911,13 +915,13 @@ export default function ModelPage() {
                 onClick={() => setHairReferenceUrl(null)}
                 className="mt-2 text-xs text-gray-400 dark:text-stone-500 hover:text-red-500"
               >
-                移除上传的发型参考
+                {t("removeHairRef")}
               </button>
             )}
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">参考发色</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("hairColorRef")}</h3>
             <input
               ref={hairColorInputRef}
               type="file"
@@ -939,15 +943,15 @@ export default function ModelPage() {
                 }`}
               >
                 <UserRound className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">不选默认</span>
+                <span className="text-[10px] font-medium">{t("noDefault")}</span>
               </button>
               {HAIR_COLORS.map((item) => (
                 <button key={item.value} onClick={() => { setHairColor(item.value); setHairColorReferenceUrl(null); }}
                   className={`rounded-lg overflow-hidden border text-left transition-colors ${
                     hairColor === item.value && !hairColorReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
                   }`}>
-                  <RawPreviewImage src={item.image} alt={item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
-                  <div className="px-1 py-1 text-[10px] text-center font-medium">{item.label}</div>
+                  <RawPreviewImage src={item.image} alt={item.labelKey ? t(item.labelKey) : item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
+                  <div className="px-1 py-1 text-[10px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
                 </button>
               ))}
               <button
@@ -960,22 +964,22 @@ export default function ModelPage() {
               >
                 {hairColorReferenceUrl ? (
                   <>
-                    <RawPreviewImage src={hairColorReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发色参考" />
+                    <RawPreviewImage src={hairColorReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairColorRef")} />
                     <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-white/5 text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                     <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
-                      <span className="block text-[10px] font-bold text-purple-700">已上传发色参考</span>
-                      <span className="block truncate text-[9px] text-slate-400 dark:text-stone-500">只提取发色明暗</span>
+                      <span className="block text-[10px] font-bold text-purple-700">{t("uploadedHairColorRef")}</span>
+                      <span className="block truncate text-[9px] text-slate-400 dark:text-stone-500">{t("hairColorToneOnly")}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5 mb-1.5" />
-                    <span className="text-[10px] font-bold">上传发色参考</span>
+                    <span className="text-[10px] font-bold">{t("uploadHairColorRef")}</span>
                     <span className="mt-1 max-w-[78px] text-[9px] leading-snug text-slate-400 dark:text-stone-500">
-                      只提取发色，不参考身份
+                      {t("hairColorNoIdentity")}
                     </span>
                     <span className="mt-1 text-[8px] text-slate-300">≤15MB</span>
                   </>
@@ -987,78 +991,78 @@ export default function ModelPage() {
                 onClick={() => setHairColorReferenceUrl(null)}
                 className="mt-2 text-xs text-gray-400 dark:text-stone-500 hover:text-red-500"
               >
-                移除上传的发色参考
+                {t("removeHairColorRef")}
               </button>
             )}
           </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
-              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> 生成模型
+              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("genModel")}
             </h3>
             <StudioModelSelector
               models={MODELS}
               value={aiModel}
               onChange={setAiModel}
-              ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}分`}
+              ariaLabel={t("genModel")}
+              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
             />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">比例</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("aspectRatio")}</h3>
             <StudioOptionGrid
               options={ASPECTS}
               value={aspectRatio}
               onChange={setAspectRatio}
               columns={3}
-              ariaLabel="比例"
+              ariaLabel={t("aspectRatio")}
             />
           </section>
 
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
+              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("resolution")}</h3>
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,
-                  label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
+                  label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}${t("creditsUnit")}`,
                 }))}
                 value={imageSize}
                 onChange={setImageSize}
-                ariaLabel="分辨率"
+                ariaLabel={t("resolution")}
               />
             </section>
           )}
 
           <section>
             <StudioPromptTextarea
-              title="补充要求"
-              badge="可选"
+              title={t("extraPrompt")}
+              badge={t("optional")}
               value={userExtraPrompt}
               onChange={(event) => setUserExtraPrompt(event.target.value)}
-              placeholder="可选：例如希望模特表情更自然、背景偏暖色调、妆容淡雅…"
+              placeholder={t("extraPromptPlaceholder")}
               rows={4}
-              description="补充说明会附加到系统提示词中，影响最终生成效果。"
+              description={t("extraPromptDescription")}
             />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成数量</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("genCount")}</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
-              ariaLabel="生成数量"
+              ariaLabel={t("genCount")}
             />
           </section>
         </div>
 
         <StudioRunBar
-          summary={`${referenceUrls.length} 张参考图 · ${cost} × ${genCount}`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          summary={t("runSummary", { count: referenceUrls.length, cost, genCount })}
+          costLabel={authIsAnonymous ? t("loginToViewCredits") : t("runCost", { totalCost, credits: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? t("loginToGenerate") : isGenerating ? t("generating") : t("generateN", { count: genCount })}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />
@@ -1068,14 +1072,14 @@ export default function ModelPage() {
         {!isGenerating && resultUrls.length === 0 && !error && (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
-              title="创建专属模特"
-              subtitle="从人像参考中提取稳定身份，再用风格和外观设置生成可复用的品牌模特。"
+              title={t("guideTitle")}
+              subtitle={t("guideSubtitle")}
               imageSrc="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-02.png"
-              imageAlt="专属模特指引"
+              imageAlt={t("guideAlt")}
               steps={[
-                { title: "上传参考人像", desc: "上传 1-3 张清晰人像，用于锁定脸型、五官和人物气质。" },
-                { title: "选择外观设置", desc: "调整肤色、年龄、发型、发色、妆容和拍摄风格。" },
-                { title: "生成专属模特", desc: "得到统一人物形象，后续可继续用于服装上身和商品视觉。" },
+                { title: t("guideStep1Title"), desc: t("guideStep1Desc") },
+                { title: t("guideStep2Title"), desc: t("guideStep2Desc") },
+                { title: t("guideStep3Title"), desc: t("guideStep3Desc") },
               ]}
             />
           </div>
@@ -1095,9 +1099,9 @@ export default function ModelPage() {
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
                 markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel="本张生成失败"
+                missingFailureLabel={t("missingFailureLabel")}
                 missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel="重试本张"
+                missingFailureActionLabel={t("missingFailureActionLabel")}
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
@@ -1125,7 +1129,7 @@ export default function ModelPage() {
             onRetry={() => { setError(""); void generate(); }}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
-            retryLabel="重新生成"
+            retryLabel={t("retryLabel")}
             notice={FAILED_RETRY_NOTICE}
           />
         )}
@@ -1159,7 +1163,7 @@ export default function ModelPage() {
                 <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{MODEL_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{MODEL_UPLOAD_RULE.uploadSpecText}</p>
               </div>
-              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">Hover 预览</span>
+              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">{t("hoverPreview")}</span>
             </div>
 
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
@@ -1181,7 +1185,7 @@ export default function ModelPage() {
                       onClick={() => applyRuleDemo(demo)}
                       className="mt-auto w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
                     >
-                      试一试
+                      {t("tryIt")}
                     </button>
                   </div>
                 ))}

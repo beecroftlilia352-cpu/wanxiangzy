@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import type { TaskQueueItem } from "@/lib/task-queue";
@@ -23,6 +24,7 @@ export function ModuleTaskRail({
   onCompletedTask,
 }: ModuleTaskRailProps) {
   const router = useRouter();
+  const t = useTranslations("Shared");
   const handleContinue = onContinue ?? (() => undefined);
 
   const applyTask = async (item: TaskQueueItem, session: TaskSelectionSession) => {
@@ -68,7 +70,7 @@ export function ModuleTaskRail({
     if (item.statusGroup === "completed" || item.statusGroup === "failed") {
       const applied = await applyTask(item, session);
       if (!applied && item.statusGroup === "failed") {
-        toast.error(item.error || "任务失败，可套用参数重试");
+        toast.error(item.error || t("taskFailedRetry"));
       }
       return;
     }

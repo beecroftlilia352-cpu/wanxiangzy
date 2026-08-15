@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
@@ -94,7 +95,8 @@ export function ThemeToggle({ className, onToggle, onClick, ...props }: ThemeTog
 
   // Render a stable placeholder until mounted to avoid hydration mismatch.
   const isDark = mounted && theme === "dark";
-  const label = isDark ? "切换到浅色主题" : "切换到深色主题";
+  const t = useTranslations("Shared");
+  const label = isDark ? t("toLightTheme") : t("toDarkTheme");
 
   return (
     <button

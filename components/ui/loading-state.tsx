@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
@@ -12,11 +13,12 @@ type LoadingStateProps = React.ComponentProps<"div"> & {
 
 function LoadingState({
   className,
-  title = "正在加载",
+  title,
   description,
   skeletonRows = 0,
   ...props
 }: LoadingStateProps) {
+  const t = useTranslations("Shared");
   return (
     <div
       data-slot="loading-state"
@@ -26,7 +28,7 @@ function LoadingState({
       <div className="flex items-center gap-3">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
         <div>
-          <div className="text-sm font-semibold">{title}</div>
+          <div className="text-sm font-semibold">{title ?? t("loading")}</div>
           {description ? <div className="text-sm text-muted-foreground">{description}</div> : null}
         </div>
       </div>

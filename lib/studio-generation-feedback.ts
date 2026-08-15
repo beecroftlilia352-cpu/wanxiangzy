@@ -1,8 +1,21 @@
 export const FAILED_RETRY_NOTICE = "失败任务会自动退回对应灵点；重新生成会按新的生成任务再次扣费。";
+export const FAILED_RETRY_NOTICE_KEY = "LibShared.feedback.failedRetryNotice";
+
+export const GENERATION_ERROR_UPSTREAM = "上游生成服务返回异常，本张已按失败结算。";
+export const GENERATION_ERROR_UPSTREAM_KEY = "LibShared.feedback.upstreamError";
+export const GENERATION_ERROR_RATE_LIMIT = "上游模型繁忙或限流，本张已按失败结算。";
+export const GENERATION_ERROR_RATE_LIMIT_KEY = "LibShared.feedback.rateLimitError";
+export const FAILED_TASK_DETAIL_SUFFIX = "本次失败已自动退回对应灵点；重新生成会按新任务扣费。";
+export const FAILED_TASK_DETAIL_SUFFIX_KEY = "LibShared.feedback.failedTaskDetailSuffix";
+export const PARTIAL_FAILURE_REFUND_PREFIX = "成功图片可正常使用，失败";
+export const PARTIAL_FAILURE_REFUND_SUFFIX = "张已自动退回对应灵点。";
+export const PARTIAL_FAILURE_REFUND_KEY = "LibShared.feedback.partialFailureRefund";
+export const PARTIAL_FAILURE_RETRY_HINT = "点“重试本张”会创建 1 张新任务并重新扣费。";
+export const PARTIAL_FAILURE_RETRY_HINT_KEY = "LibShared.feedback.partialFailureRetryHint";
 
 export function summarizeGenerationError(message?: unknown) {
   const raw = typeof message === "string" ? message.trim() : "";
-  if (!raw) return "上游生成服务返回异常，本张已按失败结算。";
+  if (!raw) return GENERATION_ERROR_UPSTREAM;
 
   const nestedMessage = readNestedErrorMessage(raw);
   if (nestedMessage && nestedMessage !== raw) return summarizeGenerationError(nestedMessage);
@@ -20,7 +33,7 @@ export function summarizeGenerationError(message?: unknown) {
     lower.includes("负载已饱和") ||
     lower.includes("请求过于频繁")
   ) {
-    return "上游模型繁忙或限流，本张已按失败结算。";
+    return GENERATION_ERROR_RATE_LIMIT;
   }
 
   const display = withoutApiPrefix || raw;
@@ -28,7 +41,7 @@ export function summarizeGenerationError(message?: unknown) {
 }
 
 export function buildFailedTaskDetail(message?: unknown) {
-  return `${summarizeGenerationError(message)} 本次失败已自动退回对应灵点；重新生成会按新任务扣费。`;
+  return `${summarizeGenerationError(message)} ${FAILED_TASK_DETAIL_SUFFIX}`;
 }
 
 export function buildPartialFailureDetail(input: { message?: unknown; failedCount?: number }) {
@@ -36,8 +49,8 @@ export function buildPartialFailureDetail(input: { message?: unknown; failedCoun
   const reason = input.message ? summarizeGenerationError(input.message) : "";
   return [
     reason,
-    `成功图片可正常使用，失败 ${failedCount} 张已自动退回对应灵点。`,
-    "点“重试本张”会创建 1 张新任务并重新扣费。",
+    `${PARTIAL_FAILURE_REFUND_PREFIX} ${failedCount} ${PARTIAL_FAILURE_REFUND_SUFFIX}`,
+    PARTIAL_FAILURE_RETRY_HINT,
   ].filter(Boolean).join(" ");
 }
 

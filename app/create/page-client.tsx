@@ -18,6 +18,7 @@ import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZ
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -215,6 +216,7 @@ function formatVisualAudienceSuggestion(audience: TryOnGarmentAudience | null, a
 }
 
 export default function CreatePage() {
+  const t = useTranslations("Create");
   const router = useRouter();
   const store = useTryOnStore();
   const {
@@ -291,7 +293,7 @@ export default function CreatePage() {
   const [activeTaskReferences, setActiveTaskReferences] = useState<TryOnInputReference[]>([]);
   const taskQueue = useTaskQueueGeneration({
     module: "tryon",
-    title: "服装上身",
+    title: t("tryon.title"),
     defaultExpectedCount: genCount,
     applyPath: "/create",
   });
@@ -342,7 +344,7 @@ export default function CreatePage() {
     ensureAuthenticated: refreshAuth,
     isAuthenticated,
     onUnauthenticated: () => {
-      toast.error("请先登录后使用作品库");
+      toast.error(t("library.loginRequired"));
       router.push("/login");
     },
   });
@@ -496,7 +498,7 @@ export default function CreatePage() {
       return;
     }
     if (selectedReferenceImages.length >= MAX_TRYON_REFERENCE_IMAGES) {
-      toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
+      toast.info(t("maxReference", { count: MAX_TRYON_REFERENCE_IMAGES }));
       return;
     }
     setSelectedReferences([...selectedReferenceImages, ref]);
@@ -512,12 +514,12 @@ export default function CreatePage() {
 
   const applyReferenceTemplate = (template: ReferenceTemplate) => {
     setSelectedReferences(template.references);
-    toast.success(`已套用${template.name}`);
+    toast.success(t("templateApplied", { name: template.name }));
   };
 
   const switchSceneMode = (mode: TryOnSceneMode) => {
     if (isUploadingCustomRef) {
-      toast.info("参考图上传中，请稍候");
+      toast.info(t("referenceUploading"));
       return false;
     }
     const isChangingSource = mode !== sceneMode;
@@ -547,7 +549,7 @@ export default function CreatePage() {
     ageSelectionTouchedRef.current = true;
     if (value !== "adult" && isIntimateGarment) {
       setIsIntimateGarment(false);
-      toast.info("内衣/泳衣类服装仅支持成人模特，已关闭该选项");
+      toast.info(t("intimateAdultOnlyDisabled"));
     }
     setAgeGroup(value);
     setPromptOverride(null);
@@ -556,7 +558,7 @@ export default function CreatePage() {
 
   const updateIntimateGarment = (checked: boolean) => {
     if (checked && ageGroup !== "adult") {
-      toast.error("内衣/泳衣类服装仅支持成人模特，请先将年龄段改为成人");
+      toast.error(t("intimateAdultOnlySetAdultFirst"));
       return;
     }
     setIsIntimateGarment(checked);
@@ -566,12 +568,12 @@ export default function CreatePage() {
 
   const saveSelectedReferenceTemplate = async () => {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录后收藏");
+      toast.error(t("favorite.loginRequired"));
       router.push("/login");
       return;
     }
     if (!selectedReferenceImages.length) {
-      toast.error("请先选择参考图");
+      toast.error(t("favorite.selectFirst"));
       return;
     }
 
@@ -581,7 +583,7 @@ export default function CreatePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `参考模板 ${selectedReferenceImages.length} 张`,
+          name: t("favorite.templateName", { count: selectedReferenceImages.length }),
           references: selectedReferenceImages.map((item) => ({
             id: item.id,
             url: item.url,
@@ -592,17 +594,17 @@ export default function CreatePage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "收藏模板失败");
+      if (!res.ok) throw new Error(data.error || t("favorite.saveTemplateFailed"));
 
       const template = normalizeReferenceTemplate(data.template);
-      if (!template) throw new Error("模板数据异常");
+      if (!template) throw new Error(t("favorite.templateDataInvalid"));
       setReferenceTemplates((prev) => [
         template,
         ...prev.filter((item) => item.id !== template.id),
       ].slice(0, 24));
-      toast.success("已收藏为参考模板");
+      toast.success(t("favorite.savedAsTemplate"));
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, "收藏模板失败"));
+      toast.error(getErrorMessage(err, t("favorite.saveTemplateFailed")));
     } finally {
       setIsSavingFavoriteReference(false);
     }
@@ -618,11 +620,11 @@ export default function CreatePage() {
     try {
       const res = await fetch(`/api/tryon/reference-favorites/${encodeURIComponent(id)}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "删除失败");
-      toast.success("已移除收藏");
+      if (!res.ok) throw new Error(data.error || t("favorite.deleteFailed"));
+      toast.success(t("favorite.removed"));
     } catch (err: unknown) {
       setFavoriteReferences((prev) => [removed, ...prev].slice(0, 24));
-      toast.error(getErrorMessage(err, "删除失败"));
+      toast.error(getErrorMessage(err, t("favorite.deleteFailed")));
     }
   };
 
@@ -650,14 +652,14 @@ export default function CreatePage() {
     Promise.all([
       fetch("/api/tryon/reference-favorites").then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "收藏加载失败");
+        if (!res.ok) throw new Error(data.error || t("favorite.loadFailed"));
         return Array.isArray(data.favorites)
           ? data.favorites.map(normalizeFavoriteReference).filter(Boolean) as FavoriteReference[]
           : [];
       }),
       fetch("/api/tryon/reference-templates").then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "参考模板加载失败");
+        if (!res.ok) throw new Error(data.error || t("favorite.templateLoadFailed"));
         return Array.isArray(data.templates)
           ? data.templates.map(normalizeReferenceTemplate).filter(Boolean) as ReferenceTemplate[]
           : [];
@@ -669,7 +671,7 @@ export default function CreatePage() {
         setReferenceTemplates(templates.slice(0, 24));
       })
       .catch((err: unknown) => {
-        if (!cancelled) toast.error(getErrorMessage(err, "收藏加载失败"));
+        if (!cancelled) toast.error(getErrorMessage(err, t("favorite.loadFailed")));
       })
       .finally(() => {
         if (!cancelled) setIsLoadingFavoriteReferences(false);
@@ -733,7 +735,7 @@ export default function CreatePage() {
             }),
           }).then(async (analysisRes) => {
             const analysisData = await analysisRes.json().catch(() => ({}));
-            if (!analysisRes.ok) throw new Error(analysisData.error || "服装识别失败");
+            if (!analysisRes.ok) throw new Error(analysisData.error || t("analysis.clothingFailed"));
             const nextAnalysis = analysisData.analysis as TryOnClothingAnalysis;
             const nextSource: "yunwu" | "cache" | "fallback" = analysisData.source === "fallback"
               ? "fallback"
@@ -773,7 +775,7 @@ export default function CreatePage() {
           if (autoMode !== clothingMode) setClothingMode(autoMode);
           setPendingClothingRole(autoRole);
           setClothingRoles([autoRole]);
-          toast.info(`已识别为${TRYON_CLOTHING_ROLE_LABELS[autoRole]}，自动切换上传分类`);
+          toast.info(t("analysis.autoRoleDetected", { role: TRYON_CLOTHING_ROLE_LABELS[autoRole] }));
         }
         const audienceSuggestion = getVisualAudienceSuggestion(nextAnalysis);
         const hasAudienceSuggestion = Boolean(audienceSuggestion.audience || audienceSuggestion.ageGroup);
@@ -807,29 +809,29 @@ export default function CreatePage() {
             if (shouldSwitchAudience && audienceSuggestion.audience) setGarmentAudience(audienceSuggestion.audience);
             if (shouldSwitchAge && audienceSuggestion.ageGroup) setAgeGroup(audienceSuggestion.ageGroup);
             if (shouldSwitchAudience || shouldSwitchAge) {
-              toast.info(`视觉识别更像${suggestionLabel}，已同步人群参数；不符合可手动改回`);
+              toast.info(t("analysis.visualSyncedAudience", { label: suggestionLabel }));
             } else if (hasConflict) {
-              toast.info(`视觉识别更像${suggestionLabel}，当前保留你的人群选择`);
+              toast.info(t("analysis.visualKeptAudience", { label: suggestionLabel }));
             }
           }
         }
         if (intimateDetected && !isIntimateGarment) {
           if (ageGroup !== "adult") {
             setAgeGroup("adult");
-            toast.info("识别为内衣/泳衣类服装，已切换为成人安全规则");
+            toast.info(t("analysis.intimateDetectedAdult"));
           }
           setIsIntimateGarment(true);
         }
       } catch (err: unknown) {
         if (clothingAnalysisSeqRef.current !== seq) return;
-        const message = getErrorMessage(err, "服装识别失败，已按当前上传分类继续");
+        const message = getErrorMessage(err, t("analysis.clothingFailedContinue"));
         setClothingAnalysis(null);
         setClothingAnalysisSource(null);
         setClothingAnalysisError(message);
         setRecommendedSystemReferences(getFallbackSystemReferences().slice(0, 4));
         setAllSystemReferences(getFallbackSystemReferences());
-        if (message && !String(message).includes("请先登录")) {
-          toast.info("服装识别失败，已按当前上传分类继续");
+        if (message && !String(message).includes("请先登录")) { // 匹配服务端返回的登录错误文案
+          toast.info(t("analysis.clothingFailedContinue"));
         }
       } finally {
         if (clothingAnalysisSeqRef.current === seq) {
@@ -896,7 +898,7 @@ export default function CreatePage() {
             }),
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || "参考图识别失败");
+            if (!res.ok) throw new Error(data.error || t("analysis.referenceFailed"));
             const nextAnalyses = alignTryOnReferenceAnalyses(data.analyses, urls.length);
             const nextSource: "yunwu" | "cache" | "fallback" = data.source === "fallback"
               ? "fallback"
@@ -904,7 +906,7 @@ export default function CreatePage() {
             const reasonText = typeof data.reasonText === "string" && data.reasonText.trim()
               ? data.reasonText.trim()
               : null;
-            const nextError = nextSource === "fallback" ? reasonText || "参考图识别未成功，已按原图构图保守处理" : null;
+            const nextError = nextSource === "fallback" ? reasonText || t("analysis.referenceFallback") : null;
             return {
               analyses: nextAnalyses,
               source: nextSource,
@@ -938,7 +940,7 @@ export default function CreatePage() {
         setReferenceAnalyses(fallbackAnalyses);
         setReferenceAnalysisKey(analysisKey);
         setReferenceAnalysisSource("fallback");
-        setReferenceAnalysisError(getErrorMessage(err, "参考图识别失败，已按原参考图继续"));
+        setReferenceAnalysisError(getErrorMessage(err, t("analysis.referenceFailedContinue")));
       } finally {
         if (referenceAnalysisSeqRef.current === seq) setIsAnalyzingReferences(false);
       }
@@ -1019,7 +1021,7 @@ export default function CreatePage() {
         setCustomModelPreview(payload.modelFaceUrl);
         setStoreSelectedModel({
           id: "history-model",
-          name: "历史模特",
+          name: t("history.modelName"),
           image_url: payload.modelFaceUrl,
           gender: "female",
           is_preset: false,
@@ -1087,7 +1089,7 @@ export default function CreatePage() {
     } else if (isHistoryApplyRowFailed(detail.row)) {
       setStoreError(getHistoryApplyFailureMessage(detail.row));
     }
-    toast.success("已套用历史参数");
+    toast.success(t("history.applied"));
     })();
     return () => {
       cancelled = true;
@@ -1098,7 +1100,7 @@ export default function CreatePage() {
   const totalCost = costPerImage * expectedOutputCount;
   // ---- 智能优化提示词 ----
   const handleOptimizePrompt = async () => {
-    if (!customStyle.trim()) { toast.error("请先输入风格描述"); return; }
+    if (!customStyle.trim()) { toast.error(t("prompt.enterStyleFirst")); return; }
     setOptimizing(true);
     try {
       const res = await fetch("/api/optimize-prompt", {
@@ -1106,8 +1108,8 @@ export default function CreatePage() {
         body: JSON.stringify({ style: customStyle }),
       });
       const data = await res.json();
-      if (data.optimized) { setCustomStyle(data.optimized); toast.success("提示词已优化"); }
-    } catch { toast.error("优化失败"); }
+      if (data.optimized) { setCustomStyle(data.optimized); toast.success(t("prompt.optimized")); }
+    } catch { toast.error(t("prompt.optimizeFailed")); }
     setOptimizing(false);
   };
 
@@ -1140,7 +1142,7 @@ export default function CreatePage() {
 
   const switchClothingMode = (mode: TryOnClothingMode) => {
     if (isUploading) {
-      toast.info("图片上传中，请稍候再切换模式");
+      toast.info(t("clothing.uploadingSwitchMode"));
       return;
     }
     if (mode === clothingMode) return;
@@ -1171,7 +1173,7 @@ export default function CreatePage() {
       },
     ]);
     sourceLibrary.close();
-    toast.success(`已从作品库加入${TRYON_CLOTHING_ROLE_LABELS[nextRole] || "服装"}`);
+    toast.success(t("clothing.libraryAdded", { role: TRYON_CLOTHING_ROLE_LABELS[nextRole] || t("clothing.garment") }));
   };
 
   const applyRuleDemo = (demo: TryOnRuleDemo) => {
@@ -1186,7 +1188,7 @@ export default function CreatePage() {
       role: image.role,
     })));
     closeRulesPopover();
-    toast.success(`已套用${demo.title}`);
+    toast.success(t("clothing.demoApplied", { title: demo.title }));
   };
 
   const applyRuleImage = (image: TryOnRuleImage) => {
@@ -1207,22 +1209,22 @@ export default function CreatePage() {
         role: image.role,
       },
     ]);
-    toast.success(`已套用${image.title}`);
+    toast.success(t("clothing.imageApplied", { title: image.title }));
   };
 
   const applyReferenceExample = (image: { url: string; title: string }) => {
     if (isReferenceUploadBusy) {
-      toast.info("参考图上传中，请稍候");
+      toast.info(t("referenceUploading"));
       return;
     }
     const uploadReferences = allSelectedReferenceImages.filter((item) => referenceBelongsToSceneMode(item, "upload_reference"));
     if (uploadReferences.some((item) => item.url === image.url)) {
-      toast.info("这张参考图已在上传参考里");
+      toast.info(t("referenceAlreadyAdded"));
       setSceneMode("upload_reference");
       return;
     }
     if (uploadReferences.length >= MAX_TRYON_REFERENCE_IMAGES) {
-      toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
+      toast.info(t("maxReference", { count: MAX_TRYON_REFERENCE_IMAGES }));
       return;
     }
     setSceneMode("upload_reference");
@@ -1238,13 +1240,13 @@ export default function CreatePage() {
         source: "upload",
       },
     ], { mode: "upload_reference" });
-    toast.success(`已套用${image.title}`);
+    toast.success(t("clothing.imageApplied", { title: image.title }));
   };
 
   // ---- 文件处理：选择后立即上传到图床 ----
   const processFiles = async (files: FileList | File[], targetRole: TryOnClothingRole = pendingClothingRole) => {
     if (isUploading) {
-      toast.info("图片上传中，请稍候");
+      toast.info(t("clothing.uploading"));
       return;
     }
     const arr = Array.from(files);
@@ -1256,7 +1258,7 @@ export default function CreatePage() {
     const filesToUpload = arr.slice(0, rolePlan.length);
 
     if (arr.length > filesToUpload.length) {
-      toast.info(clothingMode === "multi" ? "换上下装最多一次处理上装和下装各 1 张" : "换连体只需上传 1 张服装图");
+      toast.info(clothingMode === "multi" ? t("clothing.multiLimit") : t("clothing.singleLimit"));
     }
 
     setIsUploading(true);
@@ -1265,13 +1267,13 @@ export default function CreatePage() {
 
     for (let index = 0; index < filesToUpload.length; index++) {
       const file = filesToUpload[index];
-      if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
-      if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
+      if (!isLikelyImageFile(file)) { toast.error(t("clothing.notImage", { name: file.name })); continue; }
+      if (file.size > MAX_FILE_SIZE) { toast.error(t("clothing.tooLarge", { name: file.name, max: MAX_FILE_SIZE_MB })); continue; }
       validItems.push({ file, preview: createLocalImagePreview(file), role: rolePlan[index] });
     }
 
     if (validItems.length > 0) {
-      toast.info(`正在上传 ${validItems.length} 张图片到图床…`);
+      toast.info(t("clothing.uploadingFiles", { count: validItems.length }));
       const uploadResults = await Promise.allSettled(validItems.map((item) => uploadImage(item.file)));
       const uploadedItems: ClothingItemState[] = [];
 
@@ -1284,8 +1286,8 @@ export default function CreatePage() {
             role: validItems[index].role,
           });
         } else {
-          const message = result.reason instanceof Error ? result.reason.message : "上传失败";
-          toast.error(`${validItems[index].file.name} 上传失败：${message}`);
+          const message = result.reason instanceof Error ? result.reason.message : t("common.uploadFailed");
+          toast.error(t("clothing.uploadFailedNamed", { name: validItems[index].file.name, message }));
         }
       });
 
@@ -1295,7 +1297,7 @@ export default function CreatePage() {
           ? []
           : getCurrentClothingItemStates().filter((item) => !replaceRoles.has(item.role));
         applyClothingItems([...retainedItems, ...uploadedItems]);
-        toast.success(clothingMode === "multi" ? "服装槽位已就绪" : "连体服装已就绪");
+        toast.success(clothingMode === "multi" ? t("clothing.multiReady") : t("clothing.singleReady"));
       }
     }
     setIsUploading(false);
@@ -1326,11 +1328,11 @@ export default function CreatePage() {
 
   const handleGarmentDetailFiles = async (files?: FileList | File[], clothingIndex = garmentDetailTargetIndexRef.current) => {
     if (isUploadingGarmentDetails) {
-      toast.info("服装细节图上传中，请稍候");
+      toast.info(t("garmentDetail.uploading"));
       return;
     }
     if (!uploadedClothingUrls[clothingIndex]) {
-      toast.info("请先上传对应的服装主图");
+      toast.info(t("garmentDetail.needMainImage"));
       return;
     }
     const arr = Array.from(files || []);
@@ -1341,23 +1343,23 @@ export default function CreatePage() {
     );
     const remaining = MAX_GARMENT_DETAIL_IMAGES - currentTotal;
     if (remaining <= 0) {
-      toast.info(`服装细节图最多 ${MAX_GARMENT_DETAIL_IMAGES} 张`);
+      toast.info(t("garmentDetail.maxCount", { count: MAX_GARMENT_DETAIL_IMAGES }));
       return;
     }
     const limited = arr.slice(0, remaining);
     if (arr.length > limited.length) {
-      toast.info(`最多还能添加 ${remaining} 张细节图，已自动截取`);
+      toast.info(t("garmentDetail.remainingTruncated", { count: remaining }));
     }
     const validFiles: File[] = [];
     for (const file of limited) {
-      if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
-      if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
+      if (!isLikelyImageFile(file)) { toast.error(t("clothing.notImage", { name: file.name })); continue; }
+      if (file.size > MAX_FILE_SIZE) { toast.error(t("clothing.tooLarge", { name: file.name, max: MAX_FILE_SIZE_MB })); continue; }
       validFiles.push(file);
     }
     if (!validFiles.length) return;
 
     setIsUploadingGarmentDetails(true);
-    toast.info(`正在上传 ${validFiles.length} 张服装细节图…`);
+    toast.info(t("garmentDetail.uploadingFiles", { count: validFiles.length }));
     try {
       const results = await Promise.allSettled(validFiles.map((file) => uploadImage(file)));
       const uploadedUrls: string[] = [];
@@ -1365,8 +1367,8 @@ export default function CreatePage() {
         if (result.status === "fulfilled") {
           uploadedUrls.push(result.value.url);
         } else {
-          const message = result.reason instanceof Error ? result.reason.message : "上传失败";
-          toast.error(`${validFiles[index].name} 上传失败：${message}`);
+          const message = result.reason instanceof Error ? result.reason.message : t("common.uploadFailed");
+          toast.error(t("clothing.uploadFailedNamed", { name: validFiles[index].name, message }));
         }
       });
       if (uploadedUrls.length) {
@@ -1382,7 +1384,7 @@ export default function CreatePage() {
         setPromptOverride(null);
         store.setPromptUsed("");
         const role = clothingRoles[clothingIndex] || (clothingMode === "multi" ? clothingIndex === 0 ? "upper" : clothingIndex === 1 ? "lower" : "extra" : "single");
-        toast.success(`已为${getGarmentDetailOwnerLabel(role, clothingIndex)}添加 ${uploadedUrls.length} 张细节图`);
+        toast.success(t("garmentDetail.added", { owner: getGarmentDetailOwnerLabel(role, clothingIndex), count: uploadedUrls.length }));
       }
     } finally {
       setIsUploadingGarmentDetails(false);
@@ -1405,8 +1407,8 @@ export default function CreatePage() {
 
   const handleCustomModelFile = async (file?: File) => {
     if (!file) return;
-    if (!isLikelyImageFile(file)) return toast.error("请上传图片文件");
-    if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+    if (!isLikelyImageFile(file)) return toast.error(t("model.pleaseUploadImage"));
+    if (file.size > MAX_FILE_SIZE) return toast.error(t("clothing.tooLarge", { name: file.name, max: MAX_FILE_SIZE_MB }));
 
     const uploadSeq = customModelUploadSeqRef.current + 1;
     customModelUploadSeqRef.current = uploadSeq;
@@ -1414,20 +1416,20 @@ export default function CreatePage() {
     store.setSelectedModel(null);
     setCustomModelPreview(null);
     setPromptOverride(null);
-    toast.info("正在上传模特图…");
+    toast.info(t("model.uploading"));
     try {
       if (customModelUploadSeqRef.current !== uploadSeq) return;
       setCustomModelPreview(createLocalImagePreview(file));
       const result = await uploadImage(file);
       if (customModelUploadSeqRef.current !== uploadSeq) return;
-      store.setSelectedModel({ id: "custom", name: "自定义", image_url: result.url, gender: "female", is_preset: false, user_id: null });
+      store.setSelectedModel({ id: "custom", name: t("model.custom"), image_url: result.url, gender: "female", is_preset: false, user_id: null });
       setPromptOverride(null);
-      toast.success("模特已选择");
+      toast.success(t("model.selected"));
     } catch (error) {
       if (customModelUploadSeqRef.current === uploadSeq) {
         setCustomModelPreview(null);
-        const message = error instanceof Error ? error.message : "上传失败";
-        toast.error(`模特图上传失败：${message}`);
+        const message = error instanceof Error ? error.message : t("common.uploadFailed");
+        toast.error(t("model.uploadFailed", { message }));
       }
     } finally {
       if (customModelUploadSeqRef.current === uploadSeq) setIsUploadingCustomModel(false);
@@ -1444,7 +1446,7 @@ export default function CreatePage() {
 
   const handleCustomRefFiles = async (files?: FileList | File[]) => {
     if (isUploadingCustomRef) {
-      toast.info("参考图上传中，请稍候");
+      toast.info(t("referenceUploading"));
       return;
     }
     const arr = Array.from(files || []);
@@ -1452,12 +1454,12 @@ export default function CreatePage() {
     const baseUploadReferences = allSelectedReferenceImages.filter((item) => referenceBelongsToSceneMode(item, "upload_reference"));
     const remaining = MAX_TRYON_REFERENCE_IMAGES - baseUploadReferences.length;
     if (remaining <= 0) {
-      toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
+      toast.info(t("maxReference", { count: MAX_TRYON_REFERENCE_IMAGES }));
       return;
     }
     const limited = arr.slice(0, remaining);
     if (arr.length > limited.length) {
-      toast.info(`最多还能添加 ${remaining} 张参考图，已自动截取`);
+      toast.info(t("referenceRemainingTruncated", { count: remaining }));
     }
 
     const uploadSeq = customRefUploadSeqRef.current + 1;
@@ -1470,13 +1472,13 @@ export default function CreatePage() {
 
     const uploadItems: Array<{ id: string; file: File; preview: string; label: string }> = [];
     for (const file of limited) {
-      if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
-      if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
+      if (!isLikelyImageFile(file)) { toast.error(t("clothing.notImage", { name: file.name })); continue; }
+      if (file.size > MAX_FILE_SIZE) { toast.error(t("clothing.tooLarge", { name: file.name, max: MAX_FILE_SIZE_MB })); continue; }
       uploadItems.push({
         id: `custom-ref-${Date.now()}-${uploadItems.length}`,
         file,
         preview: createLocalImagePreview(file),
-        label: file.name.replace(/\.[^.]+$/, "").slice(0, 24) || `上传参考${baseUploadReferences.length + uploadItems.length + 1}`,
+        label: file.name.replace(/\.[^.]+$/, "").slice(0, 24) || t("reference.uploadLabel", { index: baseUploadReferences.length + uploadItems.length + 1 }),
       });
     }
     if (!uploadItems.length) return;
@@ -1490,7 +1492,7 @@ export default function CreatePage() {
         status: "uploading" as const,
       })),
     ]);
-    toast.info(`正在上传 ${uploadItems.length} 张参考图，系统会分批处理以提高成功率…`);
+    toast.info(t("reference.uploadingFiles", { count: uploadItems.length }));
 
     const results = await mapWithConcurrency(
       uploadItems,
@@ -1506,7 +1508,7 @@ export default function CreatePage() {
           }
           return { status: "fulfilled" as const, upload, url: result.url };
         } catch (error) {
-          const message = error instanceof Error ? error.message : "上传失败";
+          const message = error instanceof Error ? error.message : t("common.uploadFailed");
           if (customRefUploadSeqRef.current === uploadSeq) {
             setCustomRefUploads((prev) => prev.map((item) => item.id === upload.id
               ? { ...item, status: "error" as const, error: message }
@@ -1541,15 +1543,15 @@ export default function CreatePage() {
         uniqueReferenceImages([...currentUploadReferences, ...readyRefs]),
         { mode: "upload_reference" }
       );
-      toast.success(`已添加 ${readyRefs.length} 张参考图`);
+      toast.success(t("reference.added", { count: readyRefs.length }));
     }
     const failedCount = results.filter((item) => item.status === "rejected").length;
     if (failedCount) {
       const firstFailure = results.find((item) => item.status === "rejected");
       const message = firstFailure?.status === "rejected" && firstFailure.reason instanceof Error
         ? firstFailure.reason.message
-        : "请重试";
-      toast.error(`${failedCount} 张参考图上传失败：${message}`);
+        : t("common.retry");
+      toast.error(t("reference.uploadFailedCount", { count: failedCount, message }));
     }
   };
 
@@ -1673,10 +1675,10 @@ export default function CreatePage() {
             if (isActive) {
               store.updateProgress(100);
               store.setResult(resultUrls);
-              toast.success("生成完成");
+              toast.success(t("generate.completed"));
               notifyGenerationComplete({
-                title: "服装上身完成",
-                body: "成片已生成，点击查看。",
+                title: t("generate.doneTitle"),
+                body: t("generate.doneBody"),
                 url: "/history",
               });
             }
@@ -1697,7 +1699,7 @@ export default function CreatePage() {
           }
 
           if (pollData.status === "failed") {
-            const message = summarizeGenerationError(pollData.error || "生成失败");
+            const message = summarizeGenerationError(pollData.error || t("generate.failed"));
             if (isActive) {
               store.setError(message);
               toast.error(message);
@@ -1726,7 +1728,7 @@ export default function CreatePage() {
           progress: 99,
         });
         store.updateProgress(99);
-        toast.info("生成时间较长，任务仍在后台处理中，可稍后从左侧任务列表查看结果");
+        toast.info(t("generate.delayed"));
       }
       if (!watcherController.signal.aborted) refreshTaskQueue();
     } finally {
@@ -1791,7 +1793,7 @@ export default function CreatePage() {
     }
 
     if (effectiveSyncedActiveQueueTask.statusGroup === "failed" && store.isGenerating) {
-      store.setError(syncedActiveQueueTask.error || "任务失败，可重新生成");
+      store.setError(syncedActiveQueueTask.error || t("generate.taskFailedRetry"));
     }
   }, [
     activeQueueTask?.id,
@@ -1927,7 +1929,7 @@ export default function CreatePage() {
         setCustomModelPreview(payload.modelFaceUrl);
         store.setSelectedModel({
           id: "history-model",
-          name: "历史模特",
+          name: t("history.modelName"),
           image_url: payload.modelFaceUrl,
           gender: "female",
           is_preset: false,
@@ -1996,7 +1998,7 @@ export default function CreatePage() {
     store.setError(options?.errorMessage || null);
     activeGenerationRef.current = null;
     setActiveQueueTask(options?.selectedTask ?? null);
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("history.applied"));
   }, [store]);
 
   const handleTaskSelect = useCallback(async (item: TaskQueueItem, railSelection?: TaskSelectionSession) => {
@@ -2008,7 +2010,7 @@ export default function CreatePage() {
       if (item.applyUrl) {
         router.push(item.applyUrl);
       } else {
-        toast.info("该任务不属于服装上身模块，请到对应模块查看");
+        toast.info(t("task.notTryonModule"));
       }
       selection.finish();
       return;
@@ -2060,7 +2062,7 @@ export default function CreatePage() {
         const resultThumbnails = safeTaskQueueUrls(item.resultThumbnails);
         const thumbnails = safeTaskQueueUrls(item.thumbnails);
         const resultUrls = resultThumbnails.length ? resultThumbnails : isFailedTask ? [] : thumbnails;
-        const errorMessage = isFailedTask ? item.error || "任务失败，可重新生成" : null;
+        const errorMessage = isFailedTask ? item.error || t("generate.taskFailedRetry") : null;
         try {
           const detail = await fetchHistoryApplyDetail(item.id, "tryon", selection.signal);
           if (!selection.isCurrent()) return;
@@ -2069,13 +2071,13 @@ export default function CreatePage() {
             resultUrls: detail.resultUrls.length ? detail.resultUrls : resultUrls,
             selectedTask: item,
             errorMessage: isHistoryApplyRowFailed(detail.row)
-              ? getHistoryApplyFailureMessage(detail.row, errorMessage || "任务失败，可重新生成")
+              ? getHistoryApplyFailureMessage(detail.row, errorMessage || t("generate.taskFailedRetry"))
               : errorMessage,
             silent: selection.reason === "restore",
           });
         } catch (err: unknown) {
           if (selection.signal.aborted || !selection.isCurrent()) return;
-          toast.error(getErrorMessage(err, "历史参数加载失败"));
+          toast.error(getErrorMessage(err, t("history.loadFailed")));
         } finally {
           selection.finish();
         }
@@ -2088,7 +2090,7 @@ export default function CreatePage() {
         activeGenerationRef.current = null;
         setActiveQueueTask(item);
         store.setResult([]);
-        store.setError(item.error || "任务失败，可重新生成");
+        store.setError(item.error || t("generate.taskFailedRetry"));
       }
       selection.finish();
       return;
@@ -2098,7 +2100,7 @@ export default function CreatePage() {
   const handleGenerate = async (promptForRun?: string, options: TryOnGenerateOptions = {}) => {
     if (isSubmitting || generationSubmitRef.current) return;
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("common.loginRequired"));
       router.push("/login");
       return;
     }
@@ -2118,17 +2120,17 @@ export default function CreatePage() {
     });
     const runTotalCost = costPerImage * runExpectedCount;
     if (isUploading) {
-      toast.info("服装图正在上传，请稍候");
+      toast.info(t("clothing.uploadingWait"));
       return;
     }
-    if (!uploadedClothingUrls.length) { toast.error("请上传衣服"); return; }
+    if (!uploadedClothingUrls.length) { toast.error(t("clothing.pleaseUpload")); return; }
     if (isAuxiliaryUploading || isReferenceUploadPending || isModelUploadPending) {
-      const pendingLabel = isModelUploadBusy ? "模特图" : isUploadingGarmentDetails ? "服装细节图" : "参考图";
-      toast.info(`${pendingLabel}正在上传，请稍候`);
+      const pendingLabel = isModelUploadBusy ? t("common.modelImage") : isUploadingGarmentDetails ? t("common.garmentDetailImage") : t("common.referenceImage");
+      toast.info(t("generate.auxUploadingWait", { label: pendingLabel }));
       return;
     }
     if (sceneMode !== "auto_design" && !runReferenceUrls.length) {
-      toast.error("请选择至少 1 张参考图");
+      toast.error(t("reference.selectAtLeast"));
       return;
     }
     if (
@@ -2139,11 +2141,11 @@ export default function CreatePage() {
         || referenceAnalyses.length !== effectiveReferenceUrls.length
       )
     ) {
-      toast.info("参考图正在识别，请稍候");
+      toast.info(t("reference.analyzingWait"));
       return;
     }
     if (isIntimateGarment && ageGroup !== "adult") {
-      toast.error("内衣/泳衣类服装仅支持成人模特生成");
+      toast.error(t("intimateAdultOnly"));
       return;
     }
     if (credits !== null && credits < runTotalCost) {
@@ -2205,11 +2207,11 @@ export default function CreatePage() {
         store.setPromptUsed(finalStyle);
       }
       if (process.env.NODE_ENV === "development") {
-        console.info("[generate] 跳过自动图片分析，使用当前提示词");
+        console.info("[generate] 跳过自动图片分析，使用当前提示词"); // 开发日志，非用户可见
       }
 
       store.updateProgress(15);
-      toast.info(options.toastMessage || "正在提交生成任务…");
+      toast.info(options.toastMessage || t("generate.submitting"));
 
       // ---- Step 2: 调用生成 API ----
       const res = await fetch("/api/tryon", {
@@ -2262,7 +2264,7 @@ export default function CreatePage() {
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(e.error || "生成失败");
+        throw new Error(e.error || t("generate.failed"));
       }
 
       const { generation_id, credits_remaining } = await res.json();
@@ -2273,12 +2275,12 @@ export default function CreatePage() {
       }
       store.updateProgress(25);
 
-      if (!generation_id) throw new Error("任务提交失败");
+      if (!generation_id) throw new Error(t("generate.submitFailed"));
       const now = new Date().toISOString();
       const optimisticTask: TaskQueueItem = {
         id: generation_id,
         module: "tryon",
-        title: "服装上身",
+        title: t("tryon.title"),
         status: "processing_tryon",
         statusGroup: "running",
         time: "0:00",
@@ -2299,7 +2301,7 @@ export default function CreatePage() {
       setActiveQueueTask(optimisticTask);
       taskQueue.replaceWithServerTask(provisionalTaskId, optimisticTask);
       refreshTaskQueue();
-      toast.success("任务已提交，可继续创建");
+      toast.success(t("generate.submitted"));
       setIsSubmitting(false);
       generationSubmitRef.current = null;
       void watchGeneration(generation_id, displayExpectedCount, {
@@ -2309,7 +2311,7 @@ export default function CreatePage() {
       return;
     } catch (err: unknown) {
       if (isAbortLikeError(err) || !isCurrentSubmit()) return;
-      const message = summarizeGenerationError(getErrorMessage(err, "生成失败"));
+      const message = summarizeGenerationError(getErrorMessage(err, t("generate.failed")));
       store.setError(message);
       setActiveQueueTask((prev) => prev?.id === provisionalTaskId ? null : prev);
       removeTaskQueueItem(provisionalTaskId);
@@ -2329,7 +2331,7 @@ export default function CreatePage() {
   );
   const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
   const activeFailureMessage = activeQueueTask?.statusGroup === "failed"
-    ? buildFailedTaskDetail(activeQueueTask.error || store.error || "生成失败")
+    ? buildFailedTaskDetail(activeQueueTask.error || store.error || t("generate.failed"))
     : "";
   const partialFailureCount = Math.max(0, activeResultExpectedCount - displayedResultUrls.length);
   const partialFailureMessage = buildPartialFailureDetail({
@@ -2342,7 +2344,7 @@ export default function CreatePage() {
     const referenceUrl = referenceIndex >= 0 ? effectiveReferenceUrls[referenceIndex] : "";
     const referenceAnalysis = referenceIndex >= 0 ? referenceAnalyses[referenceIndex] : undefined;
     if (sceneMode !== "auto_design" && !referenceUrl) {
-      toast.error("未找到这张失败图对应的参考图，请从左侧任务套用参数后重试");
+      toast.error(t("generate.missingReferenceRetry"));
       return;
     }
     void handleGenerate(undefined, {
@@ -2351,7 +2353,7 @@ export default function CreatePage() {
       referenceAnalysesOverride: referenceAnalysis ? [referenceAnalysis] : [],
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("generate.retryFilling", { index: index + 1 }),
     });
   };
   const tryonPreviewReferences = useMemo(() => {
@@ -2369,9 +2371,9 @@ export default function CreatePage() {
     return references.map((item) => ({
       url: item.url,
       label: item.label,
-      role: item.label.includes("服装") || item.label.includes("上装") || item.label.includes("下装") || item.label.includes("连体")
+      role: item.label.includes("服装") || item.label.includes("上装") || item.label.includes("下装") || item.label.includes("连体") // 匹配参考图标签文本
         ? "clothing" as const
-        : item.label.includes("模特")
+        : item.label.includes("模特") // 匹配参考图标签文本
           ? "model" as const
           : "reference" as const,
     }));
@@ -2387,7 +2389,7 @@ export default function CreatePage() {
   const tryonPreviewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "tryon",
-      title: "服装上身",
+      title: t("tryon.title"),
       taskId: activeQueueTask?.id,
       createdAt: activeQueueTask?.createdAt,
       statusGroup: activeQueueTask?.statusGroup || (store.isGenerating ? "running" : undefined),
@@ -2398,16 +2400,16 @@ export default function CreatePage() {
       promptText: customStyle,
       errors: tryonPreviewErrors,
       metaItems: [
-        { label: "服装模式", value: TRYON_CLOTHING_MODE_LABELS[clothingMode] },
-        { label: "场景模式", value: SCENE_MODE_LABELS[sceneMode] },
-        { label: "人群", value: TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience] },
-        { label: "年龄", value: TRYON_AGE_GROUP_LABELS[ageGroup] },
-        { label: "模型", value: aiModel },
-        { label: "比例", value: aspectRatio },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: activeResultExpectedCount },
+        { label: t("meta.clothingMode"), value: TRYON_CLOTHING_MODE_LABELS[clothingMode] },
+        { label: t("meta.sceneMode"), value: SCENE_MODE_LABELS[sceneMode] },
+        { label: t("meta.audience"), value: TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience] },
+        { label: t("meta.age"), value: TRYON_AGE_GROUP_LABELS[ageGroup] },
+        { label: t("meta.model"), value: aiModel },
+        { label: t("meta.ratio"), value: aspectRatio },
+        { label: t("meta.resolution"), value: imageSize },
+        { label: t("meta.genCount"), value: activeResultExpectedCount },
       ],
-      resultTitlePrefix: "服装上身结果",
+      resultTitlePrefix: t("tryon.resultPrefix"),
       aspectRatio,
     }),
     [activeQueueTask, activeResultExpectedCount, ageGroup, aiModel, aspectRatio, clothingMode, customStyle, garmentAudience, imageSize, sceneMode, store.isGenerating, store.resultUrls, tryonPreviewErrors, tryonPreviewReferences]
@@ -2435,36 +2437,36 @@ export default function CreatePage() {
     || !uploadedClothingUrls.length;
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = (() => {
-    if (isSubmitting) return "正在提交任务，请稍候。";
-    if (isUploading) return "服装图正在上传，请稍候。";
-    if (isModelUploadBusy) return "模特图正在上传，请稍候。";
-    if (isUploadingGarmentDetails) return "服装细节图正在上传，请稍候。";
-    if (isReferenceUploadBusy) return "参考图正在上传，请稍候。";
-    if (isAnalyzingClothing) return "服装图正在识别，请稍候。";
-    if (sceneMode !== "auto_design" && isAnalyzingReferences) return "参考图正在识别，请稍候。";
-    if (!isReferenceAnalysisReady) return "参考图识别结果正在更新，请稍候。";
-    if (sceneMode !== "auto_design" && !effectiveReferenceUrls.length) return "请先选择至少 1 张参考图。";
-    if (!uploadedClothingUrls.length) return "请先上传服装图，或从作品库选择一张历史结果。";
+    if (isSubmitting) return t("reason.submitting");
+    if (isUploading) return t("reason.clothingUploading");
+    if (isModelUploadBusy) return t("reason.modelUploading");
+    if (isUploadingGarmentDetails) return t("reason.detailUploading");
+    if (isReferenceUploadBusy) return t("reason.referenceUploading");
+    if (isAnalyzingClothing) return t("reason.clothingAnalyzing");
+    if (sceneMode !== "auto_design" && isAnalyzingReferences) return t("reason.referenceAnalyzing");
+    if (!isReferenceAnalysisReady) return t("reason.referenceUpdating");
+    if (sceneMode !== "auto_design" && !effectiveReferenceUrls.length) return t("reason.needReference");
+    if (!uploadedClothingUrls.length) return t("reason.needClothing");
     return undefined;
   })();
   const clothingAnalysisLabel = getClothingAnalysisLabel(clothingAnalysis);
   const visibleSceneModeTabs = SCENE_MODE_TABS.filter((tab) => tab.value !== "system_reference");
   const clothingAnalysisStatus = isAnalyzingClothing
-    ? { tone: "loading" as const, text: "正在读取服装" }
+    ? { tone: "loading" as const, text: t("status.readingClothing") }
     : clothingAnalysisLabel
-      ? { tone: "success" as const, text: "服装信息已就绪", description: clothingAnalysisLabel }
+      ? { tone: "success" as const, text: t("status.clothingReady"), description: clothingAnalysisLabel }
       : clothingAnalysisError
-        ? { tone: "warning" as const, text: "服装读取未完成", description: clothingAnalysisError }
+        ? { tone: "warning" as const, text: t("status.clothingIncomplete"), description: clothingAnalysisError }
         : null;
   const referenceAnalysisStatus = isAnalyzingReferences
-    ? { tone: "loading" as const, text: "正在读取参考图" }
+    ? { tone: "loading" as const, text: t("status.readingReference") }
     : referenceAnalysisError
-      ? { tone: "warning" as const, text: "参考图读取未完成", description: referenceAnalysisError }
+      ? { tone: "warning" as const, text: t("status.referenceIncomplete"), description: referenceAnalysisError }
       : selectedReferenceCount > 0 && referenceAnalyses.length > 0
         ? {
             tone: referenceAnalysisSource === "fallback" ? "warning" as const : "success" as const,
-            text: referenceAnalysisSource === "fallback" ? "参考图已保守处理" : "参考图信息已就绪",
-            description: `${Math.min(referenceAnalyses.length, selectedReferenceCount)}/${selectedReferenceCount} 张`,
+            text: referenceAnalysisSource === "fallback" ? t("status.referenceConservative") : t("status.referenceReady"),
+            description: t("status.referenceCount", { current: Math.min(referenceAnalyses.length, selectedReferenceCount), total: selectedReferenceCount }),
           }
         : null;
   const referenceAnalysisSummaries = selectedReferenceImages
@@ -2474,7 +2476,7 @@ export default function CreatePage() {
       const isFallback = referenceAnalysisSource === "fallback";
       return {
         key: ref.url || `${analysis.index}-${index}`,
-        title: `图${index + 1} · ${getReferenceAnalysisSummary(analysis, { fallback: isFallback })}`,
+        title: t("status.imageSummary", { index: index + 1, summary: getReferenceAnalysisSummary(analysis, { fallback: isFallback }) }),
         detail: getReferenceAnalysisDetailText(analysis, {
           fallback: isFallback,
           reasonText: referenceAnalysisError,
@@ -2517,15 +2519,15 @@ export default function CreatePage() {
         taskRail={(
           <StudioTaskRail
             module="tryon"
-            moduleLabel="服装上身"
+            moduleLabel={t("tryon.title")}
             onContinue={handleContinueCreate}
             onSelectTask={handleTaskSelect}
           />
         )}
         header={(
           <ModuleHeader
-            title="服装上身"
-            tooltip="按上装、下装或连体槽位上传服装，选择模特与参考场景，生成可直接用于商品展示、主图延展和内容投放的成片。"
+            title={t("tryon.title")}
+            tooltip={t("header.tooltip")}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -2537,7 +2539,7 @@ export default function CreatePage() {
                 aria-expanded={showClothingRules}
                 className="studio-upload-rule-button"
               >
-                图片规则 <ChevronRight className="h-3 w-3" />
+                {t("header.imageRules")} <ChevronRight className="h-3 w-3" />
               </button>
             )}
           />
@@ -2546,7 +2548,7 @@ export default function CreatePage() {
           <StudioControlPanel>
           {/* ---- 服装（整个区域可拖拽） ---- */}
           <StudioSection
-            title="上传服装"
+            title={t("clothing.sectionTitle")}
             description={currentUploadRule.uploadSpecText}
             badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--codex-accent)]" /> : null}
             className="studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-[box-shadow]"
@@ -2557,7 +2559,7 @@ export default function CreatePage() {
               accept="image/*"
               multiple={clothingMode === "multi"}
               className="hidden"
-              aria-label="上传参考图"
+              aria-label={t("clothing.uploadAriaLabel")}
               onChange={(e) => {
                 if (isUploading) {
                   e.currentTarget.value = "";
@@ -2570,11 +2572,11 @@ export default function CreatePage() {
 
             <StudioSegmentedControl<TryOnClothingMode>
               value={clothingMode}
-              ariaLabel="选择服装上身模式"
+              ariaLabel={t("clothing.modeAriaLabel")}
               onChange={switchClothingMode}
               options={[
-                { value: "multi", label: TRYON_CLOTHING_MODE_LABELS.multi, description: "上装 + 下装", disabled: isUploading },
-                { value: "single", label: TRYON_CLOTHING_MODE_LABELS.single, description: "连体 / 全身", disabled: isUploading },
+                { value: "multi", label: TRYON_CLOTHING_MODE_LABELS.multi, description: t("clothing.modeMultiDesc"), disabled: isUploading },
+                { value: "single", label: TRYON_CLOTHING_MODE_LABELS.single, description: t("clothing.modeSingleDesc"), disabled: isUploading },
               ]}
             />
 
@@ -2583,24 +2585,24 @@ export default function CreatePage() {
             {clothingMode === "single" ? (
               <div className="studio-clothing-slot-stack" data-mode="single">
                 <StudioUploadTile
-                  title="上传 / 拖拽【连体/全身】"
-                  description="图1会按连衣裙、套装或全身服装处理，建议主体完整、边缘清晰。"
+                  title={t("clothing.singleTitle")}
+                  description={t("clothing.singleDesc")}
                   imageUrl={singleClothing?.preview}
-                  imageAlt="已上传的连体/全身服装"
+                  imageAlt={t("clothing.singleImageAlt")}
                   disabled={isUploading}
                   loading={isUploading && uploadingClothingRoles.includes("single")}
-                  supportBadge="1张服装图"
+                  supportBadge={t("clothing.oneImageBadge")}
                   onUploadClick={() => openClothingPicker("single")}
                   onLibraryClick={() => sourceLibrary.open("single")}
-                  onPreview={singleClothing ? () => openLightbox(singleClothing.preview, "已上传的连体/全身服装") : undefined}
+                  onPreview={singleClothing ? () => openLightbox(singleClothing.preview, t("clothing.singleImageAlt")) : undefined}
                   onRemove={singleClothing ? () => removeClothing(0) : undefined}
                   onDropFile={(file) => {
                     if (file) processFiles([file], "single");
                   }}
-                  libraryLabel="从资源库导入"
-                  footnote="连体/全身服装建议主体完整、边缘清晰、无遮挡，生成会更稳定。"
+                  libraryLabel={t("clothing.libraryImport")}
+                  footnote={t("clothing.singleFootnote")}
                   examples={{
-                    label: "试一试",
+                    label: t("clothing.tryIt"),
                     images: TRYON_UPLOAD_SLOT_EXAMPLES.overall,
                     disabled: isUploading,
                     onSelect: (image) => applyRuleImage(image as TryOnRuleImage),
@@ -2610,31 +2612,32 @@ export default function CreatePage() {
             ) : (
               <div className="studio-clothing-slot-stack" data-mode="multi">
                 {([
-                  ["upper", "上传 / 拖拽【上装】", upperClothing],
-                  ["lower", "上传 / 拖拽【下装】", lowerClothing],
-                ] as const).map(([role, title, item]) => {
+                  ["upper", upperClothing],
+                  ["lower", lowerClothing],
+                ] as const).map(([role, item]) => {
                   const itemIndex = clothingItems.findIndex((clothing) => clothing.role === role);
+                  const title = role === "upper" ? t("clothing.upperTitle") : t("clothing.lowerTitle");
                   return (
                     <div key={role} className="studio-clothing-slot-card">
                       <StudioUploadTile
                         title={title}
-                        description={`${TRYON_CLOTHING_ROLE_LABELS[role]}会锁定到对应身体区域，可单独上传也可上下装组合。`}
+                        description={t("clothing.multiDesc", { role: TRYON_CLOTHING_ROLE_LABELS[role] })}
                         imageUrl={item?.preview}
-                        imageAlt={`已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`}
+                        imageAlt={t("clothing.uploadedRoleAlt", { role: TRYON_CLOTHING_ROLE_LABELS[role] })}
                         disabled={isUploading}
                         loading={isUploading && uploadingClothingRoles.includes(role)}
-                        supportBadge="可单独上传"
+                        supportBadge={t("clothing.individualUploadBadge")}
                         onUploadClick={() => openClothingPicker(role)}
                         onLibraryClick={() => sourceLibrary.open(role)}
-                        onPreview={item ? () => openLightbox(item.preview, `已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`) : undefined}
+                        onPreview={item ? () => openLightbox(item.preview, t("clothing.uploadedRoleAlt", { role: TRYON_CLOTHING_ROLE_LABELS[role] })) : undefined}
                         onRemove={item && itemIndex >= 0 ? () => removeClothing(itemIndex) : undefined}
                         onDropFile={(file) => {
                           if (file) processFiles([file], role);
                         }}
-                        libraryLabel="从资源库导入"
-                        footnote="款式图上传无遮挡、无码图；平铺、人台或干净上身图效果更稳。"
+                        libraryLabel={t("clothing.libraryImport")}
+                        footnote={t("clothing.multiFootnote")}
                         examples={{
-                          label: "试一试",
+                          label: t("clothing.tryIt"),
                           images: role === "upper" ? TRYON_UPLOAD_SLOT_EXAMPLES.upper : TRYON_UPLOAD_SLOT_EXAMPLES.lower,
                           disabled: isUploading,
                           onSelect: (image) => applyRuleImage(image as TryOnRuleImage),
@@ -2654,9 +2657,9 @@ export default function CreatePage() {
                 className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[var(--codex-accent)] accent-[var(--codex-accent)] focus:ring-violet-500 dark:border-stone-600 dark:bg-stone-800"
               />
               <span>
-                <span className="font-semibold">上传服装为内衣、泳衣、情趣内衣类服装</span>
+                <span className="font-semibold">{t("clothing.intimateLabel")}</span>
                 <span className="mt-0.5 block text-[11px] leading-4 text-slate-400">
-                  勾选后按成人商品图安全处理，生成会避免裸露、挑逗姿势和未成年人场景。
+                  {t("clothing.intimateHint")}
                 </span>
               </span>
             </label>
@@ -2689,14 +2692,14 @@ export default function CreatePage() {
             <div className="mb-2.5 flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-[13px] font-bold text-slate-900 dark:text-stone-100">
-                  服装人群 <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">可选</span>
+                  {t("audience.title")} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
                 </h3>
                 <p className="mt-1 truncate text-[11px] text-slate-400 dark:text-stone-500">
-                  影响人物性别线和年龄比例，默认女装成人。
+                  {t("audience.description")}
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-medium text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
-                影响比例
+                {t("audience.badge")}
               </span>
             </div>
 
@@ -2748,20 +2751,20 @@ export default function CreatePage() {
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.58)] bg-[rgba(91,124,255,0.12)]">
                 <div className="text-center">
                   <Upload className="mx-auto mb-1 h-7 w-7 text-[var(--codex-accent)]" />
-                  <p className="text-xs font-semibold text-[var(--codex-accent)]">松开上传参考图</p>
+                  <p className="text-xs font-semibold text-[var(--codex-accent)]">{t("reference.dropHint")}</p>
                 </div>
               </div>
             )}
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
                 <h3 className="font-bold text-sm flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-[var(--codex-accent)]" /> 参考图 / 场景
+                  <ImageIcon className="w-4 h-4 text-[var(--codex-accent)]" /> {t("reference.title")}
                 </h3>
-                <p className="mt-1 text-[11px] text-gray-400">默认上传参考图；切换 tab 会保留记录，生成只使用当前 tab 的参考图</p>
+                <p className="mt-1 text-[11px] text-gray-400">{t("reference.description")}</p>
               </div>
               {sceneMode !== "auto_design" && (
                 <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)]">
-                  最多 {MAX_TRYON_REFERENCE_IMAGES} 张
+                  {t("common.maxCount", { count: MAX_TRYON_REFERENCE_IMAGES })}
                 </span>
               )}
             </div>
@@ -2774,7 +2777,7 @@ export default function CreatePage() {
               value={sceneMode}
               onChange={switchSceneMode}
               columns={3}
-              ariaLabel="参考图 / 场景"
+              ariaLabel={t("reference.title")}
               className="tryon-scene-mode-tabs mb-3"
             />
 
@@ -2789,27 +2792,27 @@ export default function CreatePage() {
                       setIsReferenceScenePanelOpen(true);
                     }}
                     className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white/80 p-3 text-left transition hover:border-[var(--codex-accent)] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                    aria-label="打开系统参考图场景选择"
+                    aria-label={t("reference.openSystemScene")}
                   >
                     <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100 shadow-sm">
                       <ImgSkeleton
                         src={recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || ""}
-                        alt="推荐参考图"
+                        alt={t("reference.recommendedAlt")}
                         className="h-full w-full object-cover"
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-slate-900">选择参考图 <span className="font-medium text-slate-400">（可多选）</span></p>
+                      <p className="text-sm font-bold text-slate-900">{t("reference.select")} <span className="font-medium text-slate-400">{t("reference.multiSelect")}</span></p>
                       <p className="mt-2 inline-flex max-w-full rounded-lg bg-orange-50 px-2 py-1 text-[11px] font-medium text-orange-600">
-                        请选择尽量与服装图款式、角度一致的参考图，效果更佳
+                        {t("reference.selectTip")}
                       </p>
                       {clothingAnalysisLabel && (
-                        <p className="mt-2 truncate text-[10px] font-semibold text-[var(--codex-accent)]">已识别：{clothingAnalysisLabel}</p>
+                        <p className="mt-2 truncate text-[10px] font-semibold text-[var(--codex-accent)]">{t("reference.recognized")}: {clothingAnalysisLabel}</p>
                       )}
                       {(isAnalyzingClothing || isLoadingSystemReferences) && (
                         <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-[var(--codex-accent)]">
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          {isAnalyzingClothing ? "识别服装中" : "推荐场景中"}
+                          {isAnalyzingClothing ? t("reference.recognizingClothing") : t("reference.recommending")}
                         </p>
                       )}
                     </div>
@@ -2821,11 +2824,11 @@ export default function CreatePage() {
                       <button
                         key={ref.url}
                         type="button"
-                        onClick={() => openLightbox(ref.url, ref.label || "参考图")}
+                        onClick={() => openLightbox(ref.url, ref.label || t("common.referenceImage"))}
                         className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                        aria-label={`预览已选参考图：${ref.label}`}
+                        aria-label={t("reference.previewSelected", { label: ref.label })}
                       >
-                        <RawPreviewImage src={ref.url} alt={ref.label || "参考图"} className="aspect-[3/4] w-full object-cover" />
+                        <RawPreviewImage src={ref.url} alt={ref.label || t("common.referenceImage")} className="aspect-[3/4] w-full object-cover" />
                         <CheckCircle2 className="absolute right-1 top-1 h-4 w-4 rounded-full bg-[var(--codex-accent)] text-white" />
                       </button>
                     ))}
@@ -2838,10 +2841,10 @@ export default function CreatePage() {
                           setIsReferenceScenePanelOpen(true);
                         }}
                         className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-white text-slate-400 transition hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.1)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300"
-                        aria-label="添加系统参考图"
+                        aria-label={t("reference.addSystemScene")}
                       >
                         <ChevronRight className="mb-1 h-6 w-6" />
-                        <span className="text-xs font-medium">添加</span>
+                        <span className="text-xs font-medium">{t("common.add")}</span>
                       </button>
                     )}
                   </div>
@@ -2852,7 +2855,7 @@ export default function CreatePage() {
 
             {sceneMode === "upload_reference" && (
               <div className={`studio-reference-upload-panel transition-colors ${isDraggingRef ? "rounded-xl ring-2 ring-[rgba(91,124,255,0.36)] ring-offset-2" : ""}`}>
-                <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" aria-label="上传参考图" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
+                <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" aria-label={t("reference.uploadAriaLabel")} onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
                 <TryOnReferenceAnalysisStatus
                   status={referenceAnalysisStatus}
                   summaries={referenceAnalysisSummaries}
@@ -2860,19 +2863,19 @@ export default function CreatePage() {
                 />
                 {showUploadReferenceEmptyTile ? (
                   <StudioUploadTile
-                    title="上传 / 拖拽参考图"
-                    description={`可上传 1-${MAX_TRYON_REFERENCE_IMAGES} 张人物姿势、场景或构图参考图。`}
-                    imageAlt="服装上身参考图"
+                    title={t("reference.uploadTitle")}
+                    description={t("reference.uploadDesc", { count: MAX_TRYON_REFERENCE_IMAGES })}
+                    imageAlt={t("reference.uploadImageAlt")}
                     isDragging={isDraggingRef}
                     disabled={isReferenceUploadBusy}
                     loading={isReferenceUploadBusy}
-                    supportBadge={`最多 ${MAX_TRYON_REFERENCE_IMAGES} 张`}
+                    supportBadge={t("common.maxCount", { count: MAX_TRYON_REFERENCE_IMAGES })}
                     onUploadClick={() => customRefInputRef.current?.click()}
-                    uploadLabel="从本地上传"
-                    loadingLabel="上传参考图…"
-                    footnote="拖拽图片到此区域也可以上传；参考图会作为人物姿势、场景、构图和光影来源。"
+                    uploadLabel={t("reference.uploadLocal")}
+                    loadingLabel={t("reference.uploadingLabel")}
+                    footnote={t("reference.uploadFootnote")}
                     examples={{
-                      label: "试一试",
+                      label: t("clothing.tryIt"),
                       images: PRESET_REFERENCES.slice(0, 6).map((item) => ({
                         url: item.url,
                         title: item.label,
@@ -2887,11 +2890,11 @@ export default function CreatePage() {
                       <div key={ref.url} className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm">
                         <button
                           type="button"
-                          onClick={() => openLightbox(ref.url, ref.label || "参考图")}
+                          onClick={() => openLightbox(ref.url, ref.label || t("common.referenceImage"))}
                           className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                          aria-label={`预览参考图：${ref.label}`}
+                          aria-label={t("reference.preview", { label: ref.label })}
                         >
-                          <RawPreviewImage src={ref.url} alt={`参考图：${ref.label}`} className="aspect-[3/4] w-full object-cover" />
+                          <RawPreviewImage src={ref.url} alt={t("reference.previewAlt", { label: ref.label })} className="aspect-[3/4] w-full object-cover" />
                           <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 opacity-0 transition group-hover:bg-slate-950/18 group-hover:opacity-100 group-focus-within:bg-slate-950/18 group-focus-within:opacity-100">
                             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow-sm">
                               <ZoomIn className="h-4 w-4" />
@@ -2905,7 +2908,7 @@ export default function CreatePage() {
                           type="button"
                           onClick={() => setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url))}
                           className="absolute left-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-600 shadow-sm transition-colors duration-150 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[rgba(91,124,255,0.55)]"
-                          aria-label={`移除参考图：${ref.label}`}
+                          aria-label={t("reference.remove", { label: ref.label })}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -2916,15 +2919,15 @@ export default function CreatePage() {
                         <RawPreviewImage src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
                         <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
                           {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                          {item.status === "uploading" ? "上传中" : "失败"}
+                          {item.status === "uploading" ? t("common.uploading") : t("common.failed")}
                         </span>
                         {item.status === "error" && (
                           <button
                             type="button"
                             onClick={() => setCustomRefUploads((prev) => prev.filter((upload) => upload.id !== item.id))}
                             className="absolute right-1 top-1 z-[2] inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
-                            aria-label={`移除上传失败参考图：${item.label}`}
-                            title={item.error || "上传失败"}
+                            aria-label={t("reference.removeFailed", { label: item.label })}
+                            title={item.error || t("common.uploadFailed")}
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -2936,10 +2939,10 @@ export default function CreatePage() {
                       onClick={() => customRefInputRef.current?.click()}
                       disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
                       className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-[color,background-color,border-color,box-shadow] hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.1)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] dark:bg-[rgba(91,124,255,0.1)]0/20" : "border-gray-200 dark:border-white/10"}`}
-                      aria-label="上传参考图"
+                      aria-label={t("reference.uploadAriaLabel")}
                     >
                       <ChevronRight className="mb-1 h-6 w-6" />
-                      <span className="text-xs font-medium">添加</span>
+                      <span className="text-xs font-medium">{t("common.add")}</span>
                     </button>
                   </div>
                 )}
@@ -2950,7 +2953,7 @@ export default function CreatePage() {
             {sceneMode === "auto_design" && (
               <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
                 <div>
-                  <p className="mb-2 text-xs font-bold text-gray-800">摄影方案</p>
+                  <p className="mb-2 text-xs font-bold text-gray-800">{t("autoDesign.platform")}</p>
                   <StudioOptionGrid
                     options={AUTO_DESIGN_PLATFORMS.map((item) => ({
                       value: item.value,
@@ -2963,11 +2966,11 @@ export default function CreatePage() {
                       setPromptOverride(null);
                     }}
                     columns={2}
-                    ariaLabel="摄影方案"
+                    ariaLabel={t("autoDesign.platform")}
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-bold text-gray-800">构图</p>
+                  <p className="mb-2 text-xs font-bold text-gray-800">{t("autoDesign.framing")}</p>
                   <StudioOptionGrid
                     options={AUTO_DESIGN_FRAMINGS.map((item) => ({
                       value: item.value,
@@ -2979,11 +2982,11 @@ export default function CreatePage() {
                       setPromptOverride(null);
                     }}
                     columns={4}
-                    ariaLabel="构图"
+                    ariaLabel={t("autoDesign.framing")}
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-bold text-gray-800">背景</p>
+                  <p className="mb-2 text-xs font-bold text-gray-800">{t("autoDesign.background")}</p>
                   <StudioOptionGrid
                     options={autoDesignBackgroundOptions.map((item) => ({
                       value: item.value,
@@ -2995,7 +2998,7 @@ export default function CreatePage() {
                       setPromptOverride(null);
                     }}
                     columns={2}
-                    ariaLabel="背景"
+                    ariaLabel={t("autoDesign.background")}
                   />
                 </div>
               </div>
@@ -3004,19 +3007,19 @@ export default function CreatePage() {
             {sceneMode === "favorites" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 dark:border-white/10 dark:bg-white/5">
                 {authIsAnonymous ? (
-                  <div className="py-8 text-center text-xs text-gray-400">登录后查看收藏参考图</div>
+                  <div className="py-8 text-center text-xs text-gray-400">{t("favorite.anonView")}</div>
                 ) : isLoadingFavoriteReferences ? (
                   <div className="py-8 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    加载收藏中
+                    {t("favorite.loading")}
                   </div>
                 ) : favoriteReferences.length === 0 && referenceTemplates.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-gray-400">还没有收藏参考图</div>
+                  <div className="py-8 text-center text-xs text-gray-400">{t("favorite.empty")}</div>
                 ) : (
                   <div className="space-y-3">
                     {referenceTemplates.length > 0 && (
                       <div>
-                        <p className="mb-2 text-[11px] font-bold text-slate-600">参考模板</p>
+                        <p className="mb-2 text-[11px] font-bold text-slate-600">{t("favorite.templates")}</p>
                         <div className="grid grid-cols-2 gap-2">
                           {referenceTemplates.map((template) => (
                             <button
@@ -3024,12 +3027,12 @@ export default function CreatePage() {
                               type="button"
                               onClick={() => applyReferenceTemplate(template)}
                               className="group overflow-hidden rounded-lg border-2 border-transparent bg-white text-left transition hover:border-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                              aria-label={`套用参考模板：${template.name}`}
+                              aria-label={t("favorite.applyTemplate", { name: template.name })}
                             >
                               <div className="relative aspect-[4/3] overflow-hidden">
                                 <RawPreviewImage src={template.coverUrl} alt={template.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" />
                                 <span className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-[var(--codex-accent)]">
-                                  {template.references.length}张
+                                  {t("common.countImages", { count: template.references.length })}
                                 </span>
                               </div>
                               <div className="px-2 py-1">
@@ -3042,13 +3045,13 @@ export default function CreatePage() {
                     )}
                     {favoriteReferences.length > 0 && (
                       <div>
-                        <p className="mb-2 text-[11px] font-bold text-slate-600">单张收藏</p>
+                        <p className="mb-2 text-[11px] font-bold text-slate-600">{t("favorite.single")}</p>
                         <div className="grid grid-cols-3 gap-2">
                     {favoriteReferences.map((ref) => {
                       const selected = isReferenceSelected(ref.url);
                       return (
                       <div key={ref.id} role="button" tabIndex={0}
-                        aria-label={`选择收藏参考图：${ref.label}`}
+                        aria-label={t("favorite.select", { label: ref.label })}
                         onClick={() => {
                           if (!switchSceneMode("favorites")) return;
                           toggleReferenceImage(toFavoriteReference(ref));
@@ -3060,7 +3063,7 @@ export default function CreatePage() {
                         className={`group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-white transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
                           selected ? "border-[var(--codex-accent)] ring-1 ring-blue-200" : "border-transparent hover:border-gray-300"
                         }`}>
-                        <ImgSkeleton src={ref.url} alt={`收藏参考图：${ref.label}`} className="w-full aspect-[3/4] object-cover" />
+                        <ImgSkeleton src={ref.url} alt={t("favorite.imageAlt", { label: ref.label })} className="w-full aspect-[3/4] object-cover" />
                         {selected && (
                           <span className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
                             <CheckCircle2 className="h-4 w-4" />
@@ -3068,11 +3071,11 @@ export default function CreatePage() {
                         )}
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); openLightbox(ref.url, `收藏参考图：${ref.label}`); }}
+                          onClick={(e) => { e.stopPropagation(); openLightbox(ref.url, t("favorite.previewLabel", { label: ref.label })); }}
                           onKeyDown={(e) => { e.stopPropagation(); }}
                           className="absolute left-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                          aria-label={`预览收藏参考图：${ref.label}`}
-                          title={`预览收藏参考图：${ref.label}`}
+                          aria-label={t("favorite.preview", { label: ref.label })}
+                          title={t("favorite.preview", { label: ref.label })}
                         >
                           <ZoomIn className="w-3 h-3 text-gray-500" />
                         </button>
@@ -3081,8 +3084,8 @@ export default function CreatePage() {
                           onClick={(e) => { e.stopPropagation(); removeFavoriteReference(ref.id); }}
                           onKeyDown={(e) => { e.stopPropagation(); }}
                           className="absolute right-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                          aria-label={`移除收藏参考图：${ref.label}`}
-                          title={`移除收藏参考图：${ref.label}`}
+                          aria-label={t("favorite.remove", { label: ref.label })}
+                          title={t("favorite.remove", { label: ref.label })}
                         >
                           <X className="w-3 h-3 text-gray-500" />
                         </button>
@@ -3108,7 +3111,7 @@ export default function CreatePage() {
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
                 <div className="text-center">
                   <Upload className="w-8 h-8 mx-auto text-[var(--codex-accent)] mb-1" />
-                  <p className="text-sm font-medium text-[var(--codex-accent)]">松开上传模特图</p>
+                  <p className="text-sm font-medium text-[var(--codex-accent)]">{t("model.dropHint")}</p>
                 </div>
               </div>
             )}
@@ -3116,13 +3119,13 @@ export default function CreatePage() {
               <div>
                 <h3 className="flex items-center gap-2 text-[13px] font-bold text-slate-900 dark:text-stone-100">
                   <UserRound className="h-4 w-4 text-[var(--codex-accent)]" />
-                  模特
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">可选</span>
+                  {t("model.title")}
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
                 </h3>
-                <p className="mt-1 text-[11px] text-gray-400 dark:text-stone-500">默认不选；上传或选择模特时只控制脸部身份</p>
+                <p className="mt-1 text-[11px] text-gray-400 dark:text-stone-500">{t("model.description")}</p>
               </div>
               <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
-                可拖拽上传
+                {t("model.dragBadge")}
               </span>
             </div>
             <div className="grid grid-cols-4 gap-2">
@@ -3130,12 +3133,12 @@ export default function CreatePage() {
                 type="button"
                 onClick={() => {
                   if (isModelUploadBusy) {
-                    toast.info("模特图上传中，请稍候");
+                    toast.info(t("model.uploadingWait"));
                     return;
                   }
                   store.setSelectedModel(null);
                   setCustomModelPreview(null);
-                  toast.success("已设为不替换脸部");
+                  toast.success(t("model.noReplaceSet"));
                 }}
                 disabled={isModelUploadBusy}
                 className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#1c1c1e] ${
@@ -3148,12 +3151,12 @@ export default function CreatePage() {
                   <span className="flex flex-col items-center gap-2">
                     <UserRound className={`h-7 w-7 ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-slate-300 dark:text-stone-500"}`} />
                     <span className={`text-[13px] font-bold ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-slate-400 dark:text-stone-400"}`}>
-                      不选默认
+                      {t("model.noSelectionDefault")}
                     </span>
                   </span>
                 </span>
                 <span className={`block border-t px-2 py-2 text-[11px] font-semibold ${!store.selectedModel ? "border-[rgba(91,124,255,0.12)] text-[var(--codex-accent)]" : "border-slate-100 dark:border-white/10 text-slate-500 dark:text-stone-400"}`}>
-                  不替换脸部
+                  {t("model.noReplace")}
                 </span>
               </button>
               {PRESET_MODELS.map((m) => (
@@ -3161,10 +3164,10 @@ export default function CreatePage() {
                   key={m.id}
                   role="button"
                   tabIndex={0}
-                  aria-label={`选择模特：${m.name}`}
+                  aria-label={t("model.select", { name: m.name })}
                   onClick={() => {
                     if (isModelUploadBusy) {
-                      toast.info("模特图上传中，请稍候");
+                      toast.info(t("model.uploadingWait"));
                       return;
                     }
                     setCustomModelPreview(null);
@@ -3173,7 +3176,7 @@ export default function CreatePage() {
                   }}
                   onKeyDown={(event) => handlePreviewKeyDown(event, () => {
                     if (isModelUploadBusy) {
-                      toast.info("模特图上传中，请稍候");
+                      toast.info(t("model.uploadingWait"));
                       return;
                     }
                     setCustomModelPreview(null);
@@ -3187,7 +3190,7 @@ export default function CreatePage() {
                       ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
                       : "border-slate-200 dark:border-white/10 hover:border-[rgba(91,124,255,0.34)] hover:shadow-sm"
                   }`}>
-                  <ImgSkeleton src={m.image_url} alt={`模特：${m.name}`} className="aspect-[4/5] w-full object-cover" />
+                  <ImgSkeleton src={m.image_url} alt={t("model.imageAlt", { name: m.name })} className="aspect-[4/5] w-full object-cover" />
                   {store.selectedModel?.id === m.id && (
                     <span className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
                       <CheckCircle2 className="h-4 w-4" />
@@ -3196,11 +3199,11 @@ export default function CreatePage() {
                   <div className="pointer-events-none absolute inset-0 flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-[background-color,opacity] sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); openLightbox(m.image_url, `模特：${m.name}`); }}
+                      onClick={(e) => { e.stopPropagation(); openLightbox(m.image_url, t("model.imageAlt", { name: m.name })); }}
                       onKeyDown={(e) => { e.stopPropagation(); }}
                       className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                      aria-label={`预览模特：${m.name}`}
-                      title={`预览模特：${m.name}`}
+                      aria-label={t("model.preview", { name: m.name })}
+                      title={t("model.preview", { name: m.name })}
                     >
                       <ZoomIn className="h-4 w-4 text-gray-600" />
                     </button>
@@ -3222,16 +3225,16 @@ export default function CreatePage() {
                     ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
                     : "border-dashed border-slate-200 hover:border-[rgba(91,124,255,0.38)] hover:bg-[rgba(91,124,255,0.1)]/30"
                 }`}
-                aria-label={customModelImageUrl ? "更换上传模特图" : "上传模特图"}
+                aria-label={customModelImageUrl ? t("model.replaceUpload") : t("model.uploadAriaLabel")}
               >
                 <span className="flex aspect-[4/5] items-center justify-center overflow-hidden bg-slate-50 dark:bg-white/5">
                   {customModelImageUrl
-                    ? <RawPreviewImage src={customModelImageUrl} alt="已上传的模特图" className="h-full w-full object-cover" />
+                    ? <RawPreviewImage src={customModelImageUrl} alt={t("model.uploadedAlt")} className="h-full w-full object-cover" />
                     : (
                       <span className="flex flex-col items-center gap-2 px-3 text-slate-400 dark:text-stone-500">
                         <Camera className="h-7 w-7" />
-                        <span className="text-[13px] font-bold text-slate-500 dark:text-stone-300">上传模特脸</span>
-                        <span className="text-[10px] leading-4 text-slate-400 dark:text-stone-500">只参考脸，不参考姿势</span>
+                        <span className="text-[13px] font-bold text-slate-500 dark:text-stone-300">{t("model.uploadFace")}</span>
+                        <span className="text-[10px] leading-4 text-slate-400 dark:text-stone-500">{t("model.faceOnly")}</span>
                         <span className="text-[10px] text-slate-300 dark:text-stone-600">≤{MAX_FILE_SIZE_MB}MB</span>
                       </span>
                     )
@@ -3248,12 +3251,12 @@ export default function CreatePage() {
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        openLightbox(customModelImageUrl, "已上传的模特图");
+                        openLightbox(customModelImageUrl, t("model.uploadedAlt"));
                       }}
                       onKeyDown={(event) => { event.stopPropagation(); }}
                       className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                      aria-label="预览上传模特图"
-                      title="预览上传模特图"
+                      aria-label={t("model.previewUpload")}
+                      title={t("model.previewUpload")}
                     >
                       <ZoomIn className="h-4 w-4 text-gray-600" />
                     </button>
@@ -3262,23 +3265,23 @@ export default function CreatePage() {
                 <span className={`block truncate border-t px-2 py-2 text-[11px] font-bold ${
                   isCustomModelSelected ? "border-[rgba(91,124,255,0.12)] bg-blue-50 dark:bg-[rgba(91,140,255,0.18)] dark:border-[rgba(91,140,255,0.32)] text-slate-800 dark:text-stone-200" : "border-slate-100 dark:border-white/10 text-slate-500 dark:text-stone-400"
                 }`}>
-                  {customModelImageUrl ? "已上传" : "上传"}
+                  {customModelImageUrl ? t("common.uploaded") : t("common.upload")}
                 </span>
                 {isModelUploadBusy && (
                   <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-white/78 text-[11px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px] dark:bg-[rgba(28,28,30,0.82)]">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    上传中
+                    {t("common.uploading")}
                   </span>
                 )}
               </div>
-              <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" aria-label="上传模特图" onChange={handleCustomModel} disabled={isModelUploadBusy} />
+              <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" aria-label={t("model.uploadAriaLabel")} onChange={handleCustomModel} disabled={isModelUploadBusy} />
             </div>
           </section>
 
           {/* ---- 生成模型 ---- */}
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
-              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> 生成模型
+              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("model.sectionTitle")}
             </h3>
             <StudioModelSelector
               models={selectableModels}
@@ -3289,37 +3292,37 @@ export default function CreatePage() {
                 }
                 setAiModel(value);
               }}
-              ariaLabel="生成模型"
+              ariaLabel={t("model.sectionTitle")}
               getMeta={(model) => (
                 hasModelFace && isNanoBananaModel(model.value)
-                  ? "模特脸融合效果可能不好"
-                  : `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}分`
+                  ? t("model.faceFusionWarning")
+                  : t("model.costMeta", { desc: model.desc, cost: getCreditCost(model.value, imageSize, aspectRatio) })
               )}
             />
             {hasModelFace && (
               <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
-                已选择模特脸，Banana 的“参考图 + 模特脸”融合效果可能不好。当前推荐用 GPT-Image-2；如果想保留 Banana 的换装质感，先取消模特脸完成换装，再去
-                <a href="/face-swap" className="mx-1 font-bold text-amber-900 underline decoration-amber-400 underline-offset-2">换脸模块</a>
-                替换脸部。
+                {t("model.bananaWarning")}
+                <a href="/face-swap" className="mx-1 font-bold text-amber-900 underline decoration-amber-400 underline-offset-2">{t("model.swapModule")}</a>
+                {t("model.swapFace")}
               </div>
             )}
           </section>
 
           {/* ---- 比例 ---- */}
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> 图片比例</h3>
-            <StudioOptionGrid options={aspects} value={aspectRatio} onChange={setAspectRatio} ariaLabel="图片比例" />
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("ratio.title")}</h3>
+            <StudioOptionGrid options={aspects} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("ratio.title")} />
           </section>
 
           {/* ---- 分辨率 ---- */}
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> 分辨率</h3>
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution.title")}</h3>
               <StudioOptionGrid
-                options={imageSizes.map((size) => ({ value: size, label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点` }))}
+                options={imageSizes.map((size) => ({ value: size, label: t("resolution.option", { size, cost: getCreditCost(aiModel, size, aspectRatio) }) }))}
                 value={imageSize}
                 onChange={setImageSize}
-                ariaLabel="分辨率"
+                ariaLabel={t("resolution.title")}
               />
             </section>
           )}
@@ -3327,12 +3330,12 @@ export default function CreatePage() {
           {/* ---- 细节补充 + 智能整理 ---- */}
           <section>
             <StudioPromptTextarea
-              title="补充要求"
-              badge="可选"
+              title={t("prompt.title")}
+              badge={t("common.optional")}
               value={customStyle}
               onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); store.setPromptUsed(""); }}
-              placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节…"
-              aria-label="补充要求"
+              placeholder={t("prompt.placeholder")}
+              aria-label={t("prompt.title")}
               rows={4}
               action={(
                 <button
@@ -3340,7 +3343,7 @@ export default function CreatePage() {
                   onClick={handleOptimizePrompt}
                   disabled={optimizing || !customStyle.trim()}
                   className="studio-prompt-icon-action"
-                  title="智能整理提示词"
+                  title={t("prompt.optimizeTitle")}
                 >
                   {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
                 </button>
@@ -3357,22 +3360,29 @@ export default function CreatePage() {
           </section>
 
           {/* ---- 生成数量 ---- */}
-          <StudioSection title="生成数量" description="结果张数越多，消耗灵点越高。" icon={<Images className="h-4 w-4" />}>
+          <StudioSection title={t("genCount.title")} description={t("genCount.description")} icon={<Images className="h-4 w-4" />}>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
-              ariaLabel="选择生成数量"
+              ariaLabel={t("genCount.ariaLabel")}
             />
           </StudioSection>
           </StudioControlPanel>
         )}
         runBar={(
           <StudioRunBar
-            summary={`${TRYON_CLOTHING_MODE_LABELS[clothingMode]} · ${store.clothingFiles.length} 张输入${activeGarmentDetailUrls.length ? ` · ${activeGarmentDetailUrls.length} 张细节` : ""} · ${sceneMode === "auto_design" ? "自动设计" : `${selectedReferenceCount} 张参考`} · ${costPerImage} × ${expectedOutputCount} 张`}
-            costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "—"}`}
+            summary={t("runBar.summary", {
+              mode: TRYON_CLOTHING_MODE_LABELS[clothingMode],
+              clothingCount: store.clothingFiles.length,
+              detailCount: activeGarmentDetailUrls.length,
+              scene: sceneMode === "auto_design" ? t("common.autoDesign") : t("runBar.refCount", { count: selectedReferenceCount }),
+              costPerImage,
+              expectedCount: expectedOutputCount,
+            })}
+            costLabel={authIsAnonymous ? t("runBar.loginToViewCredits") : t("runBar.costBalance", { total: totalCost, balance: credits ?? "—" })}
             disabled={runDisabled}
             disabledReason={runDisabledReason}
-            primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中…" : `生成 ${expectedOutputCount} 张`}
+            primaryLabel={authIsAnonymous ? t("runBar.loginToGenerate") : isSubmitting ? t("runBar.submitting") : t("runBar.generateCount", { count: expectedOutputCount })}
             isLoading={isSubmitting}
             onPrimaryAction={() => handleGenerate()}
           />
@@ -3384,37 +3394,37 @@ export default function CreatePage() {
             emptyState={(
               <div className="flex min-h-[320px] items-center justify-center p-4 sm:min-h-[420px] lg:h-full">
                 <PreviewGuide
-                  title="仅需服装图，生成模特商拍图"
-                  subtitle="上传衣服，选择参考和模特，一键生成上身效果。"
+                  title={t("guide.title")}
+                  subtitle={t("guide.subtitle")}
                   steps={[
                     {
-                      title: "上传服装",
+                      title: t("guide.step1Title"),
                       desc: "",
                       imageSrc: "/tutorial-guides/tryon-garment.webp",
-                      imageAlt: "浅黄色连衣裙服装图",
+                      imageAlt: t("guide.step1Alt"),
                       imageFit: "contain",
-                      badge: "衣服图",
+                      badge: t("guide.step1Badge"),
                     },
                     {
-                      title: "选择参考",
+                      title: t("guide.step2Title"),
                       desc: "",
                       imageSrc: "/tutorial-guides/tryon-reference.webp",
-                      imageAlt: "模特原图参考",
-                      badge: "原图",
+                      imageAlt: t("guide.step2Alt"),
+                      badge: t("guide.step2Badge"),
                     },
                     {
-                      title: "添加模特图",
+                      title: t("guide.step3Title"),
                       desc: "",
                       imageSrc: "/tutorial-guides/tryon-model.webp",
-                      imageAlt: "模特脸图",
-                      badge: "模特图",
+                      imageAlt: t("guide.step3Alt"),
+                      badge: t("guide.step3Badge"),
                     },
                     {
-                      title: "生成商拍图",
+                      title: t("guide.step4Title"),
                       desc: "",
                       imageSrc: "/tutorial-guides/tryon-result.webp",
-                      imageAlt: "服装上身生成结果",
-                      badge: "结果图",
+                      imageAlt: t("guide.step4Alt"),
+                      badge: t("guide.step4Badge"),
                     },
                   ]}
                   actions={(
@@ -3424,14 +3434,14 @@ export default function CreatePage() {
                         onClick={() => openClothingPicker(clothingMode === "multi" ? "upper" : "single")}
                         className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
                       >
-                        <Upload className="h-3.5 w-3.5" /> 上传服装
+                        <Upload className="h-3.5 w-3.5" /> {t("guide.uploadClothing")}
                       </button>
                       <button
                         type="button"
                         onClick={() => sourceLibrary.open(clothingMode === "multi" ? "upper" : "single")}
                         className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 dark:border-white/15 dark:bg-[#26262a] dark:text-stone-200 dark:hover:border-white/30 dark:hover:text-white"
                       >
-                        <FolderOpen className="h-3.5 w-3.5" /> 从作品库选择
+                        <FolderOpen className="h-3.5 w-3.5" /> {t("guide.selectFromLibrary")}
                       </button>
                     </>
                   )}
@@ -3442,22 +3452,22 @@ export default function CreatePage() {
               <LoadingStage
                 genCount={genCount}
                 progress={store.generationProgress}
-                moduleName="服装上身"
+                moduleName={t("tryon.title")}
                 referenceImages={[
-                  { label: clothingMode === "multi" ? "上装/下装参考" : "连体服装参考", url: store.clothingPreviews[0] },
-                  { label: "模特参考", url: store.selectedModel?.image_url },
-                  ...selectedReferenceImages.map((item, index) => ({ label: `姿势/场景参考${selectedReferenceImages.length > 1 ? index + 1 : ""}`, url: item.url })),
+                  { label: clothingMode === "multi" ? t("loading.upperLowerRef") : t("loading.jumpsuitRef"), url: store.clothingPreviews[0] },
+                  { label: t("loading.modelRef"), url: store.selectedModel?.image_url },
+                  ...selectedReferenceImages.map((item, index) => ({ label: t("loading.poseRef", { index: selectedReferenceImages.length > 1 ? index + 1 : "" }), url: item.url })),
                   ...activeGarmentDetailGroups.flatMap((group) => {
                     const role = clothingRoles[group.clothingIndex]
                       || (clothingMode === "multi"
                         ? group.clothingIndex === 0 ? "upper" : group.clothingIndex === 1 ? "lower" : "extra"
                         : "single");
                     const roleLabel = getGarmentDetailOwnerLabel(role, group.clothingIndex);
-                    return group.urls.map((url, index) => ({ label: `${roleLabel}细节${index + 1}`, url }));
+                    return group.urls.map((url, index) => ({ label: t("loading.detailRef", { role: roleLabel, index: index + 1 }), url }));
                   }),
-                  ...activeUnassignedGarmentDetailUrls.map((url, index) => ({ label: `未归属细节${index + 1}`, url })),
+                  ...activeUnassignedGarmentDetailUrls.map((url, index) => ({ label: t("loading.unassignedDetail", { index: index + 1 }), url })),
                 ]}
-                metaItems={[aspectRatio, imageSize, sceneMode === "auto_design" ? "自动设计" : `${selectedReferenceCount} 张参考`, activeGarmentDetailUrls.length ? `${activeGarmentDetailUrls.length} 张细节` : ""].filter(Boolean)}
+                metaItems={[aspectRatio, imageSize, sceneMode === "auto_design" ? t("common.autoDesign") : t("runBar.refCount", { count: selectedReferenceCount }), activeGarmentDetailUrls.length ? t("runBar.detailCount", { count: activeGarmentDetailUrls.length }) : ""].filter(Boolean)}
               />
             )}
             errorState={store.error ? (
@@ -3466,7 +3476,7 @@ export default function CreatePage() {
                 onRetry={() => { store.setError(null); handleGenerate(); }}
                 isGenerating={store.isGenerating}
                 retryDisabled={retryDisabled}
-                retryLabel={applyingTaskId ? "正在套用…" : "重新生成"}
+                retryLabel={applyingTaskId ? t("generate.applying") : t("generate.regenerate")}
                 notice={FAILED_RETRY_NOTICE}
               />
             ) : null}
@@ -3478,7 +3488,7 @@ export default function CreatePage() {
                       urls={store.resultUrls}
                       filenamePrefix="tryon"
                       onOpen={openTryonPreview}
-                      imageAltPrefix="服装上身结果"
+                      imageAltPrefix={t("tryon.resultPrefix")}
                       expectedCount={activeResultExpectedCount}
                       isGenerating={store.isGenerating}
                       inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails)}
@@ -3488,12 +3498,12 @@ export default function CreatePage() {
                       variant="task"
                       renderKey={activeQueueTask?.id || "tryon-create"}
                       markMissingAsFailed={hasCompletedPartialResults}
-                      missingFailureLabel="本张生成失败"
+                      missingFailureLabel={t("generate.thisImageFailed")}
                       missingFailureDetail={partialFailureMessage}
-                      missingFailureActionLabel="重试本张"
+                      missingFailureActionLabel={t("generate.retryThisImage")}
                       onMissingFailureAction={handleRetryFailedResult}
                       missingFailureActionDisabled={retryDisabled}
-                      failureLabel="生成失败"
+                      failureLabel={t("generate.failed")}
                       failureDetail={activeFailureMessage || undefined}
                     
                 tileAspectRatio={aspectRatio}
@@ -3547,9 +3557,9 @@ export default function CreatePage() {
       <ReferenceScenePicker
         open={false && isReferenceScenePanelOpen}
         tabs={[
-          { value: "recommended", label: "推荐场景" },
-          { value: "exclusive", label: "专属场景" },
-          { value: "all", label: "全部场景" },
+          { value: "recommended", label: t("sceneTab.recommended") },
+          { value: "exclusive", label: t("sceneTab.exclusive") },
+          { value: "all", label: t("sceneTab.all") },
         ]}
         activeTab={referencePanelTab}
         onTabChange={(tab) => {
@@ -3579,7 +3589,7 @@ export default function CreatePage() {
         onClearSelected={clearSelectedReferences}
         onClose={() => setIsReferenceScenePanelOpen(false)}
         onConfirm={() => setIsReferenceScenePanelOpen(false)}
-        onPreview={(url, label) => openLightbox(url, label || "主场景")}
+        onPreview={(url, label) => openLightbox(url, label || t("sceneTab.mainScene"))}
       />
 
       <TryOnLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />

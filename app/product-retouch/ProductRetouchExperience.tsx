@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {CircleDollarSign,
   ImageIcon,
@@ -77,27 +78,34 @@ import {
 const MODEL_OPTIONS: ReadonlyArray<{
   value: LingyaModel;
   label: string;
+  labelKey?: string;
   desc: string;
+  descKey?: string;
   icon: string;
   badge?: string;
+  badgeKey?: string;
 }> = [
   {
     value: "nano-banana-2",
     label: "Nano Banana 2",
-    desc: "速度优先的批量生产",
+    desc: "",
+    descKey: "model.speedFirst",
     icon: "/model-icons/gemini.png",
   },
   {
     value: "gpt-image-2",
     label: "GPT Image 2",
-    desc: "商品一致性与精修细节优先",
+    desc: "",
+    descKey: "model.consistencyFirst",
     icon: "/model-icons/openai.svg",
-    badge: "推荐",
+    badge: "",
+    badgeKey: "model.recommended",
   },
   {
     value: "nano-banana-pro",
     label: "Nano Banana Pro",
-    desc: "复杂材质与商业布光",
+    desc: "",
+    descKey: "model.complexMaterial",
     icon: "/model-icons/gemini.png",
   },
 ] as const;
@@ -105,12 +113,14 @@ const MODEL_OPTIONS: ReadonlyArray<{
 const ASPECT_OPTIONS: ReadonlyArray<{
   value: AspectRatio;
   label: string;
+  labelKey?: string;
   description: string;
+  descriptionKey?: string;
 }> = [
-  { value: "auto", label: "原图比例", description: "跟随商品原图" },
-  { value: "1:1", label: "1:1", description: "平台主图" },
-  { value: "3:4", label: "3:4", description: "竖版商品图" },
-  { value: "4:5", label: "4:5", description: "电商信息流" },
+  { value: "auto", label: "原图比例", labelKey: "aspect.autoLabel", description: "跟随商品原图", descriptionKey: "aspect.auto" },
+  { value: "1:1", label: "1:1", description: "平台主图", descriptionKey: "aspect.square" },
+  { value: "3:4", label: "3:4", description: "竖版商品图", descriptionKey: "aspect.portrait" },
+  { value: "4:5", label: "4:5", description: "电商信息流", descriptionKey: "aspect.feed" },
 ] as const;
 
 const MODE_OPTIONS = PRODUCT_RETOUCH_MODE_OPTIONS.map((option) => ({
@@ -122,11 +132,16 @@ const MODE_OPTIONS = PRODUCT_RETOUCH_MODE_OPTIONS.map((option) => ({
       : SunMedium,
 }));
 
-const SIZE_OPTIONS = [
-  { value: "1K", label: "1K", description: "快速预览" },
-  { value: "2K", label: "2K", description: "生产默认" },
-  { value: "4K", label: "4K", description: "大图交付" },
-] as const;
+const SIZE_OPTIONS: ReadonlyArray<{
+  value: ImageSize;
+  label: string;
+  description: string;
+  descriptionKey?: string;
+}> = [
+  { value: "1K", label: "1K", description: "快速预览", descriptionKey: "size.preview" },
+  { value: "2K", label: "2K", description: "生产默认", descriptionKey: "size.default" },
+  { value: "4K", label: "4K", description: "大图交付", descriptionKey: "size.large" },
+];
 
 type PreviewState = {
   session: ImagePreviewSession;
@@ -134,6 +149,22 @@ type PreviewState = {
 };
 
 export function ProductRetouchExperience() {
+  const t = useTranslations("ProductRetouch");
+  const displayModels = useMemo(() => MODEL_OPTIONS.map((m) => ({
+    ...m,
+    label: m.labelKey ? t(m.labelKey) : m.label,
+    desc: m.descKey ? t(m.descKey) : m.desc,
+    badge: m.badgeKey ? t(m.badgeKey) : m.badge,
+  })), [t]);
+  const displayAspects = useMemo(() => ASPECT_OPTIONS.map((m) => ({
+    ...m,
+    label: m.labelKey ? t(m.labelKey) : m.label,
+    description: m.descriptionKey ? t(m.descriptionKey) : m.description,
+  })), [t]);
+  const displaySizes = useMemo(() => SIZE_OPTIONS.map((m) => ({
+    ...m,
+    description: m.descriptionKey ? t(m.descriptionKey) : m.description,
+  })), [t]);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const restoredIdRef = useRef<string | null>(null);
@@ -163,7 +194,7 @@ export function ProductRetouchExperience() {
   } = useStudioAuth();
   const taskQueue = useTaskQueueGeneration({
     module: "productRetouch",
-    title: "商品精修",
+    title: t("moduleName"),
     defaultExpectedCount: 1,
     applyPath: "/product-retouch",
   });
@@ -197,7 +228,7 @@ export function ProductRetouchExperience() {
     if (completed && nextBatch.status === "failed") {
       taskQueue.markFailed(
         nextBatch.parentGenerationId,
-        "商品精修批次失败，可重试失败结果",
+        t("batch.failedRetryable"),
         {
           expectedCount: nextBatch.expectedCount,
           resultCount: nextBatch.completedCount,
@@ -242,7 +273,7 @@ export function ProductRetouchExperience() {
       }).catch((watchError) => {
         if (options?.signal?.aborted) return;
         setIsGenerating(false);
-        toast.info(watchError instanceof Error ? watchError.message : "批次仍在后台生产");
+        toast.info(watchError instanceof Error ? watchError.message : t("batch.stillProducing"));
       });
     }
     return loaded;
@@ -257,7 +288,7 @@ export function ProductRetouchExperience() {
     setAspectRatio(normalizeAspectRatio(payload.aspectRatio, "1:1"));
     setImageSize(normalizeImageSize(payload.aiModel, payload.imageSize, normalizeAspectRatio(payload.aspectRatio, "1:1")));
     setUserInstruction(normalizeProductRetouchInstruction(payload.userInstruction));
-    toast.success("已套用历史参数设置");
+    toast.success(t("historyParamsApplied"));
   }, []);
 
   // 复原 sources：batch.outputs 上同一 sourceIndex 的 clientId/url/filename 是一致的；
@@ -299,7 +330,7 @@ export function ProductRetouchExperience() {
         const restored = sourcesFromBatch(loaded.outputs);
         if (restored && restored.length) setSources(restored);
       } catch (restoreError) {
-        setError(restoreError instanceof Error ? restoreError.message : "历史批次恢复失败");
+        setError(restoreError instanceof Error ? restoreError.message : t("historyBatchRestoreFailed"));
       }
     };
     const onHistoryApply = async (event: Event) => {
@@ -316,7 +347,7 @@ export function ProductRetouchExperience() {
         const restored = sourcesFromBatch(loaded.outputs);
         if (restored && restored.length) setSources(restored);
       } catch (restoreError) {
-        setError(restoreError instanceof Error ? restoreError.message : "历史批次恢复失败");
+        setError(restoreError instanceof Error ? restoreError.message : t("historyBatchRestoreFailed"));
       }
     };
     restoreFromLocation();
@@ -328,28 +359,28 @@ export function ProductRetouchExperience() {
     if (isUploading) return;
     const remaining = PRODUCT_RETOUCH_MAX_SOURCES - sources.length;
     if (remaining <= 0) {
-      toast.error(`单批最多 ${PRODUCT_RETOUCH_MAX_SOURCES} 张商品图`);
+      toast.error(t("upload.maxSources", { count: PRODUCT_RETOUCH_MAX_SOURCES }));
       return;
     }
 
     const accepted = incomingFiles.filter((file) => {
       const validType = ["image/png", "image/jpeg", "image/webp"].includes(file.type);
-      if (!validType) toast.error(`${file.name} 不是 PNG、JPEG 或 WebP`);
-      else if (file.size > MAX_FILE_SIZE) toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+      if (!validType) toast.error(t("upload.invalidType", { name: file.name }));
+      else if (file.size > MAX_FILE_SIZE) toast.error(t("upload.oversized", { name: file.name, mb: MAX_FILE_SIZE_MB }));
       return validType && file.size <= MAX_FILE_SIZE;
     }).slice(0, remaining);
     if (!accepted.length) return;
     if (incomingFiles.length > remaining) {
-      toast.info(`本次仅添加前 ${remaining} 张，单批上限 ${PRODUCT_RETOUCH_MAX_SOURCES} 张`);
+      toast.info(t("upload.onlyFirst", { remaining, max: PRODUCT_RETOUCH_MAX_SOURCES }));
     }
 
     setIsUploading(true);
-    toast.info(`正在上传 ${accepted.length} 张商品图…`);
+    toast.info(t("upload.uploading", { count: accepted.length }));
     try {
       const uploaded = await uploadFilesWithConcurrency(accepted, 4);
       const valid = uploaded.flatMap((result, index) => {
         if (result.status !== "fulfilled") {
-          toast.error(`${accepted[index].name} 上传失败`);
+          toast.error(t("upload.uploadFailed", { name: accepted[index].name }));
           return [];
         }
         return [{
@@ -365,7 +396,7 @@ export function ProductRetouchExperience() {
           ...valid.filter((source) => !existing.has(source.url)),
         ].slice(0, PRODUCT_RETOUCH_MAX_SOURCES);
       });
-      if (valid.length) toast.success(`${valid.length} 张商品图已准备`);
+      if (valid.length) toast.success(t("upload.prepared", { count: valid.length }));
     } finally {
       setIsUploading(false);
       setIsDragging(false);
@@ -377,11 +408,11 @@ export function ProductRetouchExperience() {
     const example = PRODUCT_RETOUCH_EXAMPLE_IMAGES.find((item) => item.url === image.url);
     if (!example) return;
     if (sources.some((source) => source.url === example.url)) {
-      toast.info(`${example.title}示例已在当前批次中`);
+      toast.info(t("example.alreadyAdded", { title: example.title }));
       return;
     }
     if (sources.length >= PRODUCT_RETOUCH_MAX_SOURCES) {
-      toast.error(`单批最多 ${PRODUCT_RETOUCH_MAX_SOURCES} 张商品图`);
+      toast.error(t("upload.maxSources", { count: PRODUCT_RETOUCH_MAX_SOURCES }));
       return;
     }
     setSources((current) => [
@@ -392,18 +423,18 @@ export function ProductRetouchExperience() {
         filename: example.filename,
       },
     ]);
-    toast.success(`已加入${example.title}示例`);
+    toast.success(t("example.added", { title: example.title }));
   }, [isGenerating, isUploading, sources]);
 
   const handleGenerate = useCallback(async () => {
     if (!authChecked) return;
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("common.pleaseLogin"));
       router.push("/login");
       return;
     }
     if (!sources.length) {
-      toast.error("请先上传商品原图");
+      toast.error(t("generate.pleaseUploadSource"));
       return;
     }
     if (credits !== null && credits < totalCost) {
@@ -465,12 +496,12 @@ export function ProductRetouchExperience() {
         if (response.status === 402 && typeof payload.balance === "number") {
           setCredits(payload.balance);
         }
-        throw new Error(typeof payload.error === "string" ? payload.error : "商品精修批次创建失败");
+        throw new Error(typeof payload.error === "string" ? payload.error : t("batch.createFailed"));
       }
 
       if (typeof payload.credits_remaining === "number") setCredits(payload.credits_remaining);
       if (typeof payload.generation_id !== "string" || typeof payload.batch_id !== "string") {
-        throw new Error("商品精修批次响应无效");
+        throw new Error(t("batch.invalidResponse"));
       }
       const generationId = payload.generation_id as string;
       if (submissionRef.current?.requestId === submission.requestId) {
@@ -489,7 +520,7 @@ export function ProductRetouchExperience() {
         onUpdate: applyBatchUpdate,
       });
     } catch (generationError) {
-      const message = generationError instanceof Error ? generationError.message : "商品精修失败";
+      const message = generationError instanceof Error ? generationError.message : t("batch.failed");
       setError(message);
       setIsGenerating(false);
       if (serverTaskId) {
@@ -532,17 +563,17 @@ export function ProductRetouchExperience() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 402 && typeof payload.balance === "number") setCredits(payload.balance);
-        throw new Error(typeof payload.error === "string" ? payload.error : "单项重试失败");
+        throw new Error(typeof payload.error === "string" ? payload.error : t("retry.itemFailed"));
       }
       if (typeof payload.credits_remaining === "number") setCredits(payload.credits_remaining);
-      toast.success("失败结果已重新排队");
+      toast.success(t("retry.requeued"));
       setIsGenerating(true);
       await watchBatch(batch.id, {
         expectedCount: batch.expectedCount,
         onUpdate: applyBatchUpdate,
       });
     } catch (retryError) {
-      toast.error(retryError instanceof Error ? retryError.message : "单项重试失败");
+      toast.error(retryError instanceof Error ? retryError.message : t("retry.itemFailed"));
     } finally {
       setRetryingOutputId(null);
     }
@@ -561,21 +592,21 @@ export function ProductRetouchExperience() {
       selectedIndex,
       session: createGenericImagePreviewSession({
         module: "productRetouch",
-        title: `${output.sourceFilename} · 商品精修`,
+        title: t("preview.title", { filename: output.sourceFilename }),
         urls: group.map((item) => item.resultUrl || ""),
         expectedCount: group.length,
         statusGroup: isTerminalBatch(batch) ? "completed" : "running",
         taskId: batch.parentGenerationId,
         createdAt: batch.createdAt,
-        references: [{ url: output.sourceUrl, label: "商品原图", role: "product" }],
+        references: [{ url: output.sourceUrl, label: t("preview.sourceImage"), role: "product" }],
         promptText: batch.userInstruction,
         selectedIndex,
-        resultTitlePrefix: "精修结果",
+        resultTitlePrefix: t("preview.resultPrefix"),
         metaItems: [
-          { label: "模式", value: getModeLabel(batch.mode) },
-          { label: "模型", value: batch.model },
-          { label: "尺寸", value: batch.imageSize },
-          { label: "Skill", value: batch.skillVersion },
+          { label: t("meta.mode"), value: getModeLabel(batch.mode) },
+          { label: t("meta.model"), value: batch.model },
+          { label: t("meta.size"), value: batch.imageSize },
+          { label: t("meta.skill"), value: batch.skillVersion },
         ],
         errors: group.map((item) => item.error),
         aspectRatio: batch.aspectRatio,
@@ -594,7 +625,7 @@ export function ProductRetouchExperience() {
     } catch (restoreError) {
       if (!session.isCurrent()) return;
       setIsGenerating(false);
-      setError(restoreError instanceof Error ? restoreError.message : "任务恢复失败");
+      setError(restoreError instanceof Error ? restoreError.message : t("task.restoreFailed"));
     }
   }, [restoreBatch]);
 
@@ -607,17 +638,17 @@ export function ProductRetouchExperience() {
       return session.isCurrent();
     } catch (restoreError) {
       if (!session.isCurrent()) return true;
-      setError(restoreError instanceof Error ? restoreError.message : "任务恢复失败");
+      setError(restoreError instanceof Error ? restoreError.message : t("task.restoreFailed"));
       return true;
     }
   }, [restoreBatch]);
 
   const runDisabledReason = isUploading
-    ? "商品图仍在上传"
+    ? t("run.stillUploading")
     : !sources.length
-      ? "请先上传至少一张商品原图"
+      ? t("run.needSource")
       : credits !== null && credits < totalCost
-        ? `灵点不足，需要 ${totalCost} 灵点`
+        ? t("run.insufficientCredits", { cost: totalCost })
         : undefined;
   const resultStatus: StudioResultStatus = batch
     ? "results"
@@ -634,7 +665,7 @@ export function ProductRetouchExperience() {
         taskRail={(
           <ModuleTaskRail
             module="productRetouch"
-            moduleLabel="商品精修"
+            moduleLabel={t("moduleName")}
             onContinue={() => {
               stopWatching();
               setBatch(null);
@@ -655,16 +686,16 @@ export function ProductRetouchExperience() {
         )}
         header={(
           <ModuleHeader
-            title="商品精修"
-            tooltip="单批最多 30 张商品原图，每张可生产 1–4 个精修结果。系统严格保护商品结构、颜色、材质与品牌信息。"
-            actions={<Badge variant="secondary">批量生产</Badge>}
+            title={t("moduleName")}
+            tooltip={t("header.tooltip")}
+            actions={<Badge variant="secondary">{t("header.batchBadge")}</Badge>}
           />
         )}
         controlPanel={(
           <StudioControlPanel>
             <div className="space-y-4 p-4">
               <StudioUploadSection
-                title="商品原图"
+                title={t("upload.sourceTitle")}
                 inputRef={inputRef}
                 multiple
                 accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
@@ -676,19 +707,19 @@ export function ProductRetouchExperience() {
                   <StudioMultiImageUpload
                     urls={sources.map((source) => source.url)}
                     maxCount={PRODUCT_RETOUCH_MAX_SOURCES}
-                    title="已上传商品图"
-                    emptyTitle="上传商品原图"
-                    description="每张原图独立生成结果，可批量查看、重试和下载。"
-                    emptyDescription="支持 PNG、JPEG、WebP，单张不超过 15MB。"
-                    itemLabelPrefix="商品"
+                    title={t("upload.uploadedTitle")}
+                    emptyTitle={t("upload.emptyTitle")}
+                    description={t("upload.description")}
+                    emptyDescription={t("upload.emptyDescription")}
+                    itemLabelPrefix={t("upload.itemLabelPrefix")}
                     loading={isUploading}
                     disabled={isGenerating}
                     isDragging={isDragging}
-                    summary={sources.length ? `${sources.length} 张原图 · 预计输出 ${expectedCount} 张` : undefined}
-                    footnote="单批最多 30 张；“试一试”提供的是待修原片，方便直接比较精修效果。"
+                    summary={sources.length ? t("upload.summary", { count: sources.length, expected: expectedCount }) : undefined}
+                    footnote={t("upload.footnote")}
                     tips={[
-                      { label: "一致性", text: "Logo、文字、颜色、材质、结构和比例会被设为强保护项。" },
-                      { label: "建议", text: "主体完整、对焦清晰、无遮挡的图片更适合批量生产。" },
+                      { label: t("upload.tipConsistencyLabel"), text: t("upload.tipConsistency") },
+                      { label: t("upload.tipAdviceLabel"), text: t("upload.tipAdvice") },
                     ]}
                     onUploadClick={openFileDialog}
                     onPreview={openSourcePreview}
@@ -706,7 +737,7 @@ export function ProductRetouchExperience() {
                     })}
                     onClear={() => setSources([])}
                     examples={{
-                      label: "试一试",
+                      label: t("common.tryIt"),
                       images: PRODUCT_RETOUCH_EXAMPLE_IMAGES.map((example) => ({
                         url: example.url,
                         title: example.title,
@@ -719,8 +750,8 @@ export function ProductRetouchExperience() {
               </StudioUploadSection>
 
               <StudioSection
-                title="精修方案"
-                description="按成片用途选择；所有方案均严格保留商品结构、颜色、材质、Logo 和文字。"
+                title={t("section.planTitle")}
+                description={t("section.planDesc")}
                 icon={<Wand2 className="h-4 w-4" />}
               >
                 <StudioOptionGrid
@@ -730,66 +761,66 @@ export function ProductRetouchExperience() {
                   columns={1}
                   textAlign="start"
                   descriptionMode="wrap"
-                  ariaLabel="商品精修模式"
+                  ariaLabel={t("section.modeAria")}
                 />
               </StudioSection>
 
               <StudioSection
-                title="生产设置"
-                description="默认使用高一致性的 GPT Image 2 与 2K 输出。"
+                title={t("section.settingsTitle")}
+                description={t("section.settingsDesc")}
                 icon={<Settings2 className="h-4 w-4" />}
               >
                 <StudioModelSelector
-                  models={MODEL_OPTIONS}
+                  models={displayModels}
                   value={model}
                   onChange={setModel}
                   columns={2}
-                  ariaLabel="商品精修模型"
+                  ariaLabel={t("section.modelAria")}
                 />
                 <div className="mt-4">
-                  <Label className="mb-2 block">画面比例</Label>
+                  <Label className="mb-2 block">{t("section.aspectLabel")}</Label>
                   <StudioOptionGrid
-                    options={ASPECT_OPTIONS}
+                    options={displayAspects}
                     value={aspectRatio}
                     onChange={setAspectRatio}
                     columns={2}
-                    ariaLabel="商品精修画面比例"
+                    ariaLabel={t("section.aspectAria")}
                   />
                 </div>
                 <div className="mt-4">
-                  <Label className="mb-2 block">分辨率</Label>
+                  <Label className="mb-2 block">{t("section.resolutionLabel")}</Label>
                   <StudioOptionGrid
                     value={imageSize}
-                    options={SIZE_OPTIONS.map((option) => ({
+                    options={displaySizes.map((option) => ({
                       ...option,
                       disabled: !getSupportedImageSizes(model, aspectRatio).includes(option.value),
                     }))}
                     onChange={setImageSize}
-                    ariaLabel="商品精修分辨率"
+                    ariaLabel={t("section.resolutionAria")}
                     columns={3}
                   />
                 </div>
                 <div className="mt-4">
-                  <Label className="mb-2 block">每张原图生成</Label>
+                  <Label className="mb-2 block">{t("section.perSourceLabel")}</Label>
                   <StudioGenerationCountSelector
                     value={variantsPerSource}
                     onChange={setVariantsPerSource}
                     counts={[1, 2, 3, 4]}
-                    unit="个"
-                    ariaLabel="每张商品原图生成数量"
+                    unit={t("section.perSourceUnit")}
+                    ariaLabel={t("section.perSourceAria")}
                   />
                 </div>
               </StudioSection>
 
               <StudioPromptTextarea
-                title="补充要求"
-                badge="可选"
+                title={t("prompt.title")}
+                badge={t("prompt.badge")}
                 value={userInstruction}
                 maxLength={1200}
                 rows={4}
                 onChange={(event) => setUserInstruction(event.target.value)}
-                placeholder="例如：保留原包装反光，阴影更轻，不改变瓶身文字。"
-                description="补充要求不能覆盖商品一致性和安全约束。"
+                placeholder={t("prompt.placeholder")}
+                description={t("prompt.desc")}
                 disabled={isGenerating}
               />
             </div>
@@ -799,20 +830,20 @@ export function ProductRetouchExperience() {
           <StudioRunBar
             summary={(
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span>{sources.length} 张原图</span>
-                <span>× {variantsPerSource} 个结果</span>
+                <span>{t("run.sourceCount", { count: sources.length })}</span>
+                <span>{t("run.variantCount", { count: variantsPerSource })}</span>
                 <span>· {imageSize}</span>
               </span>
             )}
             costLabel={(
               <span className="inline-flex items-center gap-1">
                 <CircleDollarSign className="h-3.5 w-3.5" />
-                {totalCost} 灵点
+                {totalCost} {t("common.lingpoints")}
               </span>
             )}
             disabled={Boolean(runDisabledReason) || isGenerating}
             disabledReason={runDisabledReason}
-            primaryLabel={isGenerating ? `生产中 ${batchProgress}%` : `开始精修 ${sources.length ? expectedCount : 0} 张`}
+            primaryLabel={isGenerating ? t("run.producing", { progress: batchProgress }) : t("run.start", { count: sources.length ? expectedCount : 0 })}
             isLoading={isGenerating}
             onPrimaryAction={handleGenerate}
           />
@@ -824,21 +855,21 @@ export function ProductRetouchExperience() {
             emptyState={(
               <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
                 <PreviewGuide
-                  title="批量精修商品图"
-                  subtitle="一次上传多张商品原图，选择统一精修规范，结果按商品分组交付。"
+                  title={t("guide.title")}
+                  subtitle={t("guide.subtitle")}
                   icon={<ImageIcon className="h-9 w-9" />}
                   steps={[
                     {
-                      title: "上传商品原图",
-                      desc: "单批最多 30 张，每件商品上传一张主体完整、对焦清晰的原图。",
+                      title: t("guide.step1Title"),
+                      desc: t("guide.step1Desc"),
                     },
                     {
-                      title: "选择精修规范",
-                      desc: "统一设置精修模式、模型、比例和每件商品的输出数量。",
+                      title: t("guide.step2Title"),
+                      desc: t("guide.step2Desc"),
                     },
                     {
-                      title: "查看批次结果",
-                      desc: "结果按商品分组，可预览、单项重试，或按商品和整批下载。",
+                      title: t("guide.step3Title"),
+                      desc: t("guide.step3Desc"),
                     },
                   ]}
                 />
@@ -846,11 +877,11 @@ export function ProductRetouchExperience() {
             )}
             errorState={(
               <ErrorStage
-                error={error || "商品精修批次创建失败"}
+                error={error || t("batch.createFailed")}
                 onRetry={handleGenerate}
                 isGenerating={isGenerating}
                 retryDisabled={!sources.length || isGenerating}
-                notice="如果任务已经进入后台，请先从左侧任务栏恢复，避免重复创建批次。"
+                notice={t("batch.restoreNotice")}
               />
             )}
             results={batch ? (
@@ -880,7 +911,7 @@ export function ProductRetouchExperience() {
 
       <StudioMediaLightbox
         src={sourceLightboxSrc}
-        alt="商品原图预览"
+        alt={t("preview.sourceImageAlt")}
         onClose={() => setSourceLightboxSrc(null)}
       />
     </>
@@ -888,7 +919,7 @@ export function ProductRetouchExperience() {
 }
 
 function getModeLabel(mode: ProductRetouchMode) {
-  return PRODUCT_RETOUCH_MODE_OPTIONS.find((option) => option.value === mode)?.label || "标准精修";
+  return PRODUCT_RETOUCH_MODE_OPTIONS.find((option) => option.value === mode)?.label || "standard-retouch";
 }
 
 async function uploadFilesWithConcurrency(files: File[], concurrency: number) {

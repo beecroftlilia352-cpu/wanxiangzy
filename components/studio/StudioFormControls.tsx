@@ -4,10 +4,12 @@ import { useVisibleImageModels } from "@/lib/use-visible-image-models";
 import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { useTranslations } from "next-intl";
 
 export type StudioChoiceOption<T extends string = string> = {
   value: T;
   label: ReactNode;
+  labelKey?: string;
   description?: ReactNode;
   icon?: ComponentType<{ className?: string }>;
   disabled?: boolean;
@@ -32,6 +34,7 @@ export function StudioOptionGrid<T extends string>({
   textAlign?: "center" | "start";
   descriptionMode?: "truncate" | "wrap";
 }) {
+  const t = useTranslations();
   return (
     <div
       className={cn(
@@ -69,7 +72,7 @@ export function StudioOptionGrid<T extends string>({
                 </span>
               )}
               <span className="min-w-0">
-                <span className="block truncate">{option.label}</span>
+                <span className="block truncate">{option.labelKey ? t(option.labelKey) : option.label}</span>
                 {option.description && (
                   <span
                     className={cn(
@@ -94,9 +97,12 @@ export function StudioOptionGrid<T extends string>({
 export type StudioModelOption<T extends string = string> = {
   value: T;
   label: string;
+  labelKey?: string;
   desc: string;
+  descKey?: string;
   icon?: string;
   badge?: string;
+  badgeKey?: string;
   disabled?: boolean;
 };
 
@@ -115,6 +121,7 @@ export function StudioModelSelector<T extends string>({
   columns?: 1 | 2;
   ariaLabel?: string;
 }) {
+  const t = useTranslations();
   const { visibleModels, isReady } = useVisibleImageModels();
   const visibleOptions = useMemo(() => {
     if (!isReady || !visibleModels) return models;
@@ -147,10 +154,10 @@ export function StudioModelSelector<T extends string>({
             </span>
             <span className="min-w-0 flex-1">
               <span className="studio-model-option-title">
-                <span className="truncate">{model.label}</span>
-                {model.badge && <span className="studio-model-option-badge">{model.badge}</span>}
+                <span className="truncate">{model.labelKey ? t(model.labelKey) : model.label}</span>
+                {model.badge && <span className="studio-model-option-badge">{model.badgeKey ? t(model.badgeKey) : model.badge}</span>}
               </span>
-              <span className="studio-model-option-desc">{getMeta?.(model) ?? model.desc}</span>
+              <span className="studio-model-option-desc">{getMeta?.(model) ?? (model.descKey ? t(model.descKey) : model.desc)}</span>
             </span>
           </button>
         );

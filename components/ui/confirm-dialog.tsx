@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ type ConfirmOptions = {
 };
 
 export function useConfirm() {
+  const t = useTranslations("Shared");
   const [state, setState] = useState<ConfirmOptions | null>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
@@ -43,15 +45,15 @@ export function useConfirm() {
       <Dialog open onOpenChange={(open) => { if (!open) handleCancel(); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{state.title || "确认"}</DialogTitle>
+            <DialogTitle>{state.title || t("confirmTitle")}</DialogTitle>
             {state.content ? <DialogDescription>{state.content}</DialogDescription> : null}
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancel}>
-              {state.cancelText || "取消"}
+              {state.cancelText || t("cancel")}
             </Button>
             <Button onClick={handleOk}>
-              {state.okText || "确定"}
+              {state.okText || t("ok")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Eraser } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /**
@@ -9,15 +10,16 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
  */
 export function StudioClearButton({
   onClear,
-  label = "清空",
+  label,
   disabled = false,
-  description = "已上传的图片和填写的内容将被清空，已生成的结果不受影响。",
+  description,
 }: {
   onClear: () => void;
   label?: string;
   disabled?: boolean;
   description?: string;
 }) {
+  const t = useTranslations("Shared");
   const { confirm, confirmDialog } = useConfirm();
 
   return (
@@ -28,17 +30,17 @@ export function StudioClearButton({
         disabled={disabled}
         onClick={() =>
           confirm({
-            title: `清空当前内容？`,
-            content: description,
-            okText: "确认清空",
-            cancelText: "取消",
+            title: t("clearContentTitle"),
+            content: description ?? t("clearDescription"),
+            okText: t("confirmClear"),
+            cancelText: t("cancel"),
             onOk: onClear,
           })
         }
         className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 text-xs font-bold text-[var(--codex-muted)] transition-colors duration-150 hover:border-[rgba(209,59,53,0.45)] hover:text-[var(--codex-danger)] disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Eraser className="h-3.5 w-3.5" />
-        {label}
+        {label ?? t("clear")}
       </button>
     </>
   );

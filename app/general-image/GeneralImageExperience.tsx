@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
@@ -65,39 +66,39 @@ type GeneralImageGenerateOptions = {
   toastMessage?: string;
 };
 
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "默认", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "高质感", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string; descKey?: string; badgeKey?: string }[] = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "modelDescMax4k", badge: "默认", badgeKey: "modelBadgeDefault", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "modelDescMax4k", badge: "高质感", badgeKey: "modelBadgeQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "modelDescMax4k", badge: "高质精修", badgeKey: "modelBadgePro", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
-const ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "3:4", label: "3:4 竖版" },
-  { value: "4:3", label: "4:3 横版" },
-  { value: "1:1", label: "1:1 方图" },
-  { value: "9:16", label: "9:16 手机" },
-  { value: "16:9", label: "16:9 宽屏" },
-  { value: "4:5", label: "4:5 电商" },
-  { value: "auto", label: "智能" },
+const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
+  { value: "3:4", label: "3:4 竖版", labelKey: "aspect34" },
+  { value: "4:3", label: "4:3 横版", labelKey: "aspect43" },
+  { value: "1:1", label: "1:1 方图", labelKey: "aspect11" },
+  { value: "9:16", label: "9:16 手机", labelKey: "aspect916" },
+  { value: "16:9", label: "16:9 宽屏", labelKey: "aspect169" },
+  { value: "4:5", label: "4:5 电商", labelKey: "aspect45" },
+  { value: "auto", label: "智能", labelKey: "aspectAuto" },
 ];
 
-const IMAGE_PROMPT_PLACEHOLDER =
-  "例如：将图1中的无袖灰色连衣裙穿到图2的人物身上，图2人物需穿着图1的灰色无袖连衣裙，保留图2人物的黑色长发、金色十字架项链、金色耳环，背景为浅灰色，光线柔和自然，突出服装的质感和人物的优雅气质，同时参考图3的服装风格，但此处主要是替换图1的服装到图2人物身上，无需添加图3元素。";
+const IMAGE_PROMPT_PLACEHOLDER_KEY = "imagePromptPlaceholder";
 
-const GENERAL_IMAGE_PREVIEW_ACTIONS: ImagePreviewAction[] = [
-  { kind: "download", label: "下载图片" },
-  { kind: "copy", label: "复制链接" },
-  { kind: "repair", label: "AI修图" },
-  { kind: "aiVideo", label: "AI视频" },
-  { kind: "modelBackground", label: "换背景" },
-  { kind: "pose", label: "姿势裂变" },
-  { kind: "productSet", label: "商品套图" },
-  { kind: "regenerateAll", label: "重新创作" },
-  { kind: "feedback", label: "反馈" },
+const GENERAL_IMAGE_PREVIEW_ACTIONS: Array<ImagePreviewAction & { labelKey: string }> = [
+  { kind: "download", label: "下载图片", labelKey: "actionDownload" },
+  { kind: "copy", label: "复制链接", labelKey: "actionCopy" },
+  { kind: "repair", label: "AI修图", labelKey: "actionRepair" },
+  { kind: "aiVideo", label: "AI视频", labelKey: "actionAiVideo" },
+  { kind: "modelBackground", label: "换背景", labelKey: "actionModelBackground" },
+  { kind: "pose", label: "姿势裂变", labelKey: "actionPose" },
+  { kind: "productSet", label: "商品套图", labelKey: "actionProductSet" },
+  { kind: "regenerateAll", label: "重新创作", labelKey: "actionRegenerateAll" },
+  { kind: "feedback", label: "反馈", labelKey: "actionFeedback" },
 ];
 
 export function GeneralImageExperience({ initialMode = "text-to-image" }: { initialMode?: GeneralImageMode }) {
   const router = useRouter();
+  const t = useTranslations("GeneralImage");
   const { confirm, confirmDialog } = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagePromptInputRef = useRef<HTMLInputElement>(null);
@@ -154,23 +155,23 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   );
   const taskQueue = useTaskQueueGeneration({
     module: "generalImage",
-    title: "创意生图",
+    title: t("taskQueueTitle"),
     defaultExpectedCount: genCount,
     applyPath: isImageMode ? "/general-image/image-to-image" : "/general-image",
   });
   const modeMeta = isImageMode
     ? {
-        title: "图生图",
-        tooltip: "上传多张参考图并用文字说明每张图的角色，适合换装、风格参考、背景参考和多图合成生成。",
-        emptyTitle: "创建多图参考生成",
-        emptySubtitle: "按图1、图2、图3明确分配服装、人物、风格或背景角色，让模型按关系生成新图。",
+        title: t("modeImageToImage"),
+        tooltip: t("imageToImageTooltip"),
+        emptyTitle: t("imageToImageEmptyTitle"),
+        emptySubtitle: t("imageToImageEmptySubtitle"),
         emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-grey-tank-denim.jpg",
       }
     : {
-        title: "文生图",
-        tooltip: "仅通过文字描述生成图片，支持图片转提示词、帮写、模型、比例、清晰度和张数配置。",
-        emptyTitle: "创建文本生成图片",
-        emptySubtitle: "写下主体、场景、光线和风格，也可以先用图片转提示词获得更稳定的描述。",
+        title: t("modeTextToImage"),
+        tooltip: t("textToImageTooltip"),
+        emptyTitle: t("textToImageEmptyTitle"),
+        emptySubtitle: t("textToImageEmptySubtitle"),
         emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png",
       };
   const previewReferenceUrls = safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length
@@ -197,7 +198,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retryToast", { index: index + 1 }),
     });
   }
   const previewSession = useMemo(
@@ -211,27 +212,27 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       createdAt: activeQueueTask?.createdAt,
       references: previewReferenceUrls.map((url, index) => ({
         url,
-        label: `参考图 ${index + 1}`,
+        label: t("referenceImageLabel", { index: index + 1 }),
         role: "reference" as const,
       })),
       promptText: prompt,
       metaItems: [
-        { label: "生成模式", value: modeMeta.title },
-        { label: "模型", value: aiModel },
-        { label: "比例", value: aspectRatio },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: genCount },
+        { label: t("metaMode"), value: modeMeta.title },
+        { label: t("metaModel"), value: aiModel },
+        { label: t("metaRatio"), value: aspectRatio },
+        { label: t("metaResolution"), value: imageSize },
+        { label: t("metaCount"), value: genCount },
       ],
-      resultTitlePrefix: `${modeMeta.title}结果`,
+      resultTitlePrefix: isImageMode ? t("resultPrefixImageToImage") : t("resultPrefixTextToImage"),
       aspectRatio,
     }),
-    [activeQueueTask, activeResultExpectedCount, aiModel, aspectRatio, genCount, imageSize, isGenerating, modeMeta.title, previewReferenceUrls, prompt, resultUrls]
+    [activeQueueTask, activeResultExpectedCount, aiModel, aspectRatio, genCount, imageSize, isGenerating, isImageMode, modeMeta.title, previewReferenceUrls, prompt, resultUrls, t]
   );
   const canGenerate = !isGenerating && !isUploading && prompt.trim().length > 0 && (!isImageMode || referenceImages.length > 0);
   const runDisabledReason = !prompt.trim()
-    ? "请先输入文本描述"
+    ? t("needPrompt")
     : isImageMode && referenceImages.length === 0
-      ? "请先上传参考图"
+      ? t("needReference")
       : "";
 
   useEffect(() => {
@@ -250,12 +251,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       setMode("image-to-image");
       setReferenceImages([{
         id: `source-${Date.now()}`,
-        name: "来自结果预览",
+        name: t("fromPreview"),
         url: sourceImage,
         preview: sourceImage,
       }]);
-      setPrompt((prev) => prev.trim() || "基于图1进行自然修图，保持主体、构图和风格不变。");
-      toast.success("已带入预览图片");
+      setPrompt((prev) => prev.trim() || t("defaultImagePrompt"));
+      toast.success(t("broughtPreviewImage"));
     }
   }, []);
 
@@ -268,7 +269,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setGenCount(payload.genCount);
     setReferenceImages(payload.referenceUrls.map((url, index) => ({
       id: `history-general-${index}-${url}`,
-      name: `历史参考图${index + 1}`,
+      name: t("historyReferenceName", { index: index + 1 }),
       url,
       preview: url,
     })));
@@ -277,7 +278,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setIsGenerating(false);
     setError("");
     setProgress(historyResultUrls.length ? 100 : 0);
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("historyAppliedToast"));
   }
 
   useEffect(() => {
@@ -294,7 +295,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setGenCount(payload.genCount);
     setReferenceImages(payload.referenceUrls.map((url, index) => ({
       id: `history-general-${index}-${url}`,
-      name: `历史参考图${index + 1}`,
+      name: t("historyReferenceName", { index: index + 1 }),
       url,
       preview: url,
     })));
@@ -303,7 +304,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setIsGenerating(false);
     setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
     setProgress(detail?.resultUrls.length ? 100 : 0);
-    toast.success("已套用历史参数");
+    toast.success(t("historyAppliedToast"));
     })();
     return () => {
       cancelled = true;
@@ -338,10 +339,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   function handleContinueCreate() {
     confirm({
-      title: "继续创建",
-      content: "继续创建将清空当前所有内容，确定要继续吗？",
-      okText: "确定",
-      cancelText: "取消",
+      title: t("continueCreateTitle"),
+      content: t("continueCreateContent"),
+      okText: t("confirm"),
+      cancelText: t("cancel"),
       onOk: performContinueCreate,
     });
   }
@@ -351,18 +352,18 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (!selected.length) return;
 
     const invalid = selected.find((file) => !file.type.startsWith("image/"));
-    if (invalid) return toast.error("请选择图片文件");
+    if (invalid) return toast.error(t("selectImageFile"));
 
     const oversized = selected.find((file) => file.size > MAX_FILE_SIZE);
-    if (oversized) return toast.error(`${oversized.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+    if (oversized) return toast.error(t("exceedsSize", { name: oversized.name, max: MAX_FILE_SIZE_MB }));
 
     const remain = Math.max(0, 8 - referenceImages.length);
-    if (!remain) return toast.error("最多上传 8 张参考图");
+    if (!remain) return toast.error(t("maxReferenceImages"));
     const limited = selected.slice(0, remain);
-    if (selected.length > limited.length) toast.info("已自动保留前 8 张参考图");
+    if (selected.length > limited.length) toast.info(t("keptFirst8"));
 
     setIsUploading(true);
-    toast.info(`正在上传 ${limited.length} 张参考图…`);
+    toast.info(t("uploadingReferences", { count: limited.length }));
     try {
       const results = await Promise.allSettled(limited.map((file) => uploadImage(file)));
       const nextImages: ReferenceImage[] = [];
@@ -370,17 +371,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         if (result.status === "fulfilled") {
           nextImages.push({
             id: `${limited[index].name}-${Date.now()}-${index}`,
-            name: limited[index].name || `参考图${referenceImages.length + index + 1}`,
+            name: limited[index].name || t("referenceImageDefaultName", { index: referenceImages.length + index + 1 }),
             url: result.value.url,
             preview: result.value.display_url || result.value.url,
           });
         } else {
-          toast.error(`${limited[index].name} 上传失败`);
+          toast.error(t("uploadFailed", { name: limited[index].name }));
         }
       });
       if (nextImages.length) {
         setReferenceImages((prev) => [...prev, ...nextImages].slice(0, 8));
-        toast.success("参考图已上传");
+        toast.success(t("referenceUploaded"));
       }
     } finally {
       setIsUploading(false);
@@ -390,12 +391,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   async function optimizePrompt() {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
     if (!prompt.trim() && referenceImages.length === 0) {
-      toast.error(isImageMode ? "请先输入基本想法或上传参考图" : "请先输入基本想法");
+      toast.error(isImageMode ? t("needPromptOrReference") : t("needBasicIdea"));
       return;
     }
 
@@ -411,13 +412,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "提示词优化失败");
+      if (!res.ok) throw new Error(data.error || t("promptOptimizeFailed"));
       if (data.prompt) {
         setPrompt(String(data.prompt).slice(0, 4000));
-        toast.success(data.source === "fallback" ? "已用本地模板优化提示词" : "提示词已优化");
+        toast.success(data.source === "fallback" ? t("optimizeFallback") : t("promptOptimized"));
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "提示词优化失败");
+      toast.error(err instanceof Error ? err.message : t("promptOptimizeFailed"));
     } finally {
       setIsOptimizing(false);
     }
@@ -426,11 +427,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   async function uploadImageForPrompt(files?: FileList | File[]) {
     const file = Array.from(files || [])[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("请选择图片文件");
-    if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+    if (!file.type.startsWith("image/")) return toast.error(t("selectImageFile"));
+    if (file.size > MAX_FILE_SIZE) return toast.error(t("exceedsSize", { name: file.name, max: MAX_FILE_SIZE_MB }));
 
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
@@ -445,10 +446,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         preview: result.display_url || result.url,
       };
       setImagePromptImage(nextImage);
-      toast.success("图片已上传，正在反推提示词");
+      toast.success(t("imageUploadedGenerating"));
       await generateImagePrompt(nextImage.url);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "图片上传失败");
+      toast.error(err instanceof Error ? err.message : t("imageUploadFailed"));
     } finally {
       setIsImagePromptUploading(false);
       if (imagePromptInputRef.current) imagePromptInputRef.current.value = "";
@@ -456,9 +457,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function generateImagePrompt(imageUrl = imagePromptImage?.url) {
-    if (!imageUrl) return toast.error("请先上传图片");
+    if (!imageUrl) return toast.error(t("needUploadImage"));
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
@@ -471,33 +472,33 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         body: JSON.stringify({ image_url: imageUrl }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "图片转提示词失败");
+      if (!res.ok) throw new Error(data.error || t("imageToPromptFailed"));
       if (data.prompt) {
         setImagePromptText(String(data.prompt).slice(0, 4000));
-        toast.success(data.source === "fallback" ? "已用本地模板生成提示词" : "图片提示词已生成");
+        toast.success(data.source === "fallback" ? t("imageToPromptFallback") : t("imagePromptGenerated"));
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "图片转提示词失败");
+      toast.error(err instanceof Error ? err.message : t("imageToPromptFailed"));
     } finally {
       setIsImagePromptGenerating(false);
     }
   }
 
   function applyImagePromptToDescription() {
-    if (!imagePromptText.trim()) return toast.error("请先生成提示词");
+    if (!imagePromptText.trim()) return toast.error(t("needGeneratePrompt"));
     setPrompt(imagePromptText.trim().slice(0, 4000));
     setShowImagePromptModal(false);
-    toast.success("已应用到文本描述");
+    toast.success(t("appliedToDescription"));
   }
 
   async function generate(options: GeneralImageGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
-    if (!prompt.trim()) return toast.error("请输入提示词");
-    if (isImageMode && !referenceImages.length) return toast.error("请先上传参考图");
+    if (!prompt.trim()) return toast.error(t("enterPrompt"));
+    if (isImageMode && !referenceImages.length) return toast.error(t("needReference"));
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
     const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
@@ -557,7 +558,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generateFailed"));
       }
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
@@ -623,17 +624,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           setIsGenerating(false);
           if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`${modeMeta.title}部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(t(isImageMode ? "partialCompleteImageToImage" : "partialCompleteTextToImage", { done: finalResultCount, expected: displayExpectedCount }));
           } else {
-            toast.success(`${modeMeta.title}生成完成`);
+            toast.success(t(isImageMode ? "completeImageToImage" : "completeTextToImage"));
           }
           return;
         }
-        if (state.status === "failed") throw new Error(state.error || "生成失败");
+        if (state.status === "failed") throw new Error(state.error || t("generateFailed"));
       }
-      throw new Error("生成超时");
+      throw new Error(t("generateTimeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
@@ -664,12 +665,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
   }
@@ -677,7 +678,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active={activeFeature} />
-      <ModuleTaskRail module="generalImage" moduleLabel="创意生图" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="generalImage" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
@@ -687,7 +688,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
           {isImageMode && (
             <StudioUploadSection
-              title="参考图"
+              title={t("referenceSectionTitle")}
               inputRef={fileInputRef}
               multiple
               isDragging={isDragging}
@@ -705,36 +706,36 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               {(openFileDialog) => (
                 <>
                   <StudioUploadTile
-                    title={referenceImages.length >= 8 ? "已达 8 张上限" : referenceImages.length ? "继续上传参考图" : "上传 / 拖拽参考图"}
-                    description="支持上传多张参考图，系统会按顺序识别为图1、图2、图3。"
+                    title={referenceImages.length >= 8 ? t("uploadTileFullTitle") : referenceImages.length ? t("uploadTileMoreTitle") : t("uploadTileEmptyTitle")}
+                    description={t("uploadTileDescription")}
                     imageUrl={null}
-                    imageAlt="图生图参考图"
+                    imageAlt={t("referenceImageAlt")}
                     isDragging={isDragging}
                     loading={isUploading}
                     disabled={referenceImages.length >= 8}
                     onUploadClick={openFileDialog}
-                    uploadLabel="从本地上传"
-                    footnote="参考图会按上传顺序作为图1、图2、图3；画面清晰、主体明确更好控图。"
+                    uploadLabel={t("uploadLabel")}
+                    footnote={t("uploadFootnote")}
                   />
 
                   {referenceImages.length > 0 && (
                     <div className="mt-3">
                       <div className="mb-2 flex items-center justify-between text-xs">
-                        <span className="font-medium text-slate-500">上传顺序会标记为图1、图2、图3</span>
+                        <span className="font-medium text-slate-500">{t("orderMarkedAsImages")}</span>
                         <button type="button" onClick={() => { setReferenceImages([]); }} className="inline-flex items-center gap-1 text-slate-400 hover:text-red-500">
-                          <Trash2 className="h-3.5 w-3.5" /> 清空
+                          <Trash2 className="h-3.5 w-3.5" /> {t("clear")}
                         </button>
                       </div>
                       <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
                         {referenceImages.map((item, index) => (
                           <div key={item.id} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white shadow-sm">
                             <RawPreviewImage src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
-                            <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">图{index + 1}</span>
+                            <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">{t("imageIndex", { index: index + 1 })}</span>
                             <button
                               type="button"
                               onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); }}
                               className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/75 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-lg:opacity-100"
-                              aria-label={`移除图${index + 1}`}
+                              aria-label={t("removeImage", { index: index + 1 })}
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -750,10 +751,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
           <div>
             <StudioPromptTextarea
-              title="文本描述"
+              title={t("textDescriptionTitle")}
               value={prompt}
               onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); }}
-              placeholder={isImageMode ? IMAGE_PROMPT_PLACEHOLDER : "输入文本描述内容，如：1个中国女性模特身着丝绸质感粉色连衣裙，妆容柔和高级，背景为玫瑰金纯色，整体氛围浪漫而精致"}
+              placeholder={isImageMode ? t(IMAGE_PROMPT_PLACEHOLDER_KEY) : t("textPlaceholder")}
               rows={6}
               className="studio-prompt-textarea-compact"
               onSubmitOnEnter={() => { if (prompt.trim() && !isGenerating) void generate(); }}
@@ -768,7 +769,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     className="studio-button studio-button-compact"
                   >
                     <ImagePlus className="h-3.5 w-3.5" />
-                    图片转提示词
+                    {t("imageToPromptButton")}
                   </button>
                 )}
                 <button
@@ -778,7 +779,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   className="studio-button studio-button-compact"
                 >
                   {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brush className="h-3.5 w-3.5" />}
-                  AI帮写
+                  {t("aiHelpWrite")}
                 </button>
               </div>
               <span className="text-[11px] font-medium text-slate-400">{prompt.length} / 4000</span>
@@ -786,60 +787,64 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("modelSectionTitle")}</h3>
             <StudioModelSelector
-              models={MODELS}
+              models={MODELS.map((model) => ({
+                ...model,
+                desc: model.descKey ? t(model.descKey) : model.desc,
+                badge: model.badgeKey && model.badge ? t(model.badgeKey) : model.badge,
+              }))}
               value={aiModel}
               onChange={setAiModel}
-              ariaLabel="选择生成模型"
+              ariaLabel={t("modelAriaLabel")}
             />
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> 图片比例</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("ratioSectionTitle")}</h3>
             <StudioOptionGrid
               options={ASPECTS.map((item) => ({
                 value: item.value,
-                label: item.label,
+                label: item.labelKey ? t(item.labelKey) : item.label,
               }))}
               value={aspectRatio}
               onChange={setAspectRatio}
               columns={3}
-              ariaLabel="选择图片比例"
+              ariaLabel={t("ratioAriaLabel")}
             />
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> 分辨率</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolutionSectionTitle")}</h3>
             <StudioOptionGrid
               options={supportedSizes.map((size) => ({
                 value: size,
                 label: size,
-                description: `${getCreditCost(aiModel, size, aspectRatio)}灵点`,
+                description: t("resolutionCostDescription", { cost: getCreditCost(aiModel, size, aspectRatio) }),
               }))}
               value={imageSize}
               onChange={setImageSize}
               columns={3}
-              ariaLabel="选择分辨率"
+              ariaLabel={t("resolutionAriaLabel")}
             />
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> 生成数量</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("countSectionTitle")}</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
-              ariaLabel="生成数量"
+              ariaLabel={t("countAriaLabel")}
             />
           </section>
         </div>
 
         <StudioRunBar
-          summary={`${isImageMode ? `图生图 · ${referenceImages.length} 张参考` : "文生图"} · ${costPerImage} × ${genCount}`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          summary={`${isImageMode ? t("summaryImageToImage", { count: referenceImages.length }) : t("summaryTextToImage")} · ${costPerImage} × ${genCount}`}
+          costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost: totalCost, balance: credits ?? "-" })}
           disabled={!canGenerate}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `立即生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? t("primaryLogin") : isGenerating ? t("primaryGenerating") : t("primaryGenerate", { count: genCount })}
           isLoading={isGenerating}
           onPrimaryAction={generate}
         />
@@ -852,15 +857,15 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               title={modeMeta.emptyTitle}
               subtitle={modeMeta.emptySubtitle}
               imageSrc={modeMeta.emptyImage}
-              imageAlt={`${modeMeta.title}指引`}
+              imageAlt={isImageMode ? t("guideImageAltImageToImage") : t("guideImageAltTextToImage")}
               steps={!isImageMode ? [
-                { title: "输入想法", desc: "可先写一句简短描述，再让系统优化成生成描述。" },
-                { title: "选择参数", desc: "确认模型、画幅、清晰度和张数。" },
-                { title: "生成结果", desc: "结果会进入作品资产，可下载或继续放大查看。" },
+                { title: t("stepInputTitle"), desc: t("stepInputDesc") },
+                { title: t("stepParamsTitle"), desc: t("stepParamsDesc") },
+                { title: t("stepGenerateTitle"), desc: t("stepGenerateDesc") },
               ] : [
-                { title: "上传参考图", desc: "多张图会按上传顺序标记为图1、图2、图3。" },
-                { title: "写清图号", desc: "说明每张图承担服装、人物、风格、背景或构图等角色。" },
-                { title: "生成结果", desc: "模型会按提示词处理参考关系并输出新图。" },
+                { title: t("stepUploadRefTitle"), desc: t("stepUploadRefDesc") },
+                { title: t("stepWriteIndexTitle"), desc: t("stepWriteIndexDesc") },
+                { title: t("stepGenerateRefTitle"), desc: t("stepGenerateRefDesc") },
               ]}
             />
           </div>
@@ -871,8 +876,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : genCount}
             progress={progress}
             moduleName={modeMeta.title}
-            referenceImages={referenceImages.map((item, index) => ({ label: item.name || `参考图 ${index + 1}`, url: item.preview || item.url }))}
-            metaItems={[aspectRatio, imageSize, isImageMode ? `${referenceImages.length} 张参考` : "文生图"]}
+            referenceImages={referenceImages.map((item, index) => ({ label: item.name || t("referenceImageLabel", { index: index + 1 }), url: item.preview || item.url }))}
+            metaItems={[aspectRatio, imageSize, isImageMode ? t("summaryImageToImage", { count: referenceImages.length }) : t("summaryTextToImage")]}
           />
         )}
         {((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
@@ -887,12 +892,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                 variant="task"
-                failureLabel="生成失败"
+                failureLabel={t("failedLabel")}
                 failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
                 markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel="本张生成失败"
+                missingFailureLabel={t("missingFailLabel")}
                 missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel="重试本张"
+                missingFailureActionLabel={t("retryThis")}
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
@@ -907,7 +912,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               selectedIndex={previewIndex || 0}
               onSelectedIndexChange={setPreviewIndex}
               filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
-              actions={GENERAL_IMAGE_PREVIEW_ACTIONS}
+              actions={GENERAL_IMAGE_PREVIEW_ACTIONS.map((action) => ({ ...action, label: action.labelKey ? t(action.labelKey) : action.label }))}
               onRegenerateAll={resetOutput}
             />
           </div>
@@ -919,7 +924,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             onRetry={() => generate()}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
-            retryLabel="重新生成"
+            retryLabel={t("retryGenerate")}
             notice={FAILED_RETRY_NOTICE}
           />
         )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Download, Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Play } from "lucide-react";
 import { downloadImagesAsZip } from "@/lib/download-batch";
@@ -43,31 +44,31 @@ import { HistoryFilterTabs } from "@/components/history/HistoryFilterTabs";
 
 const HISTORY_PAGE_SIZE = 12;
 
-const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
-  { value: "all", label: "全部模块" },
-  { value: "tryon", label: "服装上身" },
-  { value: "grass", label: "服装种草" },
-  { value: "productRetouch", label: "商品精修" },
-  { value: "productSet", label: "商品套图" },
-  { value: "modelBackground", label: "模特换背景" },
-  { value: "materialEnhancement", label: "材质增强" },
-  { value: "generalImage", label: "通用生图" },
-  { value: "outfitFusion", label: "搭配融图" },
-  { value: "pose", label: "姿势裂变" },
-  { value: "model", label: "专属模特" },
-  { value: "garment3d", label: "服装 3D" },
-  { value: "faceSwap", label: "换脸" },
-  { value: "videoImageToVideo", label: "图生视频" },
-  { value: "videoMotion", label: "动作模仿" },
-  { value: "videoFirstLastFrame", label: "首尾帧" },
+const MODULE_FILTERS: { value: HistoryModuleFilter; label: string; labelKey: string }[] = [
+  { value: "all", label: "全部模块", labelKey: "History.moduleFilters.all" },
+  { value: "tryon", label: "服装上身", labelKey: "History.moduleFilters.tryon" },
+  { value: "grass", label: "服装种草", labelKey: "History.moduleFilters.grass" },
+  { value: "productRetouch", label: "商品精修", labelKey: "History.moduleFilters.productRetouch" },
+  { value: "productSet", label: "商品套图", labelKey: "History.moduleFilters.productSet" },
+  { value: "modelBackground", label: "模特换背景", labelKey: "History.moduleFilters.modelBackground" },
+  { value: "materialEnhancement", label: "材质增强", labelKey: "History.moduleFilters.materialEnhancement" },
+  { value: "generalImage", label: "通用生图", labelKey: "History.moduleFilters.generalImage" },
+  { value: "outfitFusion", label: "搭配融图", labelKey: "History.moduleFilters.outfitFusion" },
+  { value: "pose", label: "姿势裂变", labelKey: "History.moduleFilters.pose" },
+  { value: "model", label: "专属模特", labelKey: "History.moduleFilters.model" },
+  { value: "garment3d", label: "服装 3D", labelKey: "History.moduleFilters.garment3d" },
+  { value: "faceSwap", label: "换脸", labelKey: "History.moduleFilters.faceSwap" },
+  { value: "videoImageToVideo", label: "图生视频", labelKey: "History.moduleFilters.videoImageToVideo" },
+  { value: "videoMotion", label: "动作模仿", labelKey: "History.moduleFilters.videoMotion" },
+  { value: "videoFirstLastFrame", label: "首尾帧", labelKey: "History.moduleFilters.videoFirstLastFrame" },
 ];
 
-const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
-  { value: "all", label: "全部状态" },
-  { value: "completed", label: "已完成" },
-  { value: "processing", label: "处理中" },
-  { value: "pending", label: "排队中" },
-  { value: "failed", label: "失败" },
+const STATUS_FILTERS: { value: HistoryStatusFilter; label: string; labelKey: string }[] = [
+  { value: "all", label: "全部状态", labelKey: "History.statusFilters.all" },
+  { value: "completed", label: "已完成", labelKey: "History.statusFilters.completed" },
+  { value: "processing", label: "处理中", labelKey: "History.statusFilters.processing" },
+  { value: "pending", label: "排队中", labelKey: "History.statusFilters.pending" },
+  { value: "failed", label: "失败", labelKey: "History.statusFilters.failed" },
 ];
 
 type HistoryRow = {
@@ -119,7 +120,7 @@ function replaceHistoryDetailUrl(detailId: string | null) {
   window.history.replaceState(window.history.state, "", buildHistoryDetailUrl(window.location.href, detailId));
 }
 
-async function requestHistoryDetail(id: string) {
+async function requestHistoryDetail(t: HistoryT, id: string) {
   const res = await fetch(`/api/history?id=${encodeURIComponent(id)}`, {
     method: "GET",
     cache: "no-store",
@@ -127,7 +128,7 @@ async function requestHistoryDetail(id: string) {
   const payload = await res.json().catch(() => ({})) as { row?: HistoryRow; error?: string };
 
   if (!res.ok || !payload.row) {
-    throw new Error(payload.error || `参数加载失败 (${res.status})`);
+    throw new Error(payload.error || `${t("paramLoadFailed")} (${res.status})`);
   }
 
   return payload.row;
@@ -135,6 +136,8 @@ async function requestHistoryDetail(id: string) {
 
 export default function HistoryPage() {
   const router = useRouter();
+  const t = useTranslations("History");
+  const tAny = useTranslations(); // 数据键全路径（History.* / LibShared.*），用全局 t 解析
   const detailReturnFocusRef = useRef<HTMLElement | null>(null);
   const lightboxReturnFocusRef = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<"loading" | "noauth" | "error" | "empty" | "ready">("loading");
@@ -161,6 +164,16 @@ export default function HistoryPage() {
     [moduleFilter, statusFilter]
   );
 
+  const moduleFilterOptions = useMemo(
+    () => MODULE_FILTERS.map((item) => ({ value: item.value, label: item.labelKey ? tAny(item.labelKey) : item.label })),
+    [tAny]
+  );
+
+  const statusFilterOptions = useMemo(
+    () => STATUS_FILTERS.map((item) => ({ value: item.value, label: item.labelKey ? tAny(item.labelKey) : item.label })),
+    [tAny]
+  );
+
   useEffect(() => {
     replaceHistoryFilterUrl(moduleFilter, statusFilter);
   }, [moduleFilter, statusFilter, reloadToken]);
@@ -177,7 +190,7 @@ export default function HistoryPage() {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 25000);
-        const payload = await requestHistoryPage({
+        const payload = await requestHistoryPage(t, {
           moduleFilter,
           statusFilter,
           signal: controller.signal,
@@ -196,7 +209,7 @@ export default function HistoryPage() {
           return;
         }
         const isAbortError = e instanceof DOMException && e.name === "AbortError";
-        setErrMsg(isAbortError ? "历史记录加载超时，请稍后重试" : e instanceof Error ? e.message : "未知错误");
+        setErrMsg(isAbortError ? t("historyLoadTimeout") : e instanceof Error ? e.message : t("genericError"));
         setState("error");
       }
     })();
@@ -236,7 +249,7 @@ export default function HistoryPage() {
 
     setLoadingMore(true);
     try {
-      const payload = await requestHistoryPage({
+      const payload = await requestHistoryPage(t, {
         cursor: nextCursor,
         moduleFilter,
         statusFilter,
@@ -253,20 +266,20 @@ export default function HistoryPage() {
       setHasMore(Boolean(payload.hasMore));
       setNextCursor(payload.nextCursor || null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "历史记录加载失败");
+      toast.error(error instanceof Error ? error.message : t("historyLoadFailed"));
     } finally {
       setLoadingMore(false);
     }
   };
 
   const fmt = (d: string) => {
-    try { return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(d)); }
+    try { return new Intl.DateTimeFormat(document.documentElement.lang || "zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(d)); }
     catch { return d; }
   };
 
   const getPayload = (row: HistoryRow) => getRowPayload(row);
   const detailPayload = detailRow ? getPayload(detailRow) : undefined;
-  const detailImages = detailPayload ? getInputImages(detailPayload, detailRow) : [];
+  const detailImages = detailPayload ? getInputImages(t, detailPayload, detailRow) : [];
   const detailResults = detailRow?.result_urls || [];
   const detailRowId = detailRow?.id || "";
   const detailRowStatus = detailRow?.status || "";
@@ -302,7 +315,7 @@ export default function HistoryPage() {
   const fetchHistoryDetail = async (row: HistoryRow) => {
     if (getPayload(row)?.kind) return row;
 
-    const payload = await requestHistoryDetail(row.id);
+    const payload = await requestHistoryDetail(t, row.id);
     setRows((current) => current.map((item) => (
       item.id === payload.id ? { ...item, ...payload } : item
     )));
@@ -317,7 +330,7 @@ export default function HistoryPage() {
     setDetailResultIndex(0);
     setDetailZoom(100);
 
-    requestHistoryDetail(pendingDetailId)
+    requestHistoryDetail(t, pendingDetailId)
       .then((row) => {
         if (cancelled) return;
         setDetailRow(row);
@@ -328,7 +341,7 @@ export default function HistoryPage() {
       .catch((error) => {
         if (!cancelled) {
           replaceHistoryDetailUrl(null);
-          toast.error(error instanceof Error ? error.message : "参数加载失败");
+          toast.error(error instanceof Error ? error.message : t("paramLoadFailed"));
         }
       })
       .finally(() => {
@@ -355,7 +368,7 @@ export default function HistoryPage() {
       setDetailRow(await fetchHistoryDetail(row));
     } catch (error) {
       replaceHistoryDetailUrl(null);
-      toast.error(error instanceof Error ? error.message : "参数加载失败");
+      toast.error(error instanceof Error ? error.message : t("paramLoadFailed"));
     } finally {
       setDetailLoading(false);
     }
@@ -419,12 +432,12 @@ export default function HistoryPage() {
       const fullRow = await fetchHistoryDetail(row);
       const payload = getPayload(fullRow);
       if (!payload?.kind) {
-        toast.error("这条作品暂无可套用参数");
+        toast.error(t("noApplyParams"));
         return;
       }
       router.push(getApplyPath(payload.kind, fullRow.id));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "参数加载失败");
+      toast.error(error instanceof Error ? error.message : t("paramLoadFailed"));
     } finally {
       setDetailLoading(false);
     }
@@ -452,9 +465,9 @@ export default function HistoryPage() {
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-slate-300/40">
           <ImageIcon className="h-7 w-7 text-slate-500" />
         </div>
-        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">登录后查看作品资产</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-500">你的生成结果、输入图片、生成参数和套用记录都会保存在这里。</p>
-        <button type="button" onClick={openLogin} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">去登录</button>
+        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">{t("loginTitle")}</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-500">{t("loginDesc")}</p>
+        <button type="button" onClick={openLogin} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">{t("loginAction")}</button>
       </div>
     </div>
   );
@@ -463,19 +476,19 @@ export default function HistoryPage() {
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <XCircle className="mx-auto mb-4 h-12 w-12 text-red-300" />
-        <h1 className="text-xl font-black text-slate-950 dark:text-stone-100">作品加载失败</h1>
+        <h1 className="text-xl font-black text-slate-950 dark:text-stone-100">{t("loadErrorTitle")}</h1>
         <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
-          {filterState.summary}
+          {filterState.summaryKey ? tAny(filterState.summaryKey, filterState.summaryParams) : filterState.summary}
         </p>
         <p className="mt-3 text-sm leading-6 text-red-500">{errMsg}</p>
         <p className="mt-2 text-xs leading-5 text-slate-500">
-          重试会按当前分类与状态筛选重新加载。
+          {t("retryHint")}
         </p>
         <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-          <button type="button" onClick={retryHistoryLoad} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
+          <button type="button" onClick={retryHistoryLoad} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">{t("retry")}</button>
           {filterState.isFiltered && (
             <button onClick={clearFilters} className="h-11 rounded-full border border-slate-200 bg-slate-50 px-6 text-sm font-bold text-slate-600 hover:bg-white">
-              清除筛选
+              {t("clearFilters")}
             </button>
           )}
         </div>
@@ -487,26 +500,26 @@ export default function HistoryPage() {
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <Clock className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">{filterState.emptyTitle}</h1>
+        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">{filterState.emptyTitleKey ? tAny(filterState.emptyTitleKey) : filterState.emptyTitle}</h1>
         <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
-          {filterState.summary}
+          {filterState.summaryKey ? tAny(filterState.summaryKey, filterState.summaryParams) : filterState.summary}
         </p>
-        <p className="mt-3 text-sm leading-6 text-slate-500">{filterState.emptyMessage}</p>
+        <p className="mt-3 text-sm leading-6 text-slate-500">{filterState.emptyMessageKey ? tAny(filterState.emptyMessageKey) : filterState.emptyMessage}</p>
         {filterState.isFiltered ? (
           <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
             <button onClick={clearFilters} className="gradient-brand inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">
               <X className="h-4 w-4" />
-              {filterState.emptyActionLabel}
+              {filterState.emptyActionLabelKey ? tAny(filterState.emptyActionLabelKey) : filterState.emptyActionLabel}
             </button>
             <button type="button" onClick={openCreate} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
               <Plus className="h-4 w-4" />
-              开始创作
+              {t("startCreate")}
             </button>
           </div>
         ) : (
           <button type="button" onClick={openCreate} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">
             <Plus className="h-4 w-4" />
-            开始创作
+            {t("startCreate")}
           </button>
         )}
       </div>
@@ -519,25 +532,25 @@ export default function HistoryPage() {
       <div className="mx-auto mb-5 flex max-w-7xl flex-col gap-4 rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] p-4 shadow-[0_14px_44px_rgba(15,23,42,0.06)] backdrop-blur-xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-black text-[var(--codex-ink)]">作品库</h1>
-            <p className="mt-0.5 text-xs text-[var(--codex-faint)]">当前显示 {filteredRows.length} 条作品{filterState.activeDescription ? ` · ${filterState.activeDescription}` : ""}</p>
+            <h1 className="text-xl font-black text-[var(--codex-ink)]">{t("title")}</h1>
+            <p className="mt-0.5 text-xs text-[var(--codex-faint)]">{t("titleCount", { count: filteredRows.length })}{filterState.activeDescriptionKey ? ` · ${tAny(filterState.activeDescriptionKey, filterState.activeDescriptionParams)}` : (filterState.activeDescription ? ` · ${filterState.activeDescription}` : "")}</p>
           </div>
           <button type="button" onClick={openCreate} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_8px_20px_rgba(91,124,255,0.3)] transition hover:opacity-90">
             <Plus className="h-4 w-4" />
-            新创作
+            {t("newCreate")}
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t border-[var(--codex-border)] pt-3">
           <HistoryFilterTabs
-            label="分类"
-            options={MODULE_FILTERS}
+            label={t("filterCategory")}
+            options={moduleFilterOptions}
             value={moduleFilter}
             onChange={handleModuleFilterChange}
             tone="brand"
           />
           <HistoryFilterTabs
-            label="状态"
-            options={STATUS_FILTERS}
+            label={t("filterStatus")}
+            options={statusFilterOptions}
             value={statusFilter}
             onChange={handleStatusFilterChange}
           />
@@ -547,8 +560,8 @@ export default function HistoryPage() {
               type="search"
               value={searchInput}
               onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder="搜索提示词 / 模型"
-              aria-label="搜索作品"
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("searchAria")}
               className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-[var(--codex-ink)] outline-none placeholder:text-[var(--codex-faint)]"
             />
           </label>
@@ -560,30 +573,30 @@ export default function HistoryPage() {
           const payload = getPayload(g);
           const resultUrls = g.result_urls || [];
           const coverUrl = resultUrls[0];
-          const moduleLabel = payload?.kind ? formatKind(payload.kind) : "生成作品";
-          const status = formatStatus(g.status);
+          const moduleLabel = payload?.kind ? formatKind(t, payload.kind) : t("generatedWork");
+          const status = formatStatus(t, g.status);
           const credits = g.credits_cost || g.credits_used || "-";
           const failureCopy = getHistoryFailureRecoveryCopy({
             status: g.status,
             errorMessage: g.error_message,
             hasApplyParams: Boolean(payload?.kind),
           });
-          const reuseLabel = failureCopy?.applyLabel || getHistoryReuseLabel(payload);
+          const reuseLabel = failureCopy?.applyLabel || getHistoryReuseLabel(t, payload);
 
           return (
             <article key={g.id} className="group relative overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition-[transform,box-shadow] duration-150 hover:-translate-y-1 hover:shadow-[0_20px_52px_rgba(15,23,42,0.12)]">
               <button
                 type="button"
                 onClick={() => openDetail(g)}
-                aria-label={`查看${moduleLabel}详情`}
+                aria-label={t("viewDetailsAria", { module: moduleLabel })}
                 className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100"
               >
                 {coverUrl ? (
-                  <HistoryMediaPreview url={coverUrl} variant="card" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]" alt="历史作品封面" />
+                  <HistoryMediaPreview url={coverUrl} variant="card" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]" alt={t("coverAlt")} />
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-300">
                     <ImageIcon className="h-9 w-9" />
-                    <span className="text-xs text-gray-400 dark:text-stone-500">暂无结果</span>
+                    <span className="text-xs text-gray-400 dark:text-stone-500">{t("noResult")}</span>
                   </div>
                 )}
                 <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur ${getStatusClasses(g.status)}`}>
@@ -591,7 +604,7 @@ export default function HistoryPage() {
                 </span>
                 {resultUrls.length > 1 && (
                   <span className="absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
-                    {resultUrls.length} 张
+                    {t("imagesCount", { count: resultUrls.length })}
                   </span>
                 )}
                 {/* hover 操作浮层 */}
@@ -603,7 +616,7 @@ export default function HistoryPage() {
                     className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
                   >
                     <Eye className="h-3.5 w-3.5" />
-                    查看
+                    {t("viewDetail")}
                   </span>
                   <span
                     role="button"
@@ -620,7 +633,7 @@ export default function HistoryPage() {
                     onClick={(event) => {
                       event.stopPropagation();
                       if (resultUrls.length > 1) {
-                        void downloadImagesAsZip({ urls: resultUrls, filename: `pixel-diffusion-${g.id.slice(0, 8)}`, label: "作品" });
+                        void downloadImagesAsZip({ urls: resultUrls, filename: `pixel-diffusion-${g.id.slice(0, 8)}`, label: t("zipLabel") });
                       } else if (coverUrl) {
                         downloadHistoryResult(g, coverUrl, 0);
                       }
@@ -628,7 +641,7 @@ export default function HistoryPage() {
                     className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
                   >
                     <Download className="h-3.5 w-3.5" />
-                    {resultUrls.length > 1 ? "打包" : "下载"}
+                    {resultUrls.length > 1 ? t("downloadZip") : t("download")}
                   </span>
                 </span>
               </button>
@@ -657,15 +670,15 @@ export default function HistoryPage() {
         {filteredRows.length === 0 && !loadingMore && (
           <div className="col-span-full rounded-[28px] border border-white/80 bg-white/70 p-8 text-center shadow-[0_18px_54px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
             <ImageIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-            <h2 className="text-base font-black text-slate-950 dark:text-stone-100">没有匹配的作品</h2>
+            <h2 className="text-base font-black text-slate-950 dark:text-stone-100">{t("noMatchTitle")}</h2>
             <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/75 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
-              {filterState.summary}
+              {filterState.summaryKey ? tAny(filterState.summaryKey, filterState.summaryParams) : filterState.summary}
             </p>
-            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{filterState.noMatchMessage}</p>
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{filterState.noMatchMessageKey ? tAny(filterState.noMatchMessageKey) : filterState.noMatchMessage}</p>
             {filterState.isFiltered && (
               <button onClick={clearFilters} className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-5 text-sm font-bold text-slate-600 hover:bg-white">
                 <X className="h-4 w-4" />
-                清除筛选
+                {t("clearFilters")}
               </button>
             )}
           </div>
@@ -685,10 +698,10 @@ export default function HistoryPage() {
             className="inline-flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-stone-300 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
-            {loadingMore ? "加载中…" : "加载更多"}
+            {loadingMore ? t("loadingMore") : t("loadMore")}
           </button>
         ) : (
-          <p className="text-xs text-gray-400 dark:text-stone-500">已加载全部历史作品</p>
+          <p className="text-xs text-gray-400 dark:text-stone-500">{t("allLoaded")}</p>
         )}
       </div>
       <DetailLoadingSkeleton open={detailLoading} />
@@ -708,12 +721,12 @@ export default function HistoryPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 bg-white/70 px-4 py-3 backdrop-blur-xl sm:px-5">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <DialogTitle className="text-sm font-bold leading-5">{formatKind(detailPayload?.kind)}</DialogTitle>
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:text-stone-400">{formatStatus(detailRow.status)}</span>
+                  <DialogTitle className="text-sm font-bold leading-5">{formatKind(t, detailPayload?.kind)}</DialogTitle>
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:text-stone-400">{formatStatus(t, detailRow.status)}</span>
                 </div>
                 <p className="text-[11px] text-gray-400 dark:text-stone-500 mt-0.5">{fmt(detailRow.created_at)}</p>
                 <DialogDescription className="sr-only">
-                  查看生成结果、输入素材、生成参数，并复用当前历史作品。
+                  {t("detailDesc")}
                 </DialogDescription>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -724,7 +737,7 @@ export default function HistoryPage() {
                   className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/75 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-stone-300 shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  下载
+                  {t("download")}
                 </button>
                 {detailPayload && (
                   <button
@@ -735,10 +748,10 @@ export default function HistoryPage() {
                     className="inline-flex items-center gap-1.5 rounded-full gradient-brand px-3 py-1.5 text-xs font-medium text-white"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    {detailFailureCopy?.applyLabel || getHistoryReuseLabel(detailPayload)}
+                    {detailFailureCopy?.applyLabel || getHistoryReuseLabel(t, detailPayload)}
                   </button>
                 )}
-                <button type="button" onClick={closeDetail} className="rounded-full p-1.5 outline-none transition-[background-color,box-shadow] hover:bg-white/80 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" aria-label="关闭历史作品详情">
+                <button type="button" onClick={closeDetail} className="rounded-full p-1.5 outline-none transition-[background-color,box-shadow] hover:bg-white/80 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" aria-label={t("closeDetailAria")}>
                   <X aria-hidden="true" className="h-4 w-4" />
                 </button>
               </div>
@@ -758,12 +771,12 @@ export default function HistoryPage() {
                         variant="preview"
                         className="max-h-[62vh] w-full object-contain transition-transform duration-200"
                         style={{ transform: `scale(${detailZoom / 100})` }}
-                        alt={`生成结果 ${selectedResultIndex + 1}`}
+                        alt={t("resultAlt", { index: selectedResultIndex + 1 })}
                         controls
                       />
                       <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
                         <Maximize2 className="w-3 h-3" />
-                        放大
+                        {t("enlarge")}
                       </span>
                     </button>
                   ) : (
@@ -773,7 +786,7 @@ export default function HistoryPage() {
                           <p className="font-bold text-red-600">{detailFailureCopy.title}</p>
                           <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-stone-400">{detailFailureCopy.recoveryHint}</p>
                         </>
-                      ) : normalizeHistoryStatusFilter(detailRow.status) === "completed" ? "暂无结果图片" : formatStatus(detailRow.status)}
+                      ) : normalizeHistoryStatusFilter(detailRow.status) === "completed" ? t("noResultImages") : formatStatus(t, detailRow.status)}
                     </div>
                   )}
                   {detailResults.length > 0 && (
@@ -794,7 +807,7 @@ export default function HistoryPage() {
                       value={detailZoom}
                       onChange={(event) => setDetailZoom(Number(event.target.value))}
                       className="h-2 w-full min-w-48 cursor-pointer accent-slate-700 sm:w-64"
-                      aria-label="缩放生成结果"
+                      aria-label={t("zoomAria")}
                     />
                     <ZoomIn className="h-4 w-4" />
                     <span className="w-10 text-right tabular-nums text-gray-700 dark:text-stone-300">{detailZoom}%</span>
@@ -804,7 +817,7 @@ export default function HistoryPage() {
                     onClick={() => setDetailZoom(100)}
                     className="rounded-full border border-gray-200/80 bg-white/50 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-stone-400 backdrop-blur hover:bg-white/80"
                   >
-                    重置
+                    {t("reset")}
                   </button>
                 </div>
 
@@ -822,7 +835,7 @@ export default function HistoryPage() {
                           selectedResultIndex === index ? "border-slate-900 ring-2 ring-slate-200" : "border-white/80 opacity-75 hover:opacity-100"
                         }`}
                       >
-                        <HistoryMediaPreview url={url} variant="thumb" alt={`结果缩略图 ${index + 1}`} />
+                        <HistoryMediaPreview url={url} variant="thumb" alt={t("resultThumbAlt", { index: index + 1 })} />
                       </button>
                     ))}
                   </div>
@@ -831,9 +844,9 @@ export default function HistoryPage() {
 
               <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
                 <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">复用参数</p>
-                  <h4 className="mt-1 text-sm font-black text-slate-950 dark:text-stone-100">复用这个作品</h4>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">套用完整参数或下载当前预览结果。</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("reuseParams")}</p>
+                  <h4 className="mt-1 text-sm font-black text-slate-950 dark:text-stone-100">{t("reuseThisWork")}</h4>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{t("reuseDesc")}</p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                     {detailPayload && (
                       <button
@@ -841,7 +854,7 @@ export default function HistoryPage() {
                         onClick={() => router.push(getApplyPath(detailPayload.kind, detailRow.id))}
                         className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-3 text-xs font-bold text-white shadow-sm hover:bg-slate-800"
                       >
-                        <RotateCcw className="h-3.5 w-3.5" /> {detailFailureCopy?.applyLabel || getHistoryReuseLabel(detailPayload)}
+                        <RotateCcw className="h-3.5 w-3.5" /> {detailFailureCopy?.applyLabel || getHistoryReuseLabel(t, detailPayload)}
                       </button>
                     )}
                     <button
@@ -850,7 +863,7 @@ export default function HistoryPage() {
                       disabled={!selectedResultUrl}
                       className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/80 bg-white/85 px-3 text-xs font-bold text-slate-700 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Download className="h-3.5 w-3.5" /> 下载单张
+                      <Download className="h-3.5 w-3.5" /> {t("downloadSingle")}
                     </button>
                     {detailResults.length > 1 && (
                       <button
@@ -858,20 +871,20 @@ export default function HistoryPage() {
                         onClick={() => void downloadImagesAsZip({
                           urls: detailResults,
                           filename: `pixel-diffusion-${detailRow.id.slice(0, 8)}`,
-                          label: "作品",
+                          label: t("zipLabel"),
                         })}
                         className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[rgba(91,124,255,0.4)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-bold text-[var(--codex-accent)] shadow-sm transition hover:bg-[rgba(91,124,255,0.16)]"
                       >
-                        <Download className="h-3.5 w-3.5" /> 打包全部 {detailResults.length} 张
+                        <Download className="h-3.5 w-3.5" /> {t("downloadAllZip", { count: detailResults.length })}
                       </button>
                     )}
                   </div>
                 </section>
 
                 <section>
-                  <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">生成信息</h4>
+                  <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">{t("generateInfo")}</h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    {getParameterItems(detailRow).map((item) => (
+                    {getParameterItems(t, detailRow).map((item) => (
                       <div key={item.label} className="min-w-0 border-b border-gray-100 pb-2">
                         <p className="text-[10px] text-gray-400 dark:text-stone-500">{item.label}</p>
                         <p className="mt-0.5 break-words text-xs font-medium text-gray-800">{item.value}</p>
@@ -888,7 +901,7 @@ export default function HistoryPage() {
 
                 {detailImages.length > 0 && (
                   <section>
-                    <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">输入图片</h4>
+                    <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">{t("inputImages")}</h4>
                     <div className="grid grid-cols-3 gap-2">
                       {detailImages.map((image, index) => (
                         <button
@@ -926,7 +939,7 @@ export default function HistoryPage() {
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-full gradient-brand px-4 py-2 text-xs font-medium text-white"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      {detailFailureCopy?.applyLabel || "套用参数"}
+                      {detailFailureCopy?.applyLabel || t("applyParams")}
                     </button>
                   </div>
                 )}
@@ -937,7 +950,7 @@ export default function HistoryPage() {
       </Dialog>
       <StudioMediaLightbox
         src={lightboxSrc}
-        alt="历史记录大图预览"
+        alt={t("lightboxAlt")}
         kind={lightboxSrc && isLikelyVideoUrl(lightboxSrc) ? "video" : "image"}
         mediaClassName="max-h-[calc(100dvh-3rem)] max-w-full rounded-[20px] object-contain shadow-2xl"
         returnFocusRef={lightboxReturnFocusRef}
@@ -990,6 +1003,7 @@ function HistoryCardSkeleton() {
 }
 
 function DetailLoadingSkeleton({ open }: { open: boolean }) {
+  const t = useTranslations("History");
   return (
     <Dialog open={open}>
       <DialogContent
@@ -1000,8 +1014,8 @@ function DetailLoadingSkeleton({ open }: { open: boolean }) {
         onInteractOutside={(event) => event.preventDefault()}
         aria-busy="true"
       >
-        <DialogTitle className="sr-only">正在加载历史作品</DialogTitle>
-        <DialogDescription className="sr-only">正在读取作品结果、输入素材和生成参数。</DialogDescription>
+        <DialogTitle className="sr-only">{t("detailLoadingTitle")}</DialogTitle>
+        <DialogDescription className="sr-only">{t("detailLoadingDesc")}</DialogDescription>
         <div className="bg-[#eef0f3] p-5">
           <div className="mb-4 flex items-center justify-between">
             <SkeletonBlock className="h-4 w-20 rounded-full" />
@@ -1045,22 +1059,23 @@ function SkeletonBlock({ className }: { className: string }) {
 }
 
 function HistoryFailureNotice({ copy }: { copy: HistoryFailureRecoveryCopy }) {
+  const tAny = useTranslations(); // 数据键全路径（LibShared.history.*）
   return (
     <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs leading-5 text-red-700">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="font-bold">{copy.title}</p>
+        <p className="font-bold">{copy.titleKey ? tAny(copy.titleKey) : copy.title}</p>
         <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-red-500">
-          {copy.applyLabel}
+          {copy.applyLabelKey ? tAny(copy.applyLabelKey) : copy.applyLabel}
         </span>
       </div>
       <dl className="mt-2 space-y-1.5">
         <div>
-          <dt className="text-[10px] font-black uppercase text-red-400">{copy.reasonLabel}</dt>
-          <dd className="mt-0.5 font-medium text-red-700">{copy.reason}</dd>
+          <dt className="text-[10px] font-black uppercase text-red-400">{copy.reasonLabelKey ? tAny(copy.reasonLabelKey) : copy.reasonLabel}</dt>
+          <dd className="mt-0.5 font-medium text-red-700">{copy.reasonKey ? tAny(copy.reasonKey) : copy.reason}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-black uppercase text-red-400">{copy.recoveryLabel}</dt>
-          <dd className="mt-0.5 text-red-600">{copy.recoveryHint}</dd>
+          <dt className="text-[10px] font-black uppercase text-red-400">{copy.recoveryLabelKey ? tAny(copy.recoveryLabelKey) : copy.recoveryLabel}</dt>
+          <dd className="mt-0.5 text-red-600">{copy.recoveryHintKey ? tAny(copy.recoveryHintKey, copy.recoveryHintParams) : copy.recoveryHint}</dd>
         </div>
       </dl>
     </div>
@@ -1172,53 +1187,55 @@ function HistorySkeletonStyles() {
   );
 }
 
-function formatKind(kind?: HistoryJobPayload["kind"]) {
-  if (kind === "tryon") return "服装上身";
-  if (kind === "grass") return "服装种草图";
-  if (kind === "productRetouch") return "商品精修";
-  if (kind === "productSet") return "商品套图";
-  if (kind === "modelBackground") return "模特换背景";
-  if (kind === "materialEnhancement") return "材质增强";
-  if (kind === "generalImage") return "通用生图";
-  if (kind === "outfitFusion") return "搭配融图";
-  if (kind === "garment3d") return "服装转3D";
-  if (kind === "faceSwap") return "换脸";
-  if (kind === "model") return "专属模特";
-  if (kind === "pose") return "姿势裂变";
-  if (kind === "videoImageToVideo") return "图生视频";
-  if (kind === "videoMotion") return "动作模仿";
-  if (kind === "videoFirstLastFrame") return "首尾帧";
-  return "未知模块";
+type HistoryT = ReturnType<typeof useTranslations<"History">>;
+
+function formatKind(t: HistoryT, kind?: HistoryJobPayload["kind"]) {
+  if (kind === "tryon") return t("categories.tryon");
+  if (kind === "grass") return t("categories.grass");
+  if (kind === "productRetouch") return t("categories.productRetouch");
+  if (kind === "productSet") return t("categories.productSet");
+  if (kind === "modelBackground") return t("categories.modelBackground");
+  if (kind === "materialEnhancement") return t("categories.materialEnhancement");
+  if (kind === "generalImage") return t("categories.generalImage");
+  if (kind === "outfitFusion") return t("categories.outfitFusion");
+  if (kind === "garment3d") return t("categories.garment3d");
+  if (kind === "faceSwap") return t("categories.faceSwap");
+  if (kind === "model") return t("categories.model");
+  if (kind === "pose") return t("categories.pose");
+  if (kind === "videoImageToVideo") return t("categories.videoImageToVideo");
+  if (kind === "videoMotion") return t("categories.videoMotion");
+  if (kind === "videoFirstLastFrame") return t("categories.videoFirstLastFrame");
+  return t("unknownModule");
 }
 
-function formatStatus(status: string) {
+function formatStatus(t: HistoryT, status: string) {
   const normalizedStatus = normalizeHistoryStatusFilter(status);
-  if (normalizedStatus === "completed") return "已完成";
-  if (normalizedStatus === "failed") return "失败";
-  if (normalizedStatus === "processing") return "处理中";
-  if (normalizedStatus === "pending") return "排队中";
+  if (normalizedStatus === "completed") return t("statusFilters.completed");
+  if (normalizedStatus === "failed") return t("statusFilters.failed");
+  if (normalizedStatus === "processing") return t("statusFilters.processing");
+  if (normalizedStatus === "pending") return t("statusFilters.pending");
   return status;
 }
 
-function formatGrassSceneMode(mode?: string) {
-  if (mode === "custom_prompt") return "用户自定义";
-  if (mode === "upload_reference") return "上传参考图";
-  if (mode === "system_reference") return "系统参考图";
+function formatGrassSceneMode(t: HistoryT, mode?: string) {
+  if (mode === "custom_prompt") return t("grassSceneMode.customPrompt");
+  if (mode === "upload_reference") return t("grassSceneMode.uploadReference");
+  if (mode === "system_reference") return t("grassSceneMode.systemReference");
   return "-";
 }
 
-function formatGrassSceneBackgroundMode(mode?: string) {
-  if (mode === "similar_style") return "AI 重构相似场景";
-  if (mode === "reference_scene" || !mode) return "沿用参考场景";
+function formatGrassSceneBackgroundMode(t: HistoryT, mode?: string) {
+  if (mode === "similar_style") return t("grassSceneBg.similarStyle");
+  if (mode === "reference_scene" || !mode) return t("grassSceneBg.referenceScene");
   return "-";
 }
 
-function getProductRetouchModeLabel(mode?: ProductRetouchMode) {
-  return PRODUCT_RETOUCH_MODE_OPTIONS.find((item) => item.value === mode)?.label || "商品精修";
+function getProductRetouchModeLabel(t: HistoryT, mode?: ProductRetouchMode) {
+  return PRODUCT_RETOUCH_MODE_OPTIONS.find((item) => item.value === mode)?.label || t("moduleFilters.productRetouch");
 }
 
-function getProductRetouchCategoryLabel(category?: string) {
-  return PRODUCT_RETOUCH_CATEGORY_OPTIONS.find((item) => item.value === category)?.label || category || "自动识别";
+function getProductRetouchCategoryLabel(t: HistoryT, category?: string) {
+  return PRODUCT_RETOUCH_CATEGORY_OPTIONS.find((item) => item.value === category)?.label || category || t("autoRecognize");
 }
 
 function getStatusClasses(status: string) {
@@ -1232,19 +1249,22 @@ function getStatusClasses(status: string) {
 
 class HistoryAuthError extends Error {}
 
-async function requestHistoryPage({
-  cursor,
-  moduleFilter,
-  statusFilter,
-  q,
-  signal,
-}: {
-  cursor?: string | null;
-  moduleFilter?: HistoryModuleFilter;
-  statusFilter?: HistoryStatusFilter;
-  q?: string;
-  signal?: AbortSignal;
-}) {
+async function requestHistoryPage(
+  t: HistoryT,
+  {
+    cursor,
+    moduleFilter,
+    statusFilter,
+    q,
+    signal,
+  }: {
+    cursor?: string | null;
+    moduleFilter?: HistoryModuleFilter;
+    statusFilter?: HistoryStatusFilter;
+    q?: string;
+    signal?: AbortSignal;
+  }
+) {
   const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
   if (cursor) params.set("cursor", cursor);
   if (q && q.trim()) params.set("q", q.trim());
@@ -1258,13 +1278,13 @@ async function requestHistoryPage({
   });
 
   if (res.status === 401) {
-    throw new HistoryAuthError("请先登录");
+    throw new HistoryAuthError();
   }
 
   const payload = await res.json().catch(() => ({})) as HistoryListPayload;
 
   if (!res.ok) {
-    throw new Error(payload.error || `历史记录加载失败 (${res.status})`);
+    throw new Error(payload.error || `${t("historyLoadFailed")} (${res.status})`);
   }
 
   return payload;
@@ -1333,234 +1353,234 @@ function uniqueUrlList(value: unknown) {
 }
 
 
-function getPayloadDisplaySize(payload?: HistoryJobPayload) {
+function getPayloadDisplaySize(t: HistoryT, payload?: HistoryJobPayload) {
   if (!payload) return "";
   if (payload.kind === "videoImageToVideo" || payload.kind === "videoMotion" || payload.kind === "videoFirstLastFrame") {
-    return `${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒`;
+    return `${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${t("secondSuffix", { duration: payload.duration || 5 })}`;
   }
   return "imageSize" in payload ? payload.imageSize : "";
 }
 
-function getVideoModeLabel(mode?: string) {
-  return mode === "fast" ? "快速模式" : "高清模式";
+function getVideoModeLabel(t: HistoryT, mode?: string) {
+  return mode === "fast" ? t("videoMode.fast") : t("videoMode.high");
 }
 
-function getVideoAudioLabel(payload: Extract<HistoryJobPayload, { kind: "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame" }>) {
-  if (payload.audioMode === "off" || payload.generateAudio === false) return "静音";
-  if (payload.audioMode === "custom" || payload.audioUrl) return "上传音频";
-  return "智能音效";
+function getVideoAudioLabel(t: HistoryT, payload: Extract<HistoryJobPayload, { kind: "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame" }>) {
+  if (payload.audioMode === "off" || payload.generateAudio === false) return t("videoAudio.mute");
+  if (payload.audioMode === "custom" || payload.audioUrl) return t("videoAudio.upload");
+  return t("videoAudio.smart");
 }
 
-function getHistoryReuseLabel(payload?: HistoryJobPayload) {
-  if (!payload?.kind) return "套用参数";
-  return `复用到${formatKind(payload.kind)}`;
+function getHistoryReuseLabel(t: HistoryT, payload?: HistoryJobPayload) {
+  if (!payload?.kind) return t("applyParams");
+  return t("reuseTo", { module: formatKind(t, payload.kind) });
 }
 
-function getInputImages(payload: HistoryJobPayload, row?: HistoryRow | null) {
+function getInputImages(t: HistoryT, payload: HistoryJobPayload, row?: HistoryRow | null) {
   if (payload.kind === "tryon") {
     const referenceUrls = getTryonReferenceUrls(payload);
     return [
       ...payload.clothingUrls.map((url, index) => ({
-        label: payload.clothingRoles?.[index] ? TRYON_CLOTHING_ROLE_LABELS[payload.clothingRoles[index]] : `服装图${index + 1}`,
+        label: payload.clothingRoles?.[index] ? TRYON_CLOTHING_ROLE_LABELS[payload.clothingRoles[index]] : t("inputImages.clothing"),
         url,
       })),
-      ...referenceUrls.map((url, index) => ({ label: referenceUrls.length > 1 ? `参考图${index + 1}` : "参考图", url })),
-      ...(payload.modelFaceUrl ? [{ label: "模特脸", url: payload.modelFaceUrl }] : []),
+      ...referenceUrls.map((url, index) => ({ label: referenceUrls.length > 1 ? t("inputImages.reference", { index: index + 1 }) : t("inputImages.referenceSingle"), url })),
+      ...(payload.modelFaceUrl ? [{ label: t("inputImages.modelFace"), url: payload.modelFaceUrl }] : []),
     ];
   }
   if (payload.kind === "garment3d") {
     return [
-      { label: "服装图", url: payload.garmentUrl },
-      ...(payload.referenceUrl ? [{ label: "3D参考图", url: payload.referenceUrl }] : []),
+      { label: t("inputImages.clothing"), url: payload.garmentUrl },
+      ...(payload.referenceUrl ? [{ label: t("inputImages.garment3dRef"), url: payload.referenceUrl }] : []),
     ];
   }
   if (payload.kind === "grass") {
     return [
-      { label: "服装图", url: payload.garmentUrl },
-      ...(payload.referenceUrl ? [{ label: "种草参考图", url: payload.referenceUrl }] : []),
+      { label: t("inputImages.clothing"), url: payload.garmentUrl },
+      ...(payload.referenceUrl ? [{ label: t("inputImages.grassRef"), url: payload.referenceUrl }] : []),
     ];
   }
   if (payload.kind === "productSet") {
-    return payload.productImageUrls.map((url, index) => ({ label: `商品图${index + 1}`, url }));
+    return payload.productImageUrls.map((url, index) => ({ label: t("inputImages.product", { index: index + 1 }), url }));
   }
   if (payload.kind === "productRetouch") {
-    return uniqueUrlList(row?.clothing_urls).map((url, index) => ({ label: `商品原图${index + 1}`, url }));
+    return uniqueUrlList(row?.clothing_urls).map((url, index) => ({ label: t("inputImages.productOriginal", { index: index + 1 }), url }));
   }
   if (payload.kind === "modelBackground") {
     return [
-      ...normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).map((url, index) => ({ label: `原图${index + 1}`, url })),
-      ...(payload.modelReferenceUrl ? [{ label: "模特参考", url: payload.modelReferenceUrl }] : []),
-      ...(payload.backgroundReferenceUrl ? [{ label: "背景参考", url: payload.backgroundReferenceUrl }] : []),
+      ...normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).map((url, index) => ({ label: t("inputImages.original", { index: index + 1 }), url })),
+      ...(payload.modelReferenceUrl ? [{ label: t("inputImages.modelRef"), url: payload.modelReferenceUrl }] : []),
+      ...(payload.backgroundReferenceUrl ? [{ label: t("inputImages.backgroundRef"), url: payload.backgroundReferenceUrl }] : []),
     ];
   }
   if (payload.kind === "materialEnhancement") {
     return [
-      { label: "原图", url: payload.sourceUrl },
-      { label: "高清服装图", url: payload.garmentUrl },
+      { label: t("inputImages.original"), url: payload.sourceUrl },
+      { label: t("inputImages.highResClothing"), url: payload.garmentUrl },
     ];
   }
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
-    const labelPrefix = payload.kind === "outfitFusion" ? "输入图" : "参考图";
-    return payload.referenceUrls.map((url, index) => ({ label: `${labelPrefix}${index + 1}`, url }));
+    const labelKey = payload.kind === "outfitFusion" ? "inputImages.input" : "inputImages.reference";
+    return payload.referenceUrls.map((url, index) => ({ label: t(labelKey, { index: index + 1 }), url }));
   }
   if (payload.kind === "model") {
     return [
-      ...payload.referenceUrls.map((url, index) => ({ label: `人物图${index + 1}`, url })),
-      ...(payload.hairReferenceUrl ? [{ label: "发型参考", url: payload.hairReferenceUrl }] : []),
-      ...(payload.hairColorReferenceUrl ? [{ label: "发色参考", url: payload.hairColorReferenceUrl }] : []),
+      ...payload.referenceUrls.map((url, index) => ({ label: t("inputImages.person", { index: index + 1 }), url })),
+      ...(payload.hairReferenceUrl ? [{ label: t("inputImages.hairRef"), url: payload.hairReferenceUrl }] : []),
+      ...(payload.hairColorReferenceUrl ? [{ label: t("inputImages.hairColorRef"), url: payload.hairColorReferenceUrl }] : []),
     ];
   }
   if (payload.kind === "pose") {
     return [
-      { label: "主图", url: payload.mainImageUrl },
-      ...getPoseReferenceUrls(payload).map((url, index) => ({ label: `姿势参考图${index + 1}`, url })),
-      ...getPoseGarmentAngleUrls(payload).map((url, index) => ({ label: `服装角度图${index + 1}`, url })),
+      { label: t("inputImages.main"), url: payload.mainImageUrl },
+      ...getPoseReferenceUrls(payload).map((url, index) => ({ label: t("inputImages.poseRef", { index: index + 1 }), url })),
+      ...getPoseGarmentAngleUrls(payload).map((url, index) => ({ label: t("inputImages.garmentAngle", { index: index + 1 }), url })),
     ];
   }
   if (payload.kind === "videoImageToVideo") {
-    return [{ label: "输入图", url: payload.imageUrl }];
+    return [{ label: t("inputImages.input"), url: payload.imageUrl }];
   }
   if (payload.kind === "videoMotion") {
     return [
-      { label: "模特图", url: payload.modelImageUrl },
-      { label: "参考视频", url: payload.referenceVideoUrl },
+      { label: t("inputImages.modelImage"), url: payload.modelImageUrl },
+      { label: t("inputImages.referenceVideo"), url: payload.referenceVideoUrl },
     ];
   }
   if (payload.kind === "videoFirstLastFrame") {
     return [
-      { label: "首帧", url: payload.firstFrameUrl },
-      { label: "尾帧", url: payload.lastFrameUrl },
+      { label: t("inputImages.firstFrame"), url: payload.firstFrameUrl },
+      { label: t("inputImages.lastFrame"), url: payload.lastFrameUrl },
     ];
   }
   if (payload.kind === "faceSwap") {
     return [
-      { label: "原始模特图", url: payload.sourceUrl },
-      { label: "目标脸图", url: payload.faceUrl },
+      { label: t("inputImages.sourceModel"), url: payload.sourceUrl },
+      { label: t("inputImages.targetFace"), url: payload.faceUrl },
     ];
   }
   return [];
 }
 
-function getParameterItems(row: HistoryRow) {
+function getParameterItems(t: HistoryT, row: HistoryRow) {
   const payload = getRowPayload(row);
   const common = [
-    { label: "模块", value: formatKind(payload?.kind) },
-    { label: "状态", value: formatStatus(row.status) },
-    { label: "模型", value: String(payload?.aiModel || row.ai_model || "-") },
-    { label: "尺寸", value: String(getPayloadDisplaySize(payload) || row.image_size || "-") },
-    { label: "灵点", value: String(row.credits_cost || row.credits_used || "-") },
+    { label: t("params.module"), value: formatKind(t, payload?.kind) },
+    { label: t("params.status"), value: formatStatus(t, row.status) },
+    { label: t("params.model"), value: String(payload?.aiModel || row.ai_model || "-") },
+    { label: t("params.size"), value: String(getPayloadDisplaySize(t, payload) || row.image_size || "-") },
+    { label: t("params.credits"), value: String(row.credits_cost || row.credits_used || "-") },
   ];
   if (!payload) return common;
 
   if (payload.kind === "tryon") {
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: "上身模式", value: payload.clothingMode === "multi" ? "多件上身" : "单件上身" },
-      { label: "服装角色", value: payload.clothingRoles?.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "-" },
-      { label: "服装数量", value: String(payload.clothingUrls.length) },
-      { label: "模特脸", value: payload.modelFaceUrl ? "已使用" : "未使用" },
-      { label: "参考图", value: `${getTryonReferenceUrls(payload).length} 张` },
-      { label: "场景模式", value: payload.sceneMode ? SCENE_MODE_LABELS[payload.sceneMode] : "-" },
-      { label: "自动设计", value: payload.autoDesign ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === payload.autoDesign?.platform)?.label || "已使用" : "未使用" },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: t("params.tryonMode"), value: payload.clothingMode === "multi" ? t("params.multiTryon") : t("params.singleTryon") },
+      { label: t("params.clothingRole"), value: payload.clothingRoles?.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "-" },
+      { label: t("params.clothingCount"), value: String(payload.clothingUrls.length) },
+      { label: t("params.modelFace"), value: payload.modelFaceUrl ? t("used") : t("unused") },
+      { label: t("params.reference"), value: t("resultCount", { count: getTryonReferenceUrls(payload).length }) },
+      { label: t("params.sceneMode"), value: payload.sceneMode ? SCENE_MODE_LABELS[payload.sceneMode] : "-" },
+      { label: t("params.autoDesign"), value: payload.autoDesign ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === payload.autoDesign?.platform)?.label || t("used") : t("unused") },
     ];
   }
   if (payload.kind === "garment3d") {
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: "服装类型", value: payload.garmentType || "-" },
-      { label: "输出模式", value: payload.outputMode === "reference" ? "参考图模式" : "提示词模式" },
-      { label: "展示质感", value: getGarment3dDisplayStyleLabel(payload.displayStyle) },
-      { label: "3D参考图", value: payload.referenceUrl ? "已使用" : "未使用" },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: t("params.garmentType"), value: payload.garmentType || "-" },
+      { label: t("params.outputMode"), value: payload.outputMode === "reference" ? t("params.referenceMode") : t("params.promptMode") },
+      { label: t("params.displayStyle"), value: getGarment3dDisplayStyleLabel(payload.displayStyle) },
+      { label: t("params.ref3d"), value: payload.referenceUrl ? t("used") : t("unused") },
     ];
   }
   if (payload.kind === "model") {
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: "性别", value: payload.gender === "male" ? "男" : "女" },
-      { label: "模特风格", value: getModelShootStyleLabel(payload.modelStyle) },
-      { label: "人物参考", value: String(payload.referenceUrls.length) },
-      { label: "发型", value: payload.hairStyle || "-" },
-      { label: "发色", value: payload.hairColor || "-" },
-      { label: "发型参考", value: payload.hairReferenceUrl ? "已使用" : "未使用" },
-      { label: "发色参考", value: payload.hairColorReferenceUrl ? "已使用" : "未使用" },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: t("params.gender"), value: payload.gender === "male" ? t("params.male") : t("params.female") },
+      { label: t("params.modelStyle"), value: getModelShootStyleLabel(payload.modelStyle) },
+      { label: t("params.personRef"), value: String(payload.referenceUrls.length) },
+      { label: t("params.hairStyle"), value: payload.hairStyle || "-" },
+      { label: t("params.hairColor"), value: payload.hairColor || "-" },
+      { label: t("params.hairRef"), value: payload.hairReferenceUrl ? t("used") : t("unused") },
+      { label: t("params.hairColorRef"), value: payload.hairColorReferenceUrl ? t("used") : t("unused") },
     ];
   }
   if (payload.kind === "grass") {
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: "模板", value: payload.templateId },
-      { label: "场景模式", value: formatGrassSceneMode(payload.sceneMode) },
-      { label: "场景控制", value: payload.sceneMode === "custom_prompt" ? "提示词场景" : formatGrassSceneBackgroundMode(payload.sceneBackgroundMode) },
-      { label: "种草参考图", value: payload.referenceUrl ? "已使用" : "未使用" },
-      { label: "模特控制", value: payload.changeModel ? "改变模特" : "保持模特" },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: t("params.template"), value: payload.templateId },
+      { label: t("params.sceneMode"), value: formatGrassSceneMode(t, payload.sceneMode) },
+      { label: t("params.sceneControl"), value: payload.sceneMode === "custom_prompt" ? t("params.promptScene") : formatGrassSceneBackgroundMode(t, payload.sceneBackgroundMode) },
+      { label: t("params.grassRef"), value: payload.referenceUrl ? t("used") : t("unused") },
+      { label: t("params.modelControl"), value: payload.changeModel ? t("params.changeModel") : t("params.keepModel") },
     ];
   }
   if (payload.kind === "productSet") {
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: "创作模式", value: payload.mode === "custom" ? "自定义套图" : "智能套图" },
-      { label: "生图类型", value: payload.imageType === "details" ? "详情页图" : "主图/辅图" },
-      { label: "商品图", value: `${payload.productImageUrls.length} 张` },
-      { label: "目标平台", value: payload.settings?.platform || "-" },
-      { label: "目标地区", value: payload.settings?.country || "-" },
-      { label: "文案语言", value: payload.settings?.language || "-" },
-      { label: "模板数量", value: String(payload.selectedTemplateIds?.length || payload.customTemplates?.length || payload.genCount) },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: t("params.createMode"), value: payload.mode === "custom" ? t("params.customSet") : t("params.smartSet") },
+      { label: t("params.imageType"), value: payload.imageType === "details" ? t("params.detailPage") : t("params.mainAux") },
+      { label: t("params.productImage"), value: t("resultCount", { count: payload.productImageUrls.length }) },
+      { label: t("params.targetPlatform"), value: payload.settings?.platform || "-" },
+      { label: t("params.targetRegion"), value: payload.settings?.country || "-" },
+      { label: t("params.copyLanguage"), value: payload.settings?.language || "-" },
+      { label: t("params.templateCount"), value: String(payload.selectedTemplateIds?.length || payload.customTemplates?.length || payload.genCount) },
     ];
   }
   if (payload.kind === "productRetouch") {
     const sourceCount = Math.ceil(payload.expectedCount / Math.max(1, payload.variantsPerSource));
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "精修模式", value: getProductRetouchModeLabel(payload.mode) },
-      { label: "品类", value: getProductRetouchCategoryLabel(payload.category) },
-      { label: "商品原图", value: `${sourceCount} 张` },
-      { label: "每张结果", value: `${payload.variantsPerSource} 张` },
-      { label: "预计结果", value: `${payload.expectedCount} 张` },
-      { label: "Skill 版本", value: payload.skillVersion || "-" },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.retouchMode"), value: getProductRetouchModeLabel(t, payload.mode) },
+      { label: t("params.category"), value: getProductRetouchCategoryLabel(t, payload.category) },
+      { label: t("params.originalImage"), value: t("resultCount", { count: sourceCount }) },
+      { label: t("params.perResult"), value: t("resultCount", { count: payload.variantsPerSource }) },
+      { label: t("params.expectedResult"), value: t("resultCount", { count: payload.expectedCount }) },
+      { label: t("params.skillVersion"), value: payload.skillVersion || "-" },
     ];
   }
   if (payload.kind === "modelBackground") {
     const sourceCount = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "原图数量", value: `${sourceCount} 张` },
-      { label: "生成张数", value: sourceCount > 1 ? `${sourceCount} × ${payload.genCount} = ${sourceCount * payload.genCount}` : String(payload.genCount) },
-      { label: "操作模式", value: MODEL_BACKGROUND_MODE_LABELS[payload.mode] },
-      { label: "背景来源", value: BACKGROUND_SOURCE_LABELS[payload.backgroundSource] },
-      { label: "背景模板", value: payload.templateId },
-      { label: "模特参考", value: payload.modelReferenceUrl ? "已使用" : "未使用" },
-      { label: "背景参考", value: payload.backgroundReferenceUrl ? "已使用" : "未使用" },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.originalCount"), value: t("resultCount", { count: sourceCount }) },
+      { label: t("params.genCount"), value: sourceCount > 1 ? `${sourceCount} × ${payload.genCount} = ${sourceCount * payload.genCount}` : String(payload.genCount) },
+      { label: t("params.operationMode"), value: MODEL_BACKGROUND_MODE_LABELS[payload.mode] },
+      { label: t("params.backgroundSource"), value: BACKGROUND_SOURCE_LABELS[payload.backgroundSource] },
+      { label: t("params.backgroundTemplate"), value: payload.templateId },
+      { label: t("params.modelRef"), value: payload.modelReferenceUrl ? t("used") : t("unused") },
+      { label: t("params.backgroundRef"), value: payload.backgroundReferenceUrl ? t("used") : t("unused") },
     ];
   }
   if (payload.kind === "materialEnhancement") {
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: "服装类型", value: payload.garmentType || "-" },
-      { label: "增强方式", value: getMaterialEnhancementLevelLabel(payload.enhancementLevel) },
-      { label: "高清服装图", value: payload.garmentUrl ? "已使用" : "未使用" },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: t("params.garmentType"), value: payload.garmentType || "-" },
+      { label: t("params.enhanceMode"), value: getMaterialEnhancementLevelLabel(payload.enhancementLevel) },
+      { label: t("params.highResClothing"), value: payload.garmentUrl ? t("used") : t("unused") },
     ];
   }
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
     return [
       ...common,
-      { label: "模式", value: payload.kind === "outfitFusion" ? "搭配融图" : payload.mode === "text-to-image" ? "文生图" : "图生图" },
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: payload.kind === "outfitFusion" ? "输入素材" : "参考图", value: `${payload.referenceUrls.length} 张` },
+      { label: t("params.mode"), value: payload.kind === "outfitFusion" ? t("moduleFilters.outfitFusion") : payload.mode === "text-to-image" ? t("params.textToImage") : t("params.imageToImage") },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: payload.kind === "outfitFusion" ? t("params.inputMaterial") : t("params.reference"), value: t("resultCount", { count: payload.referenceUrls.length }) },
     ];
   }
   if (payload.kind === "pose") {
@@ -1569,68 +1589,68 @@ function getParameterItems(row: HistoryRow) {
     const poseCount = payload.genCount || payload.poseCount || (referenceCount ? referenceCount * referenceCopies : 1);
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio || "智能" },
-      { label: "生成张数", value: String(poseCount) },
-      { label: "创作模式", value: referenceCount ? "参考图模式" : "自由模式" },
+      { label: t("params.ratio"), value: payload.aspectRatio || t("smart") },
+      { label: t("params.genCount"), value: String(poseCount) },
+      { label: t("params.creativeMode"), value: referenceCount ? t("params.referenceMode") : t("params.freeMode") },
       ...(referenceCount ? [
-        { label: "姿势参考", value: `${referenceCount} 张` },
-        { label: "每张数量", value: String(referenceCopies) },
+        { label: t("params.poseRef"), value: t("resultCount", { count: referenceCount }) },
+        { label: t("params.perCount"), value: String(referenceCopies) },
       ] : []),
-      { label: "拍摄风格", value: getPoseSeriesStyleLabel(payload.poseStyle) },
+      { label: t("params.shootStyle"), value: getPoseSeriesStyleLabel(payload.poseStyle) },
     ];
   }
   if (payload.kind === "videoImageToVideo") {
     return [
       ...common,
-      { label: "生成模式", value: getVideoModeLabel(payload.modelMode) },
-      { label: "比例", value: payload.aspectRatio || "9:16" },
-      { label: "视频时长", value: `${payload.duration || 5}秒` },
-      { label: "生成数量", value: String(payload.genCount || 1) },
-      { label: "分辨率", value: payload.resolution },
-      { label: "音效", value: getVideoAudioLabel(payload) },
-      { label: "音频控制", value: payload.audioPrompt || "-" },
-      { label: "动作模板", value: payload.templateTitle || "-" },
+      { label: t("params.generateMode"), value: getVideoModeLabel(t, payload.modelMode) },
+      { label: t("params.ratio"), value: payload.aspectRatio || "9:16" },
+      { label: t("params.videoDuration"), value: t("secondSuffix", { duration: payload.duration || 5 }) },
+      { label: t("params.generateCount"), value: String(payload.genCount || 1) },
+      { label: t("params.resolution"), value: payload.resolution },
+      { label: t("params.audio"), value: getVideoAudioLabel(t, payload) },
+      { label: t("params.audioControl"), value: payload.audioPrompt || "-" },
+      { label: t("params.actionTemplate"), value: payload.templateTitle || "-" },
     ];
   }
   if (payload.kind === "videoMotion") {
     return [
       ...common,
-      { label: "生成模式", value: getVideoModeLabel(payload.modelMode) },
-      { label: "比例", value: payload.aspectRatio || "9:16" },
-      { label: "视频时长", value: `${payload.duration || 5}秒` },
-      { label: "生成数量", value: String(payload.genCount || 1) },
-      { label: "分辨率", value: payload.resolution },
-      { label: "音效", value: getVideoAudioLabel(payload) },
-      { label: "音频控制", value: payload.audioPrompt || "-" },
-      { label: "视频模型", value: "HappyHorse" },
-      { label: "动作模板", value: payload.templateTitle || "-" },
-      { label: "参考视频", value: payload.referenceVideoUrl ? "已使用" : "未使用" },
+      { label: t("params.generateMode"), value: getVideoModeLabel(t, payload.modelMode) },
+      { label: t("params.ratio"), value: payload.aspectRatio || "9:16" },
+      { label: t("params.videoDuration"), value: t("secondSuffix", { duration: payload.duration || 5 }) },
+      { label: t("params.generateCount"), value: String(payload.genCount || 1) },
+      { label: t("params.resolution"), value: payload.resolution },
+      { label: t("params.audio"), value: getVideoAudioLabel(t, payload) },
+      { label: t("params.audioControl"), value: payload.audioPrompt || "-" },
+      { label: t("params.videoModel"), value: "HappyHorse" },
+      { label: t("params.actionTemplate"), value: payload.templateTitle || "-" },
+      { label: t("params.referenceVideo"), value: payload.referenceVideoUrl ? t("used") : t("unused") },
     ];
   }
   if (payload.kind === "videoFirstLastFrame") {
     return [
       ...common,
-      { label: "生成模式", value: getVideoModeLabel(payload.modelMode) },
-      { label: "比例", value: payload.aspectRatio || "9:16" },
-      { label: "视频时长", value: `${payload.duration || 5}秒` },
-      { label: "生成数量", value: String(payload.genCount || 1) },
-      { label: "分辨率", value: payload.resolution },
-      { label: "音效", value: getVideoAudioLabel(payload) },
-      { label: "音频控制", value: payload.audioPrompt || "-" },
-      { label: "首帧", value: payload.firstFrameUrl ? "已使用" : "未使用" },
-      { label: "尾帧", value: payload.lastFrameUrl ? "已使用" : "未使用" },
+      { label: t("params.generateMode"), value: getVideoModeLabel(t, payload.modelMode) },
+      { label: t("params.ratio"), value: payload.aspectRatio || "9:16" },
+      { label: t("params.videoDuration"), value: t("secondSuffix", { duration: payload.duration || 5 }) },
+      { label: t("params.generateCount"), value: String(payload.genCount || 1) },
+      { label: t("params.resolution"), value: payload.resolution },
+      { label: t("params.audio"), value: getVideoAudioLabel(t, payload) },
+      { label: t("params.audioControl"), value: payload.audioPrompt || "-" },
+      { label: t("params.firstFrame"), value: payload.firstFrameUrl ? t("used") : t("unused") },
+      { label: t("params.lastFrame"), value: payload.lastFrameUrl ? t("used") : t("unused") },
     ];
   }
   if (payload.kind === "faceSwap") {
     const faceSwapMode = normalizeFaceSwapMode(payload.faceSwapMode);
     return [
       ...common,
-      { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
-      { label: "换脸范围", value: getFaceSwapModeLabel(faceSwapMode) },
-      { label: "原始模特图", value: payload.sourceUrl ? "已使用" : "未使用" },
-      { label: "目标脸图", value: payload.faceUrl ? "已使用" : "未使用" },
-      { label: "规则", value: getFaceSwapModeNote(faceSwapMode) },
+      { label: t("params.ratio"), value: payload.aspectRatio },
+      { label: t("params.genCount"), value: String(payload.genCount) },
+      { label: t("params.faceSwapScope"), value: getFaceSwapModeLabel(faceSwapMode) },
+      { label: t("params.sourceModel"), value: payload.sourceUrl ? t("used") : t("unused") },
+      { label: t("params.targetFace"), value: payload.faceUrl ? t("used") : t("unused") },
+      { label: t("params.rule"), value: getFaceSwapModeNote(faceSwapMode) },
     ];
   }
   return common;

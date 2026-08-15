@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
@@ -40,8 +41,6 @@ import {
   DEFAULT_FACE_SWAP_MODE,
   DEFAULT_FACE_SWAP_TEXTURE_ENHANCE,
   MAX_FACE_SWAP_SOURCE_IMAGES,
-  getFaceSwapModeLabel,
-  getFaceSwapModeNote,
   getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
   normalizeFaceSwapMode,
@@ -74,24 +73,24 @@ import {
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
 
-const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", icon: "/model-icons/gemini.png", badge: "默认" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", icon: "/model-icons/openai.svg", badge: "高质感" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", icon: "/model-icons/gemini.png", badge: "高质精修" },
+const MODELS: Array<{ value: LingyaModel; label: string; desc: string; descKey: string; badgeKey: string; icon: string }> = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeDefault", icon: "/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeHighQuality", icon: "/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeRefined", icon: "/model-icons/gemini.png" },
 ];
 
-const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
-  { value: "3:4", label: "3:4 竖版" },
-  { value: "4:3", label: "4:3 横版" },
-  { value: "1:1", label: "1:1 方形" },
-  { value: "16:9", label: "16:9 宽屏" },
-  { value: "9:16", label: "9:16 手机" },
+const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string; labelKey?: string }> = [
+  { value: "3:4", label: "3:4 竖版", labelKey: "aspectPortrait" },
+  { value: "4:3", label: "4:3 横版", labelKey: "aspectLandscape" },
+  { value: "1:1", label: "1:1 方形", labelKey: "aspectSquare" },
+  { value: "16:9", label: "16:9 宽屏", labelKey: "aspectWidescreen" },
+  { value: "9:16", label: "9:16 手机", labelKey: "aspectMobile" },
   { value: "2:3", label: "2:3" },
-  { value: "3:2", label: "3:2" },
+  { value: "3:2", label: "3:2", labelKey: "aspect3x2" },
   { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" },
   { value: "21:9", label: "21:9" },
-  { value: "auto", label: "智能" },
+  { value: "auto", label: "智能", labelKey: "aspectAuto" },
 ];
 
 const FACE_SWAP_PREVIEW_ACTIONS: ImagePreviewAction[] = [
@@ -139,6 +138,7 @@ type FaceSwapPollContext = {
 
 export default function FaceSwapPage() {
   const router = useRouter();
+  const t = useTranslations("FaceSwap");
   const originalInputRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
   const faceInputRef = useRef<HTMLInputElement>(null);
@@ -188,22 +188,24 @@ export default function FaceSwapPage() {
   const requestedFaceSwapResultCount = requestedFaceSwapCount * Math.max(sourceUrls.length, 1);
   const totalCost = unitCost * requestedFaceSwapResultCount;
   const faceLibrary = FACE_SWAP_LIBRARY.filter((item) => item.gender === genderFilter);
-  const faceSwapModeLabel = getFaceSwapModeLabel(faceSwapMode);
-  const faceSwapModeNote = getFaceSwapModeNote(faceSwapMode);
+  const faceSwapModeLabel = faceSwapMode === "featuresHairSkin"
+    ? t("modeFeatureHairSkin")
+    : t("modeFeature");
+  const faceSwapModeNote = t(faceSwapMode === "featuresHairSkin" ? "targetFootnoteHairSkin" : "targetFootnoteFeatures");
   const validationHint = sourceUrls.length === 0
-    ? "请先上传或选择原始模特图"
+    ? t("sourceNeeded")
     : !faceUrl
-      ? "请选择目标脸图"
+      ? t("faceNeeded")
       : sourceUrls.includes(faceUrl)
-        ? "原始模特图和目标脸图不能是同一张"
+        ? t("sameImageError")
         : credits !== null && credits < totalCost
-          ? `灵点不足，生成需要 ${totalCost} 灵点`
+          ? t("insufficientCredits", { cost: totalCost })
           : "";
   const canGenerate = status !== "running" && !validationHint;
   const authIsAnonymous = authChecked && !isAuthenticated;
   const taskQueue = useTaskQueueGeneration({
     module: "faceSwap",
-    title: "换脸",
+    title: t("moduleLabel"),
     defaultExpectedCount: requestedFaceSwapResultCount,
     applyPath: "/face-swap",
   });
@@ -242,11 +244,11 @@ export default function FaceSwapPage() {
       setTextureEnhance(normalizeFaceSwapTextureEnhance(payload.textureEnhance));
       setFaceSwapMode(normalizeFaceSwapMode(payload.faceSwapMode));
       const failedHistory = isHistoryApplyRowFailed(detail.row);
-      const historyError = getHistoryApplyFailureMessage(detail.row, "换脸生成失败");
+      const historyError = getHistoryApplyFailureMessage(detail.row, t("historyApplyFailed"));
       setActiveQueueTask(failedHistory ? {
         id: detail.row.id || `history-face-swap-${Date.now()}`,
         module: "faceSwap",
-        title: "AI 换脸",
+        title: t("historyTaskTitle"),
         status: detail.row.status || "failed",
         statusGroup: "failed",
         time: "0:00",
@@ -265,7 +267,7 @@ export default function FaceSwapPage() {
       setStatus(failedHistory ? "failed" : detail.resultUrls.length ? "completed" : "idle");
       setGenerationId("");
       setError(failedHistory ? historyError : "");
-      toast.success("已套用历史换脸参数");
+      toast.success(t("historyApplySuccess"));
     })();
     return () => {
       cancelled = true;
@@ -305,7 +307,7 @@ export default function FaceSwapPage() {
     setStatus(historyResultUrls.length ? "completed" : "idle");
     setGenerationId("");
     setError("");
-    if (!options?.silent) toast.success("已套用历史换脸参数");
+    if (!options?.silent) toast.success(t("historyApplySuccess"));
   }, [clearPolling]);
 
   const pollGeneration = useCallback(async (id: string, immediate = false, context?: FaceSwapPollContext) => {
@@ -318,7 +320,7 @@ export default function FaceSwapPage() {
       try {
         const res = await fetch(`/api/face-swap?generation_id=${encodeURIComponent(id)}`);
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "查询生成进度失败");
+        if (!res.ok) throw new Error(data.error || t("pollFailed"));
 
         const nextProgress = Number.isFinite(Number(data.progress)) ? Number(data.progress) : progress;
         const rawNextUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
@@ -368,16 +370,16 @@ export default function FaceSwapPage() {
               failedCount: expectedCount - nextResultCount || 1,
             }));
           } else if (nextResultCount < expectedCount) {
-            toast.info(`已完成 ${nextResultCount}/${expectedCount} 张，剩余槽位由服务端结算为空，可点击重试重新发起。`);
+            toast.info(t("partialCompleteInfo", { done: nextResultCount, total: expectedCount }));
           } else {
-            toast.success("换脸完成");
+            toast.success(t("generationComplete"));
           }
           return;
         }
 
         if (data.status === "failed") {
           setStatus("failed");
-          const message = summarizeGenerationError(data.error || "换脸生成失败");
+          const message = summarizeGenerationError(data.error || t("historyApplyFailed"));
           setError(message);
           const failedTask = taskQueue.markFailed(id, message, {
             expectedCount,
@@ -400,7 +402,7 @@ export default function FaceSwapPage() {
         setActiveQueueTask(runningTask);
         pollTimerRef.current = setTimeout(() => pollGeneration(id, false, context), 2200);
       } catch (err) {
-        const message = summarizeGenerationError(err instanceof Error ? err.message : "查询生成进度失败");
+        const message = summarizeGenerationError(err instanceof Error ? err.message : t("pollFailed"));
         setStatus("failed");
         setError(message);
         const failedTask = taskQueue.markFailed(id, message, {
@@ -458,7 +460,7 @@ export default function FaceSwapPage() {
       } catch (error) {
         // 恢复失败要告知用户：进行中的任务不会出现在页面上，灵点已扣需要人工排查
         console.warn("[face-swap] resume active task failed:", error);
-        toast.error("恢复进行中的换脸任务失败，请刷新重试或在任务中心查看进度");
+        toast.error(t("resumeFailed"));
       }
     })();
 
@@ -472,15 +474,15 @@ export default function FaceSwapPage() {
   async function handleUpload(files: File[], kind: "source" | "face") {
     const validFiles = files.filter((file) => {
       if (!file.type.startsWith("image/")) {
-        toast.error(`"${file.name}" 不是图片格式`);
+        toast.error(t("uploadInvalidType", { name: file.name }));
         return false;
       }
       if (file.size === 0) {
-        toast.error(`"${file.name}" 是空文件，请重新选择`);
+        toast.error(t("uploadEmptyFile", { name: file.name }));
         return false;
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`"${file.name}" 超过 ${MAX_FILE_SIZE_MB}MB`);
+        toast.error(t("uploadTooLarge", { name: file.name, size: MAX_FILE_SIZE_MB }));
         return false;
       }
       return true;
@@ -496,14 +498,14 @@ export default function FaceSwapPage() {
           const merged = [...prev, ...uploads.map((u) => u.url)];
           return merged.slice(0, MAX_FACE_SWAP_SOURCE_IMAGES);
         });
-        toast.success(`已上传 ${uploads.length} 张原始模特图`);
+        toast.success(t("uploadSourceSuccess", { count: uploads.length }));
       } else {
         setFaceUrl(uploads[0].url);
-        toast.success("目标脸图已上传");
+        toast.success(t("uploadFaceSuccess"));
       }
       resetGenerationForInputChange();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "上传失败，请重试");
+      toast.error(err instanceof Error ? err.message : t("uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -523,20 +525,20 @@ export default function FaceSwapPage() {
     });
     const runTotalCost = unitCost * runExpectedCount;
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("loginRequired"));
       router.push("/login");
       return;
     }
     if (runSourceUrls.length === 0) {
-      toast.error("请先上传或选择原始模特图");
+      toast.error(t("sourceNeeded"));
       return;
     }
     if (!faceUrl) {
-      toast.error("请先选择目标模特脸");
+      toast.error(t("faceSelectRequired"));
       return;
     }
     if (runSourceUrls.includes(faceUrl)) {
-      toast.error("原始模特图和目标脸图不能是同一张");
+      toast.error(t("sameImageError"));
       return;
     }
     if (credits !== null && credits < runTotalCost) {
@@ -592,12 +594,12 @@ export default function FaceSwapPage() {
           data,
           userId,
           setCredits,
-          fallbackError: "提交换脸任务失败",
+          fallbackError: t("submitFailed"),
         });
-        throw new Error(data.error || "提交换脸任务失败");
+        throw new Error(data.error || t("submitFailed"));
       }
       if (typeof data.generation_id !== "string" || !data.generation_id) {
-        throw new Error(data.error || "服务端未返回任务编号，请稍后重试");
+        throw new Error(data.error || t("noGenerationId"));
       }
       setGenerationId(data.generation_id);
       const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
@@ -616,7 +618,7 @@ export default function FaceSwapPage() {
         previousResultUrls: retryPreviousResultUrls,
       });
     } catch (err) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "提交换脸任务失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("submitFailed"));
       setStatus("failed");
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
@@ -647,10 +649,10 @@ export default function FaceSwapPage() {
 
   function confirmClearAll() {
     confirm({
-      title: "清空模特脸库",
-      content: "清空后将无法恢复，确定要继续吗？",
-      okText: "确定",
-      cancelText: "取消",
+      title: t("confirmClearTitle"),
+      content: t("confirmClearContent"),
+      okText: t("confirmOk"),
+      cancelText: t("confirmCancel"),
       onOk: () => {
         clearAll();
       },
@@ -683,7 +685,7 @@ export default function FaceSwapPage() {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        const message = getHistoryApplyFailureMessage(detail.row, item.error || "换脸生成失败");
+        const message = getHistoryApplyFailureMessage(detail.row, item.error || t("historyApplyFailed"));
         setStatus("failed");
         setError(message);
         setActiveQueueTask({ ...item, statusGroup: "failed", error: message });
@@ -691,7 +693,7 @@ export default function FaceSwapPage() {
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史任务加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
   }
@@ -709,7 +711,7 @@ export default function FaceSwapPage() {
     const sourceIndex = Math.min(Math.max(0, Math.floor(index / perSourceCount)), Math.max(sourceUrls.length - 1, 0));
     const retrySourceUrl = sourceUrls[sourceIndex] || sourceUrls[0];
     if (!retrySourceUrl) {
-      toast.error("未找到要重试的原始模特图");
+      toast.error(t("retryMissingSource"));
       return;
     }
     void generate({
@@ -717,7 +719,7 @@ export default function FaceSwapPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retryMissingToast", { index: index + 1 }),
     });
   }
   const faceSwapInputThumbnails = (
@@ -736,7 +738,7 @@ export default function FaceSwapPage() {
       <FeatureTabs active="faceSwap" />
       <ModuleTaskRail
         module="faceSwap"
-        moduleLabel="换脸"
+        moduleLabel={t("moduleLabel")}
         onContinue={clearAll}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
@@ -745,20 +747,20 @@ export default function FaceSwapPage() {
       <aside className="studio-parameters flex w-full flex-col overflow-visible border-b lg:w-[472px] lg:overflow-hidden lg:border-b-0 lg:border-r">
         <div className="studio-parameters-scroll flex-1 overflow-visible p-3 sm:p-5 lg:overflow-y-auto">
           <ModuleHeader
-            title="换脸"
-            tooltip="上传原始模特图与目标脸图，可选择仅换五官，或同步目标脸发型肤色；原图服装、姿势和场景保持不变。"
+            title={t("title")}
+            tooltip={t("tooltip")}
             actions={
               <StudioClearButton
-                label="清空"
+                label={t("clearLabel")}
                 disabled={!sourceUrls.length && !faceUrl}
                 onClear={clearAll}
-                description="已上传的原图和脸图将被清空，已生成的结果不受影响。"
+                description={t("clearDescription")}
               />
             }
           />
 
           <StudioUploadSection
-            title="原始模特图"
+            title={t("sourceTitle")}
             inputRef={originalInputRef}
             multiple
             isDragging={isOriginalDragging}
@@ -769,20 +771,20 @@ export default function FaceSwapPage() {
               <StudioMultiImageUpload
                 urls={sourceUrls}
                 maxCount={MAX_FACE_SWAP_SOURCE_IMAGES}
-                title="已上传原始模特图"
-                emptyTitle="上传需要处理的原图"
-                description="图1作为身体、服装和构图基础，可继续补充多张原图批量换脸。"
-                emptyDescription="图1作为身体、服装和构图基础，建议主体完整、画面清晰。"
-                itemLabelPrefix="图"
+                title={t("sourceUploadTitle")}
+                emptyTitle={t("sourceEmptyTitle")}
+                description={t("sourceDescription")}
+                emptyDescription={t("sourceEmptyDescription")}
+                itemLabelPrefix={t("itemLabelPrefix")}
                 loading={isUploadingOriginal}
                 isDragging={isOriginalDragging}
-                uploadLabel="从本地上传"
-                libraryLabel="从作品选择"
-                summary={sourceUrls.length ? `共生成 ${sourceUrls.length * normalizeFaceSwapCount(genCount)} 张` : undefined}
-                footnote={`支持同时上传多张原图（最多 ${MAX_FACE_SWAP_SOURCE_IMAGES} 张），每张原图 × 生成数量。主体完整、脸部清晰时最稳。`}
+                uploadLabel={t("uploadLabel")}
+                libraryLabel={t("libraryLabel")}
+                summary={sourceUrls.length ? t("sourceSummary", { count: sourceUrls.length * normalizeFaceSwapCount(genCount) }) : undefined}
+                footnote={t("sourceFootnote", { max: MAX_FACE_SWAP_SOURCE_IMAGES })}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
-                onPreview={(url, index) => openLightbox(url, `原始模特图 ${index + 1}`)}
+                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onPreview={(url, index) => openLightbox(url, t("sourceLightboxCaption", { index: index + 1 }))}
                 onRemove={(_, index) => {
                   setSourceUrls((prev) => prev.filter((__, i) => i !== index));
                   resetGenerationForInputChange();
@@ -792,8 +794,8 @@ export default function FaceSwapPage() {
                   resetGenerationForInputChange();
                 }}
                 examples={{
-                  label: "试一试",
-                  images: FACE_SWAP_SAMPLE_IMAGES.map((sample) => ({ url: sample.url, title: `示例图 ${sample.id}` })),
+                  label: t("examplesLabel"),
+                  images: FACE_SWAP_SAMPLE_IMAGES.map((sample) => ({ url: sample.url, title: t("sampleImageTitle", { id: sample.id }) })),
                   disabled: isUploadingOriginal,
                   onSelect: (image) => {
                     setSourceUrls([image.url]);
@@ -807,40 +809,40 @@ export default function FaceSwapPage() {
           <StudioUploadSection
             title={(
               <span className="face-swap-target-title">
-                <span>目标脸图</span>
-                <span>{faceSwapMode === "featuresHairSkin" ? "将同步发型、肤色和五官身份" : "建议选择与原图肤色相近、正脸清晰的人脸"}</span>
+                <span>{t("targetFaceTitle")}</span>
+                <span>{faceSwapMode === "featuresHairSkin" ? t("targetFeaturesHairSkin") : t("targetFeatures")}</span>
               </span>
             )}
             inputRef={faceInputRef}
             onFiles={(files) => handleUpload(files.slice(0, 1), "face")}
             actions={(
               <button type="button" onClick={() => setDrawerOpen(true)} className="studio-upload-rule-button">
-                模特脸库 <ChevronRight className="h-3 w-3" />
+                {t("faceLibraryLabel")} <ChevronRight className="h-3 w-3" />
               </button>
             )}
           >
             {(openFileDialog, dragContext) => (
               <StudioUploadTile
-                title="上传目标脸图"
-                description={faceUrl ? "已选择目标脸图，可更换、预览或删除。" : faceSwapModeNote}
+                title={t("targetFaceUploadTitle")}
+                description={faceUrl ? t("targetFaceSelectedDescription") : faceSwapModeNote}
                 imageUrl={faceUrl || null}
-                imageAlt="已上传的目标脸图"
+                imageAlt={t("targetFaceImageAlt")}
                 loading={isUploadingFace}
                 onUploadClick={openFileDialog}
                 onLibraryClick={() => setDrawerOpen(true)}
-                onPreview={faceUrl ? () => openLightbox(faceUrl, `目标脸图：${faceSwapModeNote}`) : undefined}
+                onPreview={faceUrl ? () => openLightbox(faceUrl, t("targetFaceLightboxCaption", { note: faceSwapModeNote })) : undefined}
                 onRemove={faceUrl ? () => {
                   setFaceUrl("");
                   resetGenerationForInputChange();
                 } : undefined}
                 onDropFile={(file) => file && handleUpload([file], "face")}
                 dragContext={dragContext}
-                uploadLabel="上传脸图"
-                libraryLabel="选择官方脸"
-                footnote={faceSwapMode === "featuresHairSkin" ? "目标脸尽量正脸清晰；会同步五官、发型、发色、肤色和妆感，不改变原图服装和场景。" : "目标脸尽量正脸清晰；仅迁移五官身份，不带入发型、肤色和穿搭。"}
+                uploadLabel={t("uploadFaceLabel")}
+                libraryLabel={t("officialFaceLabel")}
+                footnote={faceSwapMode === "featuresHairSkin" ? t("targetFootnoteHairSkin") : t("targetFootnoteFeatures")}
                 examples={{
-                  label: "试一试",
-                  images: FACE_SWAP_LIBRARY.slice(0, 5).map((face) => ({ url: face.url, title: `脸图 ${face.id}` })),
+                  label: t("examplesLabel"),
+                  images: FACE_SWAP_LIBRARY.slice(0, 5).map((face) => ({ url: face.url, title: t("faceImageTitle", { id: face.id }) })),
                   onSelect: (image) => {
                     setFaceUrl(image.url);
                     resetGenerationForInputChange();
@@ -851,12 +853,15 @@ export default function FaceSwapPage() {
           </StudioUploadSection>
 
           <section>
-            <PanelTitle title="换脸范围" />
+            <PanelTitle title={t("modeSectionTitle")} />
             <StudioOptionGrid
-              options={FACE_SWAP_MODE_OPTIONS}
+              options={FACE_SWAP_MODE_OPTIONS.map((opt) => ({
+                ...opt,
+                label: opt.value === "featuresHairSkin" ? t("modeFeatureHairSkin") : t("modeFeature"),
+              }))}
               value={faceSwapMode}
               columns={2}
-              ariaLabel="换脸范围"
+              ariaLabel={t("modeSectionTitle")}
               onChange={(value) => setFaceSwapMode(normalizeFaceSwapMode(value))}
             />
             <p className="mt-2 text-xs font-semibold leading-relaxed text-slate-500">
@@ -867,62 +872,62 @@ export default function FaceSwapPage() {
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-stone-100">
               <Activity className="h-4 w-4 text-[var(--codex-accent)]" />
-              生成模型
+              {t("modelSectionTitle")}
             </h3>
             <StudioModelSelector
-              models={MODELS}
+              models={MODELS.map((m) => ({ value: m.value, label: m.label, desc: t(m.descKey), badge: t(m.badgeKey), icon: m.icon }))}
               value={aiModel}
               onChange={setAiModel}
-              ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, normalizeImageSize(model.value, imageSizeValue, aspectRatio), aspectRatio)}分`}
+              ariaLabel={t("modelSectionTitle")}
+              getMeta={(model) => t("modelMeta", { desc: model.desc, cost: getCreditCost(model.value, normalizeImageSize(model.value, imageSizeValue, aspectRatio), aspectRatio) })}
             />
           </section>
 
           <section>
-            <PanelTitle title="画面比例" />
+            <PanelTitle title={t("aspectSectionTitle")} />
             <StudioOptionGrid
-              options={ASPECT_RATIOS}
+              options={ASPECT_RATIOS.map((r) => ({ value: r.value, label: r.labelKey ? t(r.labelKey) : r.label }))}
               value={aspectRatio}
-              ariaLabel="画面比例"
+              ariaLabel={t("aspectSectionTitle")}
               onChange={(value) => setAspectRatio(value as AspectRatio)}
             />
           </section>
 
           <section>
-            <PanelTitle title="分辨率" />
+            <PanelTitle title={t("sizeSectionTitle")} />
             <StudioOptionGrid
               options={supportedSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
+                label: t("sizeOption", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
               }))}
               value={imageSizeValue}
-              ariaLabel="分辨率"
+              ariaLabel={t("sizeSectionTitle")}
               onChange={(value) => setImageSize(value as ImageSize)}
             />
           </section>
 
           <section>
-            <PanelTitle title="生成数量" />
+            <PanelTitle title={t("countSectionTitle")} />
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
-              ariaLabel="生成数量"
+              ariaLabel={t("countSectionTitle")}
             />
           </section>
 
           <section>
-            <PanelTitle title="细节恢复" />
+            <PanelTitle title={t("textureEnhanceSectionTitle")} />
             <button
               type="button"
               onClick={() => setTextureEnhance((value) => !value)}
-              aria-label="画质增强"
+              aria-label={t("textureEnhanceAria")}
               aria-pressed={textureEnhance}
               className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-colors ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-[rgba(52,211,153,0.45)] dark:bg-[rgba(52,211,153,0.12)] dark:text-emerald-200" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:hover:border-white/20"}`}
             >
               <span>
-                <span className="block text-sm font-black">轻量细节恢复</span>
+                <span className="block text-sm font-black">{t("textureEnhanceLabel")}</span>
                 <span className="mt-1 block text-xs leading-relaxed text-slate-500">
-                  默认关闭；仅在布料细节明显糊时开启。开启后只做服装局部细节恢复，不改原图曝光、对比度、白平衡，不强化细密条纹或裤纹。
+                  {t("textureEnhanceDescription")}
                 </span>
               </span>
               <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${textureEnhance ? "bg-emerald-600" : "bg-neutral-200"}`}>
@@ -932,24 +937,24 @@ export default function FaceSwapPage() {
           </section>
 
           <StudioPromptTextarea
-            title="补充要求"
-            badge="可选"
+            title={t("promptTitle")}
+            badge={t("promptBadge")}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             rows={4}
             placeholder={faceSwapMode === "featuresHairSkin"
-              ? "可选：补充保留眼镜、雀斑、冷感表情等细节。当前模式会同步目标脸五官、发型、肤色和妆感。"
-              : "可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色、发型、表情和配饰。"}
-            description="补充说明会附加到系统提示词中，影响最终生成效果。"
+              ? t("promptPlaceholderHairSkin")
+              : t("promptPlaceholderFeatures")}
+            description={t("promptDescription")}
           />
         </div>
 
         <StudioRunBar
-          summary={sourceUrls.length > 1 ? `${sourceUrls.length} 张原图 × ${genCount} · ${faceSwapModeLabel} · ${imageSizeValue}` : `${genCount} 张 · ${faceSwapModeLabel} · ${imageSizeValue}`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          summary={sourceUrls.length > 1 ? t("summaryMulti", { sourceCount: sourceUrls.length, genCount, mode: faceSwapModeLabel, size: imageSizeValue }) : t("summarySingle", { genCount, mode: faceSwapModeLabel, size: imageSizeValue })}
+          costLabel={authIsAnonymous ? t("costLogin") : t("costConsume", { cost: totalCost, balance: credits ?? "-" })}
           disabled={!canGenerate}
           disabledReason={validationHint}
-          primaryLabel={status === "running" ? "生成中" : authIsAnonymous ? "登录后生成" : "开始换脸"}
+          primaryLabel={status === "running" ? t("generating") : authIsAnonymous ? t("loginGenerate") : t("generatePrimary")}
           isLoading={status === "running"}
           onPrimaryAction={() => void generate()}
           secondaryActions={undefined}
@@ -978,12 +983,12 @@ export default function FaceSwapPage() {
               onUseAsSource={(url) => {
                 setSourceUrls((prev) => [url, ...prev.filter((u) => u !== url)].slice(0, MAX_FACE_SWAP_SOURCE_IMAGES));
                 resetGenerationForInputChange();
-                toast.success("已添加为原始模特图");
+                toast.success(t("useAsSourceSuccess"));
               }}
               onUseAsFace={(url) => {
                 setFaceUrl(url);
                 resetGenerationForInputChange();
-                toast.success("已设为目标脸图");
+                toast.success(t("useAsFaceSuccess"));
               }}
               onRegenerate={() => void generate()}
               onRetryMissing={handleRetryFailedResult}
@@ -995,13 +1000,13 @@ export default function FaceSwapPage() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500">
                   <X className="h-6 w-6" />
                 </div>
-                <h2 className="mt-4 text-lg font-black text-slate-950 dark:text-stone-100">生成失败</h2>
+                <h2 className="mt-4 text-lg font-black text-slate-950 dark:text-stone-100">{t("generationFailed")}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-slate-500">{summarizeGenerationError(error)}</p>
                 <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
                   {FAILED_RETRY_NOTICE}
                 </p>
                 <button type="button" onClick={() => void generate()} className="gradient-brand mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-95">
-                  <RotateCcw className="h-4 w-4" /> 重新生成
+                  <RotateCcw className="h-4 w-4" /> {t("retryGenerate")}
                 </button>
               </div>
             </div>
@@ -1009,29 +1014,29 @@ export default function FaceSwapPage() {
           emptyState={(
             <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
               <PreviewGuide
-                title="上传原图和脸图，生成换脸结果"
-                subtitle="保留原图穿搭和场景，只替换脸部身份。"
+                title={t("emptyTitle")}
+                subtitle={t("emptySubtitle")}
                 steps={[
                   {
-                    title: "上传原图",
+                    title: t("stepSourceTitle"),
                     desc: "",
                     imageSrc: "/tutorial-guides/face-swap-source.webp",
-                    imageAlt: "换脸原图",
-                    badge: "原图",
+                    imageAlt: t("stepSourceAlt"),
+                    badge: t("stepSourceBadge"),
                   },
                   {
-                    title: "选择脸图",
+                    title: t("stepFaceTitle"),
                     desc: "",
                     imageSrc: "/tutorial-guides/face-swap-face.webp",
-                    imageAlt: "换脸脸图",
-                    badge: "脸图",
+                    imageAlt: t("stepFaceAlt"),
+                    badge: t("stepFaceBadge"),
                   },
                   {
-                    title: "生成结果",
+                    title: t("stepResultTitle"),
                     desc: "",
                     imageSrc: "/tutorial-guides/face-swap-result.webp",
-                    imageAlt: "换脸结果图",
-                    badge: "结果图",
+                    imageAlt: t("stepResultAlt"),
+                    badge: t("stepResultBadge"),
                   },
                 ]}
               />
@@ -1042,7 +1047,7 @@ export default function FaceSwapPage() {
 
       <StudioSideDrawer
         open={drawerOpen}
-        title="模特脸库"
+        title={t("faceLibraryLabel")}
         description={faceSwapModeNote}
         side="left"
         size="md"
@@ -1057,13 +1062,13 @@ export default function FaceSwapPage() {
                   aria-pressed={genderFilter === gender}
                   className={`face-swap-face-library-tab ${genderFilter === gender ? "face-swap-face-library-tab-active" : ""}`}
                 >
-                  {gender === "female" ? "女模特" : "男模特"}
+                  {gender === "female" ? t("femaleModel") : t("maleModel")}
                 </button>
               ))}
             </div>
             <div className="face-swap-face-library-grid">
               {faceLibrary.map((item, index) => {
-                const label = `${genderFilter === "female" ? "女模特" : "男模特"} ${String(index + 1).padStart(2, "0")}`;
+                const label = t("modelCardLabel", { gender: genderFilter === "female" ? t("femaleModel") : t("maleModel"), index: String(index + 1).padStart(2, "0") });
                 const active = faceUrl === item.url;
                 return (
                   <div
@@ -1078,7 +1083,7 @@ export default function FaceSwapPage() {
                         resetGenerationForInputChange();
                       }}
                       className="face-swap-face-library-select"
-                      aria-label={`选择${label}`}
+                      aria-label={t("selectLabel", { label })}
                     >
                       <span className="face-swap-face-library-image">
                         <RawPreviewImage src={item.url} alt={label} />
@@ -1089,8 +1094,8 @@ export default function FaceSwapPage() {
                       type="button"
                       onClick={() => openLightbox(item.url, `${label}：${faceSwapModeNote}`)}
                       className="face-swap-face-library-zoom"
-                      aria-label={`放大预览${label}`}
-                      title={`放大预览${label}`}
+                      aria-label={t("zoomLabel", { label })}
+                      title={t("zoomLabel", { label })}
                     >
                       <ZoomIn className="h-3.5 w-3.5" />
                     </button>
@@ -1107,7 +1112,7 @@ export default function FaceSwapPage() {
 
       <StudioMediaLightbox
         src={lightboxSrc}
-        alt={lightboxCaption || "换脸结果预览"}
+        alt={lightboxCaption || t("lightboxAlt")}
         caption={lightboxCaption || undefined}
         mediaClassName="rounded-3xl"
         onClose={closeLightbox}
@@ -1161,6 +1166,7 @@ function ResultsPanel({
   onRegenerate: () => void;
   onRetryMissing: (index: number) => void;
 }) {
+  const t = useTranslations("FaceSwap");
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const failed = task?.statusGroup === "failed";
   const completedPartial = Boolean(task?.statusGroup === "completed" && urls.filter(Boolean).length < count);
@@ -1191,12 +1197,12 @@ function ResultsPanel({
     faceUrl,
     promptText: prompt,
     metaItems: [
-      { label: "模型", value: aiModel },
-      { label: "比例", value: aspectRatio },
-      { label: "分辨率", value: imageSize },
-      { label: "换脸范围", value: getFaceSwapModeLabel(faceSwapMode) },
-      { label: "纹理增强", value: textureEnhance ? "开启" : "关闭" },
-      { label: "生成数量", value: count },
+      { label: t("metaModel"), value: aiModel },
+      { label: t("metaAspect"), value: aspectRatio },
+      { label: t("metaResolution"), value: imageSize },
+      { label: t("metaMode"), value: faceSwapMode === "featuresHairSkin" ? t("modeFeatureHairSkin") : t("modeFeature") },
+      { label: t("metaTexture"), value: textureEnhance ? t("textureOn") : t("textureOff") },
+      { label: t("metaCount"), value: count },
     ],
     aspectRatio,
   });
@@ -1220,19 +1226,19 @@ function ResultsPanel({
             isGenerating={isGenerating}
             createdAt={task?.createdAt}
             statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
-            imageAltPrefix="换脸结果"
+            imageAltPrefix={t("resultImageAlt")}
             variant="task"
             inputReferences={[
-              ...sourceUrls.map((url, index) => ({ url, label: `原图 ${index + 1}` })),
-              ...(faceUrl ? [{ url: faceUrl, label: "目标脸" }] : []),
+              ...sourceUrls.map((url, index) => ({ url, label: t("sourceImageLabel", { index: index + 1 }) })),
+              ...(faceUrl ? [{ url: faceUrl, label: t("targetFaceLabel") }] : []),
             ]}
-            failureLabel="生成失败"
+            failureLabel={t("generationFailed")}
             failureDetail={failed ? buildFailedTaskDetail(task?.error || undefined) : undefined}
             markMissingAsFailed={completedPartial}
             markMissingAsCompleted={Boolean(task?.statusGroup === "completed") && !completedPartial}
-            missingFailureLabel="本张生成失败"
+            missingFailureLabel={t("missingFailureLabel")}
             missingFailureDetail={partialFailureMessage}
-            missingFailureActionLabel="重试本张"
+            missingFailureActionLabel={t("missingFailureActionLabel")}
             onMissingFailureAction={onRetryMissing}
             onOpen={(_, index) => setPreviewIndex(index)}
           
@@ -1248,19 +1254,19 @@ function ResultsPanel({
             isGenerating={isGenerating}
             createdAt={task?.createdAt}
             statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
-            imageAltPrefix={`换脸结果 ${sIndex + 1}`}
+            imageAltPrefix={`${t("resultImageAlt")} ${sIndex + 1}`}
             variant="task"
             inputReferences={[
-              { url: sourceUrl, label: `原图 ${sIndex + 1}` },
-              ...(faceUrl ? [{ url: faceUrl, label: "目标脸" }] : []),
+              { url: sourceUrl, label: t("sourceImageLabel", { index: sIndex + 1 }) },
+              ...(faceUrl ? [{ url: faceUrl, label: t("targetFaceLabel") }] : []),
             ]}
-            failureLabel="生成失败"
+            failureLabel={t("generationFailed")}
             failureDetail={failed ? buildFailedTaskDetail(task?.error || undefined) : undefined}
             markMissingAsFailed={completedPartial}
             markMissingAsCompleted={Boolean(task?.statusGroup === "completed") && !completedPartial}
-            missingFailureLabel="本张生成失败"
+            missingFailureLabel={t("missingFailureLabel")}
             missingFailureDetail={partialFailureMessage}
-            missingFailureActionLabel="重试本张"
+            missingFailureActionLabel={t("missingFailureActionLabel")}
             onMissingFailureAction={(idx) => {
               if (onRetryMissing) onRetryMissing(sIndex * perSourceCount + idx);
             }}
@@ -1277,7 +1283,21 @@ function ResultsPanel({
         selectedIndex={previewIndex || 0}
         onSelectedIndexChange={setPreviewIndex}
         filenamePrefix="face-swap"
-        actions={FACE_SWAP_PREVIEW_ACTIONS}
+        actions={FACE_SWAP_PREVIEW_ACTIONS.map((a) => {
+          const key: Record<string, string> = {
+            download: "previewDownload",
+            copy: "previewCopy",
+            useAsSource: "previewUseAsSource",
+            useAsFace: "previewUseAsFace",
+            aiVideo: "previewAiVideo",
+            modelBackground: "previewModelBackground",
+            pose: "previewPose",
+            productSet: "previewProductSet",
+            regenerateAll: "previewRegenerateAll",
+            feedback: "previewFeedback",
+          };
+          return { ...a, label: t(key[a.kind]) };
+        })}
         onUseAsSource={onUseAsSource}
         onUseAsFace={onUseAsFace}
         onRegenerateAll={onRegenerate}

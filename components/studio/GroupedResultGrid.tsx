@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from "react";
 import { CheckCircle2, Download, Loader2, RotateCcw, X as XIcon, ZoomIn } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
@@ -59,7 +60,6 @@ export type GroupedResultGridProps = {
   failureDetail?: string;
 };
 
-const DEFAULT_DISCLAIMER = "因产品处于持续学习调优阶段，可能有不恰当的信息，请您谨慎甄别。";
 const DEFAULT_CELL_ASPECT = "3 / 4";
 
 function formatTaskTimestamp(value?: string | null, fallback?: string) {
@@ -75,7 +75,7 @@ export function GroupedResultGrid({
   sources,
   targets,
   results,
-  disclaimer = DEFAULT_DISCLAIMER,
+  disclaimer,
   createdAt,
   onOpen,
   onRetry,
@@ -83,6 +83,8 @@ export function GroupedResultGrid({
   failureLabel,
   failureDetail,
 }: GroupedResultGridProps) {
+  const t = useTranslations("Shared");
+  const resolvedDisclaimer = disclaimer ?? t("groupIdDisclaimer");
   const cellMap = useMemo(() => {
     const map = new Map<string, GroupedResultCell>();
     for (const cell of results) {
@@ -113,7 +115,7 @@ export function GroupedResultGrid({
 
   return (
     <div className="studio-result-set w-full max-w-[min(1480px,100%)]">
-      <p className="studio-result-disclaimer">{disclaimer}</p>
+      <p className="studio-result-disclaimer">{resolvedDisclaimer}</p>
       <p className="studio-result-time">{timestamp}</p>
 
       <div className="grid w-full gap-3 sm:gap-4" style={gridStyle}>
@@ -242,6 +244,7 @@ const ResultCellView = memo(function ResultCellView({
   onOpen,
   onRetry,
 }: ResultCellViewProps) {
+  const t = useTranslations("Shared");
   const status: GroupedResultCellStatus = cell?.status ?? "idle";
   const url = cell?.url ?? null;
   const progress = Math.max(0, Math.min(99, Math.round(Number(cell?.progress || 0))));
@@ -250,7 +253,7 @@ const ResultCellView = memo(function ResultCellView({
   const completed = status === "completed" && Boolean(url);
 
   const cellStyle = { aspectRatio: cellAspect } as React.CSSProperties;
-  const effectiveFailureLabel = failureLabel || cell?.failureLabel || "本张生成失败";
+  const effectiveFailureLabel = failureLabel || cell?.failureLabel || t("thisImageFailed");
   const effectiveFailureDetail = failureDetail || cell?.failureDetail;
 
   // 通过 URL 的 hash 简单映射到序号，保证下载文件名稳定递增
@@ -277,19 +280,19 @@ const ResultCellView = memo(function ResultCellView({
             type="button"
             onClick={onOpen}
             className="absolute inset-0 z-[1]"
-            aria-label={`查看 ${sourceLabel} × ${targetLabel} 结果`}
+            aria-label={t("viewGroupResult", { source: sourceLabel, target: targetLabel })}
           >
-            <span className="sr-only">查看 {sourceLabel} {targetLabel}</span>
+            <span className="sr-only">{t("viewGroupSr", { source: sourceLabel, target: targetLabel })}</span>
           </button>
           <RawPreviewImage src={url} alt={`${sourceLabel} ${targetLabel}`} className="absolute inset-0 h-full w-full object-cover" />
           <span className="pointer-events-none absolute left-1.5 top-1.5 z-[2] inline-flex h-6 items-center gap-1 rounded-full bg-emerald-500/95 px-2 text-[10px] font-black text-white shadow-sm">
             <CheckCircle2 className="h-3 w-3" />
-            完成
+            {t("completed")}
           </span>
           <button
             type="button"
-            aria-label={`下载 ${sourceLabel} ${targetLabel}`}
-            title="下载"
+            aria-label={t("downloadGroup", { source: sourceLabel, target: targetLabel })}
+            title={t("download")}
             onClick={(event) => {
               event.stopPropagation();
               downloadCurrent();
@@ -317,21 +320,21 @@ const ResultCellView = memo(function ResultCellView({
                   className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-500 px-2.5 py-1 text-[10px] font-black text-white shadow-sm transition hover:bg-rose-600"
                 >
                   <RotateCcw className="h-3 w-3" />
-                  重试
+                  {t("retry")}
                 </button>
               ) : null}
             </>
           ) : running ? (
             <>
               <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" />
-              <p className="text-[12px] font-black text-violet-700">{progress ? `${progress}%` : "生成中"}</p>
+              <p className="text-[12px] font-black text-violet-700">{progress ? `${progress}%` : t("generating")}</p>
             </>
           ) : (
             <>
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-200/70 text-slate-400">
                 <ZoomIn className="h-4 w-4" />
               </span>
-              <p className="text-[12px] font-semibold text-slate-400">等待生成</p>
+              <p className="text-[12px] font-semibold text-slate-400">{t("waitingToGenerate")}</p>
             </>
           )}
         </div>

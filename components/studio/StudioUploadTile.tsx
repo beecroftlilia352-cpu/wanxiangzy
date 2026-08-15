@@ -2,6 +2,7 @@
 
 import { CirclePlus, FolderOpen, Loader2, Upload, X, ZoomIn } from "lucide-react";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import type { StableFileDragContext } from "@/components/studio/useStableFileDrag";
 import { StudioUploadExamples, type StudioUploadTileExample } from "@/components/studio/StudioUploadExamples";
@@ -60,9 +61,9 @@ export function StudioUploadTile({
   onRemove,
   onDropFile,
   dragContext,
-  uploadLabel = "从本地上传",
-  libraryLabel = "从作品库选择",
-  loadingLabel = "上传中…",
+  uploadLabel,
+  libraryLabel,
+  loadingLabel,
   supportBadge,
   footnote,
   imageRequirement,
@@ -71,6 +72,10 @@ export function StudioUploadTile({
   tipsAction,
   actions,
 }: StudioUploadTileProps) {
+  const t = useTranslations("Shared");
+  const resolvedUploadLabel = uploadLabel ?? t("uploadFromLocal");
+  const resolvedLibraryLabel = libraryLabel ?? t("uploadFromLibrary");
+  const resolvedLoadingLabel = loadingLabel ?? t("uploading");
   const activate = imageUrl && onPreview ? onPreview : onUploadClick;
   const hasExamples = Boolean(examples?.images.length);
   const [isFileOver, setIsFileOver] = useState(false);
@@ -137,7 +142,7 @@ export function StudioUploadTile({
             onClick={activate}
             disabled={disabled || loading}
             className="studio-upload-tile-main"
-            aria-label={`预览${title}`}
+            aria-label={t("previewImage", { title })}
           >
             <RawPreviewImage src={getImageVariantUrl(imageUrl, "card")} alt={imageAlt} className="h-full w-full object-contain p-3" />
             {fileName ? (
@@ -145,7 +150,7 @@ export function StudioUploadTile({
             ) : null}
           </button>
         ) : (
-          <div className="studio-upload-tile-empty" aria-label={`上传${title}`}>
+          <div className="studio-upload-tile-empty" aria-label={t("upload", { title })}>
             <button
               type="button"
               onClick={onUploadClick}
@@ -170,7 +175,7 @@ export function StudioUploadTile({
                 className="studio-upload-tile-primary"
               >
                 {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                {loading ? loadingLabel : uploadLabel}
+                {loading ? resolvedLoadingLabel : resolvedUploadLabel}
               </button>
               {onLibraryClick && (
                 <button
@@ -180,7 +185,7 @@ export function StudioUploadTile({
                   className="studio-upload-tile-secondary"
                 >
                   <FolderOpen className="h-3.5 w-3.5" />
-                  {libraryLabel}
+                  {resolvedLibraryLabel}
                 </button>
               )}
             </span>
@@ -202,12 +207,12 @@ export function StudioUploadTile({
       {imageUrl && (
         <div className="studio-upload-tile-actions">
           {onPreview && (
-            <button type="button" onClick={onPreview} disabled={disabled || loading} className="studio-icon-button" aria-label={`放大${title}`} title={`放大${title}`}>
+            <button type="button" onClick={onPreview} disabled={disabled || loading} className="studio-icon-button" aria-label={t("zoomImage", { label: title })} title={t("zoomImage", { label: title })}>
               <ZoomIn className="h-3.5 w-3.5" />
             </button>
           )}
           {onRemove && (
-            <button type="button" onClick={onRemove} disabled={disabled || loading} className="studio-icon-button studio-icon-button-danger" aria-label={`删除${title}`} title={`删除${title}`}>
+            <button type="button" onClick={onRemove} disabled={disabled || loading} className="studio-icon-button studio-icon-button-danger" aria-label={t("deleteTitle", { title })} title={t("deleteTitle", { title })}>
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -219,7 +224,7 @@ export function StudioUploadTile({
         <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/72 backdrop-blur-[2px]">
           <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-slate-700 shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
             <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" />
-            <span>{loadingLabel}</span>
+            <span>{resolvedLoadingLabel}</span>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, CirclePlus, FolderOpen, Images, Loader2, Trash2, Upload, X, ZoomIn } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { StudioUploadExamples, type StudioUploadTileExample } from "@/components/studio/StudioUploadExamples";
@@ -47,12 +48,12 @@ export function StudioMultiImageUpload({
   emptyTitle,
   description,
   emptyDescription,
-  itemLabelPrefix = "图",
+  itemLabelPrefix,
   loading,
   disabled,
   isDragging,
-  uploadLabel = "从本地上传",
-  libraryLabel = "从作品选择",
+  uploadLabel,
+  libraryLabel,
   summary,
   footnote,
   imageRequirement,
@@ -67,6 +68,10 @@ export function StudioMultiImageUpload({
   onClear,
   examples,
 }: StudioMultiImageUploadProps) {
+  const t = useTranslations("Shared");
+  const resolvedItemLabelPrefix = itemLabelPrefix ?? t("itemPrefixImage");
+  const resolvedUploadLabel = uploadLabel ?? t("uploadFromLocal");
+  const resolvedLibraryLabel = libraryLabel ?? t("librarySelect");
   const count = urls.length;
   const hasImages = count > 0;
   const remaining = Math.max(maxCount - count, 0);
@@ -79,7 +84,7 @@ export function StudioMultiImageUpload({
       footnote,
       imageRequirement,
     });
-  const exampleLabel = examples?.label || "试一试";
+  const exampleLabel = examples?.label || t("tryIt");
 
   return (
     <div
@@ -89,7 +94,7 @@ export function StudioMultiImageUpload({
       <div className="studio-upload-tile-panel">
         {isDragging && (
           <div className="studio-multi-image-drag-overlay">
-            {remaining > 0 ? `松开上传图片，还可添加 ${remaining} 张` : `最多 ${maxCount} 张，请先移除一张`}
+            {remaining > 0 ? t("dragReleaseAdd", { remaining }) : t("dragMaxReached", { maxCount })}
           </div>
         )}
 
@@ -103,12 +108,12 @@ export function StudioMultiImageUpload({
             </div>
             <div className="studio-multi-image-header-actions">
               {hasImages && onClear && (
-                <button type="button" onClick={onClear} disabled={disabled || loading} className="studio-multi-image-clear" aria-label={`清空${title}`}>
+                <button type="button" onClick={onClear} disabled={disabled || loading} className="studio-multi-image-clear" aria-label={t("clearTitle", { title })}>
                   <Trash2 className="h-3.5 w-3.5" />
-                  清空
+                  {t("clear")}
                 </button>
               )}
-              <span className="studio-multi-image-count">{count}/{maxCount} 张</span>
+              <span className="studio-multi-image-count">{t("countUnit", { count, max: maxCount })}</span>
             </div>
           </div>
 
@@ -121,7 +126,7 @@ export function StudioMultiImageUpload({
                     className="studio-multi-image-preview"
                     onClick={() => onPreview?.(url, index)}
                     disabled={disabled || !onPreview}
-                    aria-label={`预览${itemLabelPrefix}${index + 1}`}
+                    aria-label={t("previewItem", { prefix: resolvedItemLabelPrefix, index: index + 1 })}
                   >
                     <RawPreviewImage
                       src={getImageVariantUrl(url, "card")}
@@ -137,8 +142,8 @@ export function StudioMultiImageUpload({
                         onClick={() => onMove(index, index - 1)}
                         disabled={disabled || loading}
                         className="studio-icon-button"
-                        aria-label={`将${itemLabelPrefix}${index + 1}前移`}
-                        title="前移"
+                        aria-label={t("moveItemForward", { label: `${resolvedItemLabelPrefix}${index + 1}` })}
+                        title={t("moveForward")}
                       >
                         <ArrowLeft className="h-3.5 w-3.5" />
                       </button>
@@ -149,18 +154,18 @@ export function StudioMultiImageUpload({
                         onClick={() => onMove(index, index + 1)}
                         disabled={disabled || loading}
                         className="studio-icon-button"
-                        aria-label={`将${itemLabelPrefix}${index + 1}后移`}
-                        title="后移"
+                        aria-label={t("moveItemBackward", { label: `${resolvedItemLabelPrefix}${index + 1}` })}
+                        title={t("moveBackward")}
                       >
                         <ArrowRight className="h-3.5 w-3.5" />
                       </button>
                     )}
                     {onPreview && (
-                      <button type="button" onClick={() => onPreview(url, index)} className="studio-icon-button" aria-label={`放大${itemLabelPrefix}${index + 1}`} title="预览">
+                      <button type="button" onClick={() => onPreview(url, index)} className="studio-icon-button" aria-label={t("previewItem", { prefix: resolvedItemLabelPrefix, index: index + 1 })} title={t("preview")}>
                         <ZoomIn className="h-3.5 w-3.5" />
                       </button>
                     )}
-                    <button type="button" onClick={() => onRemove(url, index)} disabled={disabled || loading} className="studio-icon-button studio-icon-button-danger" aria-label={`移除${itemLabelPrefix}${index + 1}`} title="移除">
+                    <button type="button" onClick={() => onRemove(url, index)} disabled={disabled || loading} className="studio-icon-button studio-icon-button-danger" aria-label={t("removeItem", { label: `${resolvedItemLabelPrefix}${index + 1}` })} title={t("remove")}>
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -173,11 +178,11 @@ export function StudioMultiImageUpload({
                   onClick={onUploadClick}
                   disabled={!canAdd}
                   className="studio-multi-image-add-card"
-                  aria-label={`继续上传${title}`}
+                  aria-label={t("continueUpload", { title })}
                 >
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CirclePlus className="h-5 w-5" />}
-                  <span>添加图片</span>
-                  <small>还可 {remaining} 张</small>
+                  <span>{t("addImage")}</span>
+                  <small>{t("canAddMore", { remaining })}</small>
                 </button>
               )}
             </div>
@@ -188,7 +193,7 @@ export function StudioMultiImageUpload({
               </span>
               <span className="studio-multi-image-empty-title">{emptyTitle}</span>
               <span className="studio-multi-image-empty-text">{emptyDescription || description}</span>
-              <span className="studio-multi-image-empty-badge">最多 {maxCount} 张</span>
+              <span className="studio-multi-image-empty-badge">{t("maxCountBadge", { maxCount })}</span>
             </button>
           )}
 
@@ -197,13 +202,13 @@ export function StudioMultiImageUpload({
               {remaining > 0 && (
                 <button type="button" onClick={onUploadClick} disabled={!canAdd} className="studio-upload-tile-primary">
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  {loading ? "上传中…" : uploadLabel}
+                  {loading ? t("uploading") : resolvedUploadLabel}
                 </button>
               )}
               {onLibraryClick && (
                 <button type="button" onClick={onLibraryClick} disabled={disabled || loading} className="studio-upload-tile-secondary">
                   <FolderOpen className="h-3.5 w-3.5" />
-                  {libraryLabel}
+                  {resolvedLibraryLabel}
                 </button>
               )}
             </div>
@@ -228,7 +233,7 @@ export function StudioMultiImageUpload({
         <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/62 backdrop-blur-[2px]">
           <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-slate-700 shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
             <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" />
-            <span>上传中...</span>
+            <span>{t("uploadingDots")}</span>
           </div>
         </div>
       )}

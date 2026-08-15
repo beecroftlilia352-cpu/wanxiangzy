@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { isLikelyVideoUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
@@ -53,11 +54,13 @@ const TASK_RAIL_MIN_LOAD_GAP_MS = 15_000;
 
 export function StudioTaskRail({
   module,
-  moduleLabel = "当前模块",
+  moduleLabel,
   onContinue,
   onSelectTask,
   className,
 }: StudioTaskRailProps) {
+  const t = useTranslations("Shared");
+  const resolvedModuleLabel = moduleLabel ?? t("currentModule");
   const moduleState = useTaskQueueStore((state) => state.modules[module]);
   const hydrateModule = useTaskQueueStore((state) => state.hydrateModule);
   const applyServerRows = useTaskQueueStore((state) => state.applyServerRows);
@@ -176,7 +179,7 @@ export function StudioTaskRail({
       snapshotHasFailedRef.current = true;
       setModuleLoadingFailed(module, true);
       if (!wasFailed) {
-        toast.error("网络连接异常", { description: "任务列表加载失败，请检查网络后重试" });
+        toast.error(t("networkError"), { description: t("taskListLoadFailed") });
       }
       return null;
     } finally {
@@ -312,7 +315,7 @@ export function StudioTaskRail({
       .catch((error) => {
         if (!session.isCurrent()) return;
         console.error("Task auto selection failed", error);
-        toast.error(error instanceof Error ? error.message : "任务套用失败，请手动重试");
+        toast.error(error instanceof Error ? error.message : t("taskApplyFailed"));
       })
       .finally(session.finish);
   }, [beginSelection, rows, onSelectTask, selectedId]);
@@ -329,7 +332,7 @@ export function StudioTaskRail({
       .catch((error) => {
         if (!session.isCurrent()) return;
         console.error("Task selection failed", error);
-        toast.error(error instanceof Error ? error.message : "任务套用失败，请重试");
+        toast.error(error instanceof Error ? error.message : t("taskApplyFailedRetry"));
       })
       .finally(session.finish);
   };
@@ -391,7 +394,7 @@ export function StudioTaskRail({
         initialLoading && "studio-task-rail-loading",
         className
       )}
-      aria-label="任务列表"
+      aria-label={t("taskList")}
       aria-busy={initialLoading || loading}
     >
       <div className="flex h-full min-h-0 flex-col">
@@ -404,11 +407,11 @@ export function StudioTaskRail({
           <div className={cn("min-w-0 flex-1", !expanded && "flex justify-center")}>
             <div className={cn("flex items-center font-black text-slate-900", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[12px] leading-4")}>
               {expanded && <History className="h-4 w-4 text-blue-500" />}
-              <span className="whitespace-nowrap">{expanded ? "全部任务" : "最近任务"}</span>
+              <span className="whitespace-nowrap">{expanded ? t("allTasks") : t("recentTasks")}</span>
             </div>
             {expanded && (
               <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">
-                {moduleOnly ? moduleLabel : "全部模块"} · {summary.totalTaskNum} 个任务
+                {moduleOnly ? resolvedModuleLabel : t("allModules")} · {t("taskCountSuffix", { count: summary.totalTaskNum })}
               </p>
             )}
           </div>
@@ -417,8 +420,8 @@ export function StudioTaskRail({
               type="button"
               onClick={() => setExpanded(false)}
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-              aria-label="收起全部任务"
-              title="收起全部任务"
+              aria-label={t("collapseAllTasks")}
+              title={t("collapseAllTasks")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -433,23 +436,23 @@ export function StudioTaskRail({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="min-w-0 flex-1 bg-transparent font-semibold text-slate-700 outline-none placeholder:text-slate-300 dark:text-stone-200 dark:placeholder:text-stone-500"
-                placeholder="搜索任务号"
+                placeholder={t("searchTaskPlaceholder")}
               />
             </label>
             <div className="grid grid-cols-2 gap-2">
               <SegmentButton active={moduleOnly} onClick={() => setModuleOnly(true)}>
-                {moduleLabel}
+                {resolvedModuleLabel}
               </SegmentButton>
               <SegmentButton active={!moduleOnly} onClick={() => setModuleOnly(false)}>
-                全部模块
+                {t("allModules")}
               </SegmentButton>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <SegmentButton active={displayMode === "flat"} onClick={() => setDisplayMode("flat")} icon={<Grid2X2 className="h-3.5 w-3.5" />}>
-                平铺图片
+                {t("flatView")}
               </SegmentButton>
               <SegmentButton active={displayMode === "grouped"} onClick={() => setDisplayMode("grouped")} icon={<Layers3 className="h-3.5 w-3.5" />}>
-                任务拼图
+                {t("groupedView")}
               </SegmentButton>
             </div>
           </div>
@@ -490,11 +493,11 @@ export function StudioTaskRail({
                   {autoLoadStarted ? (
                     <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      正在加载
+                      {t("loadingMore")}
                     </span>
                   ) : (
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
-                      滚动到底部自动加载
+                      {t("scrollToLoadMore")}
                     </span>
                   )}
                 </div>
@@ -514,7 +517,7 @@ export function StudioTaskRail({
               <Progress
                 value={loadProgress}
                 className="h-1 bg-slate-100"
-                aria-label={`已加载 ${totalLoaded}/${totalAvailable}`}
+                aria-label={t("loadedProgress", { loaded: totalLoaded, total: totalAvailable })}
               />
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-1.5">
@@ -525,8 +528,8 @@ export function StudioTaskRail({
                   )}
                   <span className="truncate text-[11px] font-black text-slate-600">
                     {totalAvailable > 0
-                      ? `已加载 ${totalLoaded} / ${totalAvailable} · ${loadProgress}%`
-                      : `已加载 ${totalLoaded} 条`}
+                      ? t("loadedSummary", { loaded: totalLoaded, total: totalAvailable, percent: loadProgress })
+                      : t("loadedCount", { loaded: totalLoaded })}
                   </span>
                 </div>
                 <button
@@ -535,7 +538,7 @@ export function StudioTaskRail({
                   className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-                  刷新
+                  {t("refresh")}
                 </button>
               </div>
               {canLoadMore ? (
@@ -548,11 +551,11 @@ export function StudioTaskRail({
                   {loading ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      加载中…
+                      {t("loadingDots")}
                     </>
                   ) : (
                     <>
-                      加载更多
+                      {t("loadMore")}
                       <ChevronDown className="h-3.5 w-3.5" />
                     </>
                   )}
@@ -560,7 +563,7 @@ export function StudioTaskRail({
               ) : (
                 <div className="flex items-center justify-center gap-1 rounded-lg border border-emerald-100 bg-emerald-50/80 py-2 text-[11px] font-black text-emerald-700">
                   <Check className="h-3 w-3" />
-                  已加载全部
+                  {t("allLoaded")}
                 </div>
               )}
             </div>
@@ -570,7 +573,7 @@ export function StudioTaskRail({
               onClick={() => setExpanded(true)}
               className="inline-flex h-9 w-full items-center justify-center gap-0.5 whitespace-nowrap rounded-lg px-1 text-[12px] font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              全部任务
+              {t("allTasks")}
               <ChevronRight className="h-3 w-3" />
             </button>
           )}
@@ -581,6 +584,7 @@ export function StudioTaskRail({
 }
 
 function ContinueCard({ selected, disabled = false, onClick }: { selected: boolean; disabled?: boolean; onClick: () => void }) {
+  const t = useTranslations("Shared");
   return (
     <button
       type="button"
@@ -592,7 +596,7 @@ function ContinueCard({ selected, disabled = false, onClick }: { selected: boole
         selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)] dark:border-[rgba(91,140,255,0.55)] dark:bg-[rgba(91,140,255,0.18)]" : "border-slate-100 dark:border-white/10"
       )}
     >
-      <span className="max-w-[3.5em] whitespace-normal break-keep">继续创建</span>
+      <span className="max-w-[3.5em] whitespace-normal break-keep">{t("continueCreate")}</span>
       {selected && <span className="absolute -right-2 top-2 h-[54px] w-1 rounded-full bg-blue-500" />}
     </button>
   );
@@ -646,6 +650,7 @@ function TaskCard({
   displayMode: TaskDisplayMode;
   onClick: () => void;
 }) {
+  const t = useTranslations("Shared");
   const running = isTaskRunning(item);
   const failed = item.statusGroup === "failed";
   const resultThumbnails = safeTaskUrls(item.resultThumbnails);
@@ -699,14 +704,14 @@ function TaskCard({
             {applying ? (
               <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 text-[10px] font-black text-blue-600">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                套用中
+                {t("applying")}
               </span>
             ) : (
               <StatusPill item={item} />
             )}
           </div>
           <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
-            {failed ? item.error || "任务失败，可套用参数重试" : getTaskMeta(item, progress)}
+            {failed ? item.error || t("taskFailedRetry") : getTaskMeta(item, progress, t)}
           </p>
           <TaskPreviewStrip item={item} displayMode={displayMode} />
         </div>
@@ -730,6 +735,7 @@ function TaskThumb({
   compact?: boolean;
   className?: string;
 }) {
+  const t = useTranslations("Shared");
   const isVideo = isLikelyVideoUrl(url);
   const displayUrl = isVideo ? url : getImageVariantUrl(url, "thumb");
 
@@ -766,13 +772,13 @@ function TaskThumb({
       {running && (
         <span className="absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1 rounded bg-blue-600/90 px-1.5 py-0.5 text-[9px] font-black leading-none text-white shadow-sm">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" />
-          <span className="truncate">生成中</span>
+          <span className="truncate">{t("generating")}</span>
         </span>
       )}
       {applying && !running && (
         <span className="absolute inset-0 z-[2] flex items-center justify-center gap-1 bg-white/70 text-[10px] font-semibold text-blue-600 backdrop-blur-[1px]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          {compact && <span>套用中</span>}
+          {compact && <span>{t("applying")}</span>}
         </span>
       )}
       {failed && <span className="absolute inset-x-0 bottom-0 z-[2] h-1 bg-red-400" />}
@@ -862,6 +868,7 @@ function TaskStripImage({ url }: { url: string }) {
 }
 
 function StatusPill({ item }: { item: TaskQueueItem }) {
+  const t = useTranslations("Shared");
   const progress = clampProgress(item.progress);
   const className = item.statusGroup === "failed"
     ? "bg-red-50 text-red-600"
@@ -871,7 +878,7 @@ function StatusPill({ item }: { item: TaskQueueItem }) {
   return (
     <span className={cn("inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-black", className)}>
       {isTaskRunning(item) && <Loader2 className="h-3 w-3 animate-spin" />}
-      {statusText(item, progress)}
+      {statusText(item, progress, t)}
     </span>
   );
 }
@@ -911,7 +918,7 @@ function TaskRailSkeleton({ compact }: { compact: boolean }) {
 
 function TaskRailEmpty({
   compact = false,
-  moduleLabel = "当前模块",
+  moduleLabel,
   failed = false,
   onRetry,
 }: {
@@ -920,6 +927,8 @@ function TaskRailEmpty({
   failed?: boolean;
   onRetry?: () => void;
 }) {
+  const t = useTranslations("Shared");
+  const resolvedModuleLabel = moduleLabel ?? t("currentModule");
   return (
     <div
       className={cn(
@@ -928,10 +937,10 @@ function TaskRailEmpty({
       )}
     >
       {failed ? <RefreshCw className="mb-2 h-5 w-5 text-amber-500" /> : <Clock3 className="mb-2 h-5 w-5 text-[var(--codex-accent)]" />}
-      <span>{failed ? (compact ? "重试" : "任务加载失败") : compact ? "暂无" : `${moduleLabel}暂无任务`}</span>
+      <span>{failed ? (compact ? t("retry") : t("taskLoadFailed")) : compact ? t("noTasks") : t("noModuleTasks", { label: resolvedModuleLabel })}</span>
       {!compact && (
         <span className="mt-1 text-[11px] font-medium text-slate-400">
-          {failed ? "网络或接口暂时不可用，可以手动刷新。" : "生成后会自动出现在这里"}
+          {failed ? t("networkRetryHint") : t("appearAfterGenerate")}
         </span>
       )}
       {failed && onRetry ? (
@@ -943,28 +952,28 @@ function TaskRailEmpty({
             compact ? "h-7 px-2 text-[11px]" : "h-8 px-3 text-xs"
           )}
         >
-          刷新
+          {t("refresh")}
         </button>
       ) : null}
     </div>
   );
 }
 
-function statusText(item: TaskQueueItem, progress: number) {
-  if (item.statusGroup === "queued") return "排队中";
-  if (item.status === "processing_delayed") return "后台处理中";
-  if (item.statusGroup === "running") return progress > 0 ? `${progress}%` : "生成中";
-  if (item.statusGroup === "failed") return "失败";
-  return "已完成";
+function statusText(item: TaskQueueItem, progress: number, t: (key: string) => string) {
+  if (item.statusGroup === "queued") return t("queued");
+  if (item.status === "processing_delayed") return t("backgroundProcessing");
+  if (item.statusGroup === "running") return progress > 0 ? `${progress}%` : t("generating");
+  if (item.statusGroup === "failed") return t("failed");
+  return t("completed");
 }
 
-function getTaskMeta(item: TaskQueueItem, progress: number) {
+function getTaskMeta(item: TaskQueueItem, progress: number, t: (key: string) => string) {
   if (isTaskRunning(item)) {
-    const pieces = [item.status === "processing_delayed" ? "生成时间较长" : item.expectedCount > 4 ? "多图任务耗时较长" : "预计几分钟"];
+    const pieces = [item.status === "processing_delayed" ? t("processingDelayed") : item.expectedCount > 4 ? t("multiImageLonger") : t("estimatedMinutes")];
     if (progress > 0) pieces.unshift(`${progress}%`);
     return pieces.join(" · ");
   }
-  if (item.resultCount > 0) return `${item.resultCount}/${item.expectedCount} 张 · ${item.time || "已完成"}`;
+  if (item.resultCount > 0) return `${item.resultCount}/${item.expectedCount} ${t("unitZhang")} · ${item.time || t("completedMeta")}`;
   return item.time || item.status;
 }
 

@@ -2,29 +2,39 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AlertCircle, Check, CircleDollarSign, Crown, Loader2, Sparkles, Zap } from "lucide-react";
 import { getImageCreditCostRange, IMAGE_CREDIT_COSTS, VIDEO_CREDIT_RATES } from "@/lib/model-pricing";
 import { cn } from "@/lib/utils";
 
 type PricingMode = "credits" | "subscription";
 
+type T = (key: string, values?: Record<string, string | number | Date>) => string;
+
+type UsageRule = {
+  id: string;
+  valueKey: string;
+  valueVars: Record<string, string | number>;
+  labelKey: string;
+};
+
 type CreditPlan = {
   key: string;
-  title: string;
+  titleKey: string;
   price: number;
   baseCredits: number;
   bonusCredits: number;
   savings?: number;
   featured?: boolean;
-  enterpriseNote?: string;
+  enterpriseNoteKey?: string;
 };
 
 const CREDIT_PLANS: CreditPlan[] = [
-  { key: "starter", title: "入门版", price: 35, baseCredits: 250, bonusCredits: 0 },
-  { key: "pro", title: "专业版", price: 140, baseCredits: 1000, bonusCredits: 200, savings: 17 },
+  { key: "starter", titleKey: "starter", price: 35, baseCredits: 250, bonusCredits: 0 },
+  { key: "pro", titleKey: "pro", price: 140, baseCredits: 1000, bonusCredits: 200, savings: 17 },
   {
     key: "business",
-    title: "企业版",
+    titleKey: "business",
     price: 700,
     baseCredits: 5000,
     bonusCredits: 2000,
@@ -33,12 +43,12 @@ const CREDIT_PLANS: CreditPlan[] = [
   },
   {
     key: "premium",
-    title: "豪华版",
+    titleKey: "premium",
     price: 3500,
     baseCredits: 25000,
     bonusCredits: 13000,
     savings: 34,
-    enterpriseNote: "支持开通转灵点给子账号功能，提供专属产品支持群",
+    enterpriseNoteKey: "premiumNote",
   },
 ];
 
@@ -84,12 +94,12 @@ const nanoBanana2Range = getImageCreditCostRange("nano-banana-2");
 const gptImage2Range = getImageCreditCostRange("gpt-image-2");
 const nanoBananaProRange = getImageCreditCostRange("nano-banana-pro");
 
-const usageRules = [
-  { value: `nanoBanana2Range.minimum}–${nanoBanana2Range.maximum} 灵点/张`, label: "Nano Banana 2（1K–4K）" },
-  { value: `gptImage2Range.minimum}–${gptImage2Range.maximum} 灵点/张`, label: "GPT Image 2（1K–4K）" },
-  { value: `nanoBananaProRange.minimum}–${nanoBananaProRange.maximum} 灵点/张`, label: "Nano Banana Pro（1K–4K）" },
-  { value: `CREDIT_COSTS.fastVideo} 灵点起/条`, label: "快速视频（720p，按时长）" },
-  { value: `VIDEO_CREDIT_RATES.pro["720p"].minimum}/${CREDIT_COSTS.pro1080Video} 灵点起/条`, label: "高清视频（720p/1080p，按时长）" },
+const usageRules: UsageRule[] = [
+  { id: "nano-banana-2", valueKey: "creditsPerImage", valueVars: { min: nanoBanana2Range.minimum, max: nanoBanana2Range.maximum }, labelKey: "nanoBanana2" },
+  { id: "gpt-image-2", valueKey: "creditsPerImage", valueVars: { min: gptImage2Range.minimum, max: gptImage2Range.maximum }, labelKey: "gptImage2" },
+  { id: "nano-banana-pro", valueKey: "creditsPerImage", valueVars: { min: nanoBananaProRange.minimum, max: nanoBananaProRange.maximum }, labelKey: "nanoBananaPro" },
+  { id: "fast-video", valueKey: "creditsFromVideo", valueVars: { start: CREDIT_COSTS.fastVideo }, labelKey: "fastVideo" },
+  { id: "hd-video", valueKey: "creditsFromVideoDual", valueVars: { a: VIDEO_CREDIT_RATES.pro["720p"].minimum, b: CREDIT_COSTS.pro1080Video }, labelKey: "hdVideo" },
 ];
 
 function formatNumber(value: number) {
@@ -101,41 +111,42 @@ function getTotalCredits(plan: CreditPlan, mode: PricingMode) {
   return mode === "subscription" ? Math.floor(total * 1.05) : total;
 }
 
-function getCreditLine(plan: CreditPlan, mode: PricingMode) {
+function getCreditLine(plan: CreditPlan, mode: PricingMode, t: T) {
   if (mode === "subscription") {
-    return <>{formatNumber(getTotalCredits(plan, mode))} 灵点</>;
+    return <>{t("unitCredits", { count: formatNumber(getTotalCredits(plan, mode)) })}</>;
   }
 
   if (plan.bonusCredits <= 0) {
-    return <>{formatNumber(plan.baseCredits)} 灵点</>;
+    return <>{t("unitCredits", { count: formatNumber(plan.baseCredits) })}</>;
   }
 
   return (
     <>
-      {formatNumber(plan.baseCredits)} 灵点
+      {t("unitCredits", { count: formatNumber(plan.baseCredits) })}
       <span className="ml-1 inline-flex items-center gap-0.5 text-amber-600">
-        + <Sparkles className="h-3 w-3" aria-hidden="true" /> 赠送{formatNumber(plan.bonusCredits)}灵点
+        + <Sparkles className="h-3 w-3" aria-hidden="true" /> {t("bonusCredits", { count: formatNumber(plan.bonusCredits) })}
       </span>
     </>
   );
 }
 
-function buildFeatures(plan: CreditPlan, mode: PricingMode) {
+function buildFeatures(plan: CreditPlan, mode: PricingMode, t: T) {
   const credits = getTotalCredits(plan, mode);
 
   return [
-    { primary: true, content: getCreditLine(plan, mode) },
-    { content: `约 ${formatNumber(credits / CREDIT_COSTS.nanoBanana2)} 张 Nano Banana 2 1K 图片` },
-    { content: `约 ${formatNumber(credits / CREDIT_COSTS.gptImage2)} 张 GPT Image 2 1K 图片` },
-    { content: `约 ${formatNumber(credits / CREDIT_COSTS.nanoBananaPro)} 张 Nano Banana Pro 1K 图片` },
-    { content: `约 ${formatNumber(credits / CREDIT_COSTS.fastVideo)} 条 5 秒快速视频` },
-    { content: `约 ${formatNumber(credits / CREDIT_COSTS.pro1080Video)} 条 5 秒 1080p 高清视频` },
-    { content: mode === "subscription" ? "每月自动到账，随时使用" : "不过期，随时使用" },
-    { content: mode === "subscription" ? "支持随时取消订阅" : "一次购买，长期有效" },
+    { primary: true, content: getCreditLine(plan, mode, t) },
+    { content: t("approxImages", { count: formatNumber(credits / CREDIT_COSTS.nanoBanana2), model: "Nano Banana 2" }) },
+    { content: t("approxImages", { count: formatNumber(credits / CREDIT_COSTS.gptImage2), model: "GPT Image 2" }) },
+    { content: t("approxImages", { count: formatNumber(credits / CREDIT_COSTS.nanoBananaPro), model: "Nano Banana Pro" }) },
+    { content: t("approxFastVideos", { count: formatNumber(credits / CREDIT_COSTS.fastVideo) }) },
+    { content: t("approxHdVideos", { count: formatNumber(credits / CREDIT_COSTS.pro1080Video) }) },
+    { content: mode === "subscription" ? t("autoDeduct") : t("noExpiry") },
+    { content: mode === "subscription" ? t("cancelAnytime") : t("oneTimePurchase") },
   ];
 }
 
 export function PricingSection() {
+  const t = useTranslations("Pricing");
   const router = useRouter();
   const [mode, setMode] = useState<PricingMode>("credits");
   const [catalog, setCatalog] = useState<BillingCatalogResponse | null>(null);
@@ -159,10 +170,10 @@ export function PricingSection() {
         router.replace("/login?next=/pricing");
         return;
       }
-      if (!response.ok) throw new Error(payload.error || `价格目录加载失败 (${response.status})`);
+      if (!response.ok) throw new Error(payload.error || t("catalogLoadFailed", { status: response.status }));
       setCatalog(payload);
     } catch (error) {
-      setCatalogError(error instanceof Error ? error.message : "价格目录加载失败");
+      setCatalogError(error instanceof Error ? error.message : t("catalogLoadFailedBase"));
     } finally {
       setCatalogLoading(false);
     }
@@ -180,8 +191,8 @@ export function PricingSection() {
     if (checkout === "cancelled" || checkout === "canceled") {
       setNotice({
         tone: "warning",
-        title: "支付已取消",
-        message: "你可以重新选择套餐继续支付。",
+        title: t("paymentCancelled"),
+        message: t("paymentCancelledMsg"),
       });
       return;
     }
@@ -189,14 +200,14 @@ export function PricingSection() {
     if (!sessionId) return;
     setNotice({
       tone: "info",
-      title: "正在确认订单",
-      message: "支付已返回，正在同步灵点到账状态。",
+      title: t("confirmingOrder"),
+      message: t("confirmingOrderMsg"),
     });
 
     fetch(`/api/billing/orders/session/${encodeURIComponent(sessionId)}`, { cache: "no-store" })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || "订单状态查询失败");
+        if (!response.ok) throw new Error(payload.error || t("orderQueryFailed"));
         const order = payload.order || {};
         const paid = order.status === "paid" || order.credit_grant_status === "granted";
         const creditsExpected = Number(order.credits_expected || 0);
@@ -204,20 +215,20 @@ export function PricingSection() {
         const testGrantDisabled = paid && creditsExpected <= 0 && creditsGranted <= 0;
         setNotice({
           tone: paid ? "success" : "info",
-          title: paid ? "支付成功" : "支付确认中",
+          title: paid ? t("paymentSuccess") : t("paymentConfirming"),
           message: testGrantDisabled
-            ? "测试支付已完成，当前 Stripe 测试订单不会自动入账灵点。"
+            ? t("testPaymentNoGrant")
             : paid
-              ? `灵点已同步到账：${Number(order.credits_granted || order.credits_expected || 0).toLocaleString("zh-CN")} 灵点。`
-            : "Stripe 已返回，灵点同步仍在处理中，稍后刷新即可查看。",
+              ? t("creditsSynced", { count: Number(order.credits_granted || order.credits_expected || 0).toLocaleString("zh-CN") })
+            : t("creditsSyncing"),
         });
         void loadCatalog();
       })
       .catch((error) => {
         setNotice({
           tone: "danger",
-          title: "订单状态查询失败",
-          message: error instanceof Error ? error.message : "请稍后刷新重试。",
+          title: t("orderQueryFailed"),
+          message: error instanceof Error ? error.message : t("retryLater"),
         });
       });
   }, [loadCatalog]);
@@ -230,8 +241,8 @@ export function PricingSection() {
     if (!priceId) {
       setNotice({
         tone: "danger",
-        title: "套餐未配置",
-        message: "后台还没有为该套餐配置价格，请先在账单后台同步价格。",
+        title: t("planNotConfigured"),
+        message: t("planNotConfiguredMsg"),
       });
       return;
     }
@@ -249,14 +260,14 @@ export function PricingSection() {
         router.replace("/login?next=/pricing");
         return;
       }
-      if (!response.ok) throw new Error(payload.error || `创建支付会话失败 (${response.status})`);
-      if (typeof payload.url !== "string" || !payload.url) throw new Error("Stripe Checkout URL 创建失败");
+      if (!response.ok) throw new Error(payload.error || t("createSessionFailed", { status: response.status }));
+      if (typeof payload.url !== "string" || !payload.url) throw new Error(t("checkoutUrlCreateFailed"));
       window.location.assign(payload.url);
     } catch (error) {
       setNotice({
         tone: "danger",
-        title: "无法创建支付会话",
-        message: error instanceof Error ? error.message : "请稍后重试。",
+        title: t("createSessionFailedTitle"),
+        message: error instanceof Error ? error.message : t("retryLater"),
       });
     } finally {
       setCheckoutPriceId(null);
@@ -273,14 +284,14 @@ export function PricingSection() {
         router.replace("/login?next=/pricing");
         return;
       }
-      if (!response.ok) throw new Error(payload.error || `无法打开订阅管理 (${response.status})`);
-      if (typeof payload.url !== "string" || !payload.url) throw new Error("订阅管理缺少跳转地址");
+      if (!response.ok) throw new Error(payload.error || t("openPortalFailed", { status: response.status }));
+      if (typeof payload.url !== "string" || !payload.url) throw new Error(t("portalMissingUrl"));
       window.location.assign(payload.url);
     } catch (error) {
       setNotice({
         tone: "danger",
-        title: "无法打开订阅管理",
-        message: error instanceof Error ? error.message : "请稍后重试。",
+        title: t("openPortalFailedTitle"),
+        message: error instanceof Error ? error.message : t("retryLater"),
       });
     } finally {
       setPortalLoading(false);
@@ -291,14 +302,14 @@ export function PricingSection() {
     <section className="min-h-screen px-4 py-16 transition-colors sm:px-6" aria-labelledby="pricing-title" style={{ backgroundImage: "var(--codex-gradient-page)", backgroundAttachment: "fixed" }}>
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
-          <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">AI 电商视觉灵点</p>
+          <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">{t("eyebrow")}</p>
           <h1 id="pricing-title" className="mb-4 text-4xl font-black tracking-tight text-zinc-900 dark:text-stone-100" style={{ textWrap: "balance" }}>
-            赋能您的电商视觉
+            {t("heroTitle")}
           </h1>
           <p className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-1 text-base font-medium leading-relaxed text-zinc-700 dark:text-stone-300">
-            <span>已服务</span>
-            <span className="text-2xl font-black leading-none text-zinc-900 dark:text-stone-100">50000+</span>
-            <span>电商商家，主图点击率平均提升 25%</span>
+            <span>{t("heroServed")}</span>
+            <span className="text-2xl font-black leading-none text-zinc-900 dark:text-stone-100">{t("heroCount")}</span>
+            <span>{t("heroServedTail")}</span>
           </p>
         </div>
 
@@ -313,15 +324,15 @@ export function PricingSection() {
             )}
           >
             <Zap className="h-4 w-4" aria-hidden="true" />
-            <span>购买灵点</span>
+            <span>{t("buyCredits")}</span>
             <span
               className={cn(
                 "ml-1 inline-flex items-center gap-1.5 border-l border-zinc-200 pl-2 transition-opacity",
                 mode === "credits" ? "opacity-95" : "opacity-60"
               )}
             >
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-accent)] text-[10px] font-black text-white">支</span>
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-success)] text-[10px] font-black text-white">微</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-accent)] text-[10px] font-black text-white">{t("payAli")}</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-success)] text-[10px] font-black text-white">{t("payWechat")}</span>
             </span>
           </button>
           <button
@@ -334,7 +345,7 @@ export function PricingSection() {
             )}
           >
             <Crown className="mr-2 h-4 w-4" aria-hidden="true" />
-            订阅套餐
+            {t("subscriptionTab")}
             <span className="ml-1 text-amber-700">+5%</span>
           </button>
         </div>
@@ -346,7 +357,7 @@ export function PricingSection() {
               <NoticeCard
                 notice={{
                   tone: "danger",
-                  title: "价格目录加载失败",
+                  title: t("catalogLoadFailedBase"),
                   message: catalogError,
                 }}
               />
@@ -354,9 +365,9 @@ export function PricingSection() {
             {activeSubscription && (
               <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-black text-emerald-800">当前已有活跃订阅</p>
+                  <p className="text-sm font-black text-emerald-800">{t("activeSubscriptionTitle")}</p>
                   <p className="mt-1 text-xs font-semibold text-emerald-700">
-                    可进入 Stripe 客户门户查看发票、更新付款方式或取消续订。
+                    {t("activeSubscriptionMsg")}
                   </p>
                 </div>
                 <button
@@ -366,7 +377,7 @@ export function PricingSection() {
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {portalLoading && <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-                  管理订阅
+                  {t("manageSubscription")}
                 </button>
               </div>
             )}
@@ -376,7 +387,7 @@ export function PricingSection() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {plans.map((plan) => (
             <PlanCard
-              key={plan.title}
+              key={plan.key}
               plan={plan}
               mode={mode}
               loading={catalogLoading || checkoutPriceId === priceMap.get(`${plan.key}:${mode === "subscription" ? "subscription" : "payment"}`)?.id}
@@ -389,14 +400,14 @@ export function PricingSection() {
         <div className="mt-12 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-stone-900">
           <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-center">
             <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">灵点消耗</p>
-              <h2 className="text-xl font-black tracking-tight text-zinc-900 dark:text-stone-100">先按参考规则上线，后续再优化</h2>
+              <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">{t("usageTitle")}</p>
+              <h2 className="text-xl font-black tracking-tight text-zinc-900 dark:text-stone-100">{t("usageHint")}</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {usageRules.map((rule) => (
-                <div key={rule.value} className="rounded-xl bg-zinc-50 p-4 dark:bg-stone-900">
-                  <p className="mb-2 text-lg font-black tabular-nums text-zinc-900 dark:text-stone-100">{rule.value}</p>
-                  <p className="text-xs font-medium leading-relaxed text-zinc-700 dark:text-stone-300">{rule.label}</p>
+                <div key={rule.id} className="rounded-xl bg-zinc-50 p-4 dark:bg-stone-900">
+                  <p className="mb-2 text-lg font-black tabular-nums text-zinc-900 dark:text-stone-100">{t(rule.valueKey, rule.valueVars)}</p>
+                  <p className="text-xs font-medium leading-relaxed text-zinc-700 dark:text-stone-300">{t(rule.labelKey)}</p>
                 </div>
               ))}
             </div>
@@ -420,7 +431,8 @@ function PlanCard({
   disabled: boolean;
   onSelect: () => void;
 }) {
-  const features = buildFeatures(plan, mode);
+  const t = useTranslations("Pricing");
+  const features = buildFeatures(plan, mode, t);
 
   return (
     <article
@@ -432,7 +444,7 @@ function PlanCard({
       {plan.featured ? (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <span className="rounded-full bg-zinc-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-            最受欢迎
+            {t("mostPopular")}
           </span>
         </div>
       ) : null}
@@ -446,10 +458,10 @@ function PlanCard({
         >
           <CircleDollarSign className="h-5 w-5" aria-hidden="true" />
         </div>
-        <h3 className="flex-1 text-xl font-bold text-zinc-900 dark:text-stone-100">{plan.title}</h3>
+        <h3 className="flex-1 text-xl font-bold text-zinc-900 dark:text-stone-100">{t(plan.titleKey)}</h3>
         {plan.savings ? (
           <span className="ml-auto inline-flex h-14 w-14 shrink-0 rotate-[-12deg] flex-col items-center justify-center rounded-full border-2 border-dashed border-amber-300 bg-amber-50 text-amber-700">
-            <span className="text-[10px] font-bold leading-none">立省</span>
+            <span className="text-[10px] font-bold leading-none">{t("saveBadge")}</span>
             <span className="text-base font-black leading-tight">{plan.savings}%</span>
           </span>
         ) : null}
@@ -457,7 +469,7 @@ function PlanCard({
 
       <div className="mb-6 flex items-baseline gap-1">
         <span className="text-4xl font-black tabular-nums text-zinc-900 dark:text-stone-100">¥{formatNumber(plan.price)}</span>
-        {mode === "subscription" ? <span className="text-sm font-medium text-zinc-700 dark:text-stone-300">/连续包月</span> : null}
+        {mode === "subscription" ? <span className="text-sm font-medium text-zinc-700 dark:text-stone-300">{t("perMonth")}</span> : null}
       </div>
 
       <ul className="mb-8 flex-1 space-y-3">
@@ -469,10 +481,10 @@ function PlanCard({
         ))}
       </ul>
 
-      {plan.enterpriseNote ? (
+      {plan.enterpriseNoteKey ? (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/50 px-2 py-1.5 text-amber-700">
           <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
-          <span className="text-xs font-bold">{plan.enterpriseNote}</span>
+          <span className="text-xs font-bold">{t(plan.enterpriseNoteKey)}</span>
         </div>
       ) : null}
 
@@ -488,7 +500,7 @@ function PlanCard({
         )}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-        {mode === "subscription" ? "开通订阅" : "立即购买"}
+        {mode === "subscription" ? t("startSubscription") : t("buyNow")}
       </button>
     </article>
   );

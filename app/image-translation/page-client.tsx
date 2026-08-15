@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -86,40 +87,48 @@ type ImageTranslationGenerateOptions = {
   toastMessage?: string;
 };
 
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高 4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高 4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高 4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string; labelKey?: string; descKey?: string; badgeKey?: string }[] = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高 4K", descKey: "modelDescMax4k", badge: "推荐", badgeKey: "modelBadgeRecommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高 4K", descKey: "modelDescMax4k", badge: "最新", badgeKey: "modelBadgeNew", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高 4K", descKey: "modelDescMax4k", badge: "高质精修", badgeKey: "modelBadgePro", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 const DEFAULT_ASPECT_RATIO: AspectRatio = "auto";
 
 const IMAGE_TRANSLATION_UPLOAD_RULE = {
-  title: "请上传需要翻译的商品图",
-  uploadSpecText: "支持 JPG/PNG/WEBP/HEIC，单张 20KB~15MB，建议分辨率 ≥ 400×400；推荐主体完整、文字清晰、留白可读。",
   demos: [
     {
+      titleKey: "demoTitle1",
       title: "推荐示例 1",
+      descriptionKey: "demoDesc1",
       description: "电商详情页商品图，含中文标题/参数",
       imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/01.jpg",
     },
     {
+      titleKey: "demoTitle2",
       title: "推荐示例 2",
+      descriptionKey: "demoDesc2",
       description: "海报式商品图，含多语种可替换素材",
       imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/02.jpg",
     },
     {
+      titleKey: "demoTitle3",
       title: "推荐示例 3",
+      descriptionKey: "demoDesc3",
       description: "包装/标签类商品图，适合多地区翻译",
       imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/03.jpg",
     },
     {
+      titleKey: "demoTitle4",
       title: "推荐示例 4",
+      descriptionKey: "demoDesc4",
       description: "实物+说明文案组合图，验证翻译保真",
       imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/04.jpg",
     },
     {
+      titleKey: "demoTitle5",
       title: "推荐示例 5",
+      descriptionKey: "demoDesc5",
       description: "跨境多语种营销图，确认本地化效果",
       imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/05.jpg",
     },
@@ -127,14 +136,15 @@ const IMAGE_TRANSLATION_UPLOAD_RULE = {
 };
 
 const IMAGE_TRANSLATION_PREVIEW_ACTIONS = [
-  { kind: "download" as const, label: "下载图片" },
-  { kind: "copy" as const, label: "复制链接" },
-  { kind: "regenerateAll" as const, label: "重新创作" },
-  { kind: "feedback" as const, label: "反馈" },
+  { kind: "download" as const, label: "下载图片", labelKey: "actionDownload" },
+  { kind: "copy" as const, label: "复制链接", labelKey: "actionCopy" },
+  { kind: "regenerateAll" as const, label: "重新创作", labelKey: "actionRegenerateAll" },
+  { kind: "feedback" as const, label: "反馈", labelKey: "actionFeedback" },
 ];
 
 export default function ImageTranslationPage() {
   const router = useRouter();
+  const t = useTranslations("ImageTranslation");
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const [sourceUrls, setSourceUrls] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
@@ -202,7 +212,7 @@ export default function ImageTranslationPage() {
   const cost = unitCost * requestedResultCount;
   const taskQueue = useTaskQueueGeneration({
     module: "imageTranslation",
-    title: "图片翻译",
+    title: t("taskQueueTitle"),
     defaultExpectedCount: requestedResultCount,
     applyPath: "/image-translation",
   });
@@ -257,13 +267,13 @@ export default function ImageTranslationPage() {
       if (isHistoryApplyRowFailed(detail.row)) {
         setError(getHistoryApplyFailureMessage(detail.row));
       }
-      toast.success("已套用历史参数");
+      toast.success(t("historyAppliedToast"));
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -294,7 +304,7 @@ export default function ImageTranslationPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError(null);
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("historyAppliedToast"));
   };
 
   const handleLanguageConfirm = (next: string[]) => {
@@ -309,11 +319,11 @@ export default function ImageTranslationPage() {
     async (files: File[]) => {
       const valid = files.filter((file) => {
         if (!file.type.startsWith("image/")) {
-          toast.error(`"${file.name}" 不是图片格式`);
+          toast.error(`"${file.name}" ${t("notImageFormat")}`);
           return false;
         }
         if (file.size > MAX_FILE_SIZE) {
-          toast.error(`"${file.name}" 超过 ${MAX_FILE_SIZE_MB}MB`);
+          toast.error(`"${file.name}" ${t("exceedsSize", { max: MAX_FILE_SIZE_MB })}`);
           return false;
         }
         return true;
@@ -321,11 +331,11 @@ export default function ImageTranslationPage() {
       if (!valid.length) return;
       const remaining = Math.max(MAX_IMAGE_TRANSLATION_IMAGES - sourceUrls.length, 0);
       if (remaining === 0) {
-        toast.error(`原图最多 ${MAX_IMAGE_TRANSLATION_IMAGES} 张`);
+        toast.error(t("maxImagesReached", { max: MAX_IMAGE_TRANSLATION_IMAGES }));
         return;
       }
       const slice = valid.slice(0, remaining);
-      toast.info(`正在上传 ${slice.length} 张原图…`);
+      toast.info(t("uploadingImages", { count: slice.length }));
       setIsUploadingSource(true);
       try {
         const uploads = await Promise.all(slice.map((file) => uploadImage(file)));
@@ -334,28 +344,28 @@ export default function ImageTranslationPage() {
           return merged.slice(0, MAX_IMAGE_TRANSLATION_IMAGES);
         });
         setPromptOverride(null);
-        toast.success(`已上传 ${uploads.length} 张原图`);
+        toast.success(t("uploadedImages", { count: uploads.length }));
       } catch {
-        toast.error("上传失败，请重试");
+        toast.error(t("uploadFailed"));
       } finally {
         setIsUploadingSource(false);
       }
     },
-    [sourceUrls.length]
+    [sourceUrls.length, t]
   );
 
   const handleApplyDemo = (demo: { title?: string; imageUrl: string }) => {
     setSourceUrls([demo.imageUrl]);
     setPromptOverride(null);
-    toast.success(`已套用示例：${demo.title || "推荐示例"}`);
+    toast.success(t("demoApplied", { title: demo.title || t("demoTitlePrefix") }));
   };
 
   const runDisabledReason = !sourceUrls.length
-    ? "请先上传需要翻译的商品图"
+    ? t("needUploadFirst")
     : !languages.length
-      ? "请选择至少 1 种目标语言"
+      ? t("needSelectLanguage")
       : credits !== null && credits < cost
-        ? `灵点不足，生成需要 ${cost} 灵点`
+        ? t("insufficientCredits", { cost })
         : undefined;
 
   function handleRetryFailedResult(index: number) {
@@ -367,7 +377,7 @@ export default function ImageTranslationPage() {
     );
     const retrySourceUrl = sourceUrls[sourceIndex] || sourceUrls[0];
     if (!retrySourceUrl) {
-      toast.error("未找到要重试的原图");
+      toast.error(t("noSourceToRetry"));
       return;
     }
     void generate(undefined, {
@@ -375,7 +385,7 @@ export default function ImageTranslationPage() {
       genCountOverride: 1,
       expectedCountOverride: languages.length || 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retryToast", { index: index + 1 }),
     });
   }
 
@@ -390,25 +400,25 @@ export default function ImageTranslationPage() {
     () =>
       createGenericImagePreviewSession({
         module: "imageTranslation",
-        title: "图片翻译",
+        title: t("previewSessionTitle"),
         urls: resultUrls,
         expectedCount: activeResultExpectedCount,
         isGenerating,
         statusGroup: isGenerating ? "running" : undefined,
         references: activeSourceUrl
-          ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? `原图 ${activeSourceIdx + 1}` : "原图", role: "source" }]
+          ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? t("sourceImageIndexed", { index: activeSourceIdx + 1 }) : t("sourceImage"), role: "source" }]
           : [],
         promptText: userPrompt || undefined,
         metaItems: [
-          { label: "源图数量", value: sourceUrls.length },
-          { label: "目标语言", value: languageLabels.length ? languageLabels.join(" / ") : languages.join(" / ") },
-          { label: "模型", value: aiModel },
-          { label: "分辨率", value: imageSize },
-          { label: "每张生成数", value: genCount },
+          { label: t("metaSourceCount"), value: sourceUrls.length },
+          { label: t("metaLanguages"), value: languageLabels.length ? languageLabels.join(" / ") : languages.join(" / ") },
+          { label: t("metaModel"), value: aiModel },
+          { label: t("metaResolution"), value: imageSize },
+          { label: t("metaPerGen"), value: genCount },
         ],
-        resultTitlePrefix: "翻译结果",
+        resultTitlePrefix: t("resultTitlePrefix"),
       }),
-    [activeResultExpectedCount, aiModel, genCount, imageSize, isGenerating, languageLabels, languages, resultUrls, sourceUrls, userPrompt, activeSourceUrl, activeSourceIdx]
+    [activeResultExpectedCount, aiModel, genCount, imageSize, isGenerating, languageLabels, languages, resultUrls, sourceUrls, userPrompt, activeSourceUrl, activeSourceIdx, t]
   );
 
   function handleRunningTask(item: TaskQueueItem) {
@@ -425,12 +435,12 @@ export default function ImageTranslationPage() {
       if (!session.isCurrent()) return true;
       applyHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
   }
@@ -456,17 +466,17 @@ export default function ImageTranslationPage() {
 
   async function generate(_promptForRun?: string, options: ImageTranslationGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
     const runSourceUrls = options.sourceUrlsOverride?.length ? options.sourceUrlsOverride : sourceUrls;
     if (runSourceUrls.length === 0) {
-      toast.error("请先上传需要翻译的商品图");
+      toast.error(t("needUploadFirst"));
       return;
     }
     if (languages.length === 0) {
-      toast.error("请选择至少 1 种目标语言");
+      toast.error(t("needSelectLanguage"));
       return;
     }
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
@@ -537,7 +547,7 @@ export default function ImageTranslationPage() {
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generateFailed"));
       }
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
@@ -609,14 +619,14 @@ export default function ImageTranslationPage() {
           if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
             toast.warning(
-              `图片翻译部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`
+              t("partialComplete", { done: finalResultCount, expected: displayExpectedCount })
             );
           } else {
-            toast.success("图片翻译生成完成");
+            toast.success(t("generateComplete"));
           }
           return;
         }
-        if (state.status === "failed") throw new Error(state.error || "生成失败");
+        if (state.status === "failed") throw new Error(state.error || t("generateFailed"));
         const nextProgress = Number(state.progress);
         const runningProgress = Number.isFinite(nextProgress)
           ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
@@ -630,9 +640,9 @@ export default function ImageTranslationPage() {
           status: state.status,
         });
       }
-      throw new Error("生成超时");
+      throw new Error(t("generateTimeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
@@ -650,18 +660,18 @@ export default function ImageTranslationPage() {
   }
 
   const examplesForUpload = useMemo(() => {
-    const list = exampleResources.length ? exampleResources : IMAGE_TRANSLATION_UPLOAD_RULE.demos.map((demo) => ({ picUrl: demo.imageUrl, title: demo.title }));
+    const list = exampleResources.length ? exampleResources : IMAGE_TRANSLATION_UPLOAD_RULE.demos.map((demo) => ({ picUrl: demo.imageUrl, title: demo.title, titleKey: demo.titleKey }));
     return list.map((item) => ({
       url: item.picUrl,
-      title: item.title || "推荐示例",
+      title: "titleKey" in item && item.titleKey ? t(item.titleKey) : (item.title || t("demoTitlePrefix")),
     }));
-  }, [exampleResources]);
+  }, [exampleResources, t]);
 
   const authIsAnonymous = authChecked && !isAuthenticated;
   const summary = (() => {
-    if (!sourceUrls.length) return `等待上传原图 · ${genCount} 张`;
-    if (!languages.length) return `已上传 ${sourceUrls.length} 张原图 · 请选择目标语言`;
-    return `${sourceUrls.length} 张原图 × ${languages.length} 种语言 × ${genCount} · ${imageSize}`;
+    if (!sourceUrls.length) return t("waitingUploadSummary", { count: genCount });
+    if (!languages.length) return t("selectLanguageSummary", { count: sourceUrls.length });
+    return t("fullSummary", { sources: sourceUrls.length, langs: languages.length, gen: genCount, size: imageSize });
   })();
 
   let statusGroup: TaskStatusGroup | undefined;
@@ -671,13 +681,13 @@ export default function ImageTranslationPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="imageTranslation" />
-      <ModuleTaskRail module="imageTranslation" moduleLabel="图片翻译" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="imageTranslation" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
 
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
           <ModuleHeader
-            title="图片翻译"
-            tooltip="上传需要本地化的商品图，选择 1~20 种目标语言，模型会按图1 中的可见文字逐处翻译，保留品牌、Logo、产品名、参数和价格原样。"
+            title={t("title")}
+            tooltip={t("tooltip")}
             actions={(
               <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-black text-[var(--codex-accent)]">
                 NEW
@@ -686,7 +696,7 @@ export default function ImageTranslationPage() {
           />
 
           <StudioUploadSection
-            title="待翻译原图"
+            title={t("uploadSectionTitle")}
             inputRef={sourceInputRef}
             multiple
             isDragging={isSourceDragging}
@@ -697,24 +707,24 @@ export default function ImageTranslationPage() {
               <StudioMultiImageUpload
                 urls={sourceUrls}
                 maxCount={MAX_IMAGE_TRANSLATION_IMAGES}
-                title="已上传商品图"
-                emptyTitle="上传需要翻译的商品图"
-                description="支持同时上传多张原图批量翻译，每张原图 × 目标语言 × 生成数量 = 实际结果图。"
-                emptyDescription="图1 是唯一商品事实来源；建议上传文字清晰、构图完整的电商商品图。"
-                itemLabelPrefix="图"
+                title={t("uploadTitle")}
+                emptyTitle={t("uploadEmptyTitle")}
+                description={t("uploadDescription")}
+                emptyDescription={t("uploadEmptyDescription")}
+                itemLabelPrefix={t("uploadItemLabelPrefix")}
                 loading={isUploadingSource}
                 isDragging={isSourceDragging}
-                uploadLabel="从本地上传"
-                libraryLabel="从作品选择"
-                summary={sourceUrls.length ? `已上传 ${sourceUrls.length} 张` : undefined}
-                footnote={`支持 JPG / PNG / WEBP / HEIC，最多 ${MAX_IMAGE_TRANSLATION_IMAGES} 张。`}
+                uploadLabel={t("uploadLabel")}
+                libraryLabel={t("libraryLabel")}
+                summary={sourceUrls.length ? t("uploadedCount", { count: sourceUrls.length }) : undefined}
+                footnote={t("uploadFootnote", { max: MAX_IMAGE_TRANSLATION_IMAGES })}
                 tips={[
-                  { label: "说明", text: "保留品牌、Logo、产品名、参数、价格、链接、二维码、条形码原样。" },
-                  { label: "推荐", text: "文字清晰可读、构图完整，避免过小文字或大面积模糊。" },
+                  { label: t("tipNoteLabel"), text: t("tipNoteText") },
+                  { label: t("tipRecommendLabel"), text: t("tipRecommendText") },
                 ]}
                 imageFit="cover"
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                 onPreview={(url) => setLightboxSrc(url)}
                 onRemove={(_, index) => {
                   setSourceUrls((prev) => prev.filter((__, i) => i !== index));
@@ -725,7 +735,7 @@ export default function ImageTranslationPage() {
                   setPromptOverride(null);
                 }}
                 examples={{
-                  label: "试一试",
+                  label: t("tryIt"),
                   images: examplesForUpload,
                   disabled: isUploadingSource,
                   onSelect: (image) =>
@@ -739,9 +749,9 @@ export default function ImageTranslationPage() {
             <div className="mb-2 flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
                 <LanguagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
-                目标语言 <span className="text-xs font-normal text-slate-400">· 可多选</span>
+                {t("languageSectionTitle")} <span className="text-xs font-normal text-slate-400">· {t("languageMulti")}</span>
               </h3>
-              <span className="text-xs text-slate-400">已选 {languages.length}/{MAX_IMAGE_TRANSLATION_LANGUAGES}</span>
+              <span className="text-xs text-slate-400">{t("languageSelectedCount", { selected: languages.length, max: MAX_IMAGE_TRANSLATION_LANGUAGES })}</span>
             </div>
             <button
               type="button"
@@ -751,7 +761,7 @@ export default function ImageTranslationPage() {
               <span className="truncate">
                 {languageLabels.length
                   ? languageLabels.join(" / ")
-                  : "点击选择目标语言（支持 180+ 国家及地区）"}
+                  : t("languagePlaceholder")}
               </span>
               <ChevronRight className="h-4 w-4 shrink-0" />
             </button>
@@ -767,7 +777,7 @@ export default function ImageTranslationPage() {
                       {label}
                       <button
                         type="button"
-                        aria-label={`移除 ${label}`}
+                        aria-label={t("removeLanguage", { label })}
                         onClick={() => {
                           setLanguages((prev) => prev.filter((item) => item !== code));
                           setLanguageLabels((prev) => prev.filter((_, i) => i !== index));
@@ -787,7 +797,7 @@ export default function ImageTranslationPage() {
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
               <ImagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
-              补充说明 <span className="text-xs font-normal text-slate-400">· 可选</span>
+              {t("extraSectionTitle")} <span className="text-xs font-normal text-slate-400">· {t("extraOptional")}</span>
             </h3>
             <StudioPromptTextarea
               value={userPrompt}
@@ -796,75 +806,79 @@ export default function ImageTranslationPage() {
                 setPromptOverride(null);
               }}
               rows={3}
-              placeholder="例如：标题使用美式英文，参数保持阿拉伯数字与单位；或：日语使用敬体，避免片假名过多。"
+              placeholder={t("extraPlaceholder")}
             />
             <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-              提示词可进一步控制语言风格（如「美式英文」「繁体中文」「阿拉伯 RTL 排版」），但不会改写品牌名、Logo、产品名、参数、价格或链接。
+              {t("extraHint")}
             </p>
           </section>
 
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
               <Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />
-              生成模型
+              {t("modelSectionTitle")}
             </h3>
             <StudioModelSelector
-              models={MODELS}
+              models={MODELS.map((model) => ({
+                ...model,
+                desc: model.descKey ? t(model.descKey) : model.desc,
+                badge: model.badgeKey && model.badge ? t(model.badgeKey) : model.badge,
+              }))}
               value={aiModel}
               onChange={setAiModel}
-              ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 当前 ${unitCost} 灵点/张`}
+              ariaLabel={t("modelAriaLabel")}
+              getMeta={(model) => `${model.desc} · ${t("modelMeta", { cost: unitCost })}`}
             />
           </section>
 
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">图片比例</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t("ratioSectionTitle")}</h3>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                默认跟随原图
+                {t("ratioDefaultLabel")}
               </span>
             </div>
             <StudioOptionGrid
-              options={[{ value: "auto" as AspectRatio, label: "智能（原图比例）", description: "由后端从原图推断" }]}
+              options={[{ value: "auto" as AspectRatio, label: t("ratioAutoLabel"), description: t("ratioAutoDesc") }]}
               value={aspectRatio}
               onChange={(value) => setAspectRatio(normalizeAspectRatio(value, DEFAULT_ASPECT_RATIO))}
               columns={1}
-              ariaLabel="图片比例"
+              ariaLabel={t("ratioAriaLabel")}
             />
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-900">分辨率</h3>
+            <h3 className="mb-3 text-sm font-bold text-slate-900">{t("resolutionSectionTitle")}</h3>
             <StudioOptionGrid
               options={getSupportedImageSizes(aiModel, aspectRatio).map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)} 灵点`,
+                label: t("resolutionCostLabel", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
               }))}
               value={imageSize}
               onChange={setImageSize}
               columns={3}
-              ariaLabel="分辨率"
+              ariaLabel={t("resolutionAriaLabel")}
             />
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-900">每张图片 & 语言生成张数</h3>
-            <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel="生成数量" />
+            <h3 className="mb-3 text-sm font-bold text-slate-900">{t("genCountSectionTitle")}</h3>
+            <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel={t("genCountAriaLabel")} />
             <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-              共计 {sourceUrls.length * Math.max(languages.length, 1) * genCount} 张结果图（源图数 × 语种数 × 张数）。
+              {t("genTotalHint", { count: sourceUrls.length * Math.max(languages.length, 1) * genCount })}
             </p>
           </section>
 
           {!isGenerating && !resultUrls.length && !error && primarySourceUrl ? (
             <section className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-              <p className="mb-2 text-[11px] font-semibold text-slate-500">图1预览（将作为翻译原图）</p>
+              <p className="mb-2 text-[11px] font-semibold text-slate-500">{t("previewNote")}</p>
               <div className="relative overflow-hidden rounded-xl bg-white">
-                <RawPreviewImage src={primarySourceUrl} alt="图1" className="aspect-[3/4] w-full object-contain" />
+                <RawPreviewImage src={primarySourceUrl} alt={t("previewImageAlt")} className="aspect-[3/4] w-full object-contain" />
                 <button
                   type="button"
                   onClick={() => setLightboxSrc(primarySourceUrl)}
                   className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-500 shadow-sm hover:text-[var(--codex-accent)]"
-                  aria-label="放大预览"
+                  aria-label={t("previewZoomAria")}
                 >
                   <ZoomIn className="h-3.5 w-3.5" />
                 </button>
@@ -876,15 +890,15 @@ export default function ImageTranslationPage() {
 
         <StudioRunBar
           summary={summary}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={
             authIsAnonymous
-              ? "登录后生成"
+              ? t("primaryLogin")
               : isGenerating
-                ? `生成中 ${Math.round(progress)}%`
-                : `生成 ${sourceUrls.length * Math.max(languages.length, 1) * genCount} 张`
+                ? t("primaryGenerating", { progress: Math.round(progress) })
+                : t("primaryGenerate", { count: sourceUrls.length * Math.max(languages.length, 1) * genCount })
           }
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
@@ -895,8 +909,8 @@ export default function ImageTranslationPage() {
         {!isGenerating && resultUrls.length === 0 && !error ? (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <ImageTranslationHero
-              title="上传商品图，一键多语言本地化"
-              description="保留品牌、Logo、产品名、参数和价格；支持 180+ 国家及地区语言，原文位置逐处翻译，地区本地化写法（美式/英式英文、简繁中文、阿拉伯字形、印地语天城文等）。"
+              title={t("heroTitle")}
+              description={t("heroDescription")}
             />
           </div>
         ) : null}
@@ -921,14 +935,14 @@ export default function ImageTranslationPage() {
                   isGenerating={isGenerating}
                   statusGroup={statusGroup}
                   variant="task"
-                  inputReferences={[{ url: sourceUrl, label: `原图 ${sIndex + 1}` }]}
+                  inputReferences={[{ url: sourceUrl, label: t("sourceImageIndexed", { index: sIndex + 1 }) }]}
                   cellLabels={labelsForSource}
                   reducePendingMotion
                   markMissingAsFailed={hasCompletedPartialResults}
                   markMissingAsCompleted={statusGroup === "completed" && !hasCompletedPartialResults}
-                  missingFailureLabel="本张翻译失败"
+                  missingFailureLabel={t("missingFailLabel")}
                   missingFailureDetail={partialFailureMessage ?? undefined}
-                  missingFailureActionLabel="重试本张"
+                  missingFailureActionLabel={t("retryThis")}
                   onMissingFailureAction={(idx) => handleRetryFailedResult(start + idx)}
                   missingFailureActionDisabled={retryDisabled}
                   onOpen={(_, idx) => setPreviewIndex(start + idx)}
@@ -959,7 +973,7 @@ export default function ImageTranslationPage() {
             }}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
-            retryLabel="重新生成"
+            retryLabel={t("retryGenerate")}
             notice={FAILED_RETRY_NOTICE}
           />
         ) : null}
@@ -971,12 +985,12 @@ export default function ImageTranslationPage() {
         config={languageConfig}
         selected={languages}
         onChange={handleLanguageConfirm}
-        title="全部语言"
-        description={languageConfigLoading ? "正在加载语言分组…" : "支持 180+ 国家与地区语言，本地化写法保留变音符号、简繁与字符集。"}
+        title={t("languagePickerTitle")}
+        description={languageConfigLoading ? t("languagePickerLoading") : t("languagePickerDesc")}
         maxCount={MAX_IMAGE_TRANSLATION_LANGUAGES}
       />
 
-      <StudioMediaLightbox src={lightboxSrc} alt="图片翻译预览" onClose={() => setLightboxSrc(null)} />
+      <StudioMediaLightbox src={lightboxSrc} alt={t("lightboxAlt")} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }

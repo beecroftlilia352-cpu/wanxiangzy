@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
@@ -71,10 +72,10 @@ import {
   type ModelBackgroundMode,
 } from "@/lib/model-background";
 
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "ModelBackground.models.desc.4k", badge: "推荐", badgeKey: "ModelBackground.models.badge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "ModelBackground.models.desc.4k", badge: "最新", badgeKey: "ModelBackground.models.badge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "ModelBackground.models.desc.4k", badge: "高质精修", badgeKey: "ModelBackground.models.badge.premium", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type ModelBackgroundHistoryPayload = Extract<HistoryJobPayload, { kind: "modelBackground" }>;
@@ -86,39 +87,42 @@ type ModelBackgroundGenerateOptions = {
   toastMessage?: string;
 };
 
-const ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "auto", label: "智能" },
-  { value: "3:4", label: "3:4 竖版" },
-  { value: "4:5", label: "4:5 种草" },
-  { value: "1:1", label: "1:1 方图" },
-  { value: "9:16", label: "9:16 手机" },
-  { value: "4:3", label: "4:3 横图" },
+const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
+  { value: "auto", label: "智能", labelKey: "ModelBackground.aspects.auto" },
+  { value: "3:4", label: "3:4 竖版", labelKey: "ModelBackground.aspects.portrait34" },
+  { value: "4:5", label: "4:5 种草", labelKey: "ModelBackground.aspects.social45" },
+  { value: "1:1", label: "1:1 方图", labelKey: "ModelBackground.aspects.square11" },
+  { value: "9:16", label: "9:16 手机", labelKey: "ModelBackground.aspects.phone916" },
+  { value: "4:3", label: "4:3 横图", labelKey: "ModelBackground.aspects.landscape43" },
 ];
 
-const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string }[] = [
-  { value: "background_only", desc: "默认" },
-  { value: "model_background", desc: "换人+景" },
-  { value: "model_only", desc: "只换脸" },
+const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string; descKey?: string }[] = [
+  { value: "background_only", desc: "默认", descKey: "modes.backgroundOnly" },
+  { value: "model_background", desc: "换人+景", descKey: "modes.modelBackground" },
+  { value: "model_only", desc: "只换脸", descKey: "modes.modelOnly" },
 ];
 
 const BACKGROUND_SOURCE_OPTIONS: BackgroundSourceMode[] = ["preset", "upload", "text"];
 const CARD_ZOOM_BUTTON_CLASS =
   "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-[var(--codex-accent)] focus-visible:opacity-100 group-hover:opacity-100";
 
-const MODEL_BACKGROUND_PREVIEW_ACTIONS: ImagePreviewAction[] = [
-  { kind: "download", label: "下载图片" },
-  { kind: "copy", label: "复制链接" },
-  { kind: "repair", label: "AI修图" },
-  { kind: "aiVideo", label: "AI视频" },
-  { kind: "pose", label: "姿势裂变" },
-  { kind: "productSet", label: "商品套图" },
-  { kind: "regenerateAll", label: "重新创作" },
-  { kind: "feedback", label: "反馈" },
+type ModelBackgroundPreviewAction = ImagePreviewAction & { labelKey?: string };
+
+const MODEL_BACKGROUND_PREVIEW_ACTIONS: ModelBackgroundPreviewAction[] = [
+  { kind: "download", label: "下载图片", labelKey: "ModelBackground.previewActions.download" },
+  { kind: "copy", label: "复制链接", labelKey: "ModelBackground.previewActions.copy" },
+  { kind: "repair", label: "AI修图", labelKey: "ModelBackground.previewActions.repair" },
+  { kind: "aiVideo", label: "AI视频", labelKey: "ModelBackground.previewActions.aiVideo" },
+  { kind: "pose", label: "姿势裂变", labelKey: "ModelBackground.previewActions.pose" },
+  { kind: "productSet", label: "商品套图", labelKey: "ModelBackground.previewActions.productSet" },
+  { kind: "regenerateAll", label: "重新创作", labelKey: "ModelBackground.previewActions.regenerateAll" },
+  { kind: "feedback", label: "反馈", labelKey: "ModelBackground.previewActions.feedback" },
 ];
 
 type UploadTarget = "source" | "model" | "background";
 
 export default function ModelBackgroundPage() {
+  const t = useTranslations("ModelBackground");
   const router = useRouter();
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -216,7 +220,7 @@ export default function ModelBackgroundPage() {
     const sourceIndex = Math.min(Math.max(0, Math.floor(index / perSourceCount)), Math.max(sourceUrls.length - 1, 0));
     const retrySourceUrl = sourceUrls[sourceIndex] || sourceUrls[0];
     if (!retrySourceUrl) {
-      toast.error("未找到要重试的原图");
+      toast.error(t("retrySourceNotFound"));
       return;
     }
     void generate(undefined, {
@@ -224,7 +228,7 @@ export default function ModelBackgroundPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retryBackfillToast", { index: index + 1 }),
     });
   }
   const activeSourceIdx = previewIndex !== null
@@ -235,60 +239,60 @@ export default function ModelBackgroundPage() {
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "modelBackground",
-      title: "模特换背景",
+      title: t("title"),
       urls: resultUrls,
       expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       references: [
-        ...(activeSourceUrl ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? `原图 ${activeSourceIdx + 1}` : "原图", role: "source" as const }] : []),
-        ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: "模特参考", role: "model" as const }] : []),
-        ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: "背景参考", role: "background" as const }] : []),
+        ...(activeSourceUrl ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? t("sourceIndexed", { index: activeSourceIdx + 1 }) : t("source"), role: "source" as const }] : []),
+        ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: t("modelReference"), role: "model" as const }] : []),
+        ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: t("backgroundReference"), role: "background" as const }] : []),
       ],
       promptText: [
         mode !== "model_only" && backgroundSource === "text" && backgroundText.trim() !== DEFAULT_BACKGROUND_TEXT
-          ? `背景描述：${backgroundText}`
+          ? t("backgroundDescription", { text: backgroundText })
           : "",
         userPrompt,
       ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
       metaItems: [
-        { label: "模式", value: MODEL_BACKGROUND_MODE_LABELS[mode] },
-        { label: "背景来源", value: mode === "model_only" ? null : BACKGROUND_SOURCE_LABELS[backgroundSource] },
-        { label: "背景模板", value: backgroundSource === "preset" && mode !== "model_only" ? selectedBackgroundPreset.name : null },
-        { label: "模型", value: aiModel },
-        { label: "比例", value: aspectRatio },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: genCount },
+        { label: t("meta.mode"), value: MODEL_BACKGROUND_MODE_LABELS[mode] },
+        { label: t("meta.backgroundSource"), value: mode === "model_only" ? null : BACKGROUND_SOURCE_LABELS[backgroundSource] },
+        { label: t("meta.backgroundTemplate"), value: backgroundSource === "preset" && mode !== "model_only" ? selectedBackgroundPreset.name : null },
+        { label: t("meta.model"), value: aiModel },
+        { label: t("meta.aspectRatio"), value: aspectRatio },
+        { label: t("meta.resolution"), value: imageSize },
+        { label: t("meta.genCount"), value: genCount },
       ],
-      resultTitlePrefix: "换背景结果",
+      resultTitlePrefix: t("resultTitlePrefix"),
       aspectRatio,
     }),
-    [activeResultExpectedCount, aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, resultUrls, selectedBackgroundPreset.name, userPrompt, activeSourceUrl, activeSourceIdx]
+    [activeResultExpectedCount, aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, resultUrls, selectedBackgroundPreset.name, userPrompt, activeSourceUrl, activeSourceIdx, t]
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const unitCost = getCreditCost(aiModel, imageSize, aspectRatio);
   const cost = unitCost * requestedResultCount;
   const taskQueue = useTaskQueueGeneration({
     module: "modelBackground",
-    title: "换背景",
+    title: t("title"),
     defaultExpectedCount: requestedResultCount,
     applyPath: "/model-background",
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = sourceUrls.length === 0
-    ? "请先上传原图"
+    ? t("uploadSourceFirst")
     : mode !== "background_only" && !modelReferenceUrl
-      ? "请选择或上传模特参考图"
+      ? t("selectModelReference")
       : mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && !backgroundReferenceUrl
-        ? "请选择或上传背景参考图"
+        ? t("selectBackgroundReference")
         : credits !== null && credits < cost
-          ? `灵点不足，生成需要 ${cost} 灵点`
+          ? t("insufficientCredits", { cost })
           : undefined;
   useEffect(() => {
     const sourceImage = takeSourceImageFromLocation();
     if (sourceImage) {
       setSourceUrls([sourceImage]);
-      toast.success("已带入预览图片");
+      toast.success(t("previewImageImported"));
     }
   }, []);
 
@@ -302,7 +306,7 @@ export default function ModelBackgroundPage() {
     const nextPreset = normalizeBackgroundPreset(payload.templateId);
     setSourceUrls(normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl));
     setModelReferenceUrl(payload.modelReferenceUrl || "");
-    setModelReferenceName(payload.modelReferenceUrl ? "历史模特" : "");
+    setModelReferenceName(payload.modelReferenceUrl ? t("historyModel") : "");
     setBackgroundReferenceUrl(payload.backgroundReferenceUrl || getBackgroundPreset(nextPreset).imageUrl);
     setMode(normalizeModelBackgroundMode(payload.mode));
     setBackgroundSource(nextSource === "auto" ? "preset" : nextSource);
@@ -319,7 +323,7 @@ export default function ModelBackgroundPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("historyApplied"));
   }
 
   useEffect(() => {
@@ -332,7 +336,7 @@ export default function ModelBackgroundPage() {
     const nextPreset = normalizeBackgroundPreset(payload.templateId);
     setSourceUrls(normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl));
     setModelReferenceUrl(payload.modelReferenceUrl || "");
-    setModelReferenceName(payload.modelReferenceUrl ? "历史模特" : "");
+    setModelReferenceName(payload.modelReferenceUrl ? t("historyModel") : "");
     setBackgroundReferenceUrl(payload.backgroundReferenceUrl || getBackgroundPreset(nextPreset).imageUrl);
     setMode(normalizeModelBackgroundMode(payload.mode));
     setBackgroundSource(nextSource === "auto" ? "preset" : nextSource);
@@ -349,7 +353,7 @@ export default function ModelBackgroundPage() {
     setIsGenerating(false);
     setProgress(detail?.resultUrls.length ? 100 : 0);
     setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
-    toast.success("已套用历史参数");
+    toast.success(t("historyApplied"));
     })();
     return () => {
       cancelled = true;
@@ -359,27 +363,27 @@ export default function ModelBackgroundPage() {
   async function handleUpload(files: File[], target: UploadTarget) {
     const validFiles = files.filter((file) => {
       if (!file.type.startsWith("image/")) {
-        toast.error(`"${file.name}" 不是图片格式`);
+        toast.error(t("notImageFormat", { name: file.name }));
         return false;
       }
       if (file.size === 0) {
-        toast.error("图片文件为空，请重新选择");
+        toast.error(t("emptyImageFile"));
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`"${file.name}" 超过 ${MAX_FILE_SIZE_MB}MB`);
+        toast.error(t("exceedsMaxSize", { name: file.name, mb: MAX_FILE_SIZE_MB }));
         return false;
       }
       return true;
     });
     if (validFiles.length === 0) return;
 
-    const label = target === "source" ? "原图" : target === "model" ? "模特参考图" : "背景参考图";
+    const label = target === "source" ? t("source") : target === "model" ? t("modelReference") : t("backgroundReference");
     if (target === "source" && sourceUrls.length >= MAX_MODEL_BACKGROUND_SOURCE_IMAGES) {
-      toast.error(`原图最多 ${MAX_MODEL_BACKGROUND_SOURCE_IMAGES} 张`);
+      toast.error(t("sourceMaxCount", { max: MAX_MODEL_BACKGROUND_SOURCE_IMAGES }));
       return;
     }
-    toast.info(`正在上传${label}…`);
+    toast.info(t("uploadingLabel", { label }));
     setUploadingTarget(target);
     try {
       const remaining = Math.max(MAX_MODEL_BACKGROUND_SOURCE_IMAGES - sourceUrls.length, 0);
@@ -390,19 +394,19 @@ export default function ModelBackgroundPage() {
           const merged = [...prev, ...uploads.map((item) => item.url)];
           return merged.slice(0, MAX_MODEL_BACKGROUND_SOURCE_IMAGES);
         });
-        toast.success(`已上传 ${uploads.length} 张原图`);
+        toast.success(t("uploadedSourceCount", { count: uploads.length }));
       } else if (target === "model") {
         setModelReferenceUrl(uploads[0].url);
-        setModelReferenceName("自定义");
-        toast.success(`${label}已上传`);
+        setModelReferenceName(t("custom"));
+        toast.success(t("labelUploaded", { label }));
       } else {
         setBackgroundReferenceUrl(uploads[0].url);
         setBackgroundSource("upload");
-        toast.success(`${label}已上传`);
+        toast.success(t("labelUploaded", { label }));
       }
       setPromptOverride(null);
     } catch {
-      toast.error("上传失败，请重试");
+      toast.error(t("uploadFailedRetry"));
     } finally {
       setUploadingTarget(null);
     }
@@ -412,19 +416,19 @@ export default function ModelBackgroundPage() {
     setSourceUrls([demo.imageUrl]);
     setPromptOverride(null);
     closeRulesPopover();
-    toast.success("已套用示例图");
+    toast.success(t("demoApplied"));
   }
 
   async function generate(promptForRun?: string, options: ModelBackgroundGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
     const runSourceUrls = options.sourceUrlsOverride?.length ? options.sourceUrlsOverride : sourceUrls;
-    if (runSourceUrls.length === 0) return toast.error("请先上传原图");
-    if (mode !== "background_only" && !modelReferenceUrl) return toast.error("请选择或上传模特参考图");
-    if (mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && !backgroundReferenceUrl) return toast.error("请选择或上传背景参考图");
+    if (runSourceUrls.length === 0) return toast.error(t("uploadSourceFirst"));
+    if (mode !== "background_only" && !modelReferenceUrl) return toast.error(t("selectModelReference"));
+    if (mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && !backgroundReferenceUrl) return toast.error(t("selectBackgroundReference"));
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? (runSourceUrls.length * runGenCount)) || runGenCount));
     const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
@@ -495,9 +499,9 @@ export default function ModelBackgroundPage() {
           data,
           userId,
           setCredits,
-          fallbackError: "生成失败",
+          fallbackError: t("generateFailed"),
         });
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generateFailed"));
       }
       setProgress(25);
       if (typeof data.generation_id === "string" && data.generation_id) {
@@ -564,13 +568,13 @@ export default function ModelBackgroundPage() {
           });
           if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`换背景部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(t("partialComplete", { count: finalResultCount, expected: displayExpectedCount }));
           } else {
-            toast.success("换背景生成完成");
+            toast.success(t("generateComplete"));
           }
           return;
         }
-        if (state.status === "failed") throw new Error(state.error || "生成失败");
+        if (state.status === "failed") throw new Error(state.error || t("generateFailed"));
         const nextProgress = Number(state.progress);
         const runningProgress = Number.isFinite(nextProgress)
           ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
@@ -584,9 +588,9 @@ export default function ModelBackgroundPage() {
           status: state.status,
         });
       }
-      throw new Error("生成超时");
+      throw new Error(t("generateTimeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
@@ -615,12 +619,12 @@ export default function ModelBackgroundPage() {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
   }
@@ -655,12 +659,12 @@ export default function ModelBackgroundPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="modelBackground" />
-      <ModuleTaskRail module="modelBackground" moduleLabel="换背景" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="modelBackground" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
           <ModuleHeader
-            title="换背景"
-            tooltip="默认只替换原图背景，人物、服装和穿搭保持不变；切换到换模特时需要先选择或上传模特参考图。"
+            title={t("title")}
+            tooltip={t("headerTooltip")}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -672,13 +676,13 @@ export default function ModelBackgroundPage() {
                 aria-expanded={showRules}
                 className="studio-upload-rule-button"
               >
-                图片规则 <ChevronRight className="h-3 w-3" />
+                {t("imageRules")} <ChevronRight className="h-3 w-3" />
               </button>
             )}
           />
 
           <StudioUploadSection
-            title="需要处理的原图"
+            title={t("uploadSectionTitle")}
             inputRef={sourceInputRef}
             multiple
             isDragging={isSourceDragging}
@@ -689,24 +693,24 @@ export default function ModelBackgroundPage() {
               <StudioMultiImageUpload
                 urls={sourceUrls}
                 maxCount={MAX_MODEL_BACKGROUND_SOURCE_IMAGES}
-                title="已上传原图"
-                emptyTitle="上传需要处理的原图"
-                description="图1作为人物、服装、姿势、画幅和裁切基础，可继续补充多张原图批量换背景。"
-                emptyDescription="图1作为人物、服装、姿势、画幅和裁切基础，建议主体完整、服装清晰。"
-                itemLabelPrefix="图"
+                title={t("uploadedSourceTitle")}
+                emptyTitle={t("uploadEmptyTitle")}
+                description={t("uploadDescription")}
+                emptyDescription={t("uploadEmptyDescription")}
+                itemLabelPrefix={t("itemPrefix")}
                 loading={uploadingTarget === "source"}
                 isDragging={isSourceDragging}
-                uploadLabel="从本地上传"
-                libraryLabel="从作品选择"
-                summary={sourceUrls.length ? `共生成 ${sourceUrls.length * genCount} 张` : undefined}
-                footnote={`支持同时上传多张原图（最多 ${MAX_MODEL_BACKGROUND_SOURCE_IMAGES} 张），每张原图 × 生成数量。只换背景时会锁定原图景别和裁切。`}
+                uploadLabel={t("uploadLocal")}
+                libraryLabel={t("uploadLibrary")}
+                summary={sourceUrls.length ? t("uploadSummary", { count: sourceUrls.length * genCount }) : undefined}
+                footnote={t("uploadFootnote", { max: MAX_MODEL_BACKGROUND_SOURCE_IMAGES })}
                 tips={[
-                  { label: "说明", text: "只换背景时锁定原图人物、服装、姿势和裁切。" },
-                  { label: "图片要求", text: "主体清晰、边缘完整、服装和人物关系明确。" },
+                  { label: t("tipNote"), text: t("tipNoteText") },
+                  { label: t("tipRequirement"), text: t("tipRequirementText") },
                 ]}
                 imageFit="cover"
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                 onPreview={(url) => setLightboxSrc(url)}
                 onRemove={(_, index) => {
                   setSourceUrls((prev) => prev.filter((__, i) => i !== index));
@@ -717,7 +721,7 @@ export default function ModelBackgroundPage() {
                   setPromptOverride(null);
                 }}
                 examples={{
-                  label: "试一试",
+                  label: t("tryIt"),
                   images: MODEL_BACKGROUND_UPLOAD_RULE.demos.map((demo) => ({ url: demo.imageUrl, title: demo.title })),
                   disabled: uploadingTarget === "source",
                   onSelect: (image) => applyDemo({ title: image.title, imageUrl: image.url }),
@@ -727,35 +731,35 @@ export default function ModelBackgroundPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> 操作模式</h3>
+            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> {t("operationMode")}</h3>
             <StudioOptionGrid
               options={MODE_OPTIONS.map((item) => ({
                 value: item.value,
                 label: MODEL_BACKGROUND_MODE_LABELS[item.value],
-                description: item.desc,
+                description: item.descKey ? t(item.descKey) : item.desc,
               }))}
               value={mode}
               onChange={(value) => { setMode(value); setPromptOverride(null); }}
               columns={3}
-              ariaLabel="操作模式"
+              ariaLabel={t("operationMode")}
             />
           </section>
 
           {mode !== "background_only" ? (
             <section>
               <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
-                <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> 模特参考 <span className="text-purple-400 font-normal text-xs">· 必选</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[9px]">请选择</span>
+                <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> {t("modelReference")} <span className="text-purple-400 font-normal text-xs">· {t("required")}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[9px]">{t("pleaseSelect")}</span>
               </h3>
               <p className="text-[11px] text-gray-400 mb-3">
-                {mode === "model_only" ? "只换主图脸部，身体、服装、发型、姿势、背景都保持原图不变。" : "请选择系统模特或上传模特图，再替换模特与背景；图1服装和穿搭仍保持不变。"}
+                {mode === "model_only" ? t("modelOnlyDesc") : t("modelBackgroundDesc")}
               </p>
               <input
                 ref={modelInputRef}
                 type="file"
                 accept="image/*"
                 className="hidden"
-                aria-label="上传模特参考图"
+                aria-label={t("uploadModelReference")}
                 onChange={(event) => {
                   const input = event.currentTarget;
                   void handleUpload(Array.from(input.files || []), "model").finally(() => {
@@ -785,7 +789,7 @@ export default function ModelBackgroundPage() {
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setLightboxSrc(model.imageUrl); }}
                       className={CARD_ZOOM_BUTTON_CLASS}
-                      title="放大预览"
+                      title={t("zoomPreview")}
                     >
                       <ZoomIn className="h-3.5 w-3.5" />
                     </button>
@@ -795,8 +799,8 @@ export default function ModelBackgroundPage() {
                 <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-colors ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:bg-purple-50/40"}`}>
                   <button type="button" onClick={() => modelInputRef.current?.click()} className="flex aspect-square w-full flex-col items-center justify-center">
                     {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl)
-                      ? <RawPreviewImage src={modelReferenceUrl} alt={modelReferenceName || "自定义模特"} className="h-full w-full rounded-lg object-contain p-1" />
-                      : <><Camera className="w-5 h-5 text-gray-300" /><span className="mt-1 text-[10px] text-gray-400">点击上传</span></>
+                      ? <RawPreviewImage src={modelReferenceUrl} alt={modelReferenceName || t("customModel")} className="h-full w-full rounded-lg object-contain p-1" />
+                      : <><Camera className="w-5 h-5 text-gray-300" /><span className="mt-1 text-[10px] text-gray-400">{t("clickToUpload")}</span></>
                     }
                   </button>
                   {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? (
@@ -804,7 +808,7 @@ export default function ModelBackgroundPage() {
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setLightboxSrc(modelReferenceUrl); }}
                       className={CARD_ZOOM_BUTTON_CLASS}
-                      title="放大预览"
+                      title={t("zoomPreview")}
                     >
                       <ZoomIn className="h-3.5 w-3.5" />
                     </button>
@@ -817,9 +821,9 @@ export default function ModelBackgroundPage() {
           {mode !== "model_only" ? (
             <section>
               <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100">
-                <Images className="h-4 w-4 text-[var(--codex-accent)]" /> 参考图 / 场景
+                <Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("referenceScene")}
               </h3>
-              <p className="mb-3 text-[11px] text-slate-400">预设背景、上传背景和文生背景互斥；选择参考图后会优先锁定场景、光线和构图氛围。</p>
+              <p className="mb-3 text-[11px] text-slate-400">{t("referenceSceneHint")}</p>
               <div className="mb-3">
                 <StudioOptionGrid
                   options={BACKGROUND_SOURCE_OPTIONS.map((item) => ({
@@ -838,7 +842,7 @@ export default function ModelBackgroundPage() {
                     setPromptOverride(null);
                   }}
                   columns={3}
-                  ariaLabel="背景来源"
+                  ariaLabel={t("backgroundSource")}
                 />
               </div>
               <input
@@ -846,7 +850,7 @@ export default function ModelBackgroundPage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                aria-label="上传背景参考图"
+                aria-label={t("uploadBackgroundReference")}
                 onChange={(event) => {
                   const input = event.currentTarget;
                   void handleUpload(Array.from(input.files || []), "background").finally(() => {
@@ -856,7 +860,7 @@ export default function ModelBackgroundPage() {
               />
               {backgroundSource === "preset" ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-white/55 p-3">
-                  <p className="mb-3 text-[11px] text-slate-500">选择系统参考图，只参考场景、光线、色彩和空间氛围。</p>
+                  <p className="mb-3 text-[11px] text-slate-500">{t("presetSelectHint")}</p>
                   <div className="grid grid-cols-3 gap-2">
                     {BACKGROUND_PRESETS.map((item) => (
                       <div key={item.id} className={`group relative overflow-hidden rounded-xl border bg-white text-center shadow-sm transition-shadow ${backgroundPresetId === item.id ? "border-purple-500 ring-2 ring-purple-100" : "border-slate-100 hover:shadow-md"}`}>
@@ -878,7 +882,7 @@ export default function ModelBackgroundPage() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setLightboxSrc(item.imageUrl); }}
                           className={CARD_ZOOM_BUTTON_CLASS}
-                          title="放大预览"
+                          title={t("zoomPreview")}
                         >
                           <ZoomIn className="h-3.5 w-3.5" />
                         </button>
@@ -891,13 +895,13 @@ export default function ModelBackgroundPage() {
                 <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone studio-fixed-upload-slot flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 p-3 text-center transition hover:bg-purple-50/40" style={{ "--studio-fixed-upload-height": "328px" } as CSSProperties}>
                   {backgroundReferenceUrl ? (
                     <div className="studio-fixed-upload-preview studio-checkerboard relative mb-2 overflow-hidden rounded-xl" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
-                      <RawPreviewImage src={backgroundReferenceUrl} alt="背景参考" className="h-full w-full object-contain p-2" />
+                      <RawPreviewImage src={backgroundReferenceUrl} alt={t("backgroundReference")} className="h-full w-full object-contain p-2" />
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(backgroundReferenceUrl); }}
                         className={CARD_ZOOM_BUTTON_CLASS}
-                        title="放大预览"
-                        aria-label="放大预览背景参考"
+                        title={t("zoomPreview")}
+                        aria-label={t("zoomBackgroundReference")}
                       >
                         <ZoomIn aria-hidden="true" className="h-3.5 w-3.5" />
                       </button>
@@ -907,12 +911,12 @@ export default function ModelBackgroundPage() {
                       <Images className="h-7 w-7 text-[var(--codex-accent)]" />
                     </div>
                   )}
-                  <span className="text-sm font-semibold text-slate-800">{backgroundReferenceUrl ? "更换背景参考图" : "上传背景参考图"}</span>
-                  <span className="mt-1 block text-xs leading-relaxed text-slate-500">只参考场景、光线、空间和构图氛围，不复制图里的衣服或人物。</span>
+                  <span className="text-sm font-semibold text-slate-800">{backgroundReferenceUrl ? t("changeBackgroundReference") : t("uploadBackgroundReference")}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-500">{t("uploadBackgroundHint")}</span>
                 </button>
               ) : (
                 <div className="space-y-3">
-                <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder="描述你想要的背景…" />
+                <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder={t("backgroundTextPlaceholder")} />
                   <div className="flex flex-wrap gap-2">
                     {BACKGROUND_TEXT_PRESETS.map((preset) => (
                       <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="inline-flex min-h-9 items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-600 transition-colors duration-150 hover:border-[rgba(91,124,255,0.45)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300">
@@ -926,8 +930,8 @@ export default function ModelBackgroundPage() {
           ) : null}
 
           <StudioPromptTextarea
-            title="补充要求"
-            badge="可选"
+            title={t("extraPrompt")}
+            badge={t("optional")}
             value={userPrompt}
             onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}
             rows={4}
@@ -935,49 +939,49 @@ export default function ModelBackgroundPage() {
           />
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genModel")}</h3>
             <StudioModelSelector
               models={MODELS}
               value={aiModel}
               onChange={setAiModel}
-              ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}灵点`}
+              ariaLabel={t("genModel")}
+              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
             />
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> 图片比例</h3>
-            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} columns={3} ariaLabel="图片比例" />
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("imageAspectRatio")}</h3>
+            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} columns={3} ariaLabel={t("imageAspectRatio")} />
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> 分辨率</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution")}</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}${t("creditsUnit")}`,
               }))}
               value={imageSize}
               onChange={setImageSize}
               columns={3}
-              ariaLabel="分辨率"
+              ariaLabel={t("resolution")}
             />
           </section>
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> 生成数量</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genCount")}</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
-              ariaLabel="生成数量"
+              ariaLabel={t("genCount")}
             />
           </section>
         </div>
         <StudioRunBar
-          summary={sourceUrls.length > 1 ? `${sourceUrls.length} 张原图 × ${genCount} · ${imageSize}` : `${sourceUrls.length ? "原图已上传" : "等待上传原图"} · ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          summary={sourceUrls.length > 1 ? t("runSummaryMulti", { count: sourceUrls.length, genCount, imageSize }) : t("runSummarySingle", { status: sourceUrls.length ? t("sourceUploaded") : t("waitingForSource"), genCount })}
+          costLabel={authIsAnonymous ? t("loginToViewCredits") : t("runCost", { cost, credits: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? t("loginToGenerate") : isGenerating ? t("generatingPercent", { percent: Math.round(progress) }) : t("generateN", { count: genCount })}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />
@@ -987,29 +991,29 @@ export default function ModelBackgroundPage() {
         {!isGenerating && resultUrls.length === 0 && !error && (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
-              title="上传原图和背景，生成换背景结果"
-              subtitle="保留人物和穿搭，只替换场景氛围。"
+              title={t("guideTitle")}
+              subtitle={t("guideSubtitle")}
               steps={[
                 {
-                  title: "上传原图",
+                  title: t("guideStep1Title"),
                   desc: "",
                   imageSrc: "/tutorial-guides/background-source.webp",
-                  imageAlt: "换背景原图",
-                  badge: "原图",
+                  imageAlt: t("guideStep1Alt"),
+                  badge: t("guideStep1Badge"),
                 },
                 {
-                  title: "选择背景",
+                  title: t("guideStep2Title"),
                   desc: "",
                   imageSrc: "/tutorial-guides/background-reference.webp",
-                  imageAlt: "背景参考图",
-                  badge: "背景参考",
+                  imageAlt: t("guideStep2Alt"),
+                  badge: t("guideStep2Badge"),
                 },
                 {
-                  title: "生成结果",
+                  title: t("guideStep3Title"),
                   desc: "",
                   imageSrc: "/tutorial-guides/background-result.webp",
-                  imageAlt: "换背景结果图",
-                  badge: "结果图",
+                  imageAlt: t("guideStep3Alt"),
+                  badge: t("guideStep3Badge"),
                 },
               ]}
             />
@@ -1028,14 +1032,14 @@ export default function ModelBackgroundPage() {
                   statusGroup={statusGroup}
                   variant="task"
                   inputReferences={[
-                    ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: "模特参考" }] : []),
-                    ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: "背景参考" }] : []),
+                    ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: t("modelReference") }] : []),
+                    ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: t("backgroundReference") }] : []),
                   ]}
                   markMissingAsFailed={hasCompletedPartialResults}
                     markMissingAsCompleted={statusGroup === "completed" && !hasCompletedPartialResults}
-                  missingFailureLabel="本张生成失败"
+                  missingFailureLabel={t("missingFailureLabel")}
                   missingFailureDetail={partialFailureMessage}
-                  missingFailureActionLabel="重试本张"
+                  missingFailureActionLabel={t("missingFailureActionLabel")}
                   onMissingFailureAction={handleRetryFailedResult}
                   missingFailureActionDisabled={retryDisabled}
                   onOpen={(_, index) => setPreviewIndex(index)}
@@ -1055,15 +1059,15 @@ export default function ModelBackgroundPage() {
                     statusGroup={statusGroup}
                     variant="task"
                     inputReferences={[
-                      { url: sourceUrl, label: `原图 ${sIndex + 1}` },
-                      ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: "模特参考" }] : []),
-                      ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: "背景参考" }] : []),
+                      { url: sourceUrl, label: t("sourceIndexed", { index: sIndex + 1 }) },
+                      ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: t("modelReference") }] : []),
+                      ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: t("backgroundReference") }] : []),
                     ]}
                     markMissingAsFailed={hasCompletedPartialResults}
                       markMissingAsCompleted={statusGroup === "completed" && !hasCompletedPartialResults}
-                    missingFailureLabel="本张生成失败"
+                    missingFailureLabel={t("missingFailureLabel")}
                     missingFailureDetail={partialFailureMessage}
-                    missingFailureActionLabel="重试本张"
+                    missingFailureActionLabel={t("missingFailureActionLabel")}
                     onMissingFailureAction={(idx) => handleRetryFailedResult(start + idx)}
                     missingFailureActionDisabled={retryDisabled}
                     onOpen={(_, index) => setPreviewIndex(start + index)}
@@ -1092,7 +1096,7 @@ export default function ModelBackgroundPage() {
             onRetry={() => { setError(""); void generate(); }}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
-            retryLabel="重新生成"
+            retryLabel={t("retryLabel")}
             notice={FAILED_RETRY_NOTICE}
           />
         )}
@@ -1111,7 +1115,7 @@ export default function ModelBackgroundPage() {
                 <h3 className="text-base font-black text-slate-950 dark:text-stone-100">{MODEL_BACKGROUND_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-400">{MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}</p>
               </div>
-              <button type="button" onClick={closeRulesPopover} aria-label="关闭" className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={closeRulesPopover} aria-label={t("close")} className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
             </div>
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
               <div className="grid gap-3 md:grid-cols-4">
@@ -1122,11 +1126,11 @@ export default function ModelBackgroundPage() {
                       <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" />
                     </div>
                     <p className="mt-2 text-center text-xs font-semibold text-slate-700">{demo.title}</p>
-                    <button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[var(--codex-accent)]">试一试</button>
+                    <button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[var(--codex-accent)]">{t("tryIt")}</button>
                   </div>
                 ))}
               </div>
-              <p className="mt-5 text-center text-xs font-semibold text-slate-500">小贴士：请勿上传以下错误图片，会极大影响生成效果</p>
+              <p className="mt-5 text-center text-xs font-semibold text-slate-500">{t("badExamplesTip")}</p>
               <div className="mt-3 grid gap-3 md:grid-cols-4">
                 {MODEL_BACKGROUND_UPLOAD_RULE.badExamples.map((bad) => (
                   <div key={bad.imageUrl} className="rounded-2xl border border-red-100 bg-red-50/50 p-2">
@@ -1145,7 +1149,7 @@ export default function ModelBackgroundPage() {
 
       <StudioMediaLightbox
         src={lightboxSrc}
-        alt="模特换背景预览"
+        alt={t("previewAlt")}
         onClose={() => setLightboxSrc(null)}
       />
       {unsavedDialog}

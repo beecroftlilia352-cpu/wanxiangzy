@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { StudioGenerationLoader, type StudioLoaderReferenceImage } from "@/components/studio/StudioGenerationLoader";
 
 type LoadingStageProps = {
@@ -16,18 +17,20 @@ type LoadingStageProps = {
 export function LoadingStage({
   genCount,
   progress,
-  moduleName = "图像生成",
+  moduleName,
   statusText,
   aspectRatio,
   referenceImages,
   estimatedTime,
   metaItems,
 }: LoadingStageProps) {
+  const t = useTranslations("Shared");
+  const resolvedModuleName = moduleName ?? t("imageGeneration");
   return (
     <StudioGenerationLoader
       count={genCount}
       progress={progress}
-      moduleName={moduleName}
+      moduleName={resolvedModuleName}
       statusText={statusText}
       aspectRatio={aspectRatio}
       referenceImages={referenceImages}

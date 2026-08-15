@@ -12,7 +12,9 @@ export type AiVideoGenerationKind = "videoImageToVideo" | "videoMotion" | "video
 export type AiVideoActionTemplate = {
   id: number;
   title: string;
+  titleKey?: string;
   description: string;
+  descriptionKey?: string;
   previewImage: string;
   previewVideo: string;
   promptContent: string;
@@ -32,33 +34,33 @@ export const AI_VIDEO_HAPPYHORSE_R2V_MODEL = "happyhorse-1.0-r2v";
 export const AI_VIDEO_HAPPYHORSE_VIDEO_EDIT_MODEL = "happyhorse-1.0-video-edit";
 const AI_VIDEO_TEMPLATE_ASSET_BASE = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/video-templates";
 
-export const AI_VIDEO_RESOLUTION_OPTIONS: Array<{ value: AiVideoResolution; label: string; description: string }> = [
-  { value: "720p", label: "720p", description: "快速生成" },
-  { value: "1080p", label: "1080p", description: "高清生成" },
+export const AI_VIDEO_RESOLUTION_OPTIONS: Array<{ value: AiVideoResolution; label: string; description: string; descriptionKey?: string }> = [
+  { value: "720p", label: "720p", description: "快速生成", descriptionKey: "LibShared.video.resolution.fast" },
+  { value: "1080p", label: "1080p", description: "高清生成", descriptionKey: "LibShared.video.resolution.high" },
 ];
 
 export const AI_VIDEO_FAST_RESOLUTION_OPTIONS = AI_VIDEO_RESOLUTION_OPTIONS.filter((item) => item.value === "720p");
 
-export const AI_VIDEO_MODEL_MODE_OPTIONS: Array<{ value: AiVideoModelMode; label: string; description: string }> = [
-  { value: "pro", label: "高清模式", description: "HappyHorse 高清生成，支持 1080p" },
-  { value: "fast", label: "快速模式", description: "HappyHorse 快速生成，仅 720p" },
+export const AI_VIDEO_MODEL_MODE_OPTIONS: Array<{ value: AiVideoModelMode; label: string; labelKey?: string; description: string; descriptionKey?: string }> = [
+  { value: "pro", label: "高清模式", labelKey: "LibShared.video.mode.high", description: "HappyHorse 高清生成，支持 1080p", descriptionKey: "LibShared.video.modelModeDesc.high" },
+  { value: "fast", label: "快速模式", labelKey: "LibShared.video.mode.fast", description: "HappyHorse 快速生成，仅 720p", descriptionKey: "LibShared.video.modelModeDesc.fast" },
 ];
 
-export const AI_VIDEO_ASPECT_RATIO_OPTIONS: Array<{ value: AiVideoAspectRatio; label: string; description: string }> = [
-  { value: "auto", label: "智能", description: "跟随上传图" },
-  { value: "3:4", label: "3:4", description: "女装常用" },
-  { value: "9:16", label: "9:16", description: "手机竖屏" },
-  { value: "1:1", label: "1:1", description: "方图" },
-  { value: "4:3", label: "4:3", description: "经典横幅" },
-  { value: "16:9", label: "16:9", description: "横屏视频" },
+export const AI_VIDEO_ASPECT_RATIO_OPTIONS: Array<{ value: AiVideoAspectRatio; label: string; labelKey?: string; description: string; descriptionKey?: string }> = [
+  { value: "auto", label: "智能", labelKey: "LibShared.video.aspect.auto", description: "跟随上传图", descriptionKey: "LibShared.video.aspectDesc.auto" },
+  { value: "3:4", label: "3:4", description: "女装常用", descriptionKey: "LibShared.video.aspectDesc.threeFour" },
+  { value: "9:16", label: "9:16", description: "手机竖屏", descriptionKey: "LibShared.video.aspectDesc.nineSixteen" },
+  { value: "1:1", label: "1:1", description: "方图", descriptionKey: "LibShared.video.aspectDesc.square" },
+  { value: "4:3", label: "4:3", description: "经典横幅", descriptionKey: "LibShared.video.aspectDesc.fourThree" },
+  { value: "16:9", label: "16:9", description: "横屏视频", descriptionKey: "LibShared.video.aspectDesc.sixteenNine" },
 ];
 export const AI_VIDEO_FIXED_ASPECT_RATIOS: AiVideoFixedAspectRatio[] = ["3:4", "9:16", "1:1", "4:3", "16:9"];
 
-export const AI_VIDEO_AUDIO_MODE_OPTIONS: Array<{ value: Exclude<AiVideoAudioMode, "off">; label: string; description: string }> = [
-  { value: "generated", label: "原生音效", description: "HappyHorse 按画面生成声音" },
+export const AI_VIDEO_AUDIO_MODE_OPTIONS: Array<{ value: Exclude<AiVideoAudioMode, "off">; label: string; labelKey?: string; description: string; descriptionKey?: string }> = [
+  { value: "generated", label: "原生音效", labelKey: "LibShared.video.audio.generated", description: "HappyHorse 按画面生成声音", descriptionKey: "LibShared.video.audioDesc.generated" },
 ];
 
-export const AI_VIDEO_DURATION_OPTIONS: Array<{ value: AiVideoDuration; label: string }> = [
+export const AI_VIDEO_DURATION_OPTIONS: Array<{ value: AiVideoDuration; label: string; labelKey?: string }> = [
   { value: 3, label: "3秒" },
   { value: 5, label: "5秒" },
   { value: 10, label: "10秒" },
@@ -69,7 +71,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 1,
     title: "双手插袋",
+    titleKey: "LibShared.video.actionTemplateTitle.handsInPockets",
     description: "展示整体廓形线条",
+    descriptionKey: "LibShared.video.actionTemplateDesc.handsInPockets",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/01-hands-in-pockets.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/01-hands-in-pockets.mp4`,
     promptContent: "模特双手自然插入口袋，展示服装整体廓形与线条，镜头平稳跟随全身效果。",
@@ -77,7 +81,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 2,
     title: "交叉抱臂",
+    titleKey: "LibShared.video.actionTemplateTitle.crossedArms",
     description: "突出包裹感和版型",
+    descriptionKey: "LibShared.video.actionTemplateDesc.crossedArms",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/02-crossed-arms.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/02-crossed-arms.mp4`,
     promptContent: "模特双臂自然交叉，突出服装包裹感、肩胸结构和版型，镜头缓慢推进。",
@@ -85,7 +91,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 3,
     title: "下摆整理",
+    titleKey: "LibShared.video.actionTemplateTitle.hemDisplay",
     description: "展示面料垂坠",
+    descriptionKey: "LibShared.video.actionTemplateDesc.hemDisplay",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/03-hem-display.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/03-hem-display.mp4`,
     promptContent: "模特轻轻整理衣摆，展示面料自然垂坠、下摆长度和褶皱细节，镜头缓慢推进。",
@@ -93,7 +101,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 4,
     title: "轻微动态",
+    titleKey: "LibShared.video.actionTemplateTitle.subtleMovement",
     description: "展示自然动态平衡",
+    descriptionKey: "LibShared.video.actionTemplateDesc.subtleMovement",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/04-subtle-movement.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/04-subtle-movement.mp4`,
     promptContent: "模特在原地做轻微重心变化，展现自然动态和平衡感，镜头平稳跟随。",
@@ -101,7 +111,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 5,
     title: "领口细节",
+    titleKey: "LibShared.video.actionTemplateTitle.necklineDetails",
     description: "聚焦领口和上身细节",
+    descriptionKey: "LibShared.video.actionTemplateDesc.necklineDetails",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/05-neckline-details.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/05-neckline-details.mp4`,
     promptContent: "模特轻轻调整领口，突出衣领结构、上身细节和面料质感，镜头缓慢推进。",
@@ -109,7 +121,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 6,
     title: "双手背后",
+    titleKey: "LibShared.video.actionTemplateTitle.handsBehindBack",
     description: "强调正面结构廓形",
+    descriptionKey: "LibShared.video.actionTemplateDesc.handsBehindBack",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/06-hands-behind-back.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/06-hands-behind-back.mp4`,
     promptContent: "模特双手自然放在身后，突出服装正面结构、胸肩线条和整体版型，镜头缓慢推进。",
@@ -117,7 +131,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 7,
     title: "静态展示",
+    titleKey: "LibShared.video.actionTemplateTitle.staticDisplay",
     description: "拉远展示全身效果",
+    descriptionKey: "LibShared.video.actionTemplateDesc.staticDisplay",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/07-static-display.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/07-static-display.mp4`,
     promptContent: "模特双臂自然放松站立，镜头缓慢拉远，完整展示全身穿搭效果。",
@@ -125,7 +141,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 8,
     title: "整体造型",
+    titleKey: "LibShared.video.actionTemplateTitle.fullLook",
     description: "突出整体穿搭气场",
+    descriptionKey: "LibShared.video.actionTemplateDesc.fullLook",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/08-full-look-display.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/08-full-look-display.mp4`,
     promptContent: "模特缓慢抬头并保持自然姿态，展示整体穿搭气场与服装效果，镜头缓慢推进。",
@@ -133,7 +151,9 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
   {
     id: 9,
     title: "行走展示",
+    titleKey: "LibShared.video.actionTemplateTitle.walkingDisplay",
     description: "展示自然行走动态",
+    descriptionKey: "LibShared.video.actionTemplateDesc.walkingDisplay",
     previewImage: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/09-walking-display.png`,
     previewVideo: `${AI_VIDEO_TEMPLATE_ASSET_BASE}/09-walking-display.mp4`,
     promptContent: "模特缓慢向前行走后短暂停留，展示全身穿搭和服装动态，镜头缓慢推进。",

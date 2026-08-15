@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 export type StudioUploadTip = {
   label: string;
@@ -96,6 +97,7 @@ export function buildStudioUploadTips({
 }
 
 export function StudioUploadTips({ tips, action }: StudioUploadTipsProps) {
+  const t = useTranslations("Shared");
   const visibleTips = tips
     .filter((tip) => normalizeTipText(tip.text))
     .slice(0, 2)
@@ -104,7 +106,7 @@ export function StudioUploadTips({ tips, action }: StudioUploadTipsProps) {
   if (!visibleTips.length) return null;
 
   return (
-    <div className="studio-upload-tile-tips" data-tip-count={visibleTips.length} aria-label="上传提示">
+    <div className="studio-upload-tile-tips" data-tip-count={visibleTips.length} aria-label={t("uploadTips")}>
       <span className="studio-upload-tile-tips-label">Tips.</span>
       <div className="studio-upload-tile-tips-viewport">
         <div

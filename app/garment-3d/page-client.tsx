@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Loader2, Plus, Wand, XCircle, ZoomIn } from "lucide-react";
@@ -59,10 +60,10 @@ const DEFAULT_PROMPT = "衣服变为类似穿在人身上的立体效果，微�
 const GARMENT_3D_QUALITY =
   "photorealistic, 8K ultra-detailed, RAW photo quality, high contrast, commercial e-commerce catalog quality, sharp fabric details";
 
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+const MODELS: { value: LingyaModel; label: string; desc: string; descKey: string; badgeKey: string; icon: string }[] = [
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeRecommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeNew", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeRefined", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 const SITE_ASSET_BASE = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original";
@@ -80,20 +81,21 @@ const GARMENT_3D_PREVIEW_ACTIONS: ImagePreviewAction[] = [
 ];
 
 const REFERENCE_PRESETS = [
-  { id: "r1", label: "灰色连帽", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-01.webp` },
-  { id: "r2", label: "立体牛仔", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-02.png` },
-  { id: "r3", label: "棒球外套", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-03.png` },
-  { id: "r4", label: "直筒裤装", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-04.png` },
-  { id: "r5", label: "纹理卫衣", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-05.png` },
-  { id: "r6", label: "敞开夹克", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-06.png` },
-  { id: "r7", label: "侧身外套", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-07.png` },
-  { id: "r8", label: "羽绒厚度", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-08.png` },
-  { id: "r9", label: "背面廓形", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-09.jpg` },
-  { id: "r10", label: "短外套", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-10.png` },
+  { id: "r1", label: "灰色连帽", labelKey: "refHoodie", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-01.webp` },
+  { id: "r2", label: "立体牛仔", labelKey: "refDenim", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-02.png` },
+  { id: "r3", label: "棒球外套", labelKey: "refJacket", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-03.png` },
+  { id: "r4", label: "直筒裤装", labelKey: "refPants", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-04.png` },
+  { id: "r5", label: "纹理卫衣", labelKey: "refSweatshirt", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-05.png` },
+  { id: "r6", label: "敞开夹克", labelKey: "refOpenJacket", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-06.png` },
+  { id: "r7", label: "侧身外套", labelKey: "refSideCoat", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-07.png` },
+  { id: "r8", label: "羽绒厚度", labelKey: "refDown", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-08.png` },
+  { id: "r9", label: "背面廓形", labelKey: "refBack", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-09.jpg` },
+  { id: "r10", label: "短外套", labelKey: "refShortCoat", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-10.png` },
 ];
 
 export default function Garment3dPage() {
   const router = useRouter();
+  const t = useTranslations("Garment3d");
   const garmentInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,7 +156,7 @@ export default function Garment3dPage() {
   );
   const taskQueue = useTaskQueueGeneration({
     module: "garment3d",
-    title: "服装 3D",
+    title: t("moduleLabel"),
     defaultExpectedCount: genCount,
     applyPath: "/garment-3d",
   });
@@ -189,40 +191,40 @@ export default function Garment3dPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retryMissingToast", { index: index + 1 }),
     });
   }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "garment3d",
-      title: "服装 3D",
+      title: t("moduleLabel"),
       urls: resultUrls,
       expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       references: [
-        ...(garmentUrl ? [{ url: garmentUrl, label: "服装图", role: "garment" as const }] : []),
-        ...(outputMode === "reference" && activeReferenceUrl ? [{ url: activeReferenceUrl, label: customReferenceUrl ? "自定义立体参考" : selectedReference.label, role: "reference" as const }] : []),
+        ...(garmentUrl ? [{ url: garmentUrl, label: t("referenceGarmentLabel"), role: "garment" as const }] : []),
+        ...(outputMode === "reference" && activeReferenceUrl ? [{ url: activeReferenceUrl, label: customReferenceUrl ? t("referenceCustomLabel") : (selectedReference.labelKey ? t(selectedReference.labelKey) : selectedReference.label), role: "reference" as const }] : []),
       ],
       promptText: prompt.trim() && prompt.trim() !== DEFAULT_PROMPT ? prompt : "",
       metaItems: [
-        { label: "服装类型", value: garmentType === "其他" ? customGarmentType : garmentType },
-        { label: "输出方式", value: outputMode === "reference" ? "参考图控制" : "提示词控制" },
-        { label: "展示风格", value: displayStyleLabel },
-        { label: "模型", value: aiModel },
-        { label: "比例", value: aspectRatio },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: genCount },
+        { label: t("metaGarmentType"), value: garmentType === "其他" ? customGarmentType : garmentType },
+        { label: t("metaOutputMode"), value: outputMode === "reference" ? t("outputModeReferenceValue") : t("outputModePromptValue") },
+        { label: t("metaDisplayStyle"), value: displayStyleLabel },
+        { label: t("metaModel"), value: aiModel },
+        { label: t("metaAspect"), value: aspectRatio },
+        { label: t("metaResolution"), value: imageSize },
+        { label: t("metaCount"), value: genCount },
       ],
-      resultTitlePrefix: "服装 3D 结果",
+      resultTitlePrefix: t("resultTitlePrefix"),
       aspectRatio,
     }),
     [activeReferenceUrl, activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, customReferenceUrl, displayStyleLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, outputMode, prompt, resultUrls, selectedReference.label]
   );
   const runDisabledReason = !garmentUrl
-    ? "请先上传服装图"
+    ? t("garmentReadyRequired")
     : credits !== null && credits < totalCost
-      ? `灵点不足，生成需要 ${totalCost} 灵点`
+      ? t("insufficientCredits", { cost: totalCost })
       : undefined;
 
   useEffect(() => {
@@ -232,7 +234,7 @@ export default function Garment3dPage() {
 
   function applyGarment3dHistoryPayload(payload: Garment3dHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setGarmentUrl(payload.garmentUrl);
-    setGarmentName("历史服装图");
+    setGarmentName(t("historyGarmentName"));
     setGarmentType(
       payload.garmentType === "上装" || payload.garmentType === "下装" || payload.garmentType === "连体衣"
         ? payload.garmentType
@@ -257,7 +259,7 @@ export default function Garment3dPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError(null);
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("historyApplySuccess"));
   }
 
   useEffect(() => {
@@ -279,25 +281,25 @@ export default function Garment3dPage() {
     const file = Array.from(files)[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("请上传图片文件");
+      toast.error(t("uploadImageOnly"));
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
+      toast.error(t("imageTooLarge", { size: MAX_FILE_SIZE_MB }));
       return;
     }
 
     setGarmentName(file.name);
 
-    toast.info("正在上传服装图…");
+    toast.info(t("uploadingGarment"));
     setIsUploadingGarment(true);
     try {
       const result = await uploadImage(file);
       setGarmentUrl(result.url);
-      toast.success("服装图已准备");
+      toast.success(t("garmentReady"));
     } catch {
       setGarmentUrl("");
-      toast.error("服装图上传失败，请重试");
+      toast.error(t("garmentUploadFailed"));
     } finally {
       setIsUploadingGarment(false);
     }
@@ -306,19 +308,19 @@ export default function Garment3dPage() {
   async function handleCustomReference(file?: File) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("请上传图片文件");
+      toast.error(t("uploadImageOnly"));
       return;
     }
     setPromptOverride(null);
 
-    toast.info("正在上传参考图…");
+    toast.info(t("uploadingReference"));
     try {
       const result = await uploadImage(file);
       setCustomReferenceUrl(result.url);
-      toast.success("参考图已选择");
+      toast.success(t("referenceSelected"));
     } catch {
       setCustomReferenceUrl("");
-      toast.error("参考图上传失败，请重试");
+      toast.error(t("referenceUploadFailed"));
     }
   }
 
@@ -341,7 +343,7 @@ export default function Garment3dPage() {
 
   async function optimizePrompt() {
     if (!garmentUrl) {
-      toast.error("请先上传服装图");
+      toast.error(t("garmentReadyRequired"));
       return;
     }
 
@@ -369,12 +371,12 @@ export default function Garment3dPage() {
         });
         setPrompt(data.prompt);
         setPromptOverride(optimizedPrompt);
-        toast.success("视觉分析已优化提示词");
+        toast.success(t("analyzeSuccess"));
       } else {
-        toast.error("暂时没有返回优化结果");
+        toast.error(t("analyzeEmpty"));
       }
     } catch {
-      toast.error("优化失败");
+      toast.error(t("analyzeFailed"));
     } finally {
       setIsOptimizing(false);
     }
@@ -382,16 +384,16 @@ export default function Garment3dPage() {
 
   async function generate(finalPromptForRun?: string, options: Garment3dGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("loginRequired"));
       router.push("/login");
       return;
     }
     if (!garmentUrl) {
-      toast.error("请上传服装图");
+      toast.error(t("garmentRequired"));
       return;
     }
     if (garmentType === "其他" && !customGarmentType.trim()) {
-      toast.error("请输入自定义服装类型");
+      toast.error(t("customTypeRequired"));
       return;
     }
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
@@ -460,7 +462,7 @@ export default function Garment3dPage() {
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generationFailed"));
       }
 
       if (data.credits_remaining !== undefined) {
@@ -508,9 +510,9 @@ export default function Garment3dPage() {
         });
         if (completedError || finalResultCount < displayExpectedCount) {
           void refreshCredits();
-          toast.warning(`服装 3D 部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
+          toast.warning(t("partialCompleteToast", { done: finalResultCount, total: displayExpectedCount }));
         } else {
-          toast.success("服装转3D完成");
+          toast.success(t("generationComplete"));
         }
         return;
       }
@@ -568,19 +570,19 @@ export default function Garment3dPage() {
           });
           if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`服装 3D 部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(t("partialCompleteToast", { done: finalResultCount, total: displayExpectedCount }));
           } else {
-            toast.success("服装转3D完成");
+            toast.success(t("generationComplete"));
           }
           return;
         }
         if (pollData.status === "failed") {
-          throw new Error(pollData.error || "生成失败");
+          throw new Error(pollData.error || t("generationFailed"));
         }
       }
-      throw new Error("生成超时");
+      throw new Error(t("generationTimeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "操作失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("operationFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
@@ -601,7 +603,7 @@ export default function Garment3dPage() {
     setGarmentType(demo.garmentType);
     setPromptOverride(null);
     closeRulesPopover();
-    toast.success(`已套用${demo.title}`);
+    toast.success(t("ruleApplied", { title: demo.title }));
   }
 
   function handleRunningTask(item: TaskQueueItem) {
@@ -622,12 +624,12 @@ export default function Garment3dPage() {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generationFailed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史任务加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
   }
@@ -663,7 +665,7 @@ export default function Garment3dPage() {
       <FeatureTabs active="garment3d" />
       <ModuleTaskRail
         module="garment3d"
-        moduleLabel="服装 3D"
+        moduleLabel={t("moduleLabel")}
         onContinue={handleContinueCreate}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
@@ -671,8 +673,8 @@ export default function Garment3dPage() {
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
-            title="服装 3D"
-            tooltip="上传单张清晰服装图，将平铺、挂拍或人台服装转成更有厚度、体积和材质表达的商品展示图。"
+            title={t("title")}
+            tooltip={t("tooltip")}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -684,12 +686,12 @@ export default function Garment3dPage() {
                 aria-expanded={showGarmentRules}
                 className="studio-upload-rule-button"
               >
-                图片规则 <ChevronRight className="h-3 w-3" />
+                {t("rulesButton")} <ChevronRight className="h-3 w-3" />
               </button>
             )}
           />
           <StudioUploadSection
-            title="上传服装图"
+            title={t("uploadSectionTitle")}
             inputRef={garmentInputRef}
             isDragging={isDragging}
             setDragging={setIsDragging}
@@ -698,14 +700,14 @@ export default function Garment3dPage() {
             {(openFileDialog, dragContext) => (
               <>
                 <StudioUploadTile
-                  title="上传单件衣服平铺图"
-                  description="建议单件商品、主体完整、边缘清晰，避免套装和复杂背景。"
+                  title={t("uploadTileTitle")}
+                  description={t("uploadTileDescription")}
                   imageUrl={garmentUrl || null}
-                  imageAlt="已上传服装图"
+                  imageAlt={t("uploadImageAlt")}
                   isDragging={isDragging}
                   loading={isUploadingGarment}
                   onUploadClick={openFileDialog}
-                  onLibraryClick={() => toast.info("作品库选择即将接入")}
+                  onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                   onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
                   onRemove={garmentUrl ? () => {
                     setGarmentUrl("");
@@ -713,11 +715,11 @@ export default function Garment3dPage() {
                   } : undefined}
                   onDropFile={(file) => handleGarmentFiles(file ? [file] : [])}
                   dragContext={dragContext}
-                  uploadLabel="从本地上传"
-                  libraryLabel="从作品选择"
-                  footnote={garmentUrl ? garmentName || "已上传图片" : "单件商品、边缘清晰、背景干净，更容易还原版型、厚度和材质。"}
+                  uploadLabel={t("uploadLabel")}
+                  libraryLabel={t("libraryLabel")}
+                  footnote={garmentUrl ? garmentName || t("uploadedImage") : t("footnoteEmpty")}
                   examples={{
-                    label: "试一试",
+                    label: t("examplesLabel"),
                     images: GARMENT_3D_UPLOAD_RULE.demos.map((demo) => ({ url: demo.imageUrl, title: demo.title })),
                     onSelect: (image) => {
                       const demo = GARMENT_3D_UPLOAD_RULE.demos.find((item) => item.imageUrl === image.url);
@@ -730,33 +732,33 @@ export default function Garment3dPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">上传的服装类型</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("garmentTypeSectionTitle")}</h3>
             <StudioOptionGrid
               options={GARMENT_TYPE_OPTIONS.map((type) => ({
                 value: type,
-                label: type,
+                label: translateGarmentType(t, type),
               }))}
               value={garmentType}
               onChange={setGarmentType}
               columns={4}
-              ariaLabel="上传的服装类型"
+              ariaLabel={t("garmentTypeSectionTitle")}
             />
             {garmentType === "其他" && (
               <input
                 value={customGarmentType}
                 onChange={(e) => setCustomGarmentType(e.target.value)}
-                placeholder="例如：斗篷、围巾、礼服套装"
+                placeholder={t("garmentTypePlaceholder")}
                 className="studio-text-input mt-2"
               />
             )}
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">出图模式</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("outputModeSectionTitle")}</h3>
             <StudioOptionGrid
               options={[
-                { value: "reference" as const, label: "选择参考图" },
-                { value: "prompt" as const, label: "自定义提示词" },
+                { value: "reference" as const, label: t("outputModeReference") },
+                { value: "prompt" as const, label: t("outputModePrompt") },
               ]}
               value={outputMode}
               onChange={(nextMode) => {
@@ -766,7 +768,7 @@ export default function Garment3dPage() {
                 if (nextMode === "prompt" && !prompt.trim()) setPrompt(DEFAULT_PROMPT);
               }}
               columns={2}
-              ariaLabel="出图模式"
+              ariaLabel={t("outputModeSectionTitle")}
               className="mb-3"
             />
 
@@ -783,17 +785,17 @@ export default function Garment3dPage() {
                       <button
                         type="button"
                         onClick={() => { setSelectedReference(ref); setCustomReferenceUrl(""); setPromptOverride(null); }}
-                        aria-label={ref.label}
-                        title={ref.label}
+                        aria-label={ref.labelKey ? t(ref.labelKey) : ref.label}
+                        title={ref.labelKey ? t(ref.labelKey) : ref.label}
                         className="absolute inset-0 w-full h-full cursor-pointer"
                       >
-                        <RawPreviewImage src={ref.url} alt={ref.label} className="w-full h-full object-cover" />
+                        <RawPreviewImage src={ref.url} alt={ref.labelKey ? t(ref.labelKey) : ref.label} className="w-full h-full object-cover" />
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(ref.url); }}
-                        aria-label="放大预览"
-                        title="放大预览"
+                        aria-label={t("zoomPreview")}
+                        title={t("zoomPreview")}
                         className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 dark:bg-white/5 text-gray-700 shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center hover:bg-white"
                       >
                         <ZoomIn className="w-3.5 h-3.5" />
@@ -805,7 +807,7 @@ export default function Garment3dPage() {
                     className={`aspect-square rounded-lg border-2 border-dashed flex items-center justify-center ${
                       customReferenceUrl ? "border-purple-500 bg-purple-50" : "border-gray-200"
                     }`}
-                    title="上传参考图"
+                    title={t("uploadReference")}
                   >
                     <Plus className="w-5 h-5 text-gray-400 dark:text-stone-500" />
                   </button>
@@ -822,12 +824,12 @@ export default function Garment3dPage() {
                     });
                   }}
                 />
-                <p className="text-[11px] text-gray-400 dark:text-stone-500">参考图用于锁定立体风格和角度，不会替换用户服装的款式和颜色。</p>
+                <p className="text-[11px] text-gray-400 dark:text-stone-500">{t("referenceHint")}</p>
               </div>
             )}
 
             <div className="mt-3">
-              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">展示质感</h3>
+              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("displayStyleSectionTitle")}</h3>
               <StudioOptionGrid
                 options={GARMENT_3D_DISPLAY_STYLES.map((style) => ({
                   value: style.value,
@@ -840,25 +842,25 @@ export default function Garment3dPage() {
                   setPromptOverride(null);
                 }}
                 columns={2}
-                ariaLabel="展示质感"
+                ariaLabel={t("displayStyleSectionTitle")}
               />
               <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-stone-500">
-                质感档位只控制棚拍、体积和材质表现；图1服装款式、颜色、logo 和细节必须优先保留。
+                {t("displayStyleHint")}
               </p>
             </div>
 
             <div className="relative mt-3">
               <StudioPromptTextarea
-                title={outputMode === "reference" ? "补充生成要求" : "描述3D效果"}
-                badge={outputMode === "reference" ? "可选" : undefined}
+                title={outputMode === "reference" ? t("promptTitleReference") : t("promptTitlePrompt")}
+                badge={outputMode === "reference" ? t("promptBadge") : undefined}
                 value={prompt}
                 onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
                 placeholder={outputMode === "reference"
-                  ? "可补充角度、厚度、背景、布料质感等要求；参考图只负责立体结构和棚拍光影"
-                  : "描述衣服的立体角度、厚度、旋转方向、背景风格等"}
+                  ? t("promptPlaceholderReference")
+                  : t("promptPlaceholderPrompt")}
                 rows={4}
                 description={outputMode === "reference"
-                  ? "参考图用于锁定立体感、厚度、空间角度和棚拍光影；这里输入的文字会作为额外生成要求一起进入最终提示词。"
+                  ? t("promptDescriptionReference")
                   : undefined}
                 action={(
                   <button
@@ -866,7 +868,7 @@ export default function Garment3dPage() {
                     onClick={optimizePrompt}
                     disabled={isOptimizing || !garmentUrl}
                     className="studio-prompt-icon-action"
-                    title="视觉分析优化提示词"
+                    title={t("analyzeTooltip")}
                   >
                     {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
                   </button>
@@ -876,59 +878,59 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成模型</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("modelSectionTitle")}</h3>
             <StudioModelSelector
-              models={MODELS}
+              models={MODELS.map((m) => ({ value: m.value, label: m.label, desc: t(m.descKey), badge: t(m.badgeKey), icon: m.icon }))}
               value={aiModel}
               onChange={setAiModel}
-              ariaLabel="生成模型"
+              ariaLabel={t("modelSectionTitle")}
             />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">图片比例</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("aspectSectionTitle")}</h3>
             <StudioOptionGrid
               options={[
-                { value: "auto", label: "智能" },
-                { value: "1:1", label: "1:1 方图" },
-                { value: "3:4", label: "3:4 竖版" },
+                { value: "auto", label: t("aspectAuto") },
+                { value: "1:1", label: t("aspectSquare") },
+                { value: "3:4", label: t("aspectPortrait") },
               ] as const}
               value={aspectRatio}
               onChange={setAspectRatio}
               columns={2}
-              ariaLabel="图片比例"
+              ariaLabel={t("aspectSectionTitle")}
             />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("sizeSectionTitle")}</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
+                label: t("sizeOption", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
               }))}
               value={imageSize}
               onChange={setImageSize}
               columns={2}
-              ariaLabel="分辨率"
+              ariaLabel={t("sizeSectionTitle")}
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成数量</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("countSectionTitle")}</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
-              ariaLabel="生成数量"
+              ariaLabel={t("countSectionTitle")}
             />
           </section>
         </div>
 
         <StudioRunBar
-          summary={`${costPerImage} × ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          summary={t("summary", { cost: costPerImage, count: genCount })}
+          costLabel={authIsAnonymous ? t("costLogin") : t("costConsume", { cost: totalCost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? t("loginGenerate") : isGenerating ? t("generatingBtn") : t("generatePrimary", { count: genCount })}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />
@@ -938,14 +940,14 @@ export default function Garment3dPage() {
         {!isGenerating && resultUrls.length === 0 && !error && (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
-              title="服装转 3D 商品图"
-              subtitle="把平铺、挂拍或人台图转成更有厚度、体积和材质表现的棚拍商品图。"
+              title={t("emptyTitle")}
+              subtitle={t("emptySubtitle")}
               imageSrc="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/garment-blue-hoodie-3d.png"
-              imageAlt="服装3D指引"
+              imageAlt={t("emptyImageAlt")}
               steps={[
-                { title: "上传服装图", desc: "建议单件商品、主体完整、边缘清晰，避免复杂背景和套装。" },
-                { title: "选择类型 / 风格", desc: "确认上装、下装、连体衣等类型，可上传立体参考图辅助角度。" },
-                { title: "生成立体展示", desc: "保留原始版型、面料纹理和细节，输出干净商业棚拍效果。" },
+                { title: t("stepUploadTitle"), desc: t("stepUploadDesc") },
+                { title: t("stepTypeTitle"), desc: t("stepTypeDesc") },
+                { title: t("stepGenerateTitle"), desc: t("stepGenerateDesc") },
               ]}
             />
           </div>
@@ -963,9 +965,9 @@ export default function Garment3dPage() {
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
                 markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel="本张生成失败"
+                missingFailureLabel={t("missingFailureLabel")}
                 missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel="重试本张"
+                missingFailureActionLabel={t("missingFailureActionLabel")}
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
@@ -980,7 +982,20 @@ export default function Garment3dPage() {
               selectedIndex={previewIndex || 0}
               onSelectedIndexChange={setPreviewIndex}
               filenamePrefix="garment-3d"
-              actions={GARMENT_3D_PREVIEW_ACTIONS}
+              actions={GARMENT_3D_PREVIEW_ACTIONS.map((a) => {
+                const key: Record<string, string> = {
+                  download: "previewDownload",
+                  copy: "previewCopy",
+                  repair: "previewRepair",
+                  aiVideo: "previewAiVideo",
+                  modelBackground: "previewModelBackground",
+                  pose: "previewPose",
+                  productSet: "previewProductSet",
+                  regenerateAll: "previewRegenerateAll",
+                  feedback: "previewFeedback",
+                };
+                return { ...a, label: t(key[a.kind]) };
+              })}
               onRegenerateAll={() => { setResultUrls([]); setProgress(0); }}
             />
           </div>
@@ -992,7 +1007,7 @@ export default function Garment3dPage() {
             onRetry={() => generate()}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
-            retryLabel="重新生成"
+            retryLabel={t("retryLabel")}
             notice={FAILED_RETRY_NOTICE}
           />
         )}
@@ -1016,7 +1031,7 @@ export default function Garment3dPage() {
                 <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{GARMENT_3D_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{GARMENT_3D_UPLOAD_RULE.uploadSpecText}</p>
               </div>
-              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">Hover 预览</span>
+              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">{t("hoverPreview")}</span>
             </div>
 
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
@@ -1034,7 +1049,7 @@ export default function Garment3dPage() {
                       onClick={() => applyRuleDemo(demo)}
                       className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:text-[var(--codex-accent)]"
                     >
-                      试一试
+                      {t("examplesLabel")}
                     </button>
                   </div>
                 ))}
@@ -1061,11 +1076,19 @@ export default function Garment3dPage() {
 
       <StudioMediaLightbox
         src={lightboxSrc}
-        alt="服装 3D 预览"
+        alt={t("lightboxAlt")}
         onClose={() => setLightboxSrc(null)}
       />
     </div>
   );
+}
+
+function translateGarmentType(t: (key: string) => string, type: string) {
+  if (type === "上装") return t("garmentTypeTop");
+  if (type === "下装") return t("garmentTypeBottom");
+  if (type === "连体衣") return t("garmentTypeBody");
+  if (type === "其他") return t("garmentTypeOther");
+  return type;
 }
 
 function buildGarment3dPrompt(params: {

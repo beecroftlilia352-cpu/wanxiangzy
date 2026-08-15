@@ -4,30 +4,31 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, KeyRound, Lock, Mail } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Gift, KeyRound, Lock, Mail } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type AuthView = "login" | "signup" | "check-email" | "forgot-password" | "reset-sent";
 
-const viewCopy: Record<AuthView, { title: string; desc: string }> = {
+const viewCopy: Record<AuthView, { titleKey: string; descKey: string }> = {
   login: {
-    title: "登录 Pixel Diffusion",
-    desc: "继续管理你的服装视觉资产和生成记录。",
+    titleKey: "loginTitle",
+    descKey: "loginDesc",
   },
   signup: {
-    title: "创建账号",
-    desc: "注册后即可开始生成服装上身、姿势裂变和专属模特。",
+    titleKey: "signupTitle",
+    descKey: "signupDesc",
   },
   "check-email": {
-    title: "查收确认邮件",
-    desc: "完成邮箱验证后即可进入创作流程。",
+    titleKey: "checkEmailTitle",
+    descKey: "checkEmailDesc",
   },
   "forgot-password": {
-    title: "重置密码",
-    desc: "输入注册邮箱，我们会发送密码重置链接。",
+    titleKey: "forgotPasswordTitle",
+    descKey: "forgotPasswordDesc",
   },
   "reset-sent": {
-    title: "邮件已发送",
-    desc: "请在邮箱中完成密码重置。",
+    titleKey: "resetSentTitle",
+    descKey: "resetSentDesc",
   },
 };
 
@@ -47,6 +48,7 @@ function getSafeAuthRedirectTarget() {
 
 export default function LoginPage() {
   const supabase = useMemo(() => createClient(), []);
+  const t = useTranslations("Login");
 
   const [view, setView] = useState<AuthView>("login");
   const [email, setEmail] = useState("");
@@ -55,6 +57,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 邀请链接落地：/login?invite=CODE 预填邀请码并直接进入注册
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("invite") || "";
+    const code = raw.trim().toUpperCase().replace(/[\s-]+/g, "").slice(0, 64);
+    if (!code) return;
+    setInviteCode(code);
+    setView("signup");
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -96,11 +107,11 @@ export default function LoginPage() {
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const message = typeof payload.error === "string" ? payload.error : "登录失败，请稍后重试";
+        const message = typeof payload.error === "string" ? payload.error : t("errors.default");
         if (message.includes("Invalid login credentials")) {
-          setError("邮箱或密码错误");
+          setError(t("errors.invalidCredentials"));
         } else if (message.includes("Email not confirmed")) {
-          setError("请先点击确认邮件中的链接完成验证");
+          setError(t("errors.emailNotConfirmed"));
           setView("check-email");
         } else {
           setError(message);
@@ -110,7 +121,7 @@ export default function LoginPage() {
 
       window.location.href = getSafeAuthRedirectTarget();
     } catch {
-      setError("网络连接失败，请稍后重试");
+      setError(t("errors.network"));
     } finally {
       setLoading(false);
     }
@@ -122,7 +133,7 @@ export default function LoginPage() {
     setError("");
 
     if (password.length < 6) {
-      setError("密码至少需要 6 位");
+      setError(t("errors.passwordMin"));
       setLoading(false);
       return;
     }
@@ -143,9 +154,9 @@ export default function LoginPage() {
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const message = typeof payload.error === "string" ? payload.error : "注册失败，请稍后重试";
+        const message = typeof payload.error === "string" ? payload.error : t("errors.default");
         if (message.includes("已注册")) {
-          setError("该邮箱已注册，请直接登录");
+          setError(t("errors.emailExists"));
           setView("login");
         } else {
           setError(message);
@@ -160,7 +171,7 @@ export default function LoginPage() {
 
       setView("check-email");
     } catch {
-      setError("网络连接失败，请稍后重试");
+      setError(t("errors.network"));
     } finally {
       setLoading(false);
     }
@@ -197,10 +208,10 @@ export default function LoginPage() {
                 Pixel Diffusion
               </Link>
               <h1 className="mt-10 max-w-xl text-5xl font-black leading-[0.95] tracking-[-0.04em] text-codex-ink">
-                把每一次上新，做成统一的品牌视觉。
+                {t("heroTitle")}
               </h1>
               <p className="mt-5 max-w-lg text-base leading-8 text-codex-muted">
-                从服装上身到姿势裂变，从专属模特到商品质感图，Pixel Diffusion 帮你把分散的素材变成可持续复用的视觉资产。
+                {t("heroDesc")}
               </p>
 
               <div className="mt-10 grid grid-cols-4 gap-3" aria-hidden="true">
@@ -222,18 +233,18 @@ export default function LoginPage() {
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-codex-dark shadow-lg shadow-slate-300/70">
               <CheckCircle aria-hidden="true" className="h-6 w-6 text-white" />
             </div>
-            <h2 className="text-2xl font-black tracking-[-0.02em] text-codex-ink">{copy.title}</h2>
+            <h2 className="text-2xl font-black tracking-[-0.02em] text-codex-ink">{t(copy.titleKey)}</h2>
             <p className="mt-2 text-sm leading-6 text-codex-muted">
-              {view === "check-email" && email ? `确认邮件已发送至 ${email}` : copy.desc}
+              {view === "check-email" && email ? t("checkEmailSent") + " " + email : t(copy.descKey)}
             </p>
           </div>
 
           {view === "login" && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">邮箱</label>
+                <label htmlFor="login-email" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">{t("email")}</label>
                 <div className="relative">
-                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="login-email"
                     name="email"
@@ -246,16 +257,16 @@ export default function LoginPage() {
                     spellCheck={false}
                     aria-invalid={error ? "true" : undefined}
                     aria-describedby={error ? "login-error" : undefined}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
-                    placeholder="you@example.com…"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
+                    placeholder={t("emailPlaceholder")}
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="login-password" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">密码</label>
+                <label htmlFor="login-password" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">{t("password")}</label>
                 <div className="relative">
-                  <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="login-password"
                     name="password"
@@ -267,13 +278,13 @@ export default function LoginPage() {
                     aria-invalid={error ? "true" : undefined}
                     aria-describedby={error ? "login-error" : undefined}
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
-                    placeholder="输入密码…"
+                    placeholder={t("passwordPlaceholderLogin")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.5)] focus-visible:rounded"
-                    aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700 rtl:right-auto rtl:left-3 dark:text-slate-500 dark:hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.5)] focus-visible:rounded"
+                    aria-label={showPassword ? t("hidePassword") : t("showPassword")}
                   >
                     {showPassword ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
                   </button>
@@ -295,10 +306,10 @@ export default function LoginPage() {
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span aria-hidden="true" className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    登录中…
+                    {t("loggingIn")}
                   </span>
                 ) : (
-                  "登录"
+                  t("loginButton")
                 )}
               </button>
 
@@ -311,7 +322,7 @@ export default function LoginPage() {
                   }}
                   className="font-bold text-[var(--codex-accent)] hover:underline"
                 >
-                  忘记密码？
+                  {t("forgotPassword")}
                 </button>
                 <button
                   type="button"
@@ -321,7 +332,7 @@ export default function LoginPage() {
                   }}
                   className="font-bold text-[var(--codex-accent)] hover:underline"
                 >
-                  创建账号
+                  {t("createAccount")}
                 </button>
               </div>
             </form>
@@ -329,10 +340,16 @@ export default function LoginPage() {
 
           {view === "signup" && (
             <form onSubmit={handleSignUp} className="space-y-4">
+              {inviteCode ? (
+                <div className="flex items-start gap-2.5 rounded-2xl border border-[rgba(91,124,255,0.28)] bg-[rgba(91,124,255,0.08)] px-4 py-3 text-sm leading-5 text-slate-700 dark:text-slate-200">
+                  <Gift aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--codex-accent)]" />
+                  <span>{t("inviteBanner")}</span>
+                </div>
+              ) : null}
               <div>
-                <label htmlFor="signup-email" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">邮箱</label>
+                <label htmlFor="signup-email" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">{t("email")}</label>
                 <div className="relative">
-                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="signup-email"
                     name="email"
@@ -343,16 +360,16 @@ export default function LoginPage() {
                     autoComplete="email"
                     inputMode="email"
                     spellCheck={false}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
-                    placeholder="you@example.com…"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    placeholder={t("emailPlaceholder")}
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="signup-invite" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">邀请码</label>
+                <label htmlFor="signup-invite" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">{t("inviteCode")}</label>
                 <div className="relative">
-                  <KeyRound aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <KeyRound aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="signup-invite"
                     name="inviteCode"
@@ -360,16 +377,16 @@ export default function LoginPage() {
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     required
                     autoComplete="one-time-code"
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
-                    placeholder="输入邀请码…"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 rtl:pl-4 rtl:pr-10 rtl:tracking-normal focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    placeholder={t("inviteCodePlaceholder")}
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="signup-password" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">密码</label>
+                <label htmlFor="signup-password" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">{t("password")}</label>
                 <div className="relative">
-                  <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="signup-password"
                     name="newPassword"
@@ -380,18 +397,18 @@ export default function LoginPage() {
                     minLength={6}
                     autoComplete="new-password"
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
-                    placeholder="至少 6 位…"
+                    placeholder={t("passwordPlaceholder")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.5)] focus-visible:rounded"
-                    aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700 rtl:right-auto rtl:left-3 dark:text-slate-500 dark:hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.5)] focus-visible:rounded"
+                    aria-label={showPassword ? t("hidePassword") : t("showPassword")}
                   >
                     {showPassword ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">至少 6 位字符</p>
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{t("passwordHint")}</p>
               </div>
 
               {error && (
@@ -406,11 +423,11 @@ export default function LoginPage() {
                 disabled={loading}
                 className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-slate-300/40 transition-opacity hover:opacity-95 disabled:opacity-50"
               >
-                {loading ? "创建中…" : "创建账号"}
+                {loading ? t("creating") : t("createAccount")}
               </button>
 
               <p className="text-center text-sm text-slate-500">
-                已有账号？
+                {t("haveAccount")}
                 <button
                   type="button"
                   onClick={() => {
@@ -419,7 +436,7 @@ export default function LoginPage() {
                   }}
                   className="ml-1 font-bold text-[var(--codex-accent)] hover:underline"
                 >
-                  去登录
+                  {t("goLogin")}
                 </button>
               </p>
             </form>
@@ -433,19 +450,22 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <p className="text-sm leading-6 text-slate-600">
-                  我们已向 <span className="font-bold text-slate-900">{email}</span> 发送确认邮件。
+                  {t.rich("emailSentBody", {
+                    email,
+                    mail: (chunks) => <span className="font-bold text-slate-900">{chunks}</span>,
+                  })}
                 </p>
                 <p className="text-sm leading-6 text-slate-500">
-                  请点击邮件中的链接完成验证，然后返回页面登录。
+                  {t("emailSentHint")}
                 </p>
               </div>
 
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left">
-                <p className="mb-2 text-sm font-black text-amber-800">没有收到邮件？</p>
+                <p className="mb-2 text-sm font-black text-amber-800">{t("emailNotReceived")}</p>
                 <ul className="space-y-1 text-sm text-amber-700">
-                  <li>检查垃圾邮件或广告邮件文件夹</li>
-                  <li>确认邮箱地址拼写正确</li>
-                  <li>等待 1-2 分钟后再试</li>
+                  <li>{t("emailTipSpam")}</li>
+                  <li>{t("emailTipSpelling")}</li>
+                  <li>{t("emailTipWait")}</li>
                 </ul>
               </div>
 
@@ -455,14 +475,14 @@ export default function LoginPage() {
                   onClick={() => setView("signup")}
                   className="h-11 flex-1 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
                 >
-                  换个邮箱
+                  {t("changeEmail")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setView("login")}
                   className="gradient-brand h-11 flex-1 rounded-2xl text-sm font-black text-white"
                 >
-                  去登录
+                  {t("goLogin")}
                 </button>
               </div>
             </div>
@@ -471,9 +491,9 @@ export default function LoginPage() {
           {view === "forgot-password" && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
-                <label htmlFor="forgot-email" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">注册邮箱</label>
+                <label htmlFor="forgot-email" className="mb-1.5 block text-sm font-bold text-slate-700 dark:text-slate-200">{t("registeredEmail")}</label>
                 <div className="relative">
-                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="forgot-email"
                     name="email"
@@ -484,7 +504,7 @@ export default function LoginPage() {
                     autoComplete="email"
                     inputMode="email"
                     spellCheck={false}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm rtl:pl-4 rtl:pr-10 text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder="you@example.com…"
                   />
                 </div>
@@ -502,7 +522,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-slate-300/40 transition-opacity hover:opacity-95 disabled:opacity-50"
               >
-                {loading ? "发送中…" : "发送重置链接"}
+                {loading ? t("sending") : t("sendResetLink")}
               </button>
 
               <button
@@ -514,7 +534,7 @@ export default function LoginPage() {
                 className="flex w-full items-center justify-center gap-1 text-sm font-bold text-slate-500 transition-colors hover:text-slate-800"
               >
                 <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
-                返回登录
+                {t("backToLogin")}
               </button>
             </form>
           )}
@@ -527,10 +547,13 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <p className="text-sm leading-6 text-slate-600">
-                  密码重置链接已发送至 <span className="font-bold text-slate-900">{email}</span>
+                  {t.rich("resetSentBody", {
+                    email,
+                    mail: (chunks) => <span className="font-bold text-slate-900">{chunks}</span>,
+                  })}
                 </p>
                 <p className="text-sm leading-6 text-slate-500">
-                  请点击邮件中的链接设置新密码。
+                  {t("resetSentHint")}
                 </p>
               </div>
 
@@ -539,7 +562,7 @@ export default function LoginPage() {
                 onClick={() => setView("login")}
                 className="gradient-brand h-12 w-full rounded-2xl text-sm font-black text-white transition-opacity hover:opacity-95"
               >
-                返回登录
+                {t("backToLogin")}
               </button>
             </div>
           )}

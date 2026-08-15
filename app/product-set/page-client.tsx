@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight,
@@ -119,6 +120,7 @@ import { ResultsCanvas } from "@/features/product-set/create/results-canvas";
 import { TemplateLibraryDialog } from "@/features/product-set/create/template-library-dialog";
 
 export default function ProductSetPage() {
+  const t = useTranslations("ProductSet");
   const router = useRouter();
   const productInputRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
@@ -206,7 +208,7 @@ export default function ProductSetPage() {
   const productInfoFields = useMemo(() => parseProductInfo(productInfo), [productInfo]);
   const displayProductInfoFields = useMemo(() => ({
     ...productInfoFields,
-    name: isPlaceholderProductName(productInfoFields.name) ? "未识别出具体商品名" : productInfoFields.name,
+    name: isPlaceholderProductName(productInfoFields.name) ? t("unrecognizedProductName") : productInfoFields.name,
   }), [productInfoFields]);
   const effectiveProductProfile = useMemo(
     () => normalizeProductSetProductProfile(productProfile, productInfo),
@@ -253,15 +255,15 @@ export default function ProductSetPage() {
   );
   const taskQueue = useTaskQueueGeneration({
     module: "productSet",
-    title: "商品套图",
+    title: t("moduleName"),
     defaultExpectedCount: Math.max(1, outputCount || genCount),
     applyPath: "/product-set",
   });
   useEffect(() => {
     const sourceImage = takeSourceImageFromLocation();
     if (sourceImage) {
-      setProductImages([{ url: sourceImage, name: "来自结果预览" }]);
-      toast.success("已带入预览图片");
+      setProductImages([{ url: sourceImage, name: t("fromResultPreview") }]);
+      toast.success(t("previewImageImported"));
     }
   }, []);
   const requiresProductConfirmation = productImages.length > 0 && !isAnalyzing && mode === "smart" && !hasAnalyzedProduct;
@@ -271,7 +273,7 @@ export default function ProductSetPage() {
   const selectedStylePack = PRODUCT_SET_STYLE_PACKS.find((pack) => pack.id === settings.stylePackId) || PRODUCT_SET_STYLE_PACKS[0];
   const settingsSummary = `${settings.country} · ${settings.language} · ${settings.platform} · ${selectedStylePack.name} · ${PRODUCT_SET_FONT_STYLE_LABELS[settings.fontStyle]}`;
   const countOptions = COUNT_OPTIONS;
-  const outputUnit = imageType === "main" ? "张主图" : "屏详情页";
+  const outputUnit = imageType === "main" ? t("units.mainImage") : t("units.detailPage");
   const detailsResolutionWarning = imageType === "details" && imageSize === "1K";
   const visiblePresetPlans = useMemo(
     () => PRODUCT_SET_PRESET_PLANS.filter((plan) => plan.id === "smart" || plan.imageType === imageType),
@@ -295,7 +297,7 @@ export default function ProductSetPage() {
     fetch("/api/product-set/favorite-plans")
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "收藏方案加载失败");
+        if (!res.ok) throw new Error(data.error || t("favoritePlanLoadFailed"));
         const rawPlans = data && typeof data === "object" && Array.isArray((data as { plans?: unknown }).plans)
           ? (data as { plans: unknown[] }).plans
           : [];
@@ -305,7 +307,7 @@ export default function ProductSetPage() {
         if (!cancelled) setFavoritePlans(plans);
       })
       .catch((err: unknown) => {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : "收藏方案加载失败");
+        if (!cancelled) toast.error(err instanceof Error ? err.message : t("favoritePlanLoadFailed"));
       })
       .finally(() => {
         if (!cancelled) setIsLoadingFavoritePlans(false);
@@ -324,7 +326,7 @@ export default function ProductSetPage() {
     if (cancelled || !applyPayload) return;
 
     const appliedImageType = applyPayload.imageType === "details" ? "details" : "main";
-    setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: `历史商品图${index + 1}` })));
+    setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: t("historyProductImage", { index: index + 1 }) })));
     setProductInfo(applyPayload.productInfo || "");
     setProductProfile(normalizeProductSetProductProfile(applyPayload.productProfile, applyPayload.productInfo || ""));
     setAnalysisDetail(null);
@@ -354,7 +356,7 @@ export default function ProductSetPage() {
     setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
     setProgress(detail.resultUrls.length ? 100 : 0);
     setIsGenerating(false);
-    toast.success("已套用历史商品套图参数");
+    toast.success(t("historyParamsApplied"));
     })();
     return () => {
       cancelled = true;
@@ -423,10 +425,10 @@ export default function ProductSetPage() {
 
   function confirmContinueCreate() {
     confirm({
-      title: "继续创建",
-      content: "继续创建将清空当前所有内容，确定要继续吗？",
-      okText: "确定",
-      cancelText: "取消",
+      title: t("continueCreate.title"),
+      content: t("continueCreate.content"),
+      okText: t("common.confirm"),
+      cancelText: t("common.cancel"),
       onOk: () => {
         handleContinueCreate();
       },
@@ -449,7 +451,7 @@ export default function ProductSetPage() {
       appliedImageType === "details" ? 8 : 6
     );
 
-    setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: `历史商品图${index + 1}` })));
+    setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: t("historyProductImage", { index: index + 1 }) })));
     setProductInfo(applyPayload.productInfo || "");
     setProductProfile(normalizeProductSetProductProfile(applyPayload.productProfile, applyPayload.productInfo || ""));
     setAnalysisDetail(null);
@@ -479,7 +481,7 @@ export default function ProductSetPage() {
     setProgress(historyResultUrls.length ? 100 : 0);
     setIsGenerating(false);
     setRegeneratingIndex(null);
-    if (!options?.silent) toast.success("已套用历史商品套图参数");
+    if (!options?.silent) toast.success(t("historyParamsApplied"));
   }
 
   function resetAnalysisPlan(source: ProductAnalysisSource = productInfo.trim() ? "manual" : "idle", message = "") {
@@ -499,22 +501,22 @@ export default function ProductSetPage() {
     setGenCount(value);
     resetOutput();
     if (analysisSource === "ai" || analysisSource === "history") {
-      resetAnalysisPlan("manual", "数量已调整，请重新分析，让系统按新的数量重排方案。");
-      toast.info("已更新数量，请重新分析生成对应方案");
+      resetAnalysisPlan("manual", t("countAdjustedNeedReanalyze"));
+      toast.info(t("countUpdatedNeedReanalyze"));
     }
   }
 
   async function processFiles(files: FileList | File[]) {
     const incoming = Array.from(files).filter((file) => file.type.startsWith("image/"));
-    if (!incoming.length) return toast.error("请上传图片文件");
+    if (!incoming.length) return toast.error(t("upload.pleaseUploadImage"));
     const freeSlots = Math.max(0, 3 - productImages.length);
-    if (!freeSlots) return toast.error("最多上传 3 张商品图");
+    if (!freeSlots) return toast.error(t("upload.maxThreeImages"));
     const filesToUpload = incoming.slice(0, freeSlots);
-    if (incoming.length > filesToUpload.length) toast.info("商品图最多 3 张，已自动忽略超出的图片");
+    if (incoming.length > filesToUpload.length) toast.info(t("upload.extraIgnored"));
     const emptyFile = filesToUpload.find((file) => file.size === 0);
-    if (emptyFile) return toast.error(`${emptyFile.name} 是空文件，请重新选择`);
+    if (emptyFile) return toast.error(t("upload.emptyFile", { name: emptyFile.name }));
     const oversized = filesToUpload.find((file) => file.size > MAX_FILE_SIZE);
-    if (oversized) return toast.error(`${oversized.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+    if (oversized) return toast.error(t("upload.oversized", { name: oversized.name, mb: MAX_FILE_SIZE_MB }));
 
     setIsUploading(true);
     setProductInfo("");
@@ -525,20 +527,20 @@ export default function ProductSetPage() {
     setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
     setModuleOverrides([]);
     resetOutput();
-    toast.info(`正在上传 ${filesToUpload.length} 张商品图…`);
+    toast.info(t("upload.uploading", { count: filesToUpload.length }));
     try {
       const results = await Promise.allSettled(filesToUpload.map((file) => uploadImage(file)));
       const next: ProductImage[] = [];
       results.forEach((result, index) => {
         if (result.status === "fulfilled") {
-          next.push({ url: result.value.url, name: filesToUpload[index].name || `商品图${productImages.length + index + 1}` });
+          next.push({ url: result.value.url, name: filesToUpload[index].name || t("upload.productImageName", { index: productImages.length + index + 1 }) });
         } else {
-          toast.error(`${filesToUpload[index].name} 上传失败`);
+          toast.error(t("upload.uploadFailed", { name: filesToUpload[index].name }));
         }
       });
       if (next.length) {
         setProductImages((prev) => [...prev, ...next].slice(0, 3));
-        toast.success("商品图已上传，请补充商品信息、选择数量后点击分析");
+        toast.success(t("upload.donePleaseAnalyze"));
       }
     } finally {
       setIsUploading(false);
@@ -547,7 +549,7 @@ export default function ProductSetPage() {
   }
 
   function applyExampleGroup(group: typeof PRODUCT_SET_EXAMPLE_GROUPS[number]) {
-    setProductImages(group.images.map((url, index) => ({ url, name: `${group.name} 图${index + 1}` })));
+    setProductImages(group.images.map((url, index) => ({ url, name: t("exampleGroupImage", { name: group.name, index: index + 1 }) })));
     setProductInfo("");
     setProductProfile(null);
     setAnalysisDetail(null);
@@ -556,7 +558,7 @@ export default function ProductSetPage() {
     setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
     setModuleOverrides([]);
     resetOutput();
-    toast.success(`已套用${group.name}，请补充商品信息、选择数量后点击分析`);
+    toast.success(t("exampleGroupApplied", { name: group.name }));
   }
 
   function removeProductImage(index: number) {
@@ -572,16 +574,16 @@ export default function ProductSetPage() {
   }
 
   async function analyzeProductInfo(options: { silent?: boolean } = {}) {
-    if (!productImages.length) return toast.error("请先上传商品图");
-    if (genCount <= 0) return toast.error(`请先选择${imageType === "main" ? "生成张数" : "详情页屏数"}`);
+    if (!productImages.length) return toast.error(t("analyze.pleaseUploadFirst"));
+    if (genCount <= 0) return toast.error(t("analyze.pleaseSelectCount", { unit: imageType === "main" ? t("analysis.genCount") : t("analysis.detailScreenCount") }));
     if (!isAuthenticated && !(await refreshAuth())) {
-      if (!options.silent) toast.error("请先登录后使用智能分析");
+      if (!options.silent) toast.error(t("analyze.pleaseLogin"));
       return;
     }
     setIsAnalyzing(true);
     setAnalysisSource("running");
     setAnalysisMessage("");
-    if (!options.silent) toast.info(productInfo.trim() ? "正在优化商品信息和生成规划…" : "正在根据商品图帮你写商品信息…");
+    if (!options.silent) toast.info(productInfo.trim() ? t("analyze.optimizing") : t("analyze.writingInfo"));
     try {
       const res = await fetch("/api/product-set/analyze", {
         method: "POST",
@@ -601,7 +603,7 @@ export default function ProductSetPage() {
         if (!options.silent) router.push("/login");
         return;
       }
-      if (!res.ok) throw new Error(data.error || "分析失败");
+      if (!res.ok) throw new Error(data.error || t("analysis.failed"));
       if (data.product_info) {
         const nextProductInfo = String(data.product_info).slice(0, 2000);
         const nextAnalysisSource = resolveAnalysisSource(data, nextProductInfo);
@@ -626,23 +628,23 @@ export default function ProductSetPage() {
           }));
         }
         if (mode === "smart" && selectedPlanId === "smart" && analyzedPlanCount > 0 && analyzedPlanCount !== genCount) {
-          setAnalysisMessage(`已按你选择的 ${genCount}${imageType === "main" ? "张" : "屏"} 生成方案；接口返回 ${analyzedPlanCount} 个模块，前端会自动补齐或截断。`);
+          setAnalysisMessage(t("analysis.countMismatch", { genCount, unit: imageType === "main" ? t("units.singleImage") : t("units.singleScreen"), analyzedPlanCount }));
         }
         setShowProductInfoEditor(false);
         setShowAnalysisDetails(false);
         setShowFullPlan(false);
         setShowGenerationSettings(false);
         if (!options.silent) {
-          if (nextAnalysisSource === "ai") toast.success(productInfo.trim() ? "商品信息已分析" : "已帮你写好商品信息");
-          else toast.warning("视觉分析未完成，已先根据图片整理基础信息");
+          if (nextAnalysisSource === "ai") toast.success(productInfo.trim() ? t("analysis.infoAnalyzed") : t("analysis.infoWritten"));
+          else toast.warning(t("analysis.visualIncomplete"));
         }
       } else {
         setAnalysisSource("fallback");
         setAnalysisDetail(null);
-        setAnalysisMessage("分析接口没有返回商品信息，请重新分析或手动填写。");
+        setAnalysisMessage(t("analysis.noInfoReturned"));
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "分析失败";
+      const message = err instanceof Error ? err.message : t("analysis.failed");
       setAnalysisSource("failed");
       setAnalysisDetail(null);
       setAnalysisMessage(message);
@@ -654,9 +656,9 @@ export default function ProductSetPage() {
 
   async function uploadCustomReference(kind: "style" | "model" | "other", file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
-    if (file.size === 0) return toast.error("图片文件为空，请重新选择");
-    if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
+    if (!file.type.startsWith("image/")) return toast.error(t("upload.pleaseUploadImage"));
+    if (file.size === 0) return toast.error(t("customRef.emptyFile"));
+    if (file.size > MAX_FILE_SIZE) return toast.error(t("upload.imageTooLarge", { mb: MAX_FILE_SIZE_MB }));
     setMode("custom");
     setPlanSourceTab("upload");
     setSelectedPlanId("custom");
@@ -665,18 +667,18 @@ export default function ProductSetPage() {
       const result = await uploadImage(file);
       setCustomDraft((prev) => {
         const defaults = {
-          name: prev.name && prev.name !== DEFAULT_DRAFT.name ? prev.name : (imageType === "details" ? "参考图详情方案" : "参考图主图方案"),
-          typeDescription: prev.typeDescription || "参考上传图片的构图、光影、版式和视觉风格，结合商品信息生成整组商品图。",
-          moduleRole: prev.moduleRole || (imageType === "details" ? "详情页参考风格" : "主图参考风格"),
+          name: prev.name && prev.name !== DEFAULT_DRAFT.name ? prev.name : (imageType === "details" ? t("custom.detailsPlanName") : t("custom.mainPlanName")),
+          typeDescription: prev.typeDescription || t("custom.typeDescriptionDefault"),
+          moduleRole: prev.moduleRole || (imageType === "details" ? t("custom.detailsRole") : t("custom.mainRole")),
         };
         if (kind === "model") return { ...prev, ...defaults, modelReferenceImageUrls: [result.url], modelConsistency: true };
         if (kind === "other") return { ...prev, ...defaults, otherReferenceImageUrls: [...prev.otherReferenceImageUrls, result.url].slice(0, 3) };
         return { ...prev, ...defaults, referenceImageUrls: [result.url] };
       });
-      toast.success("自定义参考图已上传");
+      toast.success(t("custom.referenceUploaded"));
       resetOutput();
     } catch {
-      toast.error("参考图上传失败");
+      toast.error(t("custom.referenceUploadFailed"));
     } finally {
       setIsUploadingCustomRef(false);
       if (customRefInputRef.current) customRefInputRef.current.value = "";
@@ -691,10 +693,10 @@ export default function ProductSetPage() {
       ...customDraft.modelReferenceImageUrls,
       ...customDraft.otherReferenceImageUrls,
     ].some(Boolean);
-    if (!customDraft.typeDescription.trim() && !hasReferenceImage) return toast.error("请上传参考图或填写类型描述");
-    if (genCount <= 0) return toast.error(`请先选择${imageType === "main" ? "生成张数" : "详情页屏数"}`);
-    const fallbackDescription = `参考图模式：按上传参考图的构图、光影、版式和视觉风格，结合商品信息生成 ${genCount || 1} ${imageType === "main" ? "张主图/辅图" : "屏详情页"}。`;
-    const fallbackName = imageType === "main" ? "参考图主图方案" : "参考图详情方案";
+    if (!customDraft.typeDescription.trim() && !hasReferenceImage) return toast.error(t("custom.pleaseUploadOrDescribe"));
+    if (genCount <= 0) return toast.error(t("analyze.pleaseSelectCount", { unit: imageType === "main" ? t("analysis.genCount") : t("analysis.detailScreenCount") }));
+    const fallbackDescription = t("custom.fallbackDescription", { count: genCount || 1, unit: imageType === "main" ? t("units.mainImageAux") : t("units.detailPage") });
+    const fallbackName = imageType === "main" ? t("custom.mainPlanName") : t("custom.detailsPlanName");
     const item: ProductSetCustomTemplate = {
       id: `custom-${Date.now()}`,
       name: (customDraft.name.trim() || fallbackName).slice(0, 20),
@@ -709,7 +711,7 @@ export default function ProductSetPage() {
       modelConsistency: customDraft.modelConsistency,
       intelligentCopy: customDraft.intelligentCopy,
       copyDensity: customDraft.copyDensity,
-      moduleRole: (customDraft.moduleRole.trim() || (imageType === "details" ? "参考图详情页风格" : "参考图主图风格")).slice(0, 120),
+      moduleRole: (customDraft.moduleRole.trim() || (imageType === "details" ? t("custom.detailsPageRole") : t("custom.mainImageRole"))).slice(0, 120),
       contentScope: customDraft.contentScope.trim().slice(0, 240),
       layoutRules: customDraft.layoutRules.trim().slice(0, 320),
       textRules: customDraft.textRules.trim().slice(0, 260),
@@ -723,7 +725,7 @@ export default function ProductSetPage() {
     setCustomDraft(DEFAULT_DRAFT);
     setShowCustomBuilder(false);
     resetOutput();
-    toast.success("已添加参考图模式，会按当前数量生成");
+    toast.success(t("custom.addedReferenceMode"));
   }
 
   function toggleTemplate(id: number) {
@@ -755,12 +757,12 @@ export default function ProductSetPage() {
 
   function removePlanModule(index: number) {
     upsertModuleOverride(index, { disabled: true });
-    toast.success("已从本次生成计划移除该模块");
+    toast.success(t("plan.moduleRemoved"));
   }
 
   async function saveCurrentPlanAsFavorite() {
-    if (!isAuthenticated && !(await refreshAuth())) return toast.error("请先登录后再收藏方案");
-    if (!planTemplates.length) return toast.error("当前还没有可收藏的生成方案");
+    if (!isAuthenticated && !(await refreshAuth())) return toast.error(t("favorite.pleaseLogin"));
+    if (!planTemplates.length) return toast.error(t("favorite.nothingToSave"));
     const now = new Date().toISOString();
     const name = (favoritePlanName.trim() || favoritePlanDefaultName).slice(0, 40);
     const existing = favoritePlans.find((plan) => plan.name === name);
@@ -795,15 +797,15 @@ export default function ProductSetPage() {
         router.push("/login");
         return;
       }
-      if (!res.ok) throw new Error(data.error || "收藏方案保存失败");
+      if (!res.ok) throw new Error(data.error || t("favorite.saveFailed"));
       const savedPlan = normalizeFavoriteProductSetPlan(data.plan, DEFAULT_SETTINGS);
-      if (!savedPlan) throw new Error("收藏方案保存结果无效");
+      if (!savedPlan) throw new Error(t("favorite.saveInvalidResult"));
       setFavoritePlans((prev) => [savedPlan, ...prev.filter((plan) => plan.id !== savedPlan.id && plan.name !== savedPlan.name)]
         .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT));
       setFavoritePlanName("");
-      toast.success(existing ? "已更新收藏方案" : "已收藏当前方案，下次可直接套用");
+      toast.success(existing ? t("favorite.updated") : t("favorite.saved"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "收藏方案保存失败");
+      toast.error(err instanceof Error ? err.message : t("favorite.saveFailed"));
     } finally {
       setIsSavingFavoritePlan(false);
     }
@@ -828,11 +830,11 @@ export default function ProductSetPage() {
     setQualityMode(nextState.qualityMode);
     setGenCount(nextState.genCount);
     resetOutput();
-    toast.success(`已套用收藏方案「${plan.name}」`);
+    toast.success(t("favorite.applied", { name: plan.name }));
   }
 
   async function removeFavoritePlan(id: string) {
-    if (!isAuthenticated && !(await refreshAuth())) return toast.error("请先登录");
+    if (!isAuthenticated && !(await refreshAuth())) return toast.error(t("common.pleaseLogin"));
     const previousPlans = favoritePlans;
     setFavoritePlans((prev) => prev.filter((plan) => plan.id !== id));
     try {
@@ -843,20 +845,20 @@ export default function ProductSetPage() {
         router.push("/login");
         return;
       }
-      if (!res.ok) throw new Error(data.error || "删除收藏方案失败");
-      toast.success("已删除收藏方案");
+      if (!res.ok) throw new Error(data.error || t("favorite.deleteFailed"));
+      toast.success(t("favorite.deleted"));
     } catch (err: unknown) {
       setFavoritePlans(previousPlans);
-      toast.error(err instanceof Error ? err.message : "删除收藏方案失败");
+      toast.error(err instanceof Error ? err.message : t("favorite.deleteFailed"));
     }
   }
 
   function confirmRemoveFavoritePlan(id: string) {
     confirm({
-      title: "删除收藏方案",
-      content: "确定要删除这个收藏方案吗？",
-      okText: "确定",
-      cancelText: "取消",
+      title: t("favorite.deleteTitle"),
+      content: t("favorite.deleteContent"),
+      okText: t("common.confirm"),
+      cancelText: t("common.cancel"),
       onOk: () => {
         void removeFavoritePlan(id);
       },
@@ -949,13 +951,13 @@ export default function ProductSetPage() {
     setImageType(plan.imageType);
     setAspectRatio("auto");
     if (plan.id === "amazon-listing") {
-      setSettings((prev) => ({ ...prev, country: "美国", language: "英语", platform: "亚马逊" }));
+      setSettings((prev) => ({ ...prev, country: t("preset.countryUS"), language: t("preset.languageEN"), platform: t("preset.platformAmazon") }));
     } else if (plan.scenario === "womenswear") {
-      setSettings((prev) => ({ ...prev, platform: plan.imageType === "main" ? "小红书" : prev.platform }));
+      setSettings((prev) => ({ ...prev, platform: plan.imageType === "main" ? t("preset.platformXiaohongshu") : prev.platform }));
     }
     setReferenceStyleDraft(referenceStyleBrief || buildReferenceStyleBrief(plan));
     setShowReferenceStyleModal(true);
-    resetAnalysisPlan(productInfo.trim() ? "manual" : "idle", "已选择参考风格，请点击“帮我写商品信息”开始分析。");
+    resetAnalysisPlan(productInfo.trim() ? "manual" : "idle", t("preset.styleSelected"));
   }
 
   function changeImageType(value: ProductSetImageType) {
@@ -975,7 +977,7 @@ export default function ProductSetPage() {
       imageType: value,
       selectedTemplateIds: nextSelectedTemplateIds,
     }));
-    resetAnalysisPlan(productInfo.trim() ? "manual" : "idle", "已切换生成类型，请重新选择数量并分析。");
+    resetAnalysisPlan(productInfo.trim() ? "manual" : "idle", t("imageTypeSwitched"));
   }
 
   function changePlanSourceTab(value: ProductSetPlanSourceTab) {
@@ -1001,14 +1003,14 @@ export default function ProductSetPage() {
 
   function saveReferenceStyleBrief() {
     const nextBrief = referenceStyleDraft.trim().slice(0, 2000);
-    if (!nextBrief) return toast.error("请填写参考风格说明");
+    if (!nextBrief) return toast.error(t("referenceStyle.pleaseFill"));
     setReferenceStyleBrief(nextBrief);
     setShowReferenceStyleModal(false);
     setPlanSourceTab("preset");
     setMode("smart");
-    resetAnalysisPlan(productInfo.trim() ? "manual" : "idle", "参考风格已保存，请点击“帮我写商品信息”开始分析。");
+    resetAnalysisPlan(productInfo.trim() ? "manual" : "idle", t("referenceStyle.saved"));
     resetOutput();
-    toast.success("已保存参考风格，点击下方分析时会一起传入");
+    toast.success(t("referenceStyle.savedToast"));
   }
 
   function updateSetting<K extends keyof ProductSetSettings>(key: K, value: ProductSetSettings[K]) {
@@ -1031,13 +1033,13 @@ export default function ProductSetPage() {
 
   async function generate() {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("common.pleaseLogin"));
       router.push("/login");
       return;
     }
-    if (!productImages.length) return toast.error("请先上传商品图");
-    if (requiresProductConfirmation) return toast.warning("请先完成智能分析，或手动确认商品信息后再生成");
-    if (outputCount <= 0) return toast.error("请至少选择 1 个套图样式");
+    if (!productImages.length) return toast.error(t("analyze.pleaseUploadFirst"));
+    if (requiresProductConfirmation) return toast.warning(t("generate.pleaseAnalyzeOrConfirm"));
+    if (outputCount <= 0) return toast.error(t("generate.pleaseSelectStyle"));
     if (credits !== null && credits < cost) {
       showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
@@ -1063,7 +1065,7 @@ export default function ProductSetPage() {
     try {
       const finalSettings = {
         ...settings,
-        extraDescription: [settings.extraDescription, qualityMode === "advanced" ? "生成档位：高级模式，优先提升细节、质感和版式完成度。" : ""]
+        extraDescription: [settings.extraDescription, qualityMode === "advanced" ? t("quality.advancedModeNote") : ""]
           .filter(Boolean)
           .join("\n"),
       };
@@ -1101,9 +1103,9 @@ export default function ProductSetPage() {
           data,
           userId,
           setCredits,
-          fallbackError: "生成失败",
+          fallbackError: t("generation.failed"),
         });
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generation.failed"));
       }
       const initialModules = readModuleResults(data.module_results);
       if (initialModules.length) setModuleResults(initialModules);
@@ -1201,7 +1203,7 @@ export default function ProductSetPage() {
                 failedCount: failedModuleCount || expectedResultCount - finalResultCount || 1,
               }));
             } else {
-              toast.success("商品套图生成完成");
+              toast.success(t("generation.completed"));
             }
           } else {
             latestUrls = nextUrls;
@@ -1222,13 +1224,13 @@ export default function ProductSetPage() {
                 failedCount: expectedResultCount - finalResultCount || 1,
               }));
             } else {
-              toast.success("商品套图生成完成");
+              toast.success(t("generation.completed"));
             }
           }
           setIsGenerating(false);
           return;
         }
-        if (state.status === "failed") throw new Error(state.error || "生成失败");
+        if (state.status === "failed") throw new Error(state.error || t("generation.failed"));
       }
       if (latestUrls.length > 0) {
         setIsGenerating(false);
@@ -1240,12 +1242,12 @@ export default function ProductSetPage() {
           progress: 99,
         });
         setActiveQueueTask(backgroundTask);
-        toast.info("生成仍在后台继续，可稍后在历史记录查看完整结果");
+        toast.info(t("generation.background"));
         return;
       }
-      throw new Error("生成超时");
+      throw new Error(t("generation.timeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("generation.failed"));
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: expectedResultCount,
@@ -1260,12 +1262,12 @@ export default function ProductSetPage() {
   }
 
   async function regenerateResult(index: number) {
-    if (isGenerating || regeneratingIndex !== null) return toast.info("请等当前生成完成后再重生单张图片");
+    if (isGenerating || regeneratingIndex !== null) return toast.info(t("regenerate.waitForCurrent"));
     const currentPlan = resultPlan.length ? resultPlan : planTemplates;
     const template = currentPlan[index];
-    if (!template) return toast.error("未找到要重生的模块");
+    if (!template) return toast.error(t("regenerate.moduleNotFound"));
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("common.pleaseLogin"));
       router.push("/login");
       return;
     }
@@ -1280,7 +1282,7 @@ export default function ProductSetPage() {
     try {
       const finalSettings = {
         ...settings,
-        extraDescription: [settings.extraDescription, qualityMode === "advanced" ? "生成档位：高级模式，优先提升细节、质感和版式完成度。" : ""]
+        extraDescription: [settings.extraDescription, qualityMode === "advanced" ? t("quality.advancedModeNote") : ""]
           .filter(Boolean)
           .join("\n"),
       };
@@ -1310,7 +1312,7 @@ export default function ProductSetPage() {
         router.push("/login");
         return;
       }
-      if (!res.ok) throw new Error(data.error || "单张重生失败");
+      if (!res.ok) throw new Error(data.error || t("regenerate.failed"));
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
@@ -1331,7 +1333,7 @@ export default function ProductSetPage() {
         const moduleUrl = nextModules.find((item) => item.resultUrl)?.resultUrl;
         const failedModule = nextModules.find((item) => item.status === "failed");
         if (state.status === "completed" && failedModule && !moduleUrl && !nextUrl) {
-          throw new Error(failedModule.error || "单张重生失败");
+          throw new Error(failedModule.error || t("regenerate.failed"));
         }
         if (moduleUrl || nextUrl) {
           const finalUrl = (moduleUrl || nextUrl) as string;
@@ -1342,15 +1344,15 @@ export default function ProductSetPage() {
             return next;
           });
           if (state.status === "completed") {
-            toast.success(`第 ${index + 1} 张已重生`);
+            toast.success(t("regenerate.done", { index: index + 1 }));
             return;
           }
         }
-        if (state.status === "failed") throw new Error(state.error || "单张重生失败");
+        if (state.status === "failed") throw new Error(state.error || t("regenerate.failed"));
       }
-      toast.info("单张仍在后台生成，可稍后在历史记录查看");
+      toast.info(t("regenerate.background"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "单张重生失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("regenerate.failed"));
       await refreshCredits();
       toast.error(message);
     } finally {
@@ -1384,12 +1386,12 @@ export default function ProductSetPage() {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generation.failed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史任务加载失败");
+      toast.error(err instanceof Error ? err.message : t("history.taskLoadFailed"));
       return true;
     }
   }
@@ -1433,21 +1435,21 @@ export default function ProductSetPage() {
       createdAt: activeQueueTask?.createdAt,
       references: (safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : productImages.map((item) => item.url)).map((url, index) => ({
         url,
-        label: productImages[index]?.name || `商品图 ${index + 1}`,
+        label: productImages[index]?.name || t("preview.productImage", { index: index + 1 }),
         role: "product" as const,
       })),
       promptText: productSetPreviewPromptText,
       metaItems: [
-        { label: "生成模式", value: mode === "smart" ? "智能套图" : "自定义套图" },
-        { label: "图片类型", value: imageType === "main" ? "主图辅图" : "详情页" },
-        { label: "平台", value: settings.platform },
-        { label: "语言", value: settings.language },
-        { label: "风格", value: selectedStylePack.name },
-        { label: "质检", value: qualityMode === "advanced" ? "高级模式" : "标准模式" },
-        { label: "生成数量", value: resultSlotCount },
+        { label: t("meta.mode"), value: mode === "smart" ? t("meta.smartSet") : t("meta.customSet") },
+        { label: t("meta.imageType"), value: imageType === "main" ? t("meta.mainAux") : t("meta.detailsPage") },
+        { label: t("meta.platform"), value: settings.platform },
+        { label: t("meta.language"), value: settings.language },
+        { label: t("meta.style"), value: selectedStylePack.name },
+        { label: t("meta.quality"), value: qualityMode === "advanced" ? t("meta.advancedMode") : t("meta.standardMode") },
+        { label: t("meta.count"), value: resultSlotCount },
       ],
-      titles: resultSlots.map((slot, index) => slot.template?.name || slot.module?.name || `商品套图 ${index + 1}`),
-      subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · ${getAspectRatioLabel(slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio)}`),
+      titles: resultSlots.map((slot, index) => slot.template?.name || slot.module?.name || t("preview.resultTitle", { index: index + 1 })),
+      subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? t("meta.detailsModule") : t("meta.mainAux")} · ${getAspectRatioLabel(slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio)}`),
       statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.module?.status || (hasCompletedPartialResults ? "failed" : isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
       errors: resultSlots.map((slot) => slot.module?.error || (!slot.url && hasCompletedPartialResults ? partialFailureMessage : null)),
       qualities: resultSlots.map((slot) => {
@@ -1469,14 +1471,14 @@ export default function ProductSetPage() {
       <FeatureTabs active="productSet" />
       <ModuleTaskRail
         module="productSet"
-        moduleLabel="商品套图"
+        moduleLabel={t("moduleName")}
         onContinue={confirmContinueCreate}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
       />
       <aside className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4">
-          <ModuleHeader title="商品视觉生成器" tooltip="上传 1-3 张商品多视角图，补充商品信息和数量后再分析生成主图或详情页方案。" />
+          <ModuleHeader title={t("header.title")} tooltip={t("header.tooltip")} />
           <ProductModeTabs imageType={imageType} onChange={changeImageType} />
           <WorkflowStepper currentStep={workflowStep} />
 
@@ -1486,8 +1488,8 @@ export default function ProductSetPage() {
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">商品图</h3>
-                <p className="mt-1 text-xs text-slate-400">支持正面、侧面、背面或细节图，最多 3 张。</p>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("productImages.title")}</h3>
+                <p className="mt-1 text-xs text-slate-400">{t("productImages.help")}</p>
               </div>
               <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-[10px] font-bold text-[var(--codex-accent)]">{productImages.length}/3</span>
             </div>
@@ -1502,20 +1504,20 @@ export default function ProductSetPage() {
               onChange={(event: ChangeEvent<HTMLInputElement>) => event.target.files && processFiles(event.target.files)}
             />
             <StudioUploadTile
-              title={productImages.length >= 3 ? "已达 3 张上限" : productImages.length ? "继续上传多视角商品图" : "上传 / 拖拽【商品图】"}
-              description="支持正面、侧面、背面或细节图，最多 3 张。"
+              title={productImages.length >= 3 ? t("productImages.maxReached") : productImages.length ? t("productImages.continueUpload") : t("productImages.tileTitle")}
+              description={t("productImages.help")}
               imageUrl={null}
-              imageAlt="商品图"
+              imageAlt={t("productImages.title")}
               isDragging={isDragging}
               loading={isUploading}
               onUploadClick={() => productInputRef.current?.click()}
-              onLibraryClick={() => toast.info("资源库导入即将接入")}
-              uploadLabel={productImages.length ? "继续上传" : "本地上传"}
-              libraryLabel="从资源库导入"
-              supportBadge="支持多图(最多3张)"
-              footnote="款式图上传无遮挡、无码图；正面、侧面、背面或细节图越完整，套图方案越准。"
+              onLibraryClick={() => toast.info(t("library.comingSoon"))}
+              uploadLabel={productImages.length ? t("productImages.continueUploadLabel") : t("upload.localUpload")}
+              libraryLabel={t("upload.fromLibrary")}
+              supportBadge={t("productImages.supportBadge")}
+              footnote={t("productImages.footnote")}
               examples={{
-                label: "试一试",
+                label: t("common.tryIt"),
                 images: PRODUCT_SET_EXAMPLE_GROUPS.map((group) => ({
                   url: group.images[0],
                   title: group.name,
@@ -1535,8 +1537,8 @@ export default function ProductSetPage() {
                 {productImages.map((item, index) => (
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
                     <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
-                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">图{index + 1}</span>
-                    <button type="button" aria-label={`移除${item.name}`} onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 touch-manipulation items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2">
+                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">{t("productImages.imageLabel", { index: index + 1 })}</span>
+                    <button type="button" aria-label={`${t("productImages.remove")}${item.name}`} onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 touch-manipulation items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2">
                       <X aria-hidden="true" className="h-3 w-3" />
                     </button>
                   </div>
@@ -1544,7 +1546,7 @@ export default function ProductSetPage() {
               </div>
                 <div className="mt-2 flex justify-end">
                   <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full px-2 text-xs font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
-                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" /> 清空
+                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" /> {t("common.clear")}
                   </button>
                 </div>
               </>
@@ -1554,8 +1556,8 @@ export default function ProductSetPage() {
           <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">商品信息分析</h3>
-                <p className="mt-1 text-xs text-slate-400">先把商品信息整理成结构化规划，再生成方案。</p>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("analysisSection.title")}</h3>
+                <p className="mt-1 text-xs text-slate-400">{t("analysisSection.help")}</p>
               </div>
               <button
                 type="button"
@@ -1564,7 +1566,7 @@ export default function ProductSetPage() {
                 className="inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAnalyzing ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
-                {isAnalyzing ? "正在分析…" : hasAnalyzedProduct ? "重新帮我写" : "帮我写"}
+                {isAnalyzing ? t("analysisSection.analyzing") : hasAnalyzedProduct ? t("analysisSection.rewrite") : t("analysisSection.write")}
               </button>
             </div>
 
@@ -1582,15 +1584,14 @@ export default function ProductSetPage() {
                   onChange={(event) => {
                     const nextValue = event.target.value;
                     setProductInfo(nextValue);
-                    resetAnalysisPlan(nextValue.trim() ? "manual" : "idle", nextValue.trim() ? "商品信息已修改，请重新分析生成对应方案。" : "");
+                    resetAnalysisPlan(nextValue.trim() ? "manual" : "idle", nextValue.trim() ? t("analysisSection.infoModified") : "");
                   }}
-                  aria-label="商品信息"
-                  placeholder={`可选：写一句商品名称、卖点、目标平台或风格要求。
-也可以不填，上传商品图并选择数量后，点击“帮我写”，系统会自动整理成完整商品规划…`}
+                  aria-label={t("analysisSection.ariaLabel")}
+                  placeholder={t("analysisSection.placeholder")}
                   className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 transition-colors focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:focus-visible:bg-white/10"
                 />
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>{productInfo ? "建议保留模板字段，生成文案会更稳定。" : "不想写也可以，点“帮我写”让系统根据商品图整理。"}</span>
+                  <span>{productInfo ? t("analysisSection.keepTemplateHint") : t("analysisSection.optionalHint")}</span>
                   <span>{productInfo.length} / 2000</span>
                 </div>
               </div>
@@ -1601,7 +1602,7 @@ export default function ProductSetPage() {
               value={genCount}
               options={countOptions}
               onChange={changeGenerationCount}
-              helper={hasAnalyzedProduct ? "如需修改数量，请重新分析，让系统按新数量重排方案。" : "先选择数量，系统会按这个数量输出对应规划。"}
+              helper={hasAnalyzedProduct ? t("countSelector.analyzedHelper") : t("countSelector.helper")}
             />
 
             <button
@@ -1611,12 +1612,12 @@ export default function ProductSetPage() {
               className="mt-3 flex h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isAnalyzing ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Activity aria-hidden="true" className="h-4 w-4" />}
-              {isAnalyzing ? "正在分析商品…" : hasAnalyzedProduct ? "重新帮我写商品信息" : "帮我写商品信息"}
+              {isAnalyzing ? t("analysisSection.analyzingProduct") : hasAnalyzedProduct ? t("analysisSection.rewriteInfo") : t("analysisSection.writeInfo")}
             </button>
 
             {!hasAnalyzedProduct && (
               <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-stone-400">
-                分析后系统会把上面的商品信息写入规划：目标平台、风格名称、视觉风格、统一场景、核心卖点、用户痛点、适用人群、产品参数和主题配色，并按你选择的数量生成计划。
+                {t("analysisSection.planExplanation")}
               </div>
             )}
 
@@ -1652,16 +1653,16 @@ export default function ProductSetPage() {
           <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">方案来源</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-400">智能模式需要分析；参考图模式可直接选预设或上传参考图。</p>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("planSource.title")}</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-400">{t("planSource.help")}</p>
               </div>
-              {outputCount > 0 && <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)]">{outputCount} {imageType === "main" ? "张" : "屏"}</span>}
+              {outputCount > 0 && <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)]">{outputCount} {imageType === "main" ? t("units.singleImage") : t("units.singleScreen")}</span>}
             </div>
 
             <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
               {([
-                { value: "smart" as const, label: "智能模式", desc: "需要智能分析" },
-                { value: "reference" as const, label: "参考图模式", desc: "上传 / 预设" },
+                { value: "smart" as const, label: "智能模式", labelKey: "planSource.modeSmart", desc: "需要智能分析", descKey: "planSource.modeSmartDesc" },
+                { value: "reference" as const, label: "参考图模式", labelKey: "planSource.modeReference", desc: "上传 / 预设", descKey: "planSource.modeReferenceDesc" },
               ]).map((tab) => {
                 const active = tab.value === "smart" ? mode === "smart" : isReferenceMode;
                 return (
@@ -1674,8 +1675,8 @@ export default function ProductSetPage() {
                       active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
                     }`}
                   >
-                    <span className="block truncate text-xs font-black">{tab.label}</span>
-                    <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{tab.desc}</span>
+                    <span className="block truncate text-xs font-black">{tab.labelKey ? t(tab.labelKey) : tab.label}</span>
+                    <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{tab.descKey ? t(tab.descKey) : tab.desc}</span>
                   </button>
                 );
               })}
@@ -1686,7 +1687,7 @@ export default function ProductSetPage() {
                 {hasAnalyzedProduct ? (
                   <PlanRecommendationCard recommendation={planRecommendation} imageType={imageType} compact />
                 ) : (
-                  <p>智能模式会根据商品图、商品信息和你选择的 {genCount || "对应"} 个数量自动拆解方案。请先点击“帮我写商品信息”。</p>
+                  <p>{t("planSource.smartModeHint", { count: genCount || t("planSource.corresponding") })}</p>
                 )}
               </div>
             ) : (
@@ -1704,7 +1705,7 @@ export default function ProductSetPage() {
                           active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
                         }`}
                       >
-                        <span className="block truncate text-xs font-black">{tab.value === "preset" ? "预设参考" : tab.value === "upload" ? "上传参考" : "收藏"}</span>
+                        <span className="block truncate text-xs font-black">{tab.value === "preset" ? t("planSource.presetRef") : tab.value === "upload" ? t("planSource.uploadRef") : t("planSource.favorites")}</span>
                         <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{tab.description}</span>
                       </button>
                     );
@@ -1727,7 +1728,7 @@ export default function ProductSetPage() {
                       >
                         <span className="flex min-h-5 items-center justify-between gap-2">
                           <span className="min-w-0 truncate text-xs font-black">{plan.name}</span>
-                          {plan.scenario === "womenswear" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600 dark:bg-white/10 dark:text-stone-300">女装</span>}
+                          {plan.scenario === "womenswear" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600 dark:bg-white/10 dark:text-stone-300">{t("preset.womenswear")}</span>}
                         </span>
                         <span className="mt-1 block line-clamp-2 text-[11px] leading-4 opacity-75">{plan.description}</span>
                       </button>
@@ -1736,7 +1737,7 @@ export default function ProductSetPage() {
                       <div className="col-span-2 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-xs font-black text-[var(--codex-accent)]">已选参考风格</p>
+                            <p className="text-xs font-black text-[var(--codex-accent)]">{t("preset.selectedStyle")}</p>
                             <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--codex-accent)]">{referenceStyleBrief.replace(/[#*_`\[\]-]/g, " ").replace(/\s+/g, " ").trim()}</p>
                           </div>
                           <button
@@ -1747,10 +1748,10 @@ export default function ProductSetPage() {
                             }}
                             className="h-8 shrink-0 touch-manipulation rounded-full bg-white px-3 text-[11px] font-black text-[var(--codex-accent)] shadow-sm transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-white/10"
                           >
-                            编辑
+                            {t("common.edit")}
                           </button>
                         </div>
-                        <p className="mt-2 text-[11px] leading-4 text-[var(--codex-accent)]">这里只保存风格方向，不会立即拆模板。点击上面的“帮我写商品信息”时会传给智能分析。</p>
+                        <p className="mt-2 text-[11px] leading-4 text-[var(--codex-accent)]">{t("preset.styleNote")}</p>
                       </div>
                     )}
                   </div>
@@ -1795,13 +1796,13 @@ export default function ProductSetPage() {
                 )}
 
                 <button type="button" onClick={() => setShowTemplateModal(true)} className="flex h-10 w-full touch-manipulation items-center justify-center gap-1.5 rounded-2xl border border-slate-100 bg-white text-xs font-black text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-[rgba(91,140,255,0.18)]">
-                  <Layers3 aria-hidden="true" className="h-3.5 w-3.5" /> 打开完整模板库
+                  <Layers3 aria-hidden="true" className="h-3.5 w-3.5" /> {t("planSource.openTemplateLibrary")}
                 </button>
                 {outputCount > 0 ? (
                   <PlanRecommendationCard recommendation={planRecommendation} imageType={imageType} compact />
                 ) : (
                   <div className="rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-700">
-                    参考只是风格方向，不会立即拆解模板。请先选择预设风格或上传参考图，再点击“帮我写商品信息”开始分析。
+                    {t("planSource.referenceNotice")}
                   </div>
                 )}
               </div>
@@ -1811,8 +1812,8 @@ export default function ProductSetPage() {
           {outputCount > 0 && <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">生成计划</h3>
-                <p className="mt-1 text-xs text-slate-400">{showFullPlan ? "完整模块可逐项编辑或移除。" : "先显示最关键的前 3 项，减少干扰。"}</p>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("generationPlan.title")}</h3>
+                <p className="mt-1 text-xs text-slate-400">{showFullPlan ? t("generationPlan.fullHint") : t("generationPlan.partialHint")}</p>
               </div>
               <button
                 type="button"
@@ -1820,7 +1821,7 @@ export default function ProductSetPage() {
                 onClick={() => setShowFullPlan((value) => !value)}
                 className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
               >
-                {outputCount || 0} {imageType === "main" ? "张" : "屏"} · {showFullPlan ? "收起" : "查看全部"}
+                {outputCount || 0} {imageType === "main" ? t("units.singleImage") : t("units.singleScreen")} · {showFullPlan ? t("common.collapse") : t("common.viewAll")}
               </button>
             </div>
 
@@ -1874,22 +1875,22 @@ export default function ProductSetPage() {
             className="flex h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isGenerating ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Activity aria-hidden="true" className="h-4 w-4" />}
-            {isGenerating ? "生成中…" : outputCount > 0 ? `生成 ${Math.max(outputCount, 1)} ${outputUnit}` : mode === "smart" ? "请先分析生成方案" : "请先选择参考图方案"}
-            {outputCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{cost} 灵点</span>}
+            {isGenerating ? t("run.generating") : outputCount > 0 ? t("run.generateCount", { count: Math.max(outputCount, 1), unit: outputUnit }) : mode === "smart" ? t("run.analyzeFirst") : t("run.selectReferenceFirst")}
+            {outputCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{cost} {t("common.lingpoints")}</span>}
           </button>
           {requiresProductConfirmation && (
             <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
-              请先上传商品图、选择数量，并点击“帮我写商品信息”。
+              {t("run.requiresConfirmation")}
             </p>
           )}
           {mode === "custom" && outputCount <= 0 && (
             <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
-              请在参考图模式中选择预设，或上传参考图并添加参考。
+              {t("run.selectReferenceInMode")}
             </p>
           )}
           {detailsResolutionWarning && !requiresProductConfirmation && (
             <p className="mt-2 text-center text-[11px] font-bold text-[var(--codex-accent)]">
-              详情页含文字和细节，建议切到 2K 或 4K 再生成。
+              {t("run.detailsResolutionWarning")}
             </p>
           )}
         </div>
@@ -2009,7 +2010,7 @@ export default function ProductSetPage() {
 
         <StudioMediaLightbox
           src={lightboxSrc}
-          alt="商品套图预览"
+          alt={t("moduleName")}
           onClose={() => setLightboxSrc(null)}
         />
         {confirmDialog}

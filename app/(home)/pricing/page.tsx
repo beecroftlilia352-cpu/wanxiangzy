@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import { PricingSection } from "@/components/pricing/PricingSection";
 
-export const metadata: Metadata = {
-  title: "购买灵点 - Pixel Diffusion",
-  description: "购买 Pixel Diffusion AI 电商视觉灵点，支持支付宝、微信支付和订阅套餐。",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale().catch(() => "zh");
+  const t = await getTranslations({ locale, namespace: "Pricing" });
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  };
+}
 
 export default function PricingPage() {
   return <PricingSection />;

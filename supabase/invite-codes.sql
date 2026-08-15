@@ -192,5 +192,9 @@ $$;
 
 REVOKE ALL ON FUNCTION public.consume_invite_code(TEXT, TEXT, JSONB) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.release_invite_code_usage(UUID, TEXT) FROM PUBLIC;
+-- Supabase 默认权限会给新函数授予 anon/authenticated，必须显式收回，
+-- 否则普通用户可绕过注册流程直接占用/释放邀请码。
+REVOKE EXECUTE ON FUNCTION public.consume_invite_code(TEXT, TEXT, JSONB) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.release_invite_code_usage(UUID, TEXT) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.consume_invite_code(TEXT, TEXT, JSONB) TO service_role;
 GRANT EXECUTE ON FUNCTION public.release_invite_code_usage(UUID, TEXT) TO service_role;

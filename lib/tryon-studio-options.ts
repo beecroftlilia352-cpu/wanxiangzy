@@ -27,28 +27,28 @@ export const PRESET_REFERENCES = [
   { id: "r9", url: `${SITE_ASSET_BASE}/references/reference-cafe-wide-leg-pants.jpg`, label: "咖啡阔腿", category: "scene" as const },
 ];
 
-export const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "默认稳图", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "省灵点", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质感", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+export const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Create.models.desc", badge: "默认稳图", badgeKey: "Create.models.badgeStable", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Create.models.desc", badge: "省灵点", badgeKey: "Create.models.badgeSaving", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Create.models.desc", badge: "高质感", badgeKey: "Create.models.badgeQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
-export const GPT_ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "3:4", label: "3:4 竖版" }, { value: "4:3", label: "4:3 横版" },
-  { value: "1:1", label: "1:1 方形" }, { value: "16:9", label: "16:9 宽屏" },
-  { value: "9:16", label: "9:16 手机" }, { value: "2:3", label: "2:3" },
+export const GPT_ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
+  { value: "3:4", label: "3:4 竖版", labelKey: "Create.aspects.portrait" }, { value: "4:3", label: "4:3 横版", labelKey: "Create.aspects.landscape" },
+  { value: "1:1", label: "1:1 方形", labelKey: "Create.aspects.square" }, { value: "16:9", label: "16:9 宽屏", labelKey: "Create.aspects.wide" },
+  { value: "9:16", label: "9:16 手机", labelKey: "Create.aspects.phone" }, { value: "2:3", label: "2:3" },
   { value: "3:2", label: "3:2" }, { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" }, { value: "21:9", label: "21:9" },
-  { value: "auto", label: "智能" },
+  { value: "auto", label: "智能", labelKey: "Create.aspects.auto" },
 ];
 
-export const BANANA_ASPECTS: { value: AspectRatio; label: string }[] = [
+export const BANANA_ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
   { value: "3:4", label: "3:4" }, { value: "4:3", label: "4:3" },
   { value: "1:1", label: "1:1" }, { value: "16:9", label: "16:9" },
   { value: "9:16", label: "9:16" }, { value: "2:3", label: "2:3" },
   { value: "3:2", label: "3:2" }, { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" }, { value: "21:9", label: "21:9" },
-  { value: "auto", label: "智能" },
+  { value: "auto", label: "智能", labelKey: "Create.aspects.auto" },
 ];
 
 export const STYLE_PRESETS = [

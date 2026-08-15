@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type PointerEvent, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export function StudioSideDrawer({
   onClose,
   className,
 }: StudioSideDrawerProps) {
+  const t = useTranslations("Shared");
   // 移动端下拉关闭：拖拽超过 25% 宽度（或 80px）释放即关闭
   const dragRef = useRef<{ startX: number; dragging: boolean }>({ startX: 0, dragging: false });
 
@@ -67,7 +69,7 @@ export function StudioSideDrawer({
         <SheetHeader className="studio-side-drawer-header pr-14 text-left">
           <SheetTitle className="truncate text-lg font-black text-slate-950">{title}</SheetTitle>
           <SheetDescription className={cn("text-xs font-semibold leading-5 text-slate-500", !description && "sr-only")}>
-            {description || ariaLabel || `${title}侧边栏`}
+            {description || ariaLabel || `${title}${t("drawerSuffix")}`}
           </SheetDescription>
         </SheetHeader>
         <div className="studio-side-drawer-content">{children}</div>

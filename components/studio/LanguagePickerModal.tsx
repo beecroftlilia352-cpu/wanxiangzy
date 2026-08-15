@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { ClientPortal } from "@/components/ClientPortal";
 import type {
   ImageTranslationLanguageConfig,
@@ -28,10 +29,12 @@ export function LanguagePickerModal({
   config,
   selected,
   onChange,
-  title = "全部语言",
+  title,
   description,
   maxCount,
 }: LanguagePickerModalProps) {
+  const t = useTranslations("Shared");
+  const resolvedTitle = title ?? t("allLanguages");
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
@@ -88,7 +91,7 @@ export function LanguagePickerModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={resolvedTitle}
         className="fixed inset-0 z-[260] flex items-end justify-center bg-slate-950/45 px-3 py-6 backdrop-blur-md sm:items-center sm:px-6"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) onClose();
@@ -100,19 +103,18 @@ export function LanguagePickerModal({
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
             <div className="min-w-0">
-              <h2 className="text-base font-black text-slate-900">{title}</h2>
+              <h2 className="text-base font-black text-slate-900">{resolvedTitle}</h2>
               <p className="mt-1 text-xs text-slate-500">
-                {description || "支持 180+ 国家与地区语言，本地化写法保留变音符号、简繁与字符集。"}
+                {description || t("languageDescription")}
               </p>
               <p className="mt-1 text-[11px] font-semibold text-[var(--codex-accent)]">
-                已选 {totalSelected}
-                {max > 0 ? `/${max}` : ""} 种
+                {max > 0 ? t("selectedCountMax", { count: totalSelected, max }) : t("selectedCount", { count: totalSelected })}
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              aria-label="关闭"
+              aria-label={t("close")}
               className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             >
               <X className="h-4 w-4" />
@@ -126,9 +128,9 @@ export function LanguagePickerModal({
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索目标语言"
+                placeholder={t("searchTargetLanguage")}
                 className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                aria-label="搜索目标语言"
+                aria-label={t("searchTargetLanguage")}
               />
             </div>
           </div>
@@ -136,7 +138,7 @@ export function LanguagePickerModal({
           <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarGutter: "stable" as const }}>
             {!normalizedQuery && visibleCommon.length > 0 ? (
               <section className="mb-5">
-                <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">常用推荐</h3>
+                <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{t("commonRecommend")}</h3>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                   {visibleCommon.map((lang) => {
                     const checked = selected.includes(lang.code);
@@ -195,18 +197,18 @@ export function LanguagePickerModal({
             })}
 
             {filteredRegions.length === 0 ? (
-              <p className="py-10 text-center text-sm text-slate-400">没有匹配的语言，请尝试其他关键词。</p>
+              <p className="py-10 text-center text-sm text-slate-400">{t("noLanguageMatch")}</p>
             ) : null}
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-5 py-3">
-            <p className="text-xs text-slate-500">点击语言卡可选/取消，最多支持 {max || "20"} 种目标语言。</p>
+            <p className="text-xs text-slate-500">{t("languageFooter", { max: max || "20" })}</p>
             <button
               type="button"
               onClick={onClose}
               className="rounded-full bg-[var(--codex-accent)] px-5 py-2 text-sm font-black text-white shadow-sm transition hover:opacity-90"
             >
-              完成选择
+              {t("doneSelecting")}
             </button>
           </div>
         </div>

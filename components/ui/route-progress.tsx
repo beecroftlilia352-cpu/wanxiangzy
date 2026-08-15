@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 /**
  * Top-of-page progress bar that lights up while Next.js is
@@ -14,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
  * - `aria-live="polite"` + visually hidden status for SR users.
  */
 export function RouteProgress() {
+  const t = useTranslations("Shared");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [active, setActive] = useState(false);
@@ -94,7 +96,7 @@ export function RouteProgress() {
         />
       </div>
       <span className="sr-only" role="status" aria-live="polite">
-        {active ? "页面加载中" : ""}
+        {active ? t("pageLoading") : ""}
       </span>
     </>
   );

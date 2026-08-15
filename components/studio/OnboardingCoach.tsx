@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowRight, Camera, CheckCircle2, ImagePlus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const STORAGE_KEY = "pxd-onboarding-done";
 
@@ -28,6 +29,7 @@ const STEPS = [
  * localStorage 记录完成状态，点「开始创作」或关闭后不再出现。
  */
 export function OnboardingCoach({ show }: { show: boolean }) {
+  const t = useTranslations("Shared");
   const [step, setStep] = useState(0);
 
   function dismiss() {
@@ -45,19 +47,21 @@ export function OnboardingCoach({ show }: { show: boolean }) {
 
   if (!show) return null;
   const current = STEPS[step];
+  const stepTitles = [t("onboardingUpload"), t("onboardingReference"), t("onboardingGenerate")];
+  const stepDescs = [t("onboardingUploadDesc"), t("onboardingReferenceDesc"), t("onboardingGenerateDesc")];
 
   return (
-    <div className="fixed inset-0 z-[260] flex items-end justify-center bg-slate-950/45 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label="新用户引导">
+    <div className="fixed inset-0 z-[260] flex items-end justify-center bg-slate-950/45 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label={t("onboardingAria")}>
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/60 bg-white/95 p-6 shadow-[0_32px_90px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-stone-900/95">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--codex-accent)]">快速上手</p>
-            <h2 className="mt-1.5 text-xl font-black text-[var(--codex-ink)]">三步生成第一张模特图</h2>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--codex-accent)]">{t("quickStart")}</p>
+            <h2 className="mt-1.5 text-xl font-black text-[var(--codex-ink)]">{t("onboardingTitle")}</h2>
           </div>
           <button
             type="button"
             onClick={dismiss}
-            aria-label="关闭引导"
+            aria-label={t("closeGuide")}
             className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--codex-faint)] transition hover:bg-slate-100 hover:text-[var(--codex-ink)] dark:hover:bg-stone-800"
           >
             <X className="h-4 w-4" />
@@ -80,8 +84,8 @@ export function OnboardingCoach({ show }: { show: boolean }) {
             <current.icon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-black text-[var(--codex-ink)]">第 {step + 1} 步 · {current.title}</p>
-            <p className="mt-1 text-xs leading-5 text-[var(--codex-muted)]">{current.desc}</p>
+            <p className="text-sm font-black text-[var(--codex-ink)]">{t("stepCount", { step: step + 1, title: stepTitles[step] })}</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--codex-muted)]">{stepDescs[step]}</p>
           </div>
         </div>
 
@@ -94,7 +98,7 @@ export function OnboardingCoach({ show }: { show: boolean }) {
                 onClick={() => setStep((value) => value - 1)}
                 className="inline-flex h-10 items-center rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface)] px-4 text-sm font-bold text-[var(--codex-muted)] transition hover:text-[var(--codex-ink)]"
               >
-                上一步
+                {t("prevStep")}
               </button>
             )}
             {step < STEPS.length - 1 ? (
@@ -103,7 +107,7 @@ export function OnboardingCoach({ show }: { show: boolean }) {
                 onClick={() => setStep((value) => value + 1)}
                 className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-5 text-sm font-black text-white shadow-[0_8px_20px_rgba(91,124,255,0.3)] transition hover:opacity-90"
               >
-                下一步
+                {t("nextStep")}
                 <ArrowRight className="h-4 w-4" />
               </button>
             ) : (
@@ -112,7 +116,7 @@ export function OnboardingCoach({ show }: { show: boolean }) {
                 onClick={dismiss}
                 className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-5 text-sm font-black text-white shadow-[0_8px_20px_rgba(91,124,255,0.3)] transition hover:opacity-90"
               >
-                开始创作
+                {t("startCreating")}
                 <CheckCircle2 className="h-4 w-4" />
               </button>
             )}

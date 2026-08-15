@@ -22,6 +22,7 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -167,6 +168,7 @@ function useApp() {
 }
 
 export const App = Object.assign(function App({ children }: { children: ReactNode }) {
+  const t = useTranslations("Shared");
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [confirmSubmitting, setConfirmSubmitting] = useState(false);
 
@@ -217,7 +219,7 @@ export const App = Object.assign(function App({ children }: { children: ReactNod
       >
         <AlertDialogContent key={confirmState?.id}>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmState?.title || "确认操作"}</AlertDialogTitle>
+            <AlertDialogTitle>{confirmState?.title || t("confirmTitle")}</AlertDialogTitle>
             {confirmState?.content ? (
               <AlertDialogDescription className="whitespace-pre-line">
                 {confirmState.content}
@@ -226,14 +228,14 @@ export const App = Object.assign(function App({ children }: { children: ReactNod
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmSubmitting}>
-              {confirmState?.cancelText || "取消"}
+              {confirmState?.cancelText || t("cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               variant={confirmState?.okButtonProps?.danger ? "destructive" : "default"}
               disabled={confirmSubmitting || confirmState?.okButtonProps?.disabled}
               onClick={confirmOk}
             >
-              {confirmState?.okText || "确认"}
+              {confirmState?.okText || t("confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 /**
@@ -31,6 +34,7 @@ export function StudioModuleSkeleton({
   variant = "default",
   className,
 }: StudioModuleSkeletonProps) {
+  const t = useTranslations("Shared");
   return (
     <div
       className={cn(
@@ -39,7 +43,7 @@ export function StudioModuleSkeleton({
       )}
       aria-busy="true"
       aria-live="polite"
-      aria-label="模块加载中"
+      aria-label={t("loadingModule")}
     >
       {/* Feature tabs sidebar — 40px slim rail */}
       <div className="hidden w-10 shrink-0 flex-col items-center gap-4 border-r border-slate-200 bg-slate-50/70 py-3 lg:flex dark:border-white/5 dark:bg-[#161618]">

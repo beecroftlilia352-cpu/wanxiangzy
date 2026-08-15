@@ -4,6 +4,7 @@ import { withTimeout, isRecord } from "@/lib/utils";
 const QUERY_TIMEOUT_MS = 10_000;
 const INVITE_CODE_COLUMNS = "id,code,campaign,note,status,max_uses,used_count,starts_at,expires_at,created_by,created_by_email,created_at,updated_at";
 const INVITE_USAGE_COLUMNS = "id,invite_code_id,code,email,user_id,status,reason,metadata,created_at,released_at";
+const INVITE_REWARD_COLUMNS = "id,inviter_user_id,invitee_user_id,inviter_credits,invitee_credits,status,created_at,revoked_at,revoke_reason";
 
 export type AdminInviteCode = {
   id: string;
@@ -35,9 +36,33 @@ export type AdminInviteCodeUsage = {
   releasedAt: string | null;
 };
 
+export type AdminInviteReward = {
+  id: string;
+  code: string;
+  inviteeEmail: string;
+  inviterUserId: string | null;
+  inviterEmail: string | null;
+  inviteeUserId: string | null;
+  inviterCredits: number;
+  inviteeCredits: number;
+  status: "granted" | "revoked";
+  createdAt: string | null;
+  revokedAt: string | null;
+  revokeReason: string | null;
+};
+
+export type AdminInviteRewardMetrics = {
+  grantedRewards: number;
+  revokedRewards: number;
+  totalGrantedCredits: number;
+};
+
 export type AdminInviteCodeOverview = {
   codes: AdminInviteCode[];
   usages: AdminInviteCodeUsage[];
+  rewards: AdminInviteReward[];
+  rewardMetrics: AdminInviteRewardMetrics;
+  rewardsAvailable: boolean;
   metrics: {
     totalCodes: number;
     activeCodes: number;
@@ -54,12 +79,14 @@ export async function getAdminInviteCodeOverview(args: {
   status?: string;
   codeLimit?: number;
   usageLimit?: number;
+  rewardLimit?: number;
 } = {}): Promise<AdminInviteCodeOverview> {
   const warnings: string[] = [];
   const q = (args.q || "").trim().toLowerCase();
   const status = args.status === "active" || args.status === "disabled" ? args.status : "";
   const codeLimit = clampInteger(args.codeLimit, 20, 200, 100);
   const usageLimit = clampInteger(args.usageLimit, 20, 300, 120);
+  const rewardLimit = clampInteger(args.rewardLimit, 20, 300, 120);
   const admin = getAdminClient();
 
   let codeQuery = admin
@@ -83,11 +110,23 @@ export async function getAdminInviteCodeOverview(args: {
     "invite code usages",
     warnings,
   );
+  const rewardsResult = await runOptionalQuery<Record<string, unknown>[]>(
+    admin
+      .from("invite_rewards")
+      .select(`${INVITE_REWARD_COLUMNS},invite_code_usages(code,email)`)
+      .order("created_at", { ascending: false })
+      .limit(rewardLimit),
+    "invite rewards",
+    warnings,
+  );
 
   if (!codesResult.ok || !usagesResult.ok) {
     return {
       codes: [],
       usages: [],
+      rewards: [],
+      rewardMetrics: { grantedRewards: 0, revokedRewards: 0, totalGrantedCredits: 0 },
+      rewardsAvailable: false,
       metrics: {
         totalCodes: 0,
         activeCodes: 0,
@@ -102,6 +141,24 @@ export async function getAdminInviteCodeOverview(args: {
 
   const codes = (codesResult.data || []).map(mapInviteCode).filter((row) => matchesSearch(row, q));
   const usages = (usagesResult.data || []).map(mapInviteUsage).filter((row) => matchesUsageSearch(row, q));
+  const rewards = rewardsResult.ok
+    ? await enrichInviterEmails(
+        (rewardsResult.data || []).map(mapInviteReward).filter((row) => matchesRewardSearch(row, q)),
+        admin,
+      )
+    : [];
+  const rewardMetrics = rewards.reduce<AdminInviteRewardMetrics>(
+    (acc, reward) => {
+      if (reward.status === "granted") {
+        acc.grantedRewards += 1;
+        acc.totalGrantedCredits += reward.inviterCredits + reward.inviteeCredits;
+      } else {
+        acc.revokedRewards += 1;
+      }
+      return acc;
+    },
+    { grantedRewards: 0, revokedRewards: 0, totalGrantedCredits: 0 },
+  );
   const metrics = codes.reduce(
     (acc, code) => {
       acc.totalCodes += 1;
@@ -122,10 +179,78 @@ export async function getAdminInviteCodeOverview(args: {
   return {
     codes,
     usages,
+    rewards,
+    rewardMetrics,
+    rewardsAvailable: rewardsResult.ok,
     metrics,
     available: true,
     warnings: uniqueStrings(warnings),
   };
+}
+
+/** 撤销邀请奖励（回收双方灵点，幂等） */
+export async function revokeInviteReward(rewardId: string, reason: string) {
+  const { error } = await getAdminClient().rpc("revoke_invite_rewards", {
+    p_reward_id: rewardId,
+    p_reason: reason,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const };
+}
+
+function mapInviteReward(row: Record<string, unknown>): AdminInviteReward {
+  const usage = isRecord(row.invite_code_usages) ? row.invite_code_usages : null;
+  return {
+    id: stringValue(row.id),
+    code: usage ? stringValue(usage.code) : "",
+    inviteeEmail: usage ? stringValue(usage.email) : "",
+    inviterUserId: nullableString(row.inviter_user_id),
+    inviterEmail: null,
+    inviteeUserId: nullableString(row.invitee_user_id),
+    inviterCredits: Math.max(0, numberValue(row.inviter_credits)),
+    inviteeCredits: Math.max(0, numberValue(row.invitee_credits)),
+    status: stringValue(row.status) === "revoked" ? "revoked" : "granted",
+    createdAt: nullableString(row.created_at),
+    revokedAt: nullableString(row.revoked_at),
+    revokeReason: nullableString(row.revoke_reason),
+  };
+}
+
+async function enrichInviterEmails(
+  rewards: AdminInviteReward[],
+  admin: ReturnType<typeof getAdminClient>,
+): Promise<AdminInviteReward[]> {
+  const inviterIds = [...new Set(rewards.map((reward) => reward.inviterUserId).filter((id): id is string => Boolean(id)))];
+  if (inviterIds.length === 0) return rewards;
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id,email")
+    .in("id", inviterIds);
+
+  if (error) {
+    console.warn("[admin/invite-codes] inviter profiles query failed:", error.message);
+    return rewards;
+  }
+
+  const emailById = new Map<string, string>();
+  for (const profile of data || []) {
+    if (isRecord(profile) && typeof profile.id === "string") {
+      emailById.set(profile.id, stringValue(profile.email));
+    }
+  }
+
+  return rewards.map((reward) => ({
+    ...reward,
+    inviterEmail: (reward.inviterUserId && emailById.get(reward.inviterUserId)) || null,
+  }));
+}
+
+function matchesRewardSearch(row: AdminInviteReward, q: string) {
+  if (!q) return true;
+  return [row.code, row.inviteeEmail, row.inviterEmail || "", row.inviterUserId || "", row.inviteeUserId || ""].some((value) =>
+    value.toLowerCase().includes(q),
+  );
 }
 
 function mapInviteCode(row: Record<string, unknown>): AdminInviteCode {

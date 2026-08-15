@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock3, ImageIcon, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -21,42 +22,45 @@ export type StudioGenerationLoaderProps = {
   metaItems?: string[];
 };
 
-function getProgressLabel(progress: number): string {
-  if (progress < 15) return "准备素材关系…";
-  if (progress < 50) return "渲染服装视觉…";
-  if (progress < 90) return "整理生成结果…";
-  return "即将完成…";
+function getProgressLabel(progress: number, t: (key: string) => string): string {
+  if (progress < 15) return t("progressPrepare");
+  if (progress < 50) return t("progressRender");
+  if (progress < 90) return t("progressFinalize");
+  return t("progressAlmostDone");
 }
 
 export function StudioGenerationLoader({
   count,
   progress,
-  moduleName = "图像生成",
+  moduleName,
   statusText,
   aspectRatio = "3/4",
   referenceImages = [],
-  estimatedTime = "预计 1-2 分钟",
+  estimatedTime,
   metaItems = [],
 }: StudioGenerationLoaderProps) {
+  const t = useTranslations("Shared");
+  const resolvedModuleName = moduleName ?? t("imageGeneration");
+  const resolvedEstimatedTime = estimatedTime ?? t("estimating");
   const safeCount = Math.max(1, Math.min(count, 4));
   const displayProgress = Math.round(Math.max(0, Math.min(progress, 100)));
   const gridClass = safeCount > 1 ? "grid-cols-2 max-w-[460px]" : "grid-cols-1 max-w-[330px]";
-  const label = statusText || getProgressLabel(displayProgress);
+  const label = statusText || getProgressLabel(displayProgress, t);
   const visibleRefs = referenceImages.filter((item) => item.url).slice(0, 4);
-  const mergedMeta = [estimatedTime, `${safeCount} 张结果`, ...metaItems].filter(Boolean);
+  const mergedMeta = [resolvedEstimatedTime, t("resultCountUnit", { count: safeCount }), ...metaItems].filter(Boolean);
 
   return (
     <div className="studio-loading-stage flex min-h-[280px] items-center justify-center p-5 sm:min-h-[380px] sm:p-8 lg:h-full">
       <div className="w-full max-w-5xl">
         <div className="mx-auto mb-5 flex max-w-[720px] flex-col gap-3 rounded-[24px] border border-white/62 bg-white/58 p-3 shadow-[0_18px_54px_rgba(14,18,38,0.12)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-black tracking-[-0.01em] text-codex-ink">{moduleName}生成中</p>
+            <p className="text-sm font-black tracking-[-0.01em] text-codex-ink">{t("moduleGenerating", { name: resolvedModuleName })}</p>
             <p className="mt-1 text-xs font-semibold text-codex-muted">{label}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {mergedMeta.map((item) => (
               <span key={item} className="inline-flex items-center gap-1 rounded-full border border-white/72 bg-white/76 px-2.5 py-1 text-[11px] font-bold text-codex-muted">
-                {item === estimatedTime && <Clock3 className="h-3 w-3 text-[var(--codex-accent)]" />}
+                {item === resolvedEstimatedTime && <Clock3 className="h-3 w-3 text-[var(--codex-accent)]" />}
                 {item}
               </span>
             ))}
@@ -74,7 +78,7 @@ export function StudioGenerationLoader({
                   <span className="block truncate text-[11px] font-black text-codex-ink">{item.label}</span>
                   <span className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-codex-faint">
                     <ImageIcon className="h-3 w-3" />
-                    参考图
+                    {t("referenceImage")}
                   </span>
                 </span>
               </span>
@@ -94,14 +98,14 @@ export function StudioGenerationLoader({
                   </div>
                 </div>
                 <span className="text-2xl font-black tabular-nums text-white">{displayProgress}%</span>
-                <p className="text-xs font-semibold text-white/58">{safeCount > 1 ? `第 ${index + 1} 张生成中` : label}</p>
+                <p className="text-xs font-semibold text-white/58">{safeCount > 1 ? t("generatingImageN", { index: index + 1 }) : label}</p>
               </div>
             </div>
           ))}
         </div>
 
         <div className={`mx-auto mt-4 flex items-center gap-3 px-1 ${safeCount > 1 ? "max-w-[460px]" : "max-w-[330px]"}`}>
-          <span className="shrink-0 text-[11px] font-bold text-codex-muted">{moduleName}</span>
+          <span className="shrink-0 text-[11px] font-bold text-codex-muted">{resolvedModuleName}</span>
           <div className="studio-loader-progress h-1.5 flex-1 overflow-hidden rounded-full bg-white/45">
             <div
               className="h-full rounded-full bg-gradient-to-r from-[#5b7cff] via-[#aeb8ff] to-[#dbe8ff] transition-[width] duration-700"

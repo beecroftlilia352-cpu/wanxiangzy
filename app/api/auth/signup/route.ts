@@ -6,6 +6,11 @@ import {
   mapInviteCodeError,
   normalizeInviteCode,
 } from "@/lib/invite-codes";
+import {
+  getInviteRewardConfig,
+  grantInviteRewards,
+  isInviteRewardEnabled,
+} from "@/lib/invite-rewards";
 import { checkRateLimit, API_RATE_LIMITS } from "@/lib/api/rate-limit";
 
 const SIGNUP_TIMEOUT_MS = 12_000;
@@ -112,6 +117,22 @@ export async function POST(request: Request) {
         },
       })
       .eq("id", usageId);
+
+    // 邀请奖励：best-effort 发放，绝不阻断注册。
+    // RPC 以 usage_id 唯一约束保证幂等，重复调用不会二次发奖。
+    // 奖励额度来自管理后台配置（invite.rewards），未配置时用默认值。
+    const rewards = await getInviteRewardConfig();
+    if (isInviteRewardEnabled(rewards)) {
+      const rewardResult = await grantInviteRewards({
+        usageId,
+        inviteeUserId: data.user.id,
+        inviterCredits: rewards.inviterCredits,
+        inviteeCredits: rewards.inviteeCredits,
+      });
+      if (!rewardResult.granted && process.env.NODE_ENV === "development") {
+        console.warn(`[auth/signup] invite rewards not granted (${rewardResult.reason})`);
+      }
+    }
 
     return NextResponse.json({
       user: {

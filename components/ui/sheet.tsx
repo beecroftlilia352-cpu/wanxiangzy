@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "radix-ui"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -60,6 +61,7 @@ function SheetContent({
   overlayClassName?: string
 }) {
   const previousFocusRef = React.useRef<HTMLElement | null>(null)
+  const t = useTranslations("Shared")
 
   return (
     <SheetPortal>
@@ -98,7 +100,7 @@ function SheetContent({
               size="icon-sm"
             >
               <XIcon aria-hidden="true" />
-              <span className="sr-only">关闭</span>
+              <span className="sr-only">{t("close")}</span>
             </Button>
           </SheetPrimitive.Close>
         )}

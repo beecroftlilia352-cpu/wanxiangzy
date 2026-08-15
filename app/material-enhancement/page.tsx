@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -50,6 +51,17 @@ type MaterialEnhancementGenerateOptions = {
   toastMessage?: string;
 };
 
+const GARMENT_TYPE_LABEL_KEYS: Record<string, string> = {
+  "上装": "garmentTypes.top",
+  "下装": "garmentTypes.bottom",
+  "连体衣": "garmentTypes.onePiece",
+  "其他": "garmentTypes.other",
+};
+
+function fieldGarmentTypeLabelKey(type: string): string {
+  return GARMENT_TYPE_LABEL_KEYS[type] ?? "garmentTypes.other";
+}
+
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
@@ -69,6 +81,26 @@ const MATERIAL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
 ];
 
 export default function MaterialEnhancementPage() {
+  const t = useTranslations("MaterialEnhancement");
+  const displayModels = useMemo(() => MODELS.map((m, i) => ({
+    ...m,
+    desc: t("models.max4K"),
+    badge: m.badge ? t(["models.recommended", "models.latest", "models.highQuality"][i] ?? "models.recommended") : undefined,
+  })), [t]);
+  const displayActions = useMemo(() => MATERIAL_PREVIEW_ACTIONS.map((a) => {
+    const labelKeys: Record<string, string> = {
+      download: "actions.download",
+      copy: "actions.copy",
+      repair: "actions.repair",
+      aiVideo: "actions.aiVideo",
+      modelBackground: "actions.modelBackground",
+      pose: "actions.pose",
+      productSet: "actions.productSet",
+      regenerateAll: "actions.regenerateAll",
+      feedback: "actions.feedback",
+    };
+    return { ...a, label: t(labelKeys[a.kind]) };
+  }), [t]);
   const router = useRouter();
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const garmentInputRef = useRef<HTMLInputElement>(null);
@@ -108,7 +140,7 @@ export default function MaterialEnhancementPage() {
   const taskInputThumbnails = useMemo(() => [sourceUrl, garmentUrl].filter(Boolean), [sourceUrl, garmentUrl]);
   const taskQueue = useTaskQueueGeneration({
     module: "materialEnhancement",
-    title: "材质增强",
+    title: t("moduleName"),
     defaultExpectedCount: genCount,
     applyPath: "/material-enhancement",
   });
@@ -142,44 +174,44 @@ export default function MaterialEnhancementPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
+      toastMessage: t("retry.pendingMessage", { index: index + 1 }),
     });
   }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "materialEnhancement",
-      title: "材质增强",
+      title: t("moduleName"),
       urls: resultUrls,
       expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       references: [
-        ...(sourceUrl ? [{ url: sourceUrl, label: "原图", role: "source" as const }] : []),
-        ...(garmentUrl ? [{ url: garmentUrl, label: "高清服装图", role: "garment" as const }] : []),
+        ...(sourceUrl ? [{ url: sourceUrl, label: t("meta.sourceImage"), role: "source" as const }] : []),
+        ...(garmentUrl ? [{ url: garmentUrl, label: t("meta.garmentImage"), role: "garment" as const }] : []),
       ],
       promptText: userPrompt,
       metaItems: [
-        { label: "服装类型", value: garmentType === "其他" ? customGarmentType : garmentType },
-        { label: "增强强度", value: enhancementLevelLabel },
-        { label: "模型", value: aiModel },
-        { label: "比例", value: aspectRatio },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: genCount },
+        { label: t("meta.garmentType"), value: garmentType === "其他" ? customGarmentType : garmentType },
+        { label: t("meta.enhanceLevel"), value: enhancementLevelLabel },
+        { label: t("meta.model"), value: aiModel },
+        { label: t("meta.aspectRatio"), value: aspectRatio },
+        { label: t("meta.resolution"), value: imageSize },
+        { label: t("meta.count"), value: genCount },
       ],
-      resultTitlePrefix: "材质增强结果",
+      resultTitlePrefix: t("preview.resultTitlePrefix"),
       aspectRatio,
     }),
     [activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, enhancementLevelLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, resultUrls, sourceUrl, userPrompt]
   );
 
   const runDisabledReason = !sourceUrl
-    ? "请先上传需要增强的原图"
+    ? t("run.needSource")
     : !garmentUrl
-      ? "请上传高清服装图作为材质参考"
+      ? t("run.needGarment")
       : garmentType === "其他" && !customGarmentType.trim()
-        ? "请输入自定义服装类型"
+        ? t("run.needCustomType")
         : credits !== null && credits < totalCost
-          ? `灵点不足，生成需要 ${totalCost} 灵点`
+          ? t("run.insufficientCredits", { cost: totalCost })
           : undefined;
 
   useEffect(() => {
@@ -204,9 +236,9 @@ export default function MaterialEnhancementPage() {
 
   function applyHistoryPayload(payload: MaterialEnhancementHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setSourceUrl(payload.sourceUrl);
-    setSourceName("历史原图");
+    setSourceName(t("history.sourceName"));
     setGarmentUrl(payload.garmentUrl);
-    setGarmentName("历史高清服装图");
+    setGarmentName(t("history.garmentName"));
     setGarmentType(GARMENT_TYPE_OPTIONS.includes(payload.garmentType as GarmentType) ? payload.garmentType as GarmentType : "其他");
     setCustomGarmentType(GARMENT_TYPE_OPTIONS.includes(payload.garmentType as GarmentType) ? "" : payload.garmentType || "");
     setEnhancementLevel(normalizeMaterialEnhancementLevel(payload.enhancementLevel));
@@ -220,18 +252,18 @@ export default function MaterialEnhancementPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError(null);
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("history.applied"));
   }
 
   async function handleUpload(files: FileList | File[], kind: "source" | "garment") {
     const file = Array.from(files)[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("请上传图片文件");
+      toast.error(t("upload.pleaseUploadImage"));
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
+      toast.error(t("upload.imageTooLarge", { mb: MAX_FILE_SIZE_MB }));
       return;
     }
 
@@ -243,20 +275,20 @@ export default function MaterialEnhancementPage() {
       setIsUploadingGarment(true);
     }
 
-    toast.info(kind === "source" ? "正在上传原图…" : "正在上传高清服装图…");
+    toast.info(kind === "source" ? t("upload.uploadingSource") : t("upload.uploadingGarment"));
     try {
       const result = await uploadImage(file);
       if (kind === "source") {
         setSourceUrl(result.url);
-        toast.success("原图已准备");
+        toast.success(t("upload.sourceReady"));
       } else {
         setGarmentUrl(result.url);
-        toast.success("高清服装图已准备");
+        toast.success(t("upload.garmentReady"));
       }
     } catch {
       if (kind === "source") setSourceUrl("");
       else setGarmentUrl("");
-      toast.error("图片上传失败，请重试");
+      toast.error(t("upload.uploadFailed"));
     } finally {
       if (kind === "source") setIsUploadingSource(false);
       else setIsUploadingGarment(false);
@@ -265,7 +297,7 @@ export default function MaterialEnhancementPage() {
 
   async function generate(finalPromptForRun?: string, options: MaterialEnhancementGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("common.pleaseLogin"));
       router.push("/login");
       return;
     }
@@ -281,11 +313,12 @@ export default function MaterialEnhancementPage() {
     });
     const runTotalCost = costPerImage * runExpectedCount;
     if (runDisabledReason) {
-      if (runDisabledReason.includes("灵点不足") && (credits === null || credits < runTotalCost)) {
+      const isCreditShort = credits !== null && credits < runTotalCost;
+      if (isCreditShort && (credits === null || credits < runTotalCost)) {
         showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
         return;
       }
-      if (!runDisabledReason.includes("灵点不足")) {
+      if (!isCreditShort) {
         toast.error(runDisabledReason);
         return;
       }
@@ -342,7 +375,7 @@ export default function MaterialEnhancementPage() {
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(data.error || "生成失败");
+        throw new Error(data.error || t("generation.failed"));
       }
 
       if (data.credits_remaining !== undefined) {
@@ -422,19 +455,19 @@ export default function MaterialEnhancementPage() {
           });
           if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`材质增强部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(t("generation.partialComplete", { done: finalResultCount, expected: displayExpectedCount }));
           } else {
-            toast.success("材质增强完成");
+            toast.success(t("generation.completed"));
           }
           return;
         }
         if (pollData.status === "failed") {
-          throw new Error(pollData.error || "生成失败");
+          throw new Error(pollData.error || t("generation.failed"));
         }
       }
-      throw new Error("生成超时");
+      throw new Error(t("generation.timeout"));
     } catch (err: unknown) {
-      const message = summarizeGenerationError(err instanceof Error ? err.message : "操作失败");
+      const message = summarizeGenerationError(err instanceof Error ? err.message : t("generation.operationFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
@@ -442,7 +475,7 @@ export default function MaterialEnhancementPage() {
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.filter(Boolean).length,
       });
-      if (message.includes("灵点不足")) {
+      if (credits !== null && credits < runTotalCost) {
         showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       } else {
         toast.error(message);
@@ -471,12 +504,12 @@ export default function MaterialEnhancementPage() {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generation.failed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史任务加载失败");
+      toast.error(err instanceof Error ? err.message : t("history.taskLoadFailed"));
       return true;
     }
   }
@@ -509,7 +542,7 @@ export default function MaterialEnhancementPage() {
       <FeatureTabs active="materialEnhancement" />
       <ModuleTaskRail
         module="materialEnhancement"
-        moduleLabel="材质增强"
+        moduleLabel={t("moduleName")}
         onContinue={resetForm}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
@@ -518,12 +551,12 @@ export default function MaterialEnhancementPage() {
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
-            title="材质增强"
-            tooltip="上传最终画面原图和高清服装图，只增强服装区域的面料、走线、五金和细节质感，保持人物、姿势、背景不变。"
+            title={t("moduleName")}
+            tooltip={t("header.tooltip")}
           />
 
           <StudioUploadSection
-            title="上传原图"
+            title={t("upload.sourceSectionTitle")}
             inputRef={sourceInputRef}
             isDragging={isDraggingSource}
             setDragging={setIsDraggingSource}
@@ -531,14 +564,14 @@ export default function MaterialEnhancementPage() {
           >
             {(openFileDialog, dragContext) => (
               <StudioUploadTile
-                title="上传需要增强的成片"
-                description="人物、姿势、背景和构图以这张图为准，只增强服装区域。"
+                title={t("upload.sourceTileTitle")}
+                description={t("upload.sourceTileDesc")}
                 imageUrl={sourceUrl || null}
-                imageAlt="已上传原图"
+                imageAlt={t("upload.sourceImageAlt")}
                 isDragging={isDraggingSource}
                 loading={isUploadingSource}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onLibraryClick={() => toast.info(t("library.comingSoon"))}
                 onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
                 onRemove={sourceUrl ? () => {
                   setSourceUrl("");
@@ -546,15 +579,15 @@ export default function MaterialEnhancementPage() {
                 } : undefined}
                 onDropFile={(file) => handleUpload(file ? [file] : [], "source")}
                 dragContext={dragContext}
-                uploadLabel="从本地上传"
-                libraryLabel="从作品选择"
-                footnote={sourceUrl ? sourceName || "已上传原图" : "建议使用已成片或上身图，主体清楚、服装区域可见。"}
+                uploadLabel={t("upload.localUpload")}
+                libraryLabel={t("upload.fromWorks")}
+                footnote={sourceUrl ? sourceName || t("upload.uploadedSource") : t("upload.sourceFootnote")}
               />
             )}
           </StudioUploadSection>
 
           <StudioUploadSection
-            title="上传高清服装图"
+            title={t("upload.garmentSectionTitle")}
             inputRef={garmentInputRef}
             isDragging={isDraggingGarment}
             setDragging={setIsDraggingGarment}
@@ -562,14 +595,14 @@ export default function MaterialEnhancementPage() {
           >
             {(openFileDialog, dragContext) => (
               <StudioUploadTile
-                title="上传同款高清商品图"
-                description="用于提取面料织法、走线、纽扣、拉链、logo 和材质细节。"
+                title={t("upload.garmentTileTitle")}
+                description={t("upload.garmentTileDesc")}
                 imageUrl={garmentUrl || null}
-                imageAlt="已上传高清服装图"
+                imageAlt={t("upload.garmentImageAlt")}
                 isDragging={isDraggingGarment}
                 loading={isUploadingGarment}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onLibraryClick={() => toast.info(t("library.comingSoon"))}
                 onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
                 onRemove={garmentUrl ? () => {
                   setGarmentUrl("");
@@ -577,34 +610,34 @@ export default function MaterialEnhancementPage() {
                 } : undefined}
                 onDropFile={(file) => handleUpload(file ? [file] : [], "garment")}
                 dragContext={dragContext}
-                uploadLabel="从本地上传"
-                libraryLabel="从作品选择"
-                footnote={garmentUrl ? garmentName || "已上传高清服装图" : "建议单件服装、纹理清晰、图案和细节完整。"}
+                uploadLabel={t("upload.localUpload")}
+                libraryLabel={t("upload.fromWorks")}
+                footnote={garmentUrl ? garmentName || t("upload.uploadedGarment") : t("upload.garmentFootnote")}
               />
             )}
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">服装类型</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("garmentType.title")}</h3>
             <StudioOptionGrid
-              options={GARMENT_TYPE_OPTIONS.map((type) => ({ value: type, label: type }))}
+              options={GARMENT_TYPE_OPTIONS.map((type) => ({ value: type, label: t(fieldGarmentTypeLabelKey(type)) }))}
               value={garmentType}
               onChange={setGarmentType}
               columns={4}
-              ariaLabel="服装类型"
+              ariaLabel={t("garmentType.aria")}
             />
             {garmentType === "其他" && (
               <input
                 value={customGarmentType}
                 onChange={(event) => setCustomGarmentType(event.target.value)}
-                placeholder="例如：围巾、帽子、礼服套装"
+                placeholder={t("garmentType.customPlaceholder")}
                 className="studio-text-input mt-2"
               />
             )}
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">增强方式</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("enhance.title")}</h3>
             <StudioOptionGrid
               options={MATERIAL_ENHANCEMENT_LEVELS.map((item) => ({
                 value: item.value,
@@ -614,67 +647,67 @@ export default function MaterialEnhancementPage() {
               value={enhancementLevel}
               onChange={setEnhancementLevel}
               columns={3}
-              ariaLabel="增强方式"
+              ariaLabel={t("enhance.aria")}
             />
           </section>
 
           <StudioPromptTextarea
-            title="补充要求"
-            badge="可选"
+            title={t("prompt.title")}
+            badge={t("prompt.badge")}
             value={userPrompt}
             onChange={(event) => setUserPrompt(event.target.value)}
-            placeholder="例如：重点增强牛仔斜纹和明线；保留原图暖色光线；logo 不要变形。"
+            placeholder={t("prompt.placeholder")}
             rows={4}
-            description="补充要求只用于服装区域增强，不会改变人物、姿势、背景和画幅。"
+            description={t("prompt.desc")}
           />
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />生成模型</h3>
-            <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel="生成模型" />
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />{t("section.model")}</h3>
+            <StudioModelSelector models={displayModels} value={aiModel} onChange={setAiModel} ariaLabel={t("section.modelAria")} />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">图片比例</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.aspectRatio")}</h3>
             <StudioOptionGrid
               options={[
-                { value: "auto", label: "智能" },
-                { value: "3:4", label: "3:4 竖版" },
-                { value: "4:5", label: "4:5 商品图" },
-                { value: "1:1", label: "1:1 方图" },
+                { value: "auto", label: t("aspect.smart") },
+                { value: "3:4", label: t("aspect.portrait") },
+                { value: "4:5", label: t("aspect.product") },
+                { value: "1:1", label: t("aspect.square") },
               ] as const}
               value={aspectRatio}
               onChange={setAspectRatio}
               columns={3}
-              ariaLabel="图片比例"
+              ariaLabel={t("section.aspectRatioAria")}
             />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.resolution")}</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}${t("common.lingpoints")}`,
               }))}
               value={imageSize}
               onChange={setImageSize}
               columns={2}
-              ariaLabel="分辨率"
+              ariaLabel={t("section.resolutionAria")}
             />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成数量</h3>
-            <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel="生成数量" />
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.count")}</h3>
+            <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel={t("section.countAria")} />
           </section>
         </div>
 
         <StudioRunBar
-          summary={`${costPerImage} × ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          summary={t("run.summary", { unit: costPerImage, count: genCount })}
+          costLabel={authIsAnonymous ? t("run.loginToView") : t("run.costLabel", { cost: totalCost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? t("run.loginToGenerate") : isGenerating ? t("run.generating") : t("run.generateCount", { count: genCount })}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />
@@ -684,14 +717,14 @@ export default function MaterialEnhancementPage() {
         {!isGenerating && resultUrls.length === 0 && !error && (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
-              title="商用服装材质增强"
-              subtitle="用高清商品图修复上身图中的面料、走线、五金和 logo 细节，保持人物和场景稳定。"
+              title={t("guide.title")}
+              subtitle={t("guide.subtitle")}
               imageSrc="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-white-top-denim-shorts.jpg"
-              imageAlt="材质增强指引"
+              imageAlt={t("guide.imageAlt")}
               steps={[
-                { title: "上传原图", desc: "原图决定人物、姿势、背景、光线和最终构图。" },
-                { title: "上传高清服装图", desc: "高清图只提供面料、走线、logo、五金和细节参考。" },
-                { title: "增强服装区域", desc: "输出更清晰可信的商用成片，不重绘人物和背景。" },
+                { title: t("guide.step1Title"), desc: t("guide.step1Desc") },
+                { title: t("guide.step2Title"), desc: t("guide.step2Desc") },
+                { title: t("guide.step3Title"), desc: t("guide.step3Desc") },
               ]}
             />
           </div>
@@ -709,9 +742,9 @@ export default function MaterialEnhancementPage() {
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
                 markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel="本张生成失败"
+                missingFailureLabel={t("result.missingLabel")}
                 missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel="重试本张"
+                missingFailureActionLabel={t("result.retryAction")}
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
@@ -726,7 +759,7 @@ export default function MaterialEnhancementPage() {
               selectedIndex={previewIndex || 0}
               onSelectedIndexChange={setPreviewIndex}
               filenamePrefix="material-enhancement"
-              actions={MATERIAL_PREVIEW_ACTIONS}
+              actions={displayActions}
               onRegenerateAll={() => { setResultUrls([]); setProgress(0); }}
             />
           </div>
@@ -738,7 +771,7 @@ export default function MaterialEnhancementPage() {
             onRetry={() => generate()}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
-            retryLabel="重新生成"
+            retryLabel={t("result.retryLabel")}
             notice={FAILED_RETRY_NOTICE}
           />
         )}
@@ -746,7 +779,7 @@ export default function MaterialEnhancementPage() {
 
       <StudioMediaLightbox
         src={lightboxSrc}
-        alt="材质增强预览"
+        alt={t("moduleName")}
         onClose={() => setLightboxSrc(null)}
       />
     </div>

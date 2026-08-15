@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -62,6 +63,7 @@ function DialogContent({
   returnFocusRef?: React.RefObject<HTMLElement | null>
 }) {
   const previousFocusRef = React.useRef<HTMLElement | null>(null)
+  const t = useTranslations("Shared")
 
   return (
     <DialogPortal>
@@ -99,7 +101,7 @@ function DialogContent({
               size="icon-sm"
             >
               <XIcon aria-hidden="true" />
-              <span className="sr-only">关闭</span>
+              <span className="sr-only">{t("close")}</span>
             </Button>
           </DialogPrimitive.Close>
         )}

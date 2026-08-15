@@ -37,6 +37,8 @@ import {
 } from "@/lib/supabase/client";
 import { VISIBLE_TOP_MODULES, getActiveTopModule } from "@/lib/navigation";
 import { codexTheme } from "@/lib/design/codex-theme";
+import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 
 type HeaderAccountState = {
   authReady: boolean;
@@ -48,11 +50,11 @@ type HeaderAccountState = {
 };
 
 const marketingNav = [
-  { label: "产品", href: "/#features" },
-  { label: "模特库", href: "/model" },
-  { label: "价格", href: "/pricing" },
-  { label: "案例", href: "/#testimonials" },
-  { label: "资源", href: "/general-image" },
+  { labelKey: "Header.nav.products", href: "/#features" },
+  { labelKey: "Header.nav.modelLibrary", href: "/model" },
+  { labelKey: "Header.nav.pricing", href: "/pricing" },
+  { labelKey: "Header.nav.cases", href: "/#testimonials" },
+  { labelKey: "Header.nav.resources", href: "/general-image" },
 ];
 
 export function HeaderClient() {
@@ -202,6 +204,8 @@ function MarketingHeaderWithAccount({ overlay = false }: { overlay?: boolean }) 
 }
 
 function MarketingHeader({ account, overlay }: { account: HeaderAccountState; overlay: boolean }) {
+  const t = useTranslations("Header");
+  const tAny = useTranslations(); // 数据键全路径（Header.nav.* / Header.modules.*），用全局 t 解析
   const [scrolled, setScrolled] = useState(false);
   const scrolledRef = useRef(false);
   const frameRef = useRef<number | null>(null);
@@ -257,24 +261,25 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
         <Link
           href="/"
           className="home-marketing-logo shrink-0 text-[18px] font-semibold leading-none"
-          aria-label="Pixel Diffusion 首页"
+          aria-label={t("homeAria")}
         >
           Pixel Diffusion
         </Link>
 
-        <nav className="home-marketing-nav hidden flex-1 items-center gap-8 pl-4 text-[14px] font-semibold leading-none lg:flex" aria-label="主导航">
+        <nav className="home-marketing-nav hidden flex-1 items-center gap-8 pl-4 text-[14px] font-semibold leading-none lg:flex" aria-label={t("mainNavAria")}>
           {marketingNav.map((item) => (
-            <Link key={item.label} href={item.href} prefetch={false} className="transition-colors">
-              {item.label}
+            <Link key={item.labelKey} href={item.href} prefetch={false} className="transition-colors">
+              {tAny(item.labelKey)}
             </Link>
           ))}
         </nav>
 
         <div className="home-marketing-actions flex shrink-0 items-center gap-3 text-[14px] font-semibold leading-none">
+          <LanguageSwitcher />
           <ThemeToggle className="h-9 w-9" />
           <MarketingAccountActions {...account} />
           <Link href="/create" className="home-trial-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 transition">
-            进入工作台
+            {t("accountMenu.workspace")}
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
           <MarketingMobileMenu />
@@ -292,6 +297,7 @@ function MarketingAccountActions({
   isLoggingOut,
   onLogout,
 }: HeaderAccountState) {
+  const t = useTranslations("Header");
   if (!authReady) {
     return (
       <span className="home-login-pill hidden h-10 w-[92px] items-center justify-center rounded-full px-5 transition sm:inline-flex">
@@ -303,7 +309,7 @@ function MarketingAccountActions({
   if (!email) {
     return (
       <Link href="/login" className="home-login-pill hidden h-10 items-center gap-1 rounded-full px-5 transition sm:inline-flex">
-        登录
+        {t("login")}
         <ChevronDown className="h-3.5 w-3.5" />
       </Link>
     );
@@ -324,15 +330,15 @@ function MarketingAccountActions({
         className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50 dark:border-stone-700 dark:bg-stone-900 dark:shadow-black/40"
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
-        <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
-        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="灵点明细" />
-        <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
-        <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
-        <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
-        <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
+        <AccountMenuLink href="/account" icon={UserRound} label={t("accountMenu.account")} />
+        <AccountMenuLink href="/account?tab=credits" icon={Coins} label={t("accountMenu.credits")} />
+        <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label={t("accountMenu.orders")} />
+        <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label={t("accountMenu.help")} />
+        <AccountMenuLink href="/account?tab=messages" icon={Bell} label={t("accountMenu.messages")} />
+        <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label={t("accountMenu.feedback")} />
         <DropdownMenuSeparator className="my-1 h-px bg-slate-100 dark:bg-stone-800" />
-        <AccountMenuLink href="/history" icon={ArrowUpRight} label="我的作品" />
-        <AccountMenuLink href="/create" icon={Home} label="进入工作台" />
+        <AccountMenuLink href="/history" icon={ArrowUpRight} label={t("accountMenu.works")} />
+        <AccountMenuLink href="/create" icon={Home} label={t("accountMenu.workspace")} />
         <DropdownMenuItem
           disabled={isLoggingOut}
           onSelect={(event) => {
@@ -342,7 +348,7 @@ function MarketingAccountActions({
           className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 dark:text-stone-200 dark:hover:bg-stone-800 dark:hover:text-white dark:focus:bg-stone-800 dark:focus:text-white dark:data-[highlighted]:bg-stone-800 dark:data-[highlighted]:text-white"
         >
           <LogOut className="h-4 w-4" />
-          {isLoggingOut ? "退出中" : "退出登录"}
+          {isLoggingOut ? t("loggingOut") : t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -350,13 +356,15 @@ function MarketingAccountActions({
 }
 
 function MarketingMobileMenu() {
+  const t = useTranslations("Header");
+  const tAny = useTranslations(); // 数据键全路径（Header.nav.* / Header.modules.*），用全局 t 解析
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           className="home-menu-pill inline-flex h-10 w-10 items-center justify-center rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)] lg:hidden"
-          aria-label="打开导航"
+          aria-label={t("openNavAria")}
         >
           <Menu className="h-4 w-4" />
         </button>
@@ -373,7 +381,7 @@ function MarketingMobileMenu() {
               prefetch={false}
               className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 dark:text-stone-200 dark:hover:bg-stone-800 dark:hover:text-white dark:focus:bg-stone-800 dark:focus:text-white dark:data-[highlighted]:bg-stone-800 dark:data-[highlighted]:text-white"
             >
-              {item.label}
+              {tAny(item.labelKey)}
             </Link>
           </DropdownMenuItem>
         ))}
@@ -424,8 +432,9 @@ function AppHeader({ pathname }: { pathname: string }) {
 }
 
 function BrandMark() {
+  const t = useTranslations("Header");
   return (
-    <Link href="/" className="studio-brand-mark flex min-w-0 items-center gap-3" aria-label="Pixel Diffusion 首页">
+    <Link href="/" className="studio-brand-mark flex min-w-0 items-center gap-3" aria-label={t("brandHomeAria")}>
       <span className="studio-brand-logo relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-stone-700 dark:bg-stone-800/90">
         <Image
           src={codexTheme.brand.logo}
@@ -450,8 +459,10 @@ function BrandMark() {
 }
 
 function DesktopTopNav({ activeModule }: { activeModule: string }) {
+  const t = useTranslations("Header");
+  const tAny = useTranslations(); // 数据键全路径（Header.nav.* / Header.modules.*），用全局 t 解析
   return (
-    <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 xl:flex" aria-label="主导航">
+    <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 xl:flex" aria-label={t("mainNavAria")}>
       {VISIBLE_TOP_MODULES.map((item) => {
         const active = activeModule === item.key;
         const Icon = item.icon;
@@ -467,13 +478,13 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
               key={item.key}
               type="button"
               disabled
-              title="视频功能即将上线"
+              title={t("comingSoon")}
               className={`${className} cursor-not-allowed opacity-55`}
             >
               <Icon className="h-3.5 w-3.5" />
-              {item.label}
+              {item.labelKey ? tAny(item.labelKey) : item.label}
               <span className="ml-0.5 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold text-codex-faint">
-                即将上线
+                {t("comingSoon")}
               </span>
             </button>
           );
@@ -483,7 +494,7 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
           <Link key={item.key} href={item.href} className={className} aria-current={active ? "page" : undefined}>
             <Icon className="h-3.5 w-3.5" />
             <span className="relative inline-flex">
-              {item.label}
+              {item.labelKey ? tAny(item.labelKey) : item.label}
               {item.badge && (
                 <span
                   aria-hidden="true"
@@ -517,23 +528,24 @@ function UserCreditActions({
   isLoggingOut: boolean;
   onLogout: () => void;
 }) {
+  const t = useTranslations("Header");
   if (isLoginPage) {
     return (
       <Link href="/" className="studio-button studio-button-compact">
         <Home className="h-3.5 w-3.5" />
-        首页
+        {t("homePage")}
       </Link>
     );
   }
 
   if (!authReady) {
-    return <span className="studio-status-badge">登录</span>;
+    return <span className="studio-status-badge">{t("login")}</span>;
   }
 
   if (!email) {
     return (
       <Link href="/login" className="codex-primary-action flex h-9 shrink-0 items-center rounded-full px-4 text-xs font-bold text-white">
-        登录
+        {t("login")}
       </Link>
     );
   }
@@ -543,15 +555,15 @@ function UserCreditActions({
       <Link
         href="/pricing"
         className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-3 text-xs font-black text-white shadow-[0_4px_14px_rgba(91,124,255,0.3)] transition hover:-translate-y-0.5 hover:opacity-90 dark:bg-[rgba(91,140,255,0.85)] sm:inline-flex"
-        title="充值中心"
+        title={t("topUp")}
       >
         <CreditCard className="h-3.5 w-3.5" />
-        充值中心
+        {t("topUp")}
       </Link>
       <Link
         href="/account?tab=credits"
         className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.3)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[rgba(91,124,255,0.16)] dark:border-[rgba(91,140,255,0.4)] dark:bg-[rgba(91,140,255,0.14)] dark:text-[#aeb8ff] dark:hover:bg-[rgba(91,140,255,0.22)]"
-        title="灵点明细"
+        title={t("creditsAria")}
       >
         <Coins className="h-3.5 w-3.5" />
         {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200 dark:bg-white/10" />}
@@ -581,6 +593,7 @@ function AccountAvatarDropdown({
   isLoggingOut: boolean;
   onLogout: () => void;
 }) {
+  const t = useTranslations("Header");
   const [open, setOpen] = useState(false);
 
   return (
@@ -593,8 +606,8 @@ function AccountAvatarDropdown({
         <button
           type="button"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
-          title="打开个人中心"
-          aria-label="打开个人中心菜单"
+          title={t("openAccountCenter")}
+          aria-label={t("openAccountMenuAria")}
           aria-expanded={open}
         >
           <Avatar className="size-8 bg-[#dbe6ff] text-[#6d8fe8]">
@@ -611,13 +624,13 @@ function AccountAvatarDropdown({
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
         <AccountMenuBanner />
-        <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
-        <AccountMenuLink href="/pricing" icon={CreditCard} label="充值中心" />
-        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="灵点明细" />
-        <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
-        <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
-        <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
-        <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
+        <AccountMenuLink href="/account" icon={UserRound} label={t("accountMenu.account")} />
+        <AccountMenuLink href="/pricing" icon={CreditCard} label={t("accountMenu.topUp")} />
+        <AccountMenuLink href="/account?tab=credits" icon={Coins} label={t("accountMenu.credits")} />
+        <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label={t("accountMenu.orders")} />
+        <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label={t("accountMenu.help")} />
+        <AccountMenuLink href="/account?tab=messages" icon={Bell} label={t("accountMenu.messages")} />
+        <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label={t("accountMenu.feedback")} />
         <DropdownMenuSeparator className="h-px bg-slate-100" />
         <DropdownMenuItem
           disabled={isLoggingOut}
@@ -628,7 +641,7 @@ function AccountAvatarDropdown({
           className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           <LogOut className="h-4 w-4" />
-          {isLoggingOut ? "退出中" : "退出登录"}
+          {isLoggingOut ? t("loggingOut") : t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -644,7 +657,8 @@ function AccountMenuHeader({
   credits: number | null;
   creditsReady: boolean;
 }) {
-  const masked = email ? maskAccountLabel(email) : "个人账户";
+  const t = useTranslations("Header");
+  const masked = email ? maskAccountLabel(email) : t("personalAccount");
   return (
     <div className="bg-[#f8fafc] px-3 py-3 dark:bg-white/4">
       <div className="flex items-center gap-3">
@@ -655,30 +669,31 @@ function AccountMenuHeader({
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-950 dark:text-stone-100">{masked}</p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-stone-400">个人账户</p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-stone-400">{t("personalAccount")}</p>
         </div>
         <Link
           href="/login"
           className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:hover:bg-white/10"
         >
-          切换账号
+          {t("switchAccount")}
         </Link>
       </div>
       <p className="mt-2 text-xs font-medium tabular-nums text-slate-500 dark:text-stone-400">
-        可用灵点 {creditsReady ? credits ?? "--" : "--"}
+        {t("availableCredits", { credits: creditsReady ? credits ?? "--" : "--" })}
       </p>
     </div>
   );
 }
 
 function AccountMenuBanner() {
+  const t = useTranslations("Header");
   return (
     <Link
       href="/pricing"
       className="mx-3 mb-1 mt-2 flex h-9 items-center justify-between rounded-md bg-gradient-to-r from-[#fff2ff] to-[#edf4ff] px-3 text-xs font-medium text-[#8b4bd8] transition hover:brightness-[0.98] dark:from-[#2a1d3a] dark:to-[#1d2a3f] dark:text-[#c7b3f0]"
     >
-      <span>升级团队版会员，畅享团队协同</span>
-      <span className="rounded bg-[#ff8ba7] px-1.5 py-0.5 text-[10px] font-bold text-white">会员</span>
+      <span>{t("upgradeTeamBanner")}</span>
+      <span className="rounded bg-[#ff8ba7] px-1.5 py-0.5 text-[10px] font-bold text-white">{t("memberBadge")}</span>
     </Link>
   );
 }
@@ -703,9 +718,10 @@ function AccountMenuLink({
 }
 
 function HeaderHelpDropdown() {
+  const t = useTranslations("Header");
   const items = [
-    { href: "/account?tab=help", label: "生图指南" },
-    { href: "/account?tab=feedback", label: "联系我们" },
+    { href: "/account?tab=help", label: t("imageGuide") },
+    { href: "/account?tab=feedback", label: t("contactUs") },
   ];
 
   return (
@@ -714,8 +730,8 @@ function HeaderHelpDropdown() {
         <button
           type="button"
           className="studio-button studio-button-compact hidden sm:inline-flex"
-          title="帮助中心"
-          aria-label="打开帮助菜单"
+          title={t("helpCenter")}
+          aria-label={t("openHelpMenuAria")}
         >
           <CircleHelp className="h-3.5 w-3.5" />
         </button>
@@ -752,6 +768,8 @@ function maskAccountLabel(value: string) {
 }
 
 function MobileModuleMenu({ activeModule }: { activeModule: string }) {
+  const t = useTranslations("Header");
+  const tAny = useTranslations(); // 数据键全路径（Header.nav.* / Header.modules.*），用全局 t 解析
   const active = VISIBLE_TOP_MODULES.find((item) => item.key === activeModule) || VISIBLE_TOP_MODULES[0];
   const ActiveIcon = active.icon;
 
@@ -761,10 +779,10 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
         <button
           type="button"
           className="mac-button inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm"
-          aria-label="切换模块"
+          aria-label={t("switchModule")}
         >
           <ActiveIcon className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{active.label}</span>
+          <span className="hidden sm:inline">{active.labelKey ? tAny(active.labelKey) : active.label}</span>
           <Menu className="h-3.5 w-3.5" />
         </button>
       </DropdownMenuTrigger>
@@ -786,9 +804,9 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
               >
                 <Icon className="h-4 w-4" />
                 <span className="flex flex-1 items-center justify-between gap-3">
-                  {item.label}
+                  {item.labelKey ? tAny(item.labelKey) : item.label}
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                    即将上线
+                    {t("comingSoon")}
                   </span>
                 </span>
               </DropdownMenuItem>
@@ -805,7 +823,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
               >
                 <Icon className="h-4 w-4" />
                 <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate">{item.labelKey ? tAny(item.labelKey) : item.label}</span>
                   {item.badge && (
                     <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[8px] font-black leading-none text-white">
                       {item.badge}

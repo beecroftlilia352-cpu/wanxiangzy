@@ -110,22 +110,40 @@ export const VIDEO_MODE_LABELS: Record<AiVideoModelMode, string> = {
   pro: "高清模式",
 };
 
+export const VIDEO_MODE_LABEL_KEYS: Record<AiVideoModelMode, string> = {
+  mini: "LibShared.video.mode.light",
+  fast: "LibShared.video.mode.fast",
+  pro: "LibShared.video.mode.high",
+};
+
 export const VIDEO_MODE_DESCRIPTIONS: Record<AiVideoModelMode, string> = {
   mini: "Seedance mini，720p",
   fast: "Seedance fast，支持 480p/720p",
   pro: "标准/高清，支持 720p/1080p（MiniMax 为 768p/2K）",
 };
 
+export const VIDEO_MODE_DESCRIPTION_KEYS: Record<AiVideoModelMode, string> = {
+  mini: "LibShared.video.modeDesc.light",
+  fast: "LibShared.video.modeDesc.fast",
+  pro: "LibShared.video.modeDesc.high",
+};
+
+export const VIDEO_RESOLUTION_RATE_SUFFIX = "灵点/秒";
+export const VIDEO_RESOLUTION_RATE_KEY = "LibShared.video.creditsPerSecond";
+
 export type VideoModeOption = {
   value: AiVideoModelMode;
   label: string;
+  labelKey?: string;
   description: string;
+  descriptionKey?: string;
 };
 
 export type VideoResolutionOption = {
   value: AiVideoResolution;
   label: string;
   description: string;
+  descriptionKey?: string;
   pricePerSecond: number;
   minimum: number;
 };
@@ -139,7 +157,9 @@ export function getVideoModes(provider: VideoProviderName): VideoModeOption[] {
   return VIDEO_MODE_ORDER.filter((mode) => modes.has(mode)).map((mode) => ({
     value: mode,
     label: VIDEO_MODE_LABELS[mode],
+    labelKey: VIDEO_MODE_LABEL_KEYS[mode],
     description: VIDEO_MODE_DESCRIPTIONS[mode],
+    descriptionKey: VIDEO_MODE_DESCRIPTION_KEYS[mode],
   }));
 }
 
@@ -149,7 +169,7 @@ export function getVideoResolutions(provider: VideoProviderName, mode: AiVideoMo
     .map((entry) => ({
       value: entry.resolution,
       label: entry.resolutionLabel,
-      description: `${entry.resolutionLabel} · ${entry.price.perSecond} 灵点/秒`,
+      description: `${entry.resolutionLabel} · ${entry.price.perSecond} ${VIDEO_RESOLUTION_RATE_SUFFIX}`,
       pricePerSecond: entry.price.perSecond,
       minimum: entry.price.minimum,
     }));

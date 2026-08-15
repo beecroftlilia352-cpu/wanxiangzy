@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Loader2, ScanLine } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export type VisualAnalysisTone = "loading" | "success" | "warning";
@@ -35,6 +36,7 @@ export function VisualAnalysisStatusCard({
   className?: string;
   children?: ReactNode;
 }) {
+  const t = useTranslations("Shared");
   if (!status) return null;
 
   const summaryLimit = typeof maxVisible === "number" ? Math.max(0, maxVisible) : summaries.length;
@@ -80,7 +82,7 @@ export function VisualAnalysisStatusCard({
             </span>
           ))}
           {hiddenCount > 0 ? (
-            <span className="studio-visual-analysis-more">另 {hiddenCount} 张</span>
+            <span className="studio-visual-analysis-more">{t("moreCount", { count: hiddenCount })}</span>
           ) : null}
         </div>
       ) : null}

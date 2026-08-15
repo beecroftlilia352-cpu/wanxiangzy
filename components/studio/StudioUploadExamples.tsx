@@ -2,6 +2,7 @@
 
 import { Eye } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -21,12 +22,14 @@ type StudioUploadExamplesProps = {
 };
 
 export function StudioUploadExamples({
-  label = "试一试",
+  label,
   images,
   disabled,
   className,
   onSelect,
 }: StudioUploadExamplesProps) {
+  const t = useTranslations("Shared");
+  const resolvedLabel = label ?? t("tryIt");
   const [hidden, setHidden] = useState(false);
   if (!images.length) return null;
 
@@ -37,10 +40,10 @@ export function StudioUploadExamples({
         className="studio-upload-tile-examples-toggle"
         onClick={() => setHidden(false)}
         disabled={disabled}
-        aria-label="查看推荐示例"
+        aria-label={t("uploadExamplesToggle")}
       >
         <Eye className="h-3.5 w-3.5" />
-        查看推荐示例
+        {t("uploadExamplesToggle")}
       </button>
     );
   }
@@ -48,14 +51,14 @@ export function StudioUploadExamples({
   return (
     <div className={cn("studio-upload-tile-examples", className)}>
       <span className="studio-upload-tile-example-meta">
-        <span className="studio-upload-tile-example-label">{label}</span>
+        <span className="studio-upload-tile-example-label">{resolvedLabel}</span>
         <button
           type="button"
           className="studio-upload-tile-example-eye"
           onClick={() => setHidden(true)}
           disabled={disabled}
-          aria-label={`隐藏${label}`}
-          title={`隐藏${label}`}
+          aria-label={t("hideLabel", { label: resolvedLabel })}
+          title={t("hideLabel", { label: resolvedLabel })}
         >
           <Eye className="h-3 w-3" />
         </button>
@@ -71,8 +74,8 @@ export function StudioUploadExamples({
               onClick={() => onSelect(image)}
               disabled={disabled}
               className={cn("studio-upload-tile-example-thumb", isMulti && "studio-upload-tile-example-thumb-multi")}
-              title={isMulti ? `${image.title} · ${previewUrls.length} 张` : image.title}
-              aria-label={isMulti ? `套用${image.title}，共${previewUrls.length}张` : `套用${image.title}`}
+              title={image.title}
+              aria-label={isMulti ? t("applyExamplesMulti", { title: image.title, count: previewUrls.length }) : t("applyExamples", { title: image.title })}
             >
               {isMulti ? (
                 <>
@@ -81,7 +84,7 @@ export function StudioUploadExamples({
                       <RawPreviewImage src={getImageVariantUrl(previewUrl, "thumb")} alt={`${image.title}${index + 1}`} />
                     </span>
                   ))}
-                  <span className="studio-upload-tile-example-group-label">组合</span>
+                  <span className="studio-upload-tile-example-group-label">{t("combo")}</span>
                 </>
               ) : (
                 <RawPreviewImage src={getImageVariantUrl(previewUrls[0], "thumb")} alt={image.title} />

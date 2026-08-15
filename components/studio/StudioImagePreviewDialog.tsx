@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { StudioImagePreviewWorkspace } from "@/components/studio/StudioImagePreviewWorkspace";
 import type { ImagePreviewAction, ImagePreviewSession } from "@/lib/studio-image-preview";
@@ -36,6 +37,7 @@ export function StudioImagePreviewDialog({
   onUseAsFace,
   className,
 }: StudioImagePreviewDialogProps) {
+  const t = useTranslations("Shared");
   return (
     <Dialog
       open={open}
@@ -57,8 +59,8 @@ export function StudioImagePreviewDialog({
           }
         }}
       >
-        <DialogTitle className="sr-only">{session.title}预览</DialogTitle>
-        <DialogDescription className="sr-only">查看图片结果、输入参考、生成信息和后续可用动作。</DialogDescription>
+        <DialogTitle className="sr-only">{session.title}{t("previewSuffix")}</DialogTitle>
+        <DialogDescription className="sr-only">{t("previewDescription")}</DialogDescription>
         <StudioImagePreviewWorkspace
           session={session}
           filenamePrefix={filenamePrefix}

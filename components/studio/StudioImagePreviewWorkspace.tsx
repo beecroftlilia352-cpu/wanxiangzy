@@ -27,6 +27,24 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
+
+/** 预览操作标签按 kind 映射 Shared 命名空间（数据数组里 label 为中文兜底） */
+const ACTION_LABEL_KEYS: Record<string, string> = {
+  download: "actionDownload",
+  copy: "actionCopy",
+  repair: "actionRepair",
+  aiVideo: "actionAiVideo",
+  modelBackground: "actionModelBackground",
+  pose: "actionPose",
+  productSet: "actionProductSet",
+  allCategoryProductImage: "actionAllCategoryProductImage",
+  regenerateOne: "actionRegenerateOne",
+  regenerateAll: "actionRegenerateAll",
+  useAsSource: "actionUseAsSource",
+  useAsFace: "actionUseAsFace",
+  feedback: "actionFeedback",
+};
 import { Button } from "@/components/ui/button";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -111,6 +129,7 @@ export function StudioImagePreviewWorkspace({
   onFeedbackSubmitted,
   className,
 }: StudioImagePreviewWorkspaceProps) {
+  const t = useTranslations("Shared");
   const router = useRouter();
   const [internalIndex, setInternalIndex] = useState(session.selectedIndex || 0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -174,7 +193,7 @@ export function StudioImagePreviewWorkspace({
     }
 
     if ((action.kind === "download" || action.kind === "copy") && !activeUrl) {
-      toast.info("当前结果还没有可用图片");
+      toast.info(t("noImagesYet"));
       return;
     }
 
@@ -184,7 +203,7 @@ export function StudioImagePreviewWorkspace({
     }
     if (action.kind === "copy") {
       await navigator.clipboard.writeText(activeUrl);
-      toast.success("图片链接已复制");
+      toast.success(t("imageLinkCopied"));
       return;
     }
     if (action.kind === "aiVideo") {
@@ -234,7 +253,7 @@ export function StudioImagePreviewWorkspace({
 
   const routeWithSource = (path: string) => {
     if (!activeUrl) {
-      toast.info("当前结果还没有可用图片");
+      toast.info(t("noImagesYet"));
       return;
     }
     router.push(buildSourceImageHref(path, activeUrl));
@@ -337,8 +356,9 @@ function ResultRail({
   activeIndex: number;
   onSelect: (index: number) => void;
 }) {
+  const t = useTranslations("Shared");
   return (
-    <div className="studio-image-preview-result-rail" aria-label="结果缩略图">
+    <div className="studio-image-preview-result-rail" aria-label={t("resultThumbnails")}>
       {results.map((result, index) => (
         <Button
           key={`${result.url || result.title}-${index}`}
@@ -346,7 +366,7 @@ function ResultRail({
           variant="ghost"
           onClick={() => onSelect(index)}
           className={cn("studio-image-preview-result-thumb", index === activeIndex && "studio-image-preview-result-thumb-active")}
-          aria-label={`查看${result.title}`}
+          aria-label={t("viewResult", { title: result.title })}
           aria-current={index === activeIndex}
         >
           {result.url ? (
@@ -374,11 +394,12 @@ function InputPreviewPanel({
   onZoomChange: (zoom: number) => void;
   onFocus: (url: string, title: string) => void;
 }) {
+  const t = useTranslations("Shared");
   const hasReferences = references.length > 0;
 
   return (
-    <section className="studio-image-preview-panel studio-image-preview-input-panel" aria-label="输入图片区域">
-      <span className="studio-image-preview-panel-badge">原图</span>
+    <section className="studio-image-preview-panel studio-image-preview-input-panel" aria-label={t("inputImageArea")}>
+      <span className="studio-image-preview-panel-badge">{t("originalImage")}</span>
       {hasReferences ? (
         <>
           <div className={cn(
@@ -392,7 +413,7 @@ function InputPreviewPanel({
                 type="button"
                 className="studio-image-preview-input-image"
                 onClick={() => onFocus(reference.url, reference.label)}
-                aria-label={`聚焦查看${reference.label}`}
+                aria-label={t("focusViewLabel", { label: reference.label })}
               >
                 <RawPreviewImage
                   src={getImageVariantUrl(reference.url, "detail")}
@@ -414,7 +435,7 @@ function InputPreviewPanel({
       ) : (
         <div className="studio-image-preview-empty-input">
           <ImageIcon className="h-8 w-8" />
-          <span>暂无输入图</span>
+          <span>{t("noInputImage")}</span>
         </div>
       )}
     </section>
@@ -434,16 +455,17 @@ function OutputPreviewPanel({
   onZoomChange: (zoom: number) => void;
   onFocus: (url: string, title: string) => void;
 }) {
+  const t = useTranslations("Shared");
   return (
-    <section className="studio-image-preview-panel studio-image-preview-output-panel" data-aspect-ratio={result.aspectRatio || undefined} aria-label="输出图片区域">
-      <span className="studio-image-preview-panel-badge">{result.badgeLabel || "生成图"}</span>
+    <section className="studio-image-preview-panel studio-image-preview-output-panel" data-aspect-ratio={result.aspectRatio || undefined} aria-label={t("outputImageArea")}>
+      <span className="studio-image-preview-panel-badge">{result.badgeLabel || t("generatedImage")}</span>
       {result.url ? (
         <>
           <button
             type="button"
             className="studio-image-preview-output-image"
             onClick={() => onFocus(result.url || "", result.title)}
-            aria-label={`聚焦查看${result.title}`}
+            aria-label={t("focusViewLabel", { label: result.title })}
           >
             <RawPreviewImage
               src={getImageVariantUrl(result.url, "detail")}
@@ -467,14 +489,15 @@ function OutputPreviewPanel({
 }
 
 function EmptyResult({ result, index }: { result: ImagePreviewResult; index: number }) {
+  const t = useTranslations("Shared");
   const failed = result.status === "failed";
   return (
     <div className={cn("studio-image-preview-empty-result", failed && "studio-image-preview-empty-result-failed")}>
       <div className="studio-image-preview-empty-icon">
         {failed ? <X className="h-7 w-7" /> : <Loader2 className="h-7 w-7 animate-spin" />}
       </div>
-      <p>{failed ? result.error || "本张生成失败" : result.status === "running" ? "生成中，请稍候" : "等待生成"}</p>
-      <span>第 {index + 1} 张</span>
+      <p>{failed ? result.error || t("thisImageFailed") : result.status === "running" ? t("generatingPleaseWait") : t("waitingToGenerate")}</p>
+      <span>{t("imageN", { index: index + 1 })}</span>
     </div>
   );
 }
@@ -488,17 +511,18 @@ function ZoomDock({
   onZoomChange: (zoom: number) => void;
   onReset: () => void;
 }) {
+  const t = useTranslations("Shared");
   const setZoom = (next: number) => onZoomChange(clampZoom(next));
   return (
-    <div className={cn("studio-image-preview-zoom-dock", zoom !== 100 && "studio-image-preview-zoom-dock-active")} aria-label="图片缩放">
-      <Button type="button" variant="ghost" size="icon-sm" onClick={onReset} aria-label="复位缩放">
+    <div className={cn("studio-image-preview-zoom-dock", zoom !== 100 && "studio-image-preview-zoom-dock-active")} aria-label={t("imageZoom")}>
+      <Button type="button" variant="ghost" size="icon-sm" onClick={onReset} aria-label={t("resetZoom")}>
         <RotateCcw className="h-3.5 w-3.5" />
       </Button>
-      <Button type="button" variant="ghost" size="icon-sm" onClick={() => setZoom(zoom - 10)} aria-label="缩小">
+      <Button type="button" variant="ghost" size="icon-sm" onClick={() => setZoom(zoom - 10)} aria-label={t("zoomOut")}>
         <Minus className="h-3.5 w-3.5" />
       </Button>
       <span>{zoom}%</span>
-      <Button type="button" variant="ghost" size="icon-sm" onClick={() => setZoom(zoom + 10)} aria-label="放大">
+      <Button type="button" variant="ghost" size="icon-sm" onClick={() => setZoom(zoom + 10)} aria-label={t("zoomIn")}>
         <Plus className="h-3.5 w-3.5" />
       </Button>
     </div>
@@ -516,20 +540,21 @@ function PreviewInspector({
   selectedIndex: number;
   onReferenceFocus: (url: string, title: string) => void;
 }) {
+  const t = useTranslations("Shared");
   const referenceGroups = getInspectorReferenceGroups(session);
   const statusText = result.status === "completed"
-    ? "已完成"
+    ? t("completed")
     : result.status === "failed"
-      ? "失败"
+      ? t("failed")
       : result.status === "running"
-        ? "生成中"
-        : "等待中";
+        ? t("generating")
+        : t("waiting");
 
   return (
-    <aside className="studio-image-preview-inspector" aria-label="图片信息">
+    <aside className="studio-image-preview-inspector" aria-label={t("imageInfo")}>
       <header>
         <div>
-          <p>图片信息</p>
+          <p>{t("imageInfo")}</p>
           <h2>{session.title}</h2>
         </div>
         <span className={cn("studio-image-preview-status", `studio-image-preview-status-${result.status || "queued"}`)}>
@@ -538,10 +563,10 @@ function PreviewInspector({
       </header>
 
       <dl className="studio-image-preview-meta">
-        <MetaRow label="模块" value={IMAGE_PREVIEW_MODULE_LABELS[session.module]} />
-        {session.taskId && <MetaRow label="任务 ID" value={session.taskId} mono />}
-        {session.createdAt && <MetaRow label="生成时间" value={formatPreviewDate(session.createdAt)} />}
-        <MetaRow label="当前图片" value={`${selectedIndex + 1}/${session.results.length}`} />
+        <MetaRow label={t("module")} value={IMAGE_PREVIEW_MODULE_LABELS[session.module]} />
+        {session.taskId && <MetaRow label={t("taskId")} value={session.taskId} mono />}
+        {session.createdAt && <MetaRow label={t("generateTime")} value={formatPreviewDate(session.createdAt)} />}
+        <MetaRow label={t("currentImage")} value={`${selectedIndex + 1}/${session.results.length}`} />
         {(session.metaItems || []).map((item) => (
           <MetaRow key={`${item.label}-${item.value}`} label={item.label} value={item.value} />
         ))}
@@ -556,7 +581,7 @@ function PreviewInspector({
                 key={`${reference.url}-${index}`}
                 type="button"
                 className="studio-image-preview-reference"
-                title={`聚焦查看${reference.label}`}
+                title={t("focusViewLabel", { label: reference.label })}
                 onClick={() => onReferenceFocus(reference.url, reference.label)}
               >
                 <RawPreviewImage src={getImageVariantUrl(reference.url, "thumb")} alt={reference.label} />
@@ -572,14 +597,14 @@ function PreviewInspector({
 
       {session.promptText && (
         <section className="studio-image-preview-section">
-          <h3>文本控制内容</h3>
+          <h3>{t("textControlContent")}</h3>
           <p className="studio-image-preview-prompt">{session.promptText}</p>
         </section>
       )}
 
       {(result.quality || result.error) && (
         <section className="studio-image-preview-section">
-          <h3>质量信息</h3>
+          <h3>{t("qualityInfo")}</h3>
           {result.quality?.score !== undefined && (
             <p className="studio-image-preview-quality-score">
               {Math.round(result.quality.score * 100)}分{result.quality.label ? ` · ${result.quality.label}` : ""}
@@ -615,6 +640,7 @@ function PreviewActionBar({
   resultUrls?: string[];
   filenamePrefix?: string;
 }) {
+  const t = useTranslations("Shared");
   const actionMap = new Map(actions.map((action) => [action.kind, action]));
   const downloadAction = actionMap.get("download");
   const renderAction = (kind: ImagePreviewActionKind) => {
@@ -641,7 +667,7 @@ function PreviewActionBar({
   };
 
   return (
-    <div className="studio-image-preview-actions" aria-label="结果操作">
+    <div className="studio-image-preview-actions" aria-label={t("resultActions")}>
       <div className="studio-image-preview-action-shell">
         <div className="studio-image-preview-action-group">
           {renderAction("repair")}
@@ -670,11 +696,11 @@ function PreviewActionBar({
             />
             {resultUrls && resultUrls.length > 1 && (
               <PreviewActionButton
-                action={{ kind: "download", label: `打包全部 ${resultUrls.length} 张` }}
+                action={{ kind: "download", label: t("downloadAll", { count: resultUrls.length }) }}
                 onClick={() => void downloadImagesAsZip({
                   urls: resultUrls,
                   filename: `pixel-diffusion-${filenamePrefix || "results"}`,
-                  label: "结果",
+                  label: t("results"),
                 })}
                 className="studio-image-preview-action-download"
               />
@@ -687,6 +713,7 @@ function PreviewActionBar({
 }
 
 function MoreToolsPopover({ onSelect }: { onSelect: (path: string) => void }) {
+  const t = useTranslations("Shared");
   return (
     <Popover>
       <Tooltip>
@@ -694,11 +721,11 @@ function MoreToolsPopover({ onSelect }: { onSelect: (path: string) => void }) {
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="studio-image-preview-action">
               <MoreHorizontal className="h-4 w-4" />
-              <span>更多</span>
+              <span>{t("more")}</span>
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent side="top">更多图片工具</TooltipContent>
+        <TooltipContent side="top">{t("moreImageTools")}</TooltipContent>
       </Tooltip>
       <PopoverContent className="studio-image-preview-menu-popover" side="top" align="center">
         {MORE_TOOL_ITEMS.map((item) => (
@@ -719,6 +746,7 @@ function MoreToolsPopover({ onSelect }: { onSelect: (path: string) => void }) {
 }
 
 function VideoToolsPopover({ onSelect }: { onSelect: (path: string) => void }) {
+  const t = useTranslations("Shared");
   return (
     <Popover>
       <Tooltip>
@@ -726,11 +754,11 @@ function VideoToolsPopover({ onSelect }: { onSelect: (path: string) => void }) {
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="studio-image-preview-action">
               <Clapperboard className="h-4 w-4" />
-              <span>生成视频</span>
+              <span>{t("generateVideo")}</span>
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent side="top">选择视频生成方式</TooltipContent>
+        <TooltipContent side="top">{t("chooseVideoMethod")}</TooltipContent>
       </Tooltip>
       <PopoverContent className="studio-image-preview-menu-popover" side="top" align="center">
         {VIDEO_TOOL_ITEMS.map((item) => (
@@ -761,11 +789,13 @@ function PreviewExamplePopover({
   resultTitle: string;
   onClick: () => void;
 }) {
+  const t = useTranslations("Shared");
+  const actionLabel = ACTION_LABEL_KEYS[action.kind] ? t(ACTION_LABEL_KEYS[action.kind]) : action.label;
   const isSet = action.kind === "productSet" || action.kind === "allCategoryProductImage";
   const title = action.kind === "modelBackground"
-    ? "同一商品替换模特和背景"
+    ? t("modelBackgroundExampleTitle")
     : isSet
-      ? "一张图生成完整套图"
+      ? t("productSetExampleTitle")
       : action.label;
 
   return (
@@ -775,7 +805,7 @@ function PreviewExamplePopover({
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="studio-image-preview-action">
               {action.kind === "modelBackground" ? <UserRoundCheck className="h-4 w-4" /> : <Images className="h-4 w-4" />}
-              <span>{action.label}</span>
+              <span>{actionLabel}</span>
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
@@ -787,13 +817,13 @@ function PreviewExamplePopover({
           <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={resultTitle} />
           <span aria-hidden="true">→</span>
           <div>
-            <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}预览`} />
-            {isSet && <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}套图预览`} />}
-            {isSet && <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}套图预览`} />}
+            <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}${t("previewSuffix")}`} />
+            {isSet && <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}${t("previewSetSuffix")}`} />}
+            {isSet && <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}${t("previewSetSuffix")}`} />}
           </div>
         </div>
         <Button type="button" size="sm" className="h-8 w-full" onClick={onClick} disabled={action.disabled}>
-          {action.disabled ? action.disabledReason || "暂不可用" : "立即使用"}
+          {action.disabled ? action.disabledReason || t("unavailable") : t("useNow")}
         </Button>
       </PopoverContent>
     </Popover>
@@ -811,7 +841,9 @@ function MetaRow({ label, value, mono }: { label: string; value?: string | numbe
 }
 
 function PreviewActionButton({ action, onClick, className }: { action: ImagePreviewAction; onClick: () => void; className?: string }) {
+  const t = useTranslations("Shared");
   const Icon = actionIcon(action.kind);
+  const actionLabel = ACTION_LABEL_KEYS[action.kind] ? t(ACTION_LABEL_KEYS[action.kind]) : action.label;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -822,11 +854,11 @@ function PreviewActionButton({ action, onClick, className }: { action: ImagePrev
           onClick={onClick}
           disabled={action.disabled}
           className={cn("studio-image-preview-action", className)}
-          aria-label={action.label}
+          aria-label={actionLabel}
           title={action.disabled ? action.disabledReason || action.label : action.label}
         >
           <Icon className="h-4 w-4" />
-          <span>{action.label}</span>
+          <span>{actionLabel}</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent side="top">
@@ -837,7 +869,8 @@ function PreviewActionButton({ action, onClick, className }: { action: ImagePrev
 }
 
 function PreviewNavigationButton({ direction, disabled, onClick }: { direction: "prev" | "next"; disabled: boolean; onClick: () => void }) {
-  const label = direction === "prev" ? "上一张" : "下一张";
+  const t = useTranslations("Shared");
+  const label = direction === "prev" ? t("prevImage") : t("nextImage");
   return (
     <Button
       type="button"
@@ -863,6 +896,7 @@ function PendingThumb({ result }: { result: ImagePreviewResult }) {
 }
 
 function ImageFocusDialog({ image, onClose }: { image: FocusImage; onClose: () => void }) {
+  const t = useTranslations("Shared");
   const [zoom, setZoom] = useState(100);
   return (
     <Dialog
@@ -873,7 +907,7 @@ function ImageFocusDialog({ image, onClose }: { image: FocusImage; onClose: () =
     >
       <DialogContent className="studio-image-preview-focus-dialog">
         <DialogTitle className="sr-only">{image.title}</DialogTitle>
-        <DialogDescription className="sr-only">聚焦查看图片</DialogDescription>
+        <DialogDescription className="sr-only">{t("focusViewImage")}</DialogDescription>
         <div
           className="studio-image-preview-focus-stage"
           onClick={(event) => {
@@ -910,26 +944,27 @@ function FeedbackDialog({
   onClose: () => void;
   onSubmitted: () => void;
 }) {
+  const t = useTranslations("Shared");
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
     const description = value.trim();
     if (description.length < 8) {
-      toast.info("请至少输入 8 个字的问题描述");
+      toast.info(t("feedbackMinLength"));
       return;
     }
     setSubmitting(true);
     try {
       const payload = {
         category: "generation_failure",
-        title: `${IMAGE_PREVIEW_MODULE_LABELS[session.module]}结果反馈`,
+        title: `${IMAGE_PREVIEW_MODULE_LABELS[session.module]}${t("feedbackResultSuffix")}`,
         description: [
           description,
-          `模块：${IMAGE_PREVIEW_MODULE_LABELS[session.module]}`,
-          session.taskId ? `任务：${session.taskId}` : "",
-          result.title ? `图片：${result.title}` : "",
-          resultUrl ? `结果链接：${resultUrl}` : "",
+          t("feedbackModulePrefix", { label: IMAGE_PREVIEW_MODULE_LABELS[session.module] }),
+          session.taskId ? t("feedbackTaskPrefix", { id: session.taskId }) : "",
+          result.title ? t("feedbackImagePrefix", { title: result.title }) : "",
+          resultUrl ? t("feedbackUrlPrefix", { url: resultUrl }) : "",
         ].filter(Boolean).join("\n"),
         pageUrl: typeof window !== "undefined" ? window.location.href : "",
       };
@@ -939,11 +974,11 @@ function FeedbackDialog({
         body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "反馈提交失败");
-      toast.success("反馈已提交");
+      if (!response.ok) throw new Error(data.error || t("feedbackSubmitFailed"));
+      toast.success(t("feedbackSubmitted"));
       onSubmitted();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "反馈提交失败");
+      toast.error(error instanceof Error ? error.message : t("feedbackSubmitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -958,21 +993,21 @@ function FeedbackDialog({
     >
       <DialogContent className="studio-image-preview-feedback">
         <DialogHeader>
-          <DialogTitle>结果反馈</DialogTitle>
+          <DialogTitle>{t("feedbackTitle")}</DialogTitle>
           <DialogDescription>{result.title}</DialogDescription>
         </DialogHeader>
         <Textarea
           value={value}
           onChange={(event) => setValue(event.target.value)}
           maxLength={500}
-          placeholder="例如：人物脸不像、服装细节丢失、背景不符合要求…"
+          placeholder={t("feedbackPlaceholder")}
           className="min-h-32 resize-none"
         />
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>取消</Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>{t("cancel")}</Button>
           <Button type="button" onClick={() => void submit()} disabled={submitting}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            提交反馈
+            {t("submitFeedback")}
           </Button>
         </DialogFooter>
       </DialogContent>

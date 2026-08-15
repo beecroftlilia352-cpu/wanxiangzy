@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight,
@@ -99,6 +100,7 @@ function normalizeHappyHorseUiAudioMode(value: unknown): AiVideoAudioMode {
 
 export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const router = useRouter();
+  const t = useTranslations("Video");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelImageInputRef = useRef<HTMLInputElement>(null);
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
@@ -110,7 +112,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const isFirstLastFrame = mode === "first-last-frame";
   const generationKind = getAiVideoKind(mode);
   const featureKey = isFirstLastFrame ? "videoFirstLastFrame" : isMotion ? "videoMotion" : "videoImageToVideo";
-  const moduleTitle = isFirstLastFrame ? "首尾帧" : isMotion ? "动作模仿" : "图生视频";
+  const moduleTitle = isFirstLastFrame ? t("moduleFirstLastFrame") : isMotion ? t("moduleMotionControl") : t("moduleImageToVideo");
   const moduleLabel = moduleTitle;
   const apiPath = isFirstLastFrame ? "/api/video/first-last-frame" : isMotion ? "/api/video/motion-control" : "/api/video/image-to-video";
   const applyPath = getAiVideoPath(generationKind);
@@ -194,7 +196,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const effectiveAspectRatio = aspectRatio === "auto"
     ? detectedAspectRatio || AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO
     : normalizeAiVideoFixedAspectRatio(aspectRatio);
-  const aspectRatioSummary = aspectRatio === "auto" ? `智能(${effectiveAspectRatio})` : effectiveAspectRatio;
+  const aspectRatioSummary = aspectRatio === "auto" ? `${t("aspectAuto")}(${effectiveAspectRatio})` : effectiveAspectRatio;
   const resolutionOptions = useMemo(
     () => getVideoResolutions(providerKey, effectiveModelMode).map((item) => ({
       value: item.value,
@@ -211,29 +213,30 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     : [imageUrl].filter(Boolean);
   const runDisabledReason = isFirstLastFrame
     ? !firstFrameUrl
-      ? "请先上传首帧图片"
+      ? t("needFirstFrame")
       : !lastFrameUrl
-        ? "请先上传尾帧图片"
+        ? t("needLastFrame")
         : !prompt.trim()
-          ? "请输入视频生成效果描述"
+          ? t("needEffectPrompt")
           : credits !== null && credits < cost
-            ? `灵点不足，生成需要 ${cost} 灵点`
+            ? t("insufficientCredits", { cost })
             : undefined
     : isMotion
     ? !modelImageUrl
-      ? "请先上传模特图"
+      ? t("needModelImage")
       : !referenceVideoUrl
-        ? "请先上传参考视频"
+        ? t("needReferenceVideo")
         : credits !== null && credits < cost
-          ? `灵点不足，生成需要 ${cost} 灵点`
+          ? t("insufficientCredits", { cost })
           : undefined
     : !imageUrl
-      ? "请先上传图片"
+      ? t("needImage")
       : !prompt.trim()
-        ? "请输入动作描述或选择动作模板"
+        ? t("needActionPrompt")
         : credits !== null && credits < cost
-          ? `灵点不足，生成需要 ${cost} 灵点`
+          ? t("insufficientCredits", { cost })
           : undefined;
+  const creditInsufficient = Boolean(runDisabledReason && credits !== null && credits < cost);
   const imageDrag = useStableFileDrag<HTMLDivElement>({
     isDragging: isDraggingImage,
     setDragging: setIsDraggingImage,
@@ -277,7 +280,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     () => getVideoModes(providerKey).map((item) => ({
       value: item.value,
       label: item.label,
-      description: isFirstLastFrame && item.value !== "pro" ? "首尾帧需高清模式" : item.description,
+      description: isFirstLastFrame && item.value !== "pro" ? t("modelModeFastOnlyDesc") : item.description,
       disabled: isFirstLastFrame && item.value !== "pro",
     })),
     [providerKey, isFirstLastFrame]
@@ -299,18 +302,18 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     if (isFirstLastFrame) {
       setFirstFrameUrl(sourceImage);
       setFirstFrameRatio(null);
-      toast.success("已带入首帧图片");
+      toast.success(t("broughtFirstFrame"));
       return;
     }
     if (isMotion) {
       setModelImageUrl(sourceImage);
       setModelImageRatio(null);
-      toast.success("已带入模特图");
+      toast.success(t("broughtModelImage"));
       return;
     }
     setImageUrl(sourceImage);
     setImageRatio(null);
-    toast.success("已带入预览图片");
+    toast.success(t("broughtPreviewImage"));
   }, [isFirstLastFrame, isMotion]);
 
   useEffect(() => {
@@ -331,11 +334,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   async function handleImageFile(file?: File, target: "image" | "model" | "firstFrame" | "lastFrame" = "image") {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("请上传图片文件");
+      toast.error(t("uploadImageFileError"));
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
+      toast.error(t("imageTooLarge", { max: MAX_FILE_SIZE_MB }));
       return;
     }
 
@@ -349,7 +352,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           ? setIsUploadingLastFrame
           : setIsUploadingImage;
     setUploading(true);
-    toast.info("正在上传图片…");
+    toast.info(t("uploadingImage"));
     try {
       const result = await uploadImage(file);
       const nextRatio = getClosestAiVideoAspectRatio(result.width, result.height);
@@ -366,9 +369,9 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         setImageUrl(result.url);
         setImageRatio(nextRatio);
       }
-      toast.success("图片已上传");
+      toast.success(t("imageUploaded"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "图片上传失败，请重试");
+      toast.error(err instanceof Error ? err.message : t("imageUploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -384,25 +387,25 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     if (!file) return;
     const accepted = file.type === "video/mp4" || file.type === "video/quicktime" || /\.(mp4|mov)$/i.test(file.name);
     if (!accepted) {
-      toast.error("请上传 MP4 或 MOV 视频");
+      toast.error(t("uploadMp4Mov"));
       return;
     }
     if (file.size > MAX_VIDEO_FILE_SIZE) {
-      toast.error(`视频不能超过 ${MAX_VIDEO_FILE_SIZE_MB}MB`);
+      toast.error(t("videoTooLarge", { max: MAX_VIDEO_FILE_SIZE_MB }));
       return;
     }
 
     setError("");
     setResultUrls([]);
     setIsUploadingVideo(true);
-    toast.info("正在上传参考视频…");
+    toast.info(t("uploadingReferenceVideo"));
     try {
       const result = await uploadVideo(file);
       setReferenceVideoUrl(result.url);
       setSelectedTemplateId(null);
-      toast.success("参考视频已上传");
+      toast.success(t("referenceVideoUploaded"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "视频上传失败，请重试");
+      toast.error(err instanceof Error ? err.message : t("videoUploadFailed"));
     } finally {
       setIsUploadingVideo(false);
     }
@@ -419,7 +422,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setTemplatePanelOpen(false);
     setResultUrls([]);
     setError("");
-    toast.success(isMotion ? "已套用示例参考视频" : "已套用动作模板");
+    toast.success(isMotion ? t("appliedSampleReference") : t("appliedActionTemplate"));
   }
 
   function removeReferenceVideo() {
@@ -429,23 +432,23 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
   function applyFirstLastPromptSuggestion() {
     setSelectedTemplateId(null);
-    setPrompt("围绕首尾帧主体生成顺滑过渡视频，主体从首帧自然移动到尾帧姿态，服装版型和人物身份保持一致，镜头稳定，动作连贯，避免跳切、变形和多余人物。");
+    setPrompt(t("firstLastPromptSuggestion"));
     setResultUrls([]);
     setError("");
   }
 
   async function generate() {
     if (submitLockRef.current || isSubmitting) {
-      toast.info("视频任务正在提交，请稍候。");
+      toast.info(t("submittingPleaseWait"));
       return;
     }
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("pleaseLogin"));
       router.push("/login");
       return;
     }
     if (runDisabledReason) {
-      if (runDisabledReason.startsWith("灵点不足")) {
+      if (creditInsufficient) {
         showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
       } else {
         toast.error(runDisabledReason);
@@ -540,7 +543,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
         }
-        throw new Error(data.error || "视频生成失败");
+        throw new Error(data.error || t("videoGenerateFailed"));
       }
 
       if (data.credits_remaining !== undefined) {
@@ -561,7 +564,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       if (isCurrentRun()) {
         setProgress(25);
         setIsSubmitting(false);
-        toast.success("视频任务已提交，可继续创建");
+        toast.success(t("videoSubmitted"));
       }
 
       let elapsedMs = 0;
@@ -599,7 +602,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             setProgress(100);
             setResultUrls(finalUrls);
             setIsGenerating(false);
-            toast.success("视频生成完成");
+            toast.success(t("videoComplete"));
           }
           taskQueue.markCompleted(activeTaskId, {
             expectedCount: genCount,
@@ -609,7 +612,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           });
           return;
         } else if (state.status === "failed") {
-          throw new Error(state.error || "视频生成失败");
+          throw new Error(state.error || t("videoGenerateFailed"));
         }
       }
 
@@ -624,11 +627,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       if (isCurrentRun()) {
         setIsGenerating(false);
         setIsSubmitting(false);
-        toast.info("视频仍在后台生成，可稍后在任务队列或作品库查看");
+        toast.info(t("videoStillGenerating"));
       }
     } catch (err) {
       submitLockRef.current = false;
-      const message = err instanceof Error ? err.message : "视频生成失败";
+      const message = err instanceof Error ? err.message : t("videoGenerateFailed");
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: genCount,
         inputThumbnails,
@@ -636,7 +639,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       });
       if (isCurrentRun()) {
         setError(message);
-        if (message.includes("灵点不足")) {
+        if (creditInsufficient) {
           showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
         } else {
           toast.error(message);
@@ -665,12 +668,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         silent: session.reason === "restore",
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
       }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
-      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
   }
@@ -741,7 +744,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    if (!options?.silent) toast.success("已套用历史参数");
+    if (!options?.silent) toast.success(t("historyAppliedToast"));
   }
 
   function handleContinueCreate() {
@@ -781,9 +784,9 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           <>
             <section className="rounded-xl bg-slate-50/90 p-4">
               <div className="mb-3">
-                <h3 className="text-sm font-black text-codex-ink">上传图片</h3>
+                <h3 className="text-sm font-black text-codex-ink">{t("uploadSectionTitle")}</h3>
                 <p className="mt-2 text-[11px] font-semibold leading-5 text-codex-faint">
-                  图片大小不超过 {MAX_FILE_SIZE_MB}MB，首帧和尾帧的主体、比例和画面风格建议保持一致。
+                  {t("uploadSectionHint", { max: MAX_FILE_SIZE_MB })}
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -792,7 +795,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     ref={firstFrameInputRef}
                     type="file"
                     accept="image/*"
-                    aria-label="上传首帧图片"
+                    aria-label={t("uploadFirstFrameAria")}
                     className="hidden"
                     onChange={(event) => {
                       const input = event.currentTarget;
@@ -802,22 +805,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     }}
                   />
                   <StudioUploadTile
-                    title="上传首帧图片"
-                    description="点击或拖拽图片至此"
-                    imageRequirement="主体清晰，比例和画面风格建议与尾帧一致。"
+                    title={t("uploadFirstFrameTitle")}
+                    description={t("clickDragHint")}
+                    imageRequirement={t("firstFrameRequirement")}
                     imageUrl={firstFrameUrl || null}
-                    imageAlt="首帧图片"
+                    imageAlt={t("firstFrameAlt")}
                     isDragging={isDraggingFirstFrame}
                     loading={isUploadingFirstFrame}
                     onUploadClick={() => firstFrameInputRef.current?.click()}
-                    onLibraryClick={() => toast.info("作品库选择即将接入")}
+                    onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                     onPreview={firstFrameUrl ? () => setLightboxImage(firstFrameUrl) : undefined}
                     onRemove={firstFrameUrl ? () => {
                       setFirstFrameUrl("");
                       setFirstFrameRatio(null);
                     } : undefined}
-                    libraryLabel="从作品库选择"
-                    uploadLabel="上传首帧"
+                    libraryLabel={t("libraryLabel")}
+                    uploadLabel={t("uploadFirstFrameLabel")}
                   />
                 </section>
                 <section {...lastFrameDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingLastFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
@@ -825,7 +828,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     ref={lastFrameInputRef}
                     type="file"
                     accept="image/*"
-                    aria-label="上传尾帧图片"
+                    aria-label={t("uploadLastFrameAria")}
                     className="hidden"
                     onChange={(event) => {
                       const input = event.currentTarget;
@@ -835,22 +838,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     }}
                   />
                   <StudioUploadTile
-                    title="上传尾帧图片"
-                    description="点击或拖拽图片至此"
-                    imageRequirement="主体清晰，比例和画面风格建议与首帧一致。"
+                    title={t("uploadLastFrameTitle")}
+                    description={t("clickDragHint")}
+                    imageRequirement={t("lastFrameRequirement")}
                     imageUrl={lastFrameUrl || null}
-                    imageAlt="尾帧图片"
+                    imageAlt={t("lastFrameAlt")}
                     isDragging={isDraggingLastFrame}
                     loading={isUploadingLastFrame}
                     onUploadClick={() => lastFrameInputRef.current?.click()}
-                    onLibraryClick={() => toast.info("作品库选择即将接入")}
+                    onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                     onPreview={lastFrameUrl ? () => setLightboxImage(lastFrameUrl) : undefined}
                     onRemove={lastFrameUrl ? () => {
                       setLastFrameUrl("");
                       setLastFrameRatio(null);
                     } : undefined}
-                    libraryLabel="从作品库选择"
-                    uploadLabel="上传尾帧"
+                    libraryLabel={t("libraryLabel")}
+                    uploadLabel={t("uploadLastFrameLabel")}
                   />
                 </section>
               </div>
@@ -862,7 +865,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               ref={imageInputRef}
               type="file"
               accept="image/*"
-              aria-label="上传图片"
+              aria-label={t("uploadImageAria")}
               className="hidden"
               onChange={(event) => {
                 const input = event.currentTarget;
@@ -872,23 +875,23 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               }}
             />
             <StudioUploadTile
-              title="上传图片"
-              description="PNG、JPG 或 WebP，建议主体清晰、人物或服装完整。"
-              imageRequirement="主体完整、边缘清楚，人物或服装不要被遮挡。"
+              title={t("uploadImageTitle")}
+              description={t("uploadImageDesc")}
+              imageRequirement={t("imageRequirement")}
               imageUrl={imageUrl || null}
-              imageAlt="图生视频输入图"
+              imageAlt={t("imageToVideoInputAlt")}
               isDragging={isDraggingImage}
               loading={isUploadingImage}
               onUploadClick={() => imageInputRef.current?.click()}
-              onLibraryClick={() => toast.info("作品库选择即将接入")}
+              onLibraryClick={() => toast.info(t("libraryComingSoon"))}
               onPreview={imageUrl ? () => setLightboxImage(imageUrl) : undefined}
               onRemove={imageUrl ? () => {
                 setImageUrl("");
                 setImageRatio(null);
               } : undefined}
-              libraryLabel="从作品库选择"
-              uploadLabel="点击或拖拽上传"
-              footnote="模板动作会作为运动方向，图片主体和服装细节会作为硬参考。"
+              libraryLabel={t("libraryLabel")}
+              uploadLabel={t("uploadClickDragLabel")}
+              footnote={t("uploadFootnoteTemplate")}
             />
           </section>
         ) : (
@@ -898,7 +901,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 ref={modelImageInputRef}
                 type="file"
                 accept="image/*"
-                aria-label="上传模特图"
+                aria-label={t("uploadModelImageAria")}
                 className="hidden"
                 onChange={(event) => {
                   const input = event.currentTarget;
@@ -908,22 +911,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 }}
               />
               <StudioUploadTile
-                title="上传模特图"
-                description="PNG、JPG 或 WebP，人物正面或半身更稳定。"
-                imageRequirement="人物主体完整，脸和服装清晰，单人画面最稳。"
+                title={t("uploadModelImageTitle")}
+                description={t("uploadModelImageDesc")}
+                imageRequirement={t("modelImageRequirement")}
                 imageUrl={modelImageUrl || null}
-                imageAlt="动作模仿模特图"
+                imageAlt={t("modelImageAlt")}
                 isDragging={isDraggingModelImage}
                 loading={isUploadingModelImage}
                 onUploadClick={() => modelImageInputRef.current?.click()}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                 onPreview={modelImageUrl ? () => setLightboxImage(modelImageUrl) : undefined}
                 onRemove={modelImageUrl ? () => {
                   setModelImageUrl("");
                   setModelImageRatio(null);
                 } : undefined}
-                libraryLabel="从作品库选择"
-                uploadLabel="点击或拖拽上传"
+                libraryLabel={t("libraryLabel")}
+                uploadLabel={t("uploadClickDragLabel")}
               />
             </section>
             <section {...videoDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingVideo ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
@@ -940,21 +943,21 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 }}
               />
               <StudioVideoUploadTile
-                title="上传参考视频"
-                description="单镜头动作更稳，参考视频只作为动作来源。"
+                title={t("uploadReferenceVideoTitle")}
+                description={t("uploadReferenceVideoDesc")}
                 videoUrl={referenceVideoUrl}
                 isDragging={isDraggingVideo}
                 loading={isUploadingVideo}
                 onUploadClick={() => videoInputRef.current?.click()}
-                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                 onRemove={referenceVideoUrl ? removeReferenceVideo : undefined}
-                sourceLabel={selectedTemplate ? `示例参考视频 · ${selectedTemplate.title}` : undefined}
-                uploadLabel="点击上传"
-                libraryLabel="从作品库选择"
-                videoRequirement="MP4、MOV，最大100MB；避免剪辑、转场和多人同框。"
+                sourceLabel={selectedTemplate ? t("sampleReferenceVideo", { title: selectedTemplate.title }) : undefined}
+                uploadLabel={t("uploadClickLabel")}
+                libraryLabel={t("libraryLabel")}
+                videoRequirement={t("videoRequirement")}
                 tips={[
-                  { label: "说明", text: "参考视频只提供动作节奏。" },
-                  { label: "视频要求", text: "单镜头、动作清楚、少转场。" },
+                  { label: t("tipNoteLabel"), text: t("tipNoteText") },
+                  { label: t("tipVideoReqLabel"), text: t("tipVideoReqText") },
                 ]}
               />
             </section>
@@ -962,8 +965,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         )}
 
         <StudioPromptTextarea
-          title={isFirstLastFrame ? "描述视频生成效果" : isMotion ? "动作补充" : "动作描述"}
-          badge={isFirstLastFrame ? `${duration}秒` : selectedTemplate ? selectedTemplate.title : "自定义"}
+          title={isFirstLastFrame ? t("promptTitleFirstLast") : isMotion ? t("promptTitleMotion") : t("promptTitleImage")}
+          badge={isFirstLastFrame ? t("durationValue", { seconds: duration }) : selectedTemplate ? selectedTemplate.title : t("promptBadgeCustom")}
           value={prompt}
           onChange={(event) => {
             setPrompt(event.target.value);
@@ -971,11 +974,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           }}
           rows={isFirstLastFrame ? 5 : isMotion ? 4 : 7}
           placeholder={isFirstLastFrame
-            ? "描述两张图之间的动态衔接过程、运镜和转场方式，例如：模特从自然站立过渡到抬手展示包袋，固定镜头，动作连贯。"
-            : "描述想要的视频动作，例如：模特自然向前走，保持微笑，镜头平稳推进"}
+            ? t("promptPlaceholderFirstLast")
+            : t("promptPlaceholderDefault")}
           description={isFirstLastFrame
-            ? "重点描述首帧到尾帧之间如何过渡，主体身份、服装版型和画面比例会作为硬参考。"
-            : isMotion ? "可选：补充服装、动作细节或镜头稳定要求；参考视频仍是主要动作来源。" : "模板会自动填入动作描述，也可以自行编辑。"}
+            ? t("promptDescFirstLast")
+            : isMotion ? t("promptDescMotion") : t("promptDescImage")}
           action={isFirstLastFrame ? (
             <button
               type="button"
@@ -983,7 +986,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               className="gradient-brand inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(91,124,255,0.22)] transition hover:opacity-95"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              AI帮写
+              {t("aiHelpWrite")}
             </button>
           ) : undefined}
         />
@@ -991,13 +994,13 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         {!isFirstLastFrame && (
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black text-codex-ink">{isMotion ? "示例参考视频" : "动作模板"}</h3>
+              <h3 className="text-sm font-black text-codex-ink">{isMotion ? t("sampleReferenceVideoSection") : t("actionTemplateSection")}</h3>
               <button
                 type="button"
                 onClick={() => setTemplatePanelOpen(true)}
                 className="inline-flex h-7 items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2.5 text-xs font-black text-blue-600 transition hover:border-blue-200 hover:bg-blue-100"
               >
-                更多 <ChevronRight className="h-3.5 w-3.5" />
+                {t("more")} <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
             <TemplateStrip selectedId={selectedTemplateId} onSelect={applyTemplate} />
@@ -1006,12 +1009,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
         {availableProviders.length > 1 && (
           <section>
-            <h3 className="mb-3 text-sm font-black text-codex-ink">视频模型</h3>
+            <h3 className="mb-3 text-sm font-black text-codex-ink">{t("videoModelSection")}</h3>
             <StudioOptionGrid
               options={availableProviders.map((provider) => ({
                 value: provider,
-                label: provider === "minimax" ? "MiniMax H3" : "Seedance 2.0",
-                description: provider === "minimax" ? "768p / 2K" : "mini / fast / 标准",
+                label: provider === "minimax" ? t("modelMinimaxLabel") : t("modelSeedanceLabel"),
+                description: provider === "minimax" ? t("modelMinimaxDesc") : t("modelSeedanceDesc"),
               }))}
               value={providerKey}
               onChange={(value) => {
@@ -1023,13 +1026,13 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 setDuration(AI_VIDEO_DEFAULT_DURATION);
               }}
               columns={2}
-              ariaLabel="视频模型"
+              ariaLabel={t("videoModelAria")}
             />
           </section>
         )}
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">生成模式</h3>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("generationModeSection")}</h3>
           <StudioOptionGrid
             options={modelModeOptions}
             value={effectiveModelMode}
@@ -1039,12 +1042,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               setResolution((current) => normalizeAiVideoResolution(current, nextMode));
             }}
             columns={2}
-            ariaLabel="视频生成模式"
+            ariaLabel={t("generationModeAria")}
           />
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">分辨率</h3>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("resolutionSection")}</h3>
           <StudioOptionGrid
             options={resolutionOptions.map((item) => ({
               value: item.value,
@@ -1054,12 +1057,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             value={resolution}
             onChange={(value) => setResolution(normalizeAiVideoResolution(value, effectiveModelMode))}
             columns={2}
-            ariaLabel="视频分辨率"
+            ariaLabel={t("resolutionAria")}
           />
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">画面比例</h3>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("aspectRatioSection")}</h3>
           <StudioOptionGrid
             options={AI_VIDEO_ASPECT_RATIO_OPTIONS.map((item) => ({
               value: item.value,
@@ -1069,22 +1072,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             value={aspectRatio}
             onChange={handleAspectRatioChange}
             columns={3}
-            ariaLabel="视频画面比例"
+            ariaLabel={t("aspectRatioAria")}
           />
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">视频时长</h3>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("durationSection")}</h3>
           <StudioOptionGrid
             options={getVideoDurationOptions(providerKey).map((value) => ({
               value: String(value),
-              label: `${value}秒`,
-              description: `${getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration: value, audioMode })} 灵点/条`,
+              label: t("durationValue", { seconds: value }),
+              description: t("durationDesc", { cost: getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration: value, audioMode }) }),
             }))}
             value={String(duration)}
             onChange={(value) => setDuration(normalizeAiVideoDuration(value))}
             columns={3}
-            ariaLabel="视频时长"
+            ariaLabel={t("durationAria")}
           />
         </section>
 
@@ -1093,28 +1096,28 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             title={(
               <span className="inline-flex items-center gap-1.5">
                 <Volume2 className="h-4 w-4 text-[var(--codex-accent)]" />
-                声音
+                {t("audioSection")}
               </span>
             )}
-            description="HappyHorse 支持原生有声视频；关闭时会明确请求静音。"
-            meta={generateAudio ? "原生音效" : "请求静音"}
+            description={t("audioDescription")}
+            meta={generateAudio ? t("nativeAudio") : t("mutedRequest")}
             checked={generateAudio}
             onChange={(checked) => {
               setAudioMode(checked ? "generated" : "off");
               if (!checked) setAudioPrompt("");
             }}
-            ariaLabel="视频音效开关"
+            ariaLabel={t("audioAria")}
           />
           {generateAudio && (
             <div className="mt-3 space-y-3">
               <StudioPromptTextarea
-                title="声音描述"
-                badge="可选"
+                title={t("audioPromptTitle")}
+                badge={t("audioPromptBadge")}
                 value={audioPrompt}
                 onChange={(event) => setAudioPrompt(event.target.value)}
                 rows={3}
-                placeholder="例如：轻快清爽的商拍环境声，保留脚步声和衣料轻响，不要人声，不要夸张音效。"
-                description="不填写时由模型按画面自动生成声音。"
+                placeholder={t("audioPromptPlaceholder")}
+                description={t("audioPromptDesc")}
               />
             </div>
           )}
@@ -1122,15 +1125,15 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
         <section>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-codex-ink">生成条数</h3>
-            <span className="text-[11px] font-bold text-codex-faint">{perVideoCost} 灵点/条</span>
+            <h3 className="text-sm font-black text-codex-ink">{t("genCountSection")}</h3>
+            <span className="text-[11px] font-bold text-codex-faint">{t("genCountPerVideo", { cost: perVideoCost })}</span>
           </div>
           <StudioGenerationCountSelector
             value={genCount}
             onChange={(value) => setGenCount(normalizeAiVideoGenCount(value))}
             counts={[1, 2, 3, 4]}
-            unit="条"
-            ariaLabel="视频生成条数"
+            unit={t("genCountUnit")}
+            ariaLabel={t("genCountAria")}
           />
         </section>
       </div>
@@ -1152,19 +1155,19 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           <ModuleHeader
             title={moduleLabel}
             tooltip={isFirstLastFrame
-              ? "上传首帧和尾帧图片，描述中间动态过程，系统会生成从首帧过渡到尾帧的视频。"
+              ? t("tooltipFirstLast")
               : isMotion
-                ? "上传模特图与参考视频，系统会复刻参考视频中的人物动作并生成新视频。"
-                : "上传图片并选择动作模板，系统会生成服装或模特展示视频。"}
+                ? t("tooltipMotion")
+                : t("tooltipImage")}
           />
         </div>
         {controlPanel}
         <StudioRunBar
-          summary={`${effectiveModelMode === "pro" ? "高清模式" : "快速模式"} · ${resolution} · ${aspectRatioSummary} · ${duration}秒 · ${generateAudio ? "音效" : "静音"} · ${genCount}条`}
-          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          summary={`${effectiveModelMode === "pro" ? t("summaryHighQuality") : t("summaryFastMode")} · ${resolution} · ${aspectRatioSummary} · ${t("durationValue", { seconds: duration })} · ${generateAudio ? t("summaryAudioOn") : t("summaryAudioOff")} · ${genCount}${t("countUnit")}`}
+          costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost, balance: credits ?? "-" })}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中…" : "生成视频"}
+          primaryLabel={authIsAnonymous ? t("primaryLogin") : isSubmitting ? t("primarySubmitting") : t("primaryGenerate")}
           isLoading={isSubmitting}
           onPrimaryAction={generate}
         />
@@ -1175,10 +1178,10 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           <div className="studio-result-stage flex h-full items-center justify-center px-4">
             <div className="max-w-md rounded-[16px] border border-red-100 bg-white/82 p-6 text-center shadow-[0_18px_54px_rgba(15,23,42,0.08)]">
               <X className="mx-auto mb-3 h-10 w-10 rounded-full bg-red-50 p-2 text-red-500" />
-              <h2 className="text-base font-black text-red-600">视频生成失败</h2>
+              <h2 className="text-base font-black text-red-600">{t("videoFailedHeading")}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">{error}</p>
               <button type="button" onClick={() => setError("")} className="mac-button mt-4 h-10 px-5 text-sm font-black">
-                返回编辑
+                {t("backToEdit")}
               </button>
             </div>
           </div>
@@ -1186,7 +1189,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           <div className="studio-result-stage h-full overflow-y-auto p-4 pb-28 sm:p-6">
             {isGenerating && (
               <div className="mb-4 rounded-xl border border-blue-100 bg-white/80 px-3 py-2 text-xs font-bold text-blue-600 shadow-sm">
-                视频生成中 {Math.round(progress)}%，完成后会自动显示在这里。
+                {t("generatingBanner", { progress: Math.round(progress) })}
               </div>
             )}
             <ResultVideoGrid
@@ -1214,9 +1217,9 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           open={templatePanelOpen}
           side="left"
           size="lg"
-          title={isMotion ? "示例参考视频" : "动作模板"}
-          description={isMotion ? "选择示例后会作为参考视频试用；手动上传参考视频会自动取消示例选择。" : "选择模板后会自动写入动作描述，也可以在左侧继续编辑。"}
-          ariaLabel={isMotion ? "示例参考视频选择" : "动作模板选择"}
+          title={isMotion ? t("drawerMotionTitle") : t("drawerImageTitle")}
+          description={isMotion ? t("drawerMotionDesc") : t("drawerImageDesc")}
+          ariaLabel={isMotion ? t("drawerMotionAria") : t("drawerImageAria")}
           onClose={() => setTemplatePanelOpen(false)}
         >
           <div className="border-b border-slate-100 px-5 py-3">
@@ -1226,19 +1229,19 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               </div>
               <button type="button" className="mac-button inline-flex h-10 shrink-0 items-center gap-2 px-4 text-sm font-black">
                 <Sparkles className="h-4 w-4" />
-                AI 推荐
+                {t("aiRecommend")}
               </button>
             </div>
           </div>
           <div className="custom-scroll min-h-0 flex-1 overflow-y-auto p-5">
-            <TemplateGrid selectedId={selectedTemplateId} onSelect={applyTemplate} actionLabel={isMotion ? "试用示例视频" : "使用模板"} />
+            <TemplateGrid selectedId={selectedTemplateId} onSelect={applyTemplate} actionLabel={isMotion ? t("trySampleVideo") : t("useTemplate")} />
           </div>
         </StudioSideDrawer>
       )}
 
       <StudioMediaLightbox
         src={lightboxVideo}
-        alt="视频结果预览"
+        alt={t("lightboxVideoAlt")}
         kind="video"
         mediaClassName="rounded-2xl"
         onClose={() => setLightboxVideo(null)}
@@ -1246,7 +1249,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
       <StudioMediaLightbox
         src={lightboxImage}
-        alt="上传图片预览"
+        alt={t("lightboxImageAlt")}
         mediaClassName="rounded-2xl bg-white"
         onClose={() => setLightboxImage(null)}
       />
@@ -1255,6 +1258,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 }
 
 function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; onSelect: (template: AiVideoActionTemplate) => void }) {
+  const t = useTranslations("Video");
   const [previewTemplate, setPreviewTemplate] = useState<AiVideoActionTemplate | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -1320,7 +1324,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
               <span className={`absolute inset-0 transition ${previewing ? "bg-blue-500/10" : "bg-transparent"}`} />
               {selected && (
                 <span className="absolute left-1.5 top-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-black leading-none text-white shadow-sm">
-                  已选
+                  {t("selected")}
                 </span>
               )}
               {(selected || previewing) && <span className="absolute inset-x-2 bottom-1 h-1.5 rounded-full bg-blue-500 shadow-[0_0_0_1px_rgba(255,255,255,0.8)]" />}
@@ -1345,25 +1349,26 @@ function resolveMotionTemplateId(referenceVideoUrl: string, templateId?: number 
 }
 
 function ImageToVideoGuide({ onOpenTemplates }: { onOpenTemplates: () => void }) {
+  const t = useTranslations("Video");
   return (
     <div className="studio-empty-stage flex h-full min-h-[520px] items-center justify-center px-4 py-8">
       <div className="w-full max-w-3xl">
         <PreviewGuide
-          title="开始生成服饰视频"
-          subtitle="先上传主体清晰的图片，再选择或编辑动作描述；系统会把图片中的人物、服装和细节作为硬参考生成竖版视频。"
+          title={t("guideTitle")}
+          subtitle={t("guideSubtitle")}
           imageSrc={AI_VIDEO_ACTION_TEMPLATES[0]?.previewImage}
-          imageAlt="图生视频指引"
+          imageAlt={t("guideImageAlt")}
           icon={<Clapperboard className="h-9 w-9" />}
           steps={[
-            { title: "上传图片", desc: "人物或服装尽量完整，边缘清晰时更容易保持版型和细节。" },
-            { title: "选择动作模板", desc: "模板只控制动作和镜头方向，左侧动作描述可以继续微调。" },
-            { title: "生成竖版视频", desc: "默认输出 9:16 视频，完成后会显示在当前区域和最近任务中。" },
+            { title: t("stepUploadTitle"), desc: t("stepUploadDesc") },
+            { title: t("stepTemplateTitle"), desc: t("stepTemplateDesc") },
+            { title: t("stepGenerateTitle"), desc: t("stepGenerateDesc") },
           ]}
         />
         <div className="mt-5 flex justify-center">
           <button type="button" onClick={onOpenTemplates} className="gradient-brand inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-[0_18px_44px_rgba(91,124,255,0.24)]">
             <ImagePlus className="h-4 w-4" />
-            选择动作模板
+            {t("chooseTemplate")}
           </button>
         </div>
       </div>
@@ -1372,37 +1377,38 @@ function ImageToVideoGuide({ onOpenTemplates }: { onOpenTemplates: () => void })
 }
 
 function FirstLastFrameCanvas({ firstFrameUrl, lastFrameUrl }: { firstFrameUrl: string; lastFrameUrl: string }) {
+  const t = useTranslations("Video");
   const generatedPreview = AI_VIDEO_ACTION_TEMPLATES[6]?.previewImage || AI_VIDEO_ACTION_TEMPLATES[0]?.previewImage || "";
 
   return (
     <div className="studio-empty-stage flex h-full min-h-[520px] items-center justify-center px-4 py-8">
       <PreviewGuide
-        title="上传首帧和尾帧，生成过渡视频"
-        subtitle="首尾两张图决定开始和结束画面，描述控制中间动作、镜头和转场节奏。"
+        title={t("firstLastGuideTitle")}
+        subtitle={t("firstLastGuideSubtitle")}
         icon={<ImagePlus className="h-9 w-9" />}
         steps={[
           {
-            title: "首帧画面",
-            desc: firstFrameUrl ? "已锁定开始画面。" : "先上传开始画面。",
+            title: t("stepFirstFrameTitle"),
+            desc: firstFrameUrl ? t("stepFirstFrameLocked") : t("stepFirstFramePending"),
             imageSrc: firstFrameUrl || undefined,
-            imageAlt: "首帧画面",
+            imageAlt: t("stepFirstFrameAlt"),
             imageFit: firstFrameUrl ? "contain" : undefined,
-            badge: "首帧",
+            badge: t("badgeFirstFrame"),
           },
           {
-            title: "尾帧画面",
-            desc: lastFrameUrl ? "已锁定结束画面。" : "再上传结束画面。",
+            title: t("stepLastFrameTitle"),
+            desc: lastFrameUrl ? t("stepLastFrameLocked") : t("stepLastFramePending"),
             imageSrc: lastFrameUrl || undefined,
-            imageAlt: "尾帧画面",
+            imageAlt: t("stepLastFrameAlt"),
             imageFit: lastFrameUrl ? "contain" : undefined,
-            badge: "尾帧",
+            badge: t("badgeLastFrame"),
           },
           {
-            title: "生成视频",
-            desc: "按描述补齐中间动作。",
+            title: t("stepGenerateVideoTitle"),
+            desc: t("stepGenerateVideoDesc"),
             imageSrc: generatedPreview,
-            imageAlt: "生成视频预览",
-            badge: "生成视频",
+            imageAlt: t("stepGenerateVideoAlt"),
+            badge: t("badgeGenerateVideo"),
           },
         ]}
       />
@@ -1411,17 +1417,25 @@ function FirstLastFrameCanvas({ firstFrameUrl, lastFrameUrl }: { firstFrameUrl: 
 }
 
 function TemplateTabs() {
+  const t = useTranslations("Video");
+  const tabs = [
+    { key: "templateTabExample", label: "示例动作" },
+    { key: "templateTabMen", label: "男装" },
+    { key: "templateTabWomen", label: "女装" },
+    { key: "templateTabKids", label: "儿童" },
+    { key: "templateTabToddler", label: "幼童" },
+  ];
   return (
     <div className="flex gap-7 overflow-x-auto text-sm font-black text-slate-950">
-      {["示例动作", "男装", "女装", "儿童", "幼童"].map((item, index) => (
+      {tabs.map((item, index) => (
         <button
-          key={item}
+          key={item.key}
           type="button"
           className={`h-9 shrink-0 border-b-2 px-0.5 transition ${
             index === 0 ? "border-slate-950 text-slate-950" : "border-transparent text-slate-700 hover:text-slate-950"
           }`}
         >
-          {item}
+          {t(item.key)}
         </button>
       ))}
     </div>
@@ -1431,12 +1445,14 @@ function TemplateTabs() {
 function TemplateGrid({
   selectedId,
   onSelect,
-  actionLabel = "使用模板",
+  actionLabel = "",
 }: {
   selectedId: number | null;
   onSelect: (template: AiVideoActionTemplate) => void;
   actionLabel?: string;
 }) {
+  const t = useTranslations("Video");
+  const resolvedLabel = actionLabel || t("useTemplate");
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {AI_VIDEO_ACTION_TEMPLATES.map((template) => (
@@ -1445,7 +1461,7 @@ function TemplateGrid({
           template={template}
           selected={selectedId === template.id}
           onSelect={() => onSelect(template)}
-          actionLabel={actionLabel}
+          actionLabel={resolvedLabel}
         />
       ))}
     </div>
@@ -1523,33 +1539,34 @@ function TemplateCard({
 }
 
 function MotionControlCanvas() {
+  const t = useTranslations("Video");
   return (
     <div className="studio-empty-stage flex h-full min-h-[520px] items-center justify-center px-4 py-8">
       <PreviewGuide
-        title="动作模仿"
-        subtitle="上传模特图和参考视频，复刻参考视频的动作节奏，生成同款动作结果。"
+        title={t("motionCanvasTitle")}
+        subtitle={t("motionCanvasSubtitle")}
         icon={<Clapperboard className="h-9 w-9" />}
         steps={[
           {
-            title: "上传模特图",
-            desc: "人物和服装作为硬参考。",
+            title: t("motionStepModelTitle"),
+            desc: t("motionStepModelDesc"),
             imageSrc: AI_VIDEO_ACTION_TEMPLATES[0]?.previewImage || "",
-            imageAlt: "动作模仿模特图",
-            badge: "模特图",
+            imageAlt: t("motionStepModelAlt"),
+            badge: t("badgeModelImage"),
           },
           {
-            title: "上传参考视频",
-            desc: "参考动作节奏和镜头方向。",
+            title: t("motionStepVideoTitle"),
+            desc: t("motionStepVideoDesc"),
             imageSrc: AI_VIDEO_ACTION_TEMPLATES[8]?.previewImage || "",
-            imageAlt: "动作参考视频",
-            badge: "参考视频",
+            imageAlt: t("motionStepVideoAlt"),
+            badge: t("badgeReferenceVideo"),
           },
           {
-            title: "生成视频",
-            desc: "输出同款动作成片。",
+            title: t("motionStepGenerateTitle"),
+            desc: t("motionStepGenerateDesc"),
             imageSrc: AI_VIDEO_ACTION_TEMPLATES[6]?.previewImage || "",
-            imageAlt: "生成视频",
-            badge: "生成视频",
+            imageAlt: t("motionStepGenerateAlt"),
+            badge: t("badgeGenerateVideoMotion"),
           },
         ]}
       />

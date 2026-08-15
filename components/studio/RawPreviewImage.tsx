@@ -3,6 +3,7 @@
 
 import { useRef, useState } from "react";
 import type { ImgHTMLAttributes } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type RawPreviewImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "alt"> & {
@@ -16,6 +17,7 @@ const ERROR_PLACEHOLDER =
 export function RawPreviewImage(props: RawPreviewImageProps) {
   // Studio previews can be blob/data URLs or user/provider URLs that should not go through Next image optimization.
   // Default to lazy + async decoding (below-fold previews); callers can override via {...props}.
+  const t = useTranslations("Shared");
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   // 偶发网络失败自动重试一次；仍失败后显示占位（点击占位可手动重载）
@@ -47,7 +49,7 @@ export function RawPreviewImage(props: RawPreviewImageProps) {
         setFailed(false);
         setLoaded(false);
       } : props.onClick}
-      title={failed ? "点击重新加载图片" : props.title}
+      title={failed ? t("reloadImage") : props.title}
       className={cn(
         // 加载中：透明 + 浅灰底；完成后 300ms 淡入并移除灰底
         "transition-opacity duration-300",

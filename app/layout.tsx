@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Toaster } from "sonner";
 import "./globals.css";
 import "./styles/shared-components.css";
 import "./styles/studio-primitives.css";
 import "./styles/studio.css";
 import "./styles/studio-overrides.css";
+import "./styles/i18n.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import { RouteProgress } from "@/components/ui/route-progress";
 import "@/lib/env";
@@ -19,30 +22,46 @@ const geist = Geist({
   variable: "--font-sans",
   display: "swap",
   preload: true,
-  fallback: ["system-ui", "arial"],
+  // 多语言字体回退链：CJK / 阿拉伯 / 西里尔 / 泰 / 天城文全部落到系统原生字体
+  fallback: [
+    "system-ui",
+    "arial",
+    "PingFang SC",
+    "Hiragino Sans",
+    "Microsoft YaHei",
+    "Noto Sans SC",
+    "Noto Sans",
+    "Noto Sans Arabic",
+    "Noto Sans Thai",
+    "Noto Sans Devanagari",
+    "sans-serif",
+  ],
   adjustFontFallback: false,
 });
 
 export async function generateMetadata(): Promise<Metadata> {
   const configured = await getSiteMonitoringConfig().catch(() => null);
+  const locale = await getLocale().catch(() => "zh");
+  const isZh = locale === "zh";
+  const t = await getTranslations({ locale, namespace: "Metadata" });
   return {
     title: {
-      default: configured?.seoTitle || "Pixel Diffusion - AI 服装视觉生产工作台",
+      default: configured?.seoTitle || t("title"),
       template: "%s | Pixel Diffusion",
     },
-    description: configured?.seoDescription || "Pixel Diffusion 面向服装品牌、电商团队和内容创作者的 AI 服装视觉生产工作台：服装上身、姿势裂变、商品套图、种草封面，一次上传生成整套商业成片。",
-    keywords: ["AI 服装", "服装上身", "AI 模特", "姿势裂变", "商品套图", "电商视觉", "种草图", "Pixel Diffusion"],
+    description: configured?.seoDescription || t("description"),
+    keywords: t.raw("keywords"),
     icons: {
       icon: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
       apple: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
     },
     openGraph: {
       type: "website",
-      locale: "zh_CN",
+      locale: isZh ? "zh_CN" : "en_US",
       url: "https://pixel-diffusion.com",
       siteName: "Pixel Diffusion",
-      title: configured?.seoTitle || "Pixel Diffusion - AI 服装视觉生产工作台",
-      description: configured?.seoDescription || "服装上身、姿势裂变、商品套图、种草封面——一次上传，生成整套电商商业成片。",
+      title: configured?.seoTitle || t("title"),
+      description: configured?.seoDescription || t("ogDescription"),
       images: [
         {
           url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png",
@@ -54,8 +73,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: configured?.seoTitle || "Pixel Diffusion - AI 服装视觉生产工作台",
-      description: configured?.seoDescription || "服装上身、姿势裂变、商品套图、种草封面——一次上传，生成整套电商商业成片。",
+      title: configured?.seoTitle || t("title"),
+      description: configured?.seoDescription || t("ogDescription"),
       images: ["https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png"],
     },
     alternates: { canonical: "https://pixel-diffusion.com" },
@@ -74,13 +93,19 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale().catch(() => "zh");
+  const messages = await getMessages();
+
+  const htmlLang = locale === "zh" ? "zh-CN" : locale === "zh-TW" ? "zh-TW" : locale;
+  const dir = locale === "ar" ? "rtl" : "ltr";
+
   return (
-    <html lang="zh-CN" className={cn("font-sans", geist.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
+    <html lang={htmlLang} dir={dir} className={cn("font-sans", geist.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
       <head>
         {/* P1.1 dark-mode bootstrap — runs before paint to avoid FOUC.
             P5.43: home page (/) is always light; never apply `dark` there. */}
@@ -101,31 +126,33 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://yunwu.ai" />
       </head>
       <body className="min-h-screen antialiased transition-colors">
-        <SentryBootstrap />
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-codex-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-codex-accent focus:ring-offset-2"
-        >
-          跳到主内容
-        </a>
-        <Suspense fallback={null}>
-          <RouteProgress />
-        </Suspense>
-        <HeaderClient />
-        <main id="main" tabIndex={-1} className="outline-none">
-          {children}
-        </main>
-        <Toaster
-          richColors
-          closeButton
-          expand={false}
-          visibleToasts={1}
-          gap={8}
-          duration={2400}
-          position="top-right"
-          offset={{ top: 76, right: 18 }}
-          mobileOffset={{ top: 70, right: 12, left: 12 }}
-        />
+        <NextIntlClientProvider messages={messages}>
+          <SentryBootstrap />
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-codex-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-codex-accent focus:ring-offset-2"
+          >
+            {messages.Metadata?.skipToContent ?? "跳到主内容"}
+          </a>
+          <Suspense fallback={null}>
+            <RouteProgress />
+          </Suspense>
+          <HeaderClient />
+          <main id="main" tabIndex={-1} className="outline-none">
+            {children}
+          </main>
+          <Toaster
+            richColors
+            closeButton
+            expand={false}
+            visibleToasts={1}
+            gap={8}
+            duration={2400}
+            position="top-right"
+            offset={{ top: 76, right: 18 }}
+            mobileOffset={{ top: 70, right: 12, left: 12 }}
+          />
+        </NextIntlClientProvider>
       </body>
     </html>
   );
