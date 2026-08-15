@@ -1069,7 +1069,7 @@ function OutfitFusionTaskCard({
               <button
                 type="button"
                 onClick={() => setPromptExpanded((value) => !value)}
-                className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-[5px] px-1.5 py-0.5 text-xs font-medium text-[var(--codex-accent)] transition hover:bg-[rgba(91,124,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
+                className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium text-[var(--codex-accent)] transition hover:bg-[rgba(91,124,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
                 aria-expanded={promptExpanded}
               >
                 {promptExpanded ? t("collapsePrompt") : t("expandPrompt")}
@@ -1096,10 +1096,10 @@ function OutfitFusionTaskCard({
                   event.preventDefault();
                   onPreview(index);
                 }}
-                className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-[4px] bg-[#f4f6fa] text-sm text-slate-400 dark:text-stone-500 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
+                className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded bg-[#f4f6fa] text-sm text-slate-400 dark:text-stone-500 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
               >
                 <LoadableResultImage src={url} alt={t("resultImageAlt", { index: index + 1 })} />
-                <span className="pointer-events-none absolute left-2 top-2 rounded-[4px] bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
+                <span className="pointer-events-none absolute left-2 top-2 rounded bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
                   {index + 1}/{slots}
                 </span>
                 <div className="studio-result-focus-layer" aria-hidden={false}>
@@ -1160,7 +1160,7 @@ function OutfitFusionTaskCard({
           <button
             type="button"
             onClick={onCopy}
-            className="rounded-[5px] p-0.5 text-slate-400 dark:text-stone-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
+            className="rounded p-0.5 text-slate-400 dark:text-stone-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
             aria-label={t("copyTaskId")}
           >
             <Copy className="h-3.5 w-3.5" />
@@ -1168,7 +1168,7 @@ function OutfitFusionTaskCard({
           {running ? <span className="text-[var(--codex-accent)]">{task.progress}%</span> : null}
         </div>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
+          <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
             <PenLine className="h-3.5 w-3.5" />
             {t("reedit")}
           </button>
@@ -1176,12 +1176,12 @@ function OutfitFusionTaskCard({
             type="button"
             onClick={onRegenerate}
             disabled={running}
-            className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300 dark:text-stone-500"
+            className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300 dark:text-stone-500"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             {t("regenerate")}
           </button>
-          <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-500 dark:text-stone-400 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
+          <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-slate-500 dark:text-stone-400 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
             <Trash2 className="h-3.5 w-3.5" />
             {t("delete")}
           </button>
@@ -1240,7 +1240,7 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                   <span
                     key={asset.id}
                     className={cn(
-                      "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white dark:bg-[var(--codex-surface)] shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
+                      "absolute top-1 h-11 w-8 overflow-hidden rounded border border-white bg-white dark:bg-[var(--codex-surface)] shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
                       index === 0 && "left-0 -rotate-6",
                       index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
                       index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")
@@ -1255,13 +1255,13 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                 );
               })}
               {hasHiddenAssets ? (
-                <span className="absolute right-0 top-1 z-[4] flex h-11 w-8 rotate-6 items-center justify-center overflow-hidden rounded-[4px] border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[11px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
+                <span className="absolute right-0 top-1 z-[4] flex h-11 w-8 rotate-6 items-center justify-center overflow-hidden rounded border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[11px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
                   +{hiddenCount}
                 </span>
               ) : null}
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top" align="center" sideOffset={6} className="rounded-[4px] bg-slate-950 px-2.5 py-1 text-xs font-medium text-white">
+          <TooltipContent side="top" align="center" sideOffset={6} className="rounded bg-slate-950 px-2.5 py-1 text-xs font-medium text-white">
             {t("reuseImages")}
           </TooltipContent>
         </Tooltip>

@@ -839,7 +839,7 @@ export default function AllCategoryProductImagePage() {
                 type="button"
                 onClick={() => activeStepIndex >= stepIndex("planning") ? void submitGeneration() : void runAnalyze()}
                 disabled={!canAnalyze && !canGenerate}
-                className="flex h-14 w-full items-center justify-center gap-2 rounded-[16px] bg-slate-950 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-[#929292] disabled:text-white disabled:opacity-100"
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-[#929292] disabled:text-white disabled:opacity-100"
               >
                 {isAnalyzing || isGenerating ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : activeStepIndex >= stepIndex("planning") ? <PackageCheck aria-hidden="true" className="h-5 w-5" /> : <Brush aria-hidden="true" className="h-5 w-5" />}
                 {isAnalyzing ? t("analyzingDots") : isGenerating ? t("generatingDots") : activeStepIndex >= stepIndex("planning") ? t("confirmGenerate", { count: modules.length }) : t("analyzeProduct")}

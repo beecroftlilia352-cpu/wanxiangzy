@@ -414,7 +414,7 @@ export default function ApiPlatformTestPage() {
             {!isLoading && outputImages.length > 0 && (
               <div className="grid gap-4 md:grid-cols-2">
                 {outputImages.map((url, index) => (
-                  <a key={index} href={url} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-[22px] border border-white/70 bg-white/75 shadow-xl shadow-slate-200/60 transition hover:-translate-y-0.5 hover:shadow-2xl">
+                  <a key={index} href={url} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-3xl border border-white/70 bg-white/75 shadow-xl shadow-slate-200/60 transition hover:-translate-y-0.5 hover:shadow-2xl">
                     <RawPreviewImage src={url} className="h-[420px] w-full object-contain" alt={t("preview.resultAlt", { index: index + 1 })} />
                     <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-gray-500 group-hover:text-[var(--codex-accent)]">{t("preview.openOriginal")}</div>
                   </a>

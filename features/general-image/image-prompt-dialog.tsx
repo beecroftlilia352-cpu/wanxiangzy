@@ -62,7 +62,7 @@ export function ImagePromptDialog({
       <DialogContent
         returnFocusRef={returnFocusRef}
         overlayClassName="z-[219] bg-slate-950/38 backdrop-blur-xl"
-        className="z-[220] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl flex-col gap-0 overflow-hidden rounded-[22px] border border-[rgba(91,124,255,0.22)] bg-white p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-[rgba(91,124,255,0.18)] sm:max-w-2xl"
+        className="z-[220] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl flex-col gap-0 overflow-hidden rounded-3xl border border-[rgba(91,124,255,0.22)] bg-white p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-[rgba(91,124,255,0.18)] sm:max-w-2xl"
       >
         <div className="px-5 py-4 pr-14">
           <DialogTitle className="text-base font-black leading-6 text-slate-950">{t("imageToPromptButton")}</DialogTitle>

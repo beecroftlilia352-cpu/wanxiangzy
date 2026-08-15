@@ -1173,7 +1173,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       <main className="studio-canvas min-h-[520px] flex-1 overflow-hidden">
         {error ? (
           <div className="studio-result-stage flex h-full items-center justify-center px-4">
-            <div className="max-w-md rounded-[16px] border border-red-100 bg-white/82 p-6 text-center shadow-[0_18px_54px_rgba(15,23,42,0.08)]">
+            <div className="max-w-md rounded-2xl border border-red-100 bg-white/82 p-6 text-center shadow-[0_18px_54px_rgba(15,23,42,0.08)]">
               <X className="mx-auto mb-3 h-10 w-10 rounded-full bg-red-50 p-2 text-red-500" />
               <h2 className="text-base font-black text-red-600">{t("videoFailedHeading")}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">{error}</p>

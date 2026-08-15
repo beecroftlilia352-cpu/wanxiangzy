@@ -460,7 +460,7 @@ export default function HistoryPage() {
 
   if (state === "noauth") return (
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
-      <div className="w-full max-w-md rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+      <div className="w-full max-w-md rounded-[32px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-slate-300/40">
           <ImageIcon className="h-7 w-7 text-slate-500" />
         </div>
@@ -473,7 +473,7 @@ export default function HistoryPage() {
 
   if (state === "error") return (
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
-      <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+      <div className="w-full max-w-lg rounded-[32px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <XCircle className="mx-auto mb-4 h-12 w-12 text-red-300" />
         <h1 className="text-xl font-black text-slate-950 dark:text-stone-100">{t("loadErrorTitle")}</h1>
         <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
@@ -497,7 +497,7 @@ export default function HistoryPage() {
 
   if (state === "empty") return (
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
-      <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+      <div className="w-full max-w-lg rounded-[32px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <Clock className="mx-auto mb-4 h-12 w-12 text-slate-300" />
         <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">{filterState.emptyTitleKey ? tAny(filterState.emptyTitleKey) : filterState.emptyTitle}</h1>
         <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
@@ -758,7 +758,7 @@ export default function HistoryPage() {
 
             <div className="grid min-h-0 flex-1 overflow-y-auto bg-white/35 lg:grid-cols-[minmax(0,1.15fr)_380px] lg:overflow-hidden">
               <section className="flex min-h-[440px] flex-col gap-4 bg-[#eef0f3] p-3 sm:p-5">
-                <div className="relative flex min-h-[330px] flex-1 items-center justify-center overflow-hidden rounded-[22px] bg-[#eef0f3]">
+                <div className="relative flex min-h-[330px] flex-1 items-center justify-center overflow-hidden rounded-3xl bg-[#eef0f3]">
                   {selectedResultUrl ? (
                     <button
                       type="button"

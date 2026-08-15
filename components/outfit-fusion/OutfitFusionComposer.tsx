@@ -178,7 +178,7 @@ export function OutfitFusionComposer({
             const active = hasPromptAssetReference(prompt, index);
             return (
                 <div key={asset.id} className="group relative w-[78px] overflow-hidden rounded-[6px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#26262a] shadow-sm ring-1 ring-transparent transition duration-200 hover:border-[rgba(91,124,255,0.28)] hover:ring-[rgba(91,124,255,0.22)] hover:shadow-md">
-                  <span className={cn("pointer-events-none absolute left-1.5 top-1.5 z-[1] max-w-[70px] truncate rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold leading-3 shadow-sm", getAssetLabelTone(asset.role, active))}>
+                  <span className={cn("pointer-events-none absolute left-1.5 top-1.5 z-[1] max-w-[70px] truncate rounded border px-1.5 py-0.5 text-[10px] font-bold leading-3 shadow-sm", getAssetLabelTone(asset.role, active))}>
                     {label}
                   </span>
                   <button
@@ -511,7 +511,7 @@ function HighlightedPromptTextarea({
                     : "text-slate-700 dark:text-stone-300 hover:bg-slate-50 dark:bg-white/5"
                 )}
               >
-                <RawPreviewImage src={option.asset.url} alt="" className="size-9 rounded-[5px] object-cover ring-1 ring-slate-200 dark:ring-white/10" />
+                <RawPreviewImage src={option.asset.url} alt="" className="size-9 rounded object-cover ring-1 ring-slate-200 dark:ring-white/10" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold leading-5">{option.label}</span>
                   <span className="block truncate text-xs leading-4 text-slate-500 dark:text-stone-400">{option.roleLabel}</span>
@@ -532,7 +532,7 @@ function HighlightedPromptTextarea({
                 key={option.asset.id}
                 type="button"
                 onClick={() => insertMention(option)}
-                className={cn("inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-semibold ring-1 transition", getAssetReferenceTone(option.asset.role))}
+                className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold ring-1 transition", getAssetReferenceTone(option.asset.role))}
                 title={t("insertAgain", { label: option.label })}
               >
                 <RawPreviewImage src={option.asset.url} alt="" className="size-4 rounded object-cover" />

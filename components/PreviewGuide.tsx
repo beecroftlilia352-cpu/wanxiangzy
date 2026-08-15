@@ -50,7 +50,7 @@ export function PreviewGuide({
         <h3 className="bg-[linear-gradient(135deg,#3f5dff_0%,#6d8dff_45%,#aeb8ff_100%)] bg-clip-text text-[24px] font-black tracking-[-0.02em] text-transparent dark:bg-[linear-gradient(135deg,#8fa8ff_0%,#b8c6ff_55%,#dbe4ff_100%)] sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
         <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 dark:text-stone-400 sm:text-[15px]">{subtitle}</p>
 
-        <div className="mt-8 overflow-hidden rounded-[30px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_rgba(91,124,255,0.12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-slate-950/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
+        <div className="mt-8 overflow-hidden rounded-[32px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_rgba(91,124,255,0.12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-slate-950/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
           <div className={`grid grid-cols-1 gap-5 sm:gap-8 ${stepGridClass} ${visualGridWidthClass}`}>
             {steps.map((step, index) => {
               const hasImage = Boolean(step.imageSrc || imageSrc);
@@ -58,7 +58,7 @@ export function PreviewGuide({
 
               return (
                 <div key={step.title} className="group relative min-w-0">
-                  <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-white via-slate-100 to-slate-200 p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_rgba(91,124,255,0.14)] dark:from-stone-800 dark:via-stone-900 dark:to-black">
+                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-100 to-slate-200 p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_rgba(91,124,255,0.14)] dark:from-stone-800 dark:via-stone-900 dark:to-black">
                     <div
                       className={cn(
                         "relative aspect-[4/5] overflow-hidden rounded-[21px]",

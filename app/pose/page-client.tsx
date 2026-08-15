@@ -2325,7 +2325,7 @@ export default function PosePage() {
                 ) : null}
               </div>
 
-              <div className="rounded-[22px] border border-[#d9e4f2] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-3 shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
+              <div className="rounded-3xl border border-[#d9e4f2] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-3 shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="inline-flex rounded-full bg-[#edf3fa] p-1 shadow-inner shadow-slate-200/70">
                     <button
