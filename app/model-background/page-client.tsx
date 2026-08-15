@@ -38,6 +38,7 @@ import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreview
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -68,12 +69,6 @@ import {
   type BackgroundSourceMode,
   type ModelBackgroundMode,
 } from "@/lib/model-background";
-
-const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "推荐", badgeKey: "Shared.modelBadge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "最新", badgeKey: "Shared.modelBadge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "高质精修", badgeKey: "Shared.modelBadge.highQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
 
 type ModelBackgroundHistoryPayload = Extract<HistoryJobPayload, { kind: "modelBackground" }>;
 type ModelBackgroundGenerateOptions = {
@@ -120,8 +115,6 @@ type UploadTarget = "source" | "model" | "background";
 
 export default function ModelBackgroundPage() {
   const t = useTranslations("ModelBackground");
-  // descKey/badgeKey 为根相对全路径（Shared.modelDesc.max4k 等），getMeta 里用根翻译器解析
-  const tRoot = useTranslations();
   const router = useRouter();
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +151,7 @@ export default function ModelBackgroundPage() {
   // 未保存输入离开拦截
   const { unsavedDialog } = useUnsavedChangesGuard(Boolean(sourceUrls.length || backgroundText.trim() || userPrompt.trim()));
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -940,11 +934,11 @@ export default function ModelBackgroundPage() {
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genModel")}</h3>
             <StudioModelSelector
-              models={MODELS}
+              models={modelOptions}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("genModel")}
-              getMeta={(model) => `${model.descKey ? tRoot(model.descKey) : model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
+              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
             />
           </section>
 

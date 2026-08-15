@@ -1354,11 +1354,7 @@
     "modeFeature": "Nur Merkmale",
     "modeFeatureHairSkin": "Merkmale + Haare & Haut",
     "modeSectionTitle": "Tauschbereich",
-    "modelBadgeDefault": "Standard",
-    "modelBadgeHighQuality": "Hohe Qualität",
-    "modelBadgeRefined": "Verfeinert",
     "modelCardLabel": "{gender} {index}",
-    "modelDesc": "Bis zu 4K",
     "modelMeta": "{desc} · derzeit {cost} Credits",
     "modelSectionTitle": "Generierungs-Model",
     "moduleLabel": "Gesichtstausch",
@@ -1502,10 +1498,6 @@
     "metaResolution": "Auflösung",
     "missingFailureActionLabel": "Dieses Bild erneut versuchen",
     "missingFailureLabel": "Dieses Bild ist fehlgeschlagen",
-    "modelBadgeNew": "Neu",
-    "modelBadgeRecommended": "Empfohlen",
-    "modelBadgeRefined": "Verfeinert",
-    "modelDesc": "Bis zu 4K",
     "modelSectionTitle": "Generierungs-Model",
     "moduleLabel": "Kleidung 3D",
     "operationFailed": "Vorgang fehlgeschlagen",
@@ -1642,10 +1634,6 @@
     "modeImageToImage": "Bild zu Bild",
     "modeTextToImage": "Text zu Bild",
     "modelAriaLabel": "Generierungs-Model wählen",
-    "modelBadgeDefault": "Standard",
-    "modelBadgePro": "Pro-Verfeinerung",
-    "modelBadgeQuality": "Hohe Qualität",
-    "modelDescMax4k": "Bis zu 4K",
     "modelSectionTitle": "Generierungs-Model",
     "moduleLabel": "Kreativbild",
     "needBasicIdea": "Bitte gib eine Grundidee ein",
@@ -1786,9 +1774,6 @@
     "metaTemplate": "Referenzvorlage",
     "missingFailureAction": "Dieses erneut versuchen",
     "missingFailureLabel": "Dieses Bild ist fehlgeschlagen",
-    "modelBadgeLatest": "Neueste",
-    "modelBadgePro": "Hochwertige Verfeinerung",
-    "modelBadgeRecommended": "Empfohlen",
     "modelDescMax4k": "Bis zu 4K",
     "moduleHeaderTitle": "Outfit-Gras-Pflanzung",
     "moduleHeaderTooltip": "Lade ein Kleidungs- oder Outfit-Bild hoch und behalte den exakten Look, während echte Lookbook-Inhalte generiert werden: Street, Café, Selfie, Zuhause und mehr.",
@@ -2210,10 +2195,6 @@
     "metaSourceCount": "Quellanzahl",
     "missingFailLabel": "Dieses Bild konnte nicht übersetzt werden",
     "modelAriaLabel": "Generierungs-Model",
-    "modelBadgeNew": "Neu",
-    "modelBadgePro": "Pro-Verfeinerung",
-    "modelBadgeRecommended": "Empfohlen",
-    "modelDescMax4k": "Bis zu 4K",
     "modelMeta": "derzeit {cost} Credits/Bild",
     "modelSectionTitle": "Generierungs-Model",
     "moduleLabel": "Bildübersetzung",
@@ -2528,12 +2509,6 @@
       "resolution": "Auflösung",
       "sourceImage": "Original"
     },
-    "models": {
-      "highQuality": "Hochwertige Retusche",
-      "latest": "Neueste",
-      "max4K": "Bis zu 4K",
-      "recommended": "Empfohlen"
-    },
     "moduleName": "Materialverbesserung",
     "preview": {
       "resultTitlePrefix": "Ergebnis der Materialverbesserung"
@@ -2694,16 +2669,6 @@
     "missingFailureLabel": "Dieses Bild ist fehlgeschlagen",
     "modelStyle": "Model-Stil",
     "modelStyleHint": "Stil beeinflusst nur Make-up, Licht und kommerzielle Stimmung; Multi-Bild-Fusion, Hautton, Knochenstruktur und Gesichtserkennung haben Priorität.",
-    "models": {
-      "badge": {
-        "latest": "Neueste",
-        "premium": "Premium-Retusche",
-        "recommended": "Empfohlen"
-      },
-      "desc": {
-        "4k": "Bis zu 4K"
-      }
-    },
     "moduleLabel": "Model-Generierung",
     "noDefault": "Kein Standard",
     "noGenerationId": "Der Generierungsdienst hat keine Aufgaben-ID zurückgegeben, bitte versuche es später erneut",
@@ -3086,12 +3051,6 @@
     "model": {
       "perImageCredit": "{cost} Credits pro Bild",
       "title": "Generierungs-Model"
-    },
-    "models": {
-      "badgeHighQuality": "Hohe Qualität",
-      "badgeLatest": "Neueste",
-      "badgeRecommended": "Empfohlen",
-      "desc": "Bis zu 4K"
     },
     "moduleName": "Posen-Variation",
     "output": {
@@ -3723,10 +3682,6 @@
       "handwritten": "Handschrift / Kalligrafie",
       "custom": "Benutzerdefiniert"
     },
-    "modelDescMax4k": "Bis zu 4K",
-    "modelBadgeDefault": "Standard",
-    "modelBadgeQuality": "Hohe Qualität",
-    "modelBadgePro": "Pro-Qualität",
     "previewAction": {
       "download": "Bild herunterladen",
       "copy": "Link kopieren",

@@ -1421,10 +1421,6 @@
     "previewProductSet": "Set gambar produk",
     "previewRegenerateAll": "Lagi satu set",
     "previewFeedback": "Umpan balik",
-    "modelBadgeDefault": "Default",
-    "modelBadgeHighQuality": "Kualitas tinggi",
-    "modelBadgeRefined": "Retouch berkualitas tinggi",
-    "modelDesc": "Maksimal 4K",
     "aspectPortrait": "3:4 vertikal",
     "aspectLandscape": "4:3 horizontal",
     "aspectSquare": "1:1 persegi",
@@ -1557,10 +1553,6 @@
     "metaCount": "Jumlah generasi",
     "outputModeReferenceValue": "Kontrol gambar referensi",
     "outputModePromptValue": "Kontrol prompt",
-    "modelBadgeRecommended": "Rekomendasi",
-    "modelBadgeNew": "Terbaru",
-    "modelBadgeRefined": "Retouch berkualitas tinggi",
-    "modelDesc": "Maksimal 4K",
     "refHoodie": "Hoodie abu-abu",
     "refDenim": "Denim 3D",
     "refJacket": "Jaket baseball",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "Buat gambar dari teks",
     "imageToImageEmptySubtitle": "Tetapkan peran pakaian, orang, gaya, atau latar secara jelas untuk gambar 1, 2, 3 agar model membuat gambar baru sesuai relasi.",
     "textToImageEmptySubtitle": "Tulis subjek, skenario, cahaya, dan gaya, atau pakai gambar-ke-prompt dulu untuk deskripsi lebih stabil.",
-    "modelBadgeDefault": "Default",
-    "modelBadgeQuality": "Kualitas tinggi",
-    "modelBadgePro": "Retouch berkualitas tinggi",
-    "modelDescMax4k": "Maksimal 4K",
     "aspect34": "3:4 vertikal",
     "aspect43": "4:3 horizontal",
     "aspect11": "1:1 persegi",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "Gambar seeding pakaian",
     "moduleHeaderTooltip": "Unggah gambar pakaian atau padu padan, pertahankan paduan yang sama, hasilkan konten seeding realistis seperti street style, kafe, selfie, dan suasana rumah.",
     "imageRule": "Aturan gambar",
-    "modelBadgeRecommended": "Rekomendasi",
-    "modelBadgeLatest": "Terbaru",
-    "modelBadgePro": "Retouch berkualitas tinggi",
     "modelDescMax4k": "Maksimal 4K",
     "aspectAuto": "Pintar",
     "aspect45Grass": "4:5 seeding",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "Model generate",
     "modelAriaLabel": "Model generate",
     "modelMeta": "Saat ini {cost} kredit/gambar",
-    "modelBadgeRecommended": "Rekomendasi",
-    "modelBadgeNew": "Terbaru",
-    "modelBadgePro": "Retouch berkualitas tinggi",
-    "modelDescMax4k": "Maksimal 4K",
     "ratioSectionTitle": "Rasio gambar",
     "ratioDefaultLabel": "Default ikuti gambar asli",
     "ratioAutoLabel": "Pintar (rasio gambar asli)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "Unggah gambar akhir asli dan gambar pakaian resolusi tinggi, hanya tingkatkan kualitas bahan, jahitan, aksesori logam, dan detail di area pakaian, pertahankan orang, pose, dan latar tetap."
     },
-    "models": {
-      "recommended": "Rekomendasi",
-      "latest": "Terbaru",
-      "highQuality": "Retouch berkualitas tinggi",
-      "max4K": "Maksimal 4K"
-    },
     "actions": {
       "download": "Unduh gambar",
       "copy": "Salin tautan",
@@ -2612,16 +2587,6 @@
     "referenceImage": "Gambar referensi",
     "referenceTitle": "Gambar referensi model eksklusif",
     "resultTitlePrefix": "Hasil model eksklusif",
-    "models": {
-      "desc": {
-        "4k": "Maksimal 4K"
-      },
-      "badge": {
-        "recommended": "Rekomendasi",
-        "latest": "Terbaru",
-        "premium": "Retouch berkualitas tinggi"
-      }
-    },
     "aspects": {
       "auto": "Pintar",
       "portrait34": "3:4 vertikal",
@@ -3041,12 +3006,6 @@
     "model": {
       "title": "Model generate",
       "perImageCredit": "{cost} kredit per gambar"
-    },
-    "models": {
-      "desc": "Maksimal 4K",
-      "badgeRecommended": "Rekomendasi",
-      "badgeLatest": "Terbaru",
-      "badgeHighQuality": "Retouch berkualitas tinggi"
     },
     "angles": {
       "title": "Generate pose",
@@ -3723,10 +3682,6 @@
       "handwritten": "Tulisan tangan / kaligrafi",
       "custom": "Kustom"
     },
-    "modelDescMax4k": "Hingga 4K",
-    "modelBadgeDefault": "Bawaan",
-    "modelBadgeQuality": "Kualitas tinggi",
-    "modelBadgePro": "Kualitas pro",
     "previewAction": {
       "download": "Unduh gambar",
       "copy": "Salin tautan",

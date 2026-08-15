@@ -1,7 +1,7 @@
 import { Activity, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { MODELS } from "@/features/product-set/create/config";
 import type { ImageSize, LingyaModel } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 
 type GenerationSettingsSummaryProps = {
   aiModel: LingyaModel;
@@ -19,7 +19,8 @@ export function GenerationSettingsSummary({
   onToggle,
 }: GenerationSettingsSummaryProps) {
   const t = useTranslations("ProductSet");
-  const model = MODELS.find((item) => item.value === aiModel);
+  const modelOptions = useStudioImageModelOptions();
+  const model = modelOptions.find((item) => item.value === aiModel);
 
   return (
     <button

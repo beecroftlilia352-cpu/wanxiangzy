@@ -1354,11 +1354,7 @@
     "modeFeature": "Traits uniquement",
     "modeFeatureHairSkin": "Traits + cheveux & peau",
     "modeSectionTitle": "Portée de l'échange",
-    "modelBadgeDefault": "Défaut",
-    "modelBadgeHighQuality": "Haute qualité",
-    "modelBadgeRefined": "Affiné",
     "modelCardLabel": "{gender} {index}",
-    "modelDesc": "Jusqu'à 4K",
     "modelMeta": "{desc} · {cost} crédits actuellement",
     "modelSectionTitle": "Modèle de génération",
     "moduleLabel": "Échange de visage",
@@ -1502,10 +1498,6 @@
     "metaResolution": "Résolution",
     "missingFailureActionLabel": "Réessayer cette image",
     "missingFailureLabel": "Cette image a échoué",
-    "modelBadgeNew": "Nouveau",
-    "modelBadgeRecommended": "Recommandé",
-    "modelBadgeRefined": "Affiné",
-    "modelDesc": "Jusqu'à 4K",
     "modelSectionTitle": "Modèle de génération",
     "moduleLabel": "Vêtement 3D",
     "operationFailed": "Échec de l'opération",
@@ -1642,10 +1634,6 @@
     "modeImageToImage": "Image vers image",
     "modeTextToImage": "Texte vers image",
     "modelAriaLabel": "Choisir le modèle de génération",
-    "modelBadgeDefault": "Défaut",
-    "modelBadgePro": "Affinage pro",
-    "modelBadgeQuality": "Haute qualité",
-    "modelDescMax4k": "Jusqu'à 4K",
     "modelSectionTitle": "Modèle de génération",
     "moduleLabel": "Image créative",
     "needBasicIdea": "Veuillez saisir une idée de base",
@@ -1786,9 +1774,6 @@
     "metaTemplate": "Modèle de référence",
     "missingFailureAction": "Réessayer celle-ci",
     "missingFailureLabel": "Cette image a échoué",
-    "modelBadgeLatest": "Dernier",
-    "modelBadgePro": "Affinage haute qualité",
-    "modelBadgeRecommended": "Recommandé",
     "modelDescMax4k": "Jusqu'à 4K",
     "moduleHeaderTitle": "Plantation de tenues",
     "moduleHeaderTooltip": "Téléversez une image de vêtement ou de tenue et conservez l'apparence exacte en générant un contenu lookbook réaliste : street, café, selfie, à la maison, etc.",
@@ -2210,10 +2195,6 @@
     "metaSourceCount": "Nombre de sources",
     "missingFailLabel": "Cette image n'a pas pu être traduite",
     "modelAriaLabel": "Modèle de génération",
-    "modelBadgeNew": "Nouveau",
-    "modelBadgePro": "Affinage pro",
-    "modelBadgeRecommended": "Recommandé",
-    "modelDescMax4k": "Jusqu'à 4K",
     "modelMeta": "actuellement {cost} crédits/image",
     "modelSectionTitle": "Modèle de génération",
     "moduleLabel": "Traduction d'image",
@@ -2528,12 +2509,6 @@
       "resolution": "Résolution",
       "sourceImage": "Original"
     },
-    "models": {
-      "highQuality": "Retouche haute qualité",
-      "latest": "Dernier",
-      "max4K": "Jusqu'à 4K",
-      "recommended": "Recommandé"
-    },
     "moduleName": "Amélioration de matière",
     "preview": {
       "resultTitlePrefix": "Résultat d'amélioration de matière"
@@ -2694,16 +2669,6 @@
     "missingFailureLabel": "Cette image a échoué",
     "modelStyle": "Style du mannequin",
     "modelStyleHint": "Le style n'affecte que maquillage, éclairage et ambiance commerciale; la fusion multi-images, le teint, la structure osseuse et la reconnaissance faciale priment.",
-    "models": {
-      "badge": {
-        "latest": "Dernier",
-        "premium": "Retouche premium",
-        "recommended": "Recommandé"
-      },
-      "desc": {
-        "4k": "Jusqu'à 4K"
-      }
-    },
     "moduleLabel": "Génération de mannequin",
     "noDefault": "Aucun défaut",
     "noGenerationId": "Le service de génération n'a pas renvoyé d'ID de tâche, veuillez réessayer plus tard",
@@ -3086,12 +3051,6 @@
     "model": {
       "perImageCredit": "{cost} crédits par image",
       "title": "Modèle de génération"
-    },
-    "models": {
-      "badgeHighQuality": "Haute qualité",
-      "badgeLatest": "Dernier",
-      "badgeRecommended": "Recommandé",
-      "desc": "Jusqu'à 4K"
     },
     "moduleName": "Variation de pose",
     "output": {
@@ -3723,10 +3682,6 @@
       "handwritten": "Manuscrite / calligraphie",
       "custom": "Personnalisée"
     },
-    "modelDescMax4k": "Jusqu'à 4K",
-    "modelBadgeDefault": "Défaut",
-    "modelBadgeQuality": "Haute qualité",
-    "modelBadgePro": "Qualité pro",
     "previewAction": {
       "download": "Télécharger l'image",
       "copy": "Copier le lien",

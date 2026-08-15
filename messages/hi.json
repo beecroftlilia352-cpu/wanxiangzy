@@ -1421,10 +1421,6 @@
     "previewProductSet": "प्रोडक्ट सेट",
     "previewRegenerateAll": "फिर बनाएँ",
     "previewFeedback": "फ़ीडबैक",
-    "modelBadgeDefault": "डिफ़ॉल्ट",
-    "modelBadgeHighQuality": "हाई क्वालिटी",
-    "modelBadgeRefined": "रिफ़ाइन्ड",
-    "modelDesc": "4K तक",
     "aspectPortrait": "3:4 पोर्ट्रेट",
     "aspectLandscape": "4:3 लैंडस्केप",
     "aspectSquare": "1:1 स्क्वायर",
@@ -1557,10 +1553,6 @@
     "metaCount": "जेनरेशन संख्या",
     "outputModeReferenceValue": "रेफ़रेंस कंट्रोल",
     "outputModePromptValue": "प्रॉम्प्ट कंट्रोल",
-    "modelBadgeRecommended": "अनुशंसित",
-    "modelBadgeNew": "नया",
-    "modelBadgeRefined": "रिफ़ाइन्ड",
-    "modelDesc": "4K तक",
     "refHoodie": "ग्रे हुडी",
     "refDenim": "3D डेनिम",
     "refJacket": "बेसबॉल जैकेट",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "टेक्स्ट से इमेज बनाएँ",
     "imageToImageEmptySubtitle": "इमेज 1, 2 और 3 को गारमेंट, सब्जेक्ट, स्टाइल या बैकग्राउंड भूमिकाएँ दें ताकि मॉडल उनके संबंधों से नई इमेज बनाए।",
     "textToImageEmptySubtitle": "सब्जेक्ट, सीन, लाइटिंग और स्टाइल लिखें—या अधिक स्थिर डिस्क्रिप्शन के लिए पहले इमेज को प्रॉम्प्ट में बदलें।",
-    "modelBadgeDefault": "डिफ़ॉल्ट",
-    "modelBadgeQuality": "हाई क्वालिटी",
-    "modelBadgePro": "प्रो रिफ़ाइन",
-    "modelDescMax4k": "4K तक",
     "aspect34": "3:4 पोर्ट्रेट",
     "aspect43": "4:3 लैंडस्केप",
     "aspect11": "1:1 स्क्वायर",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "आउटफिट ग्रास प्लांटिंग",
     "moduleHeaderTooltip": "गारमेंट या आउटफिट इमेज अपलोड करें और एक्ज़ैक्ट लुक बनाए रखते हुए रियल लुकबुक-स्टाइल कंटेंट जेनरेट करें: स्ट्रीट स्नैप्स, कैफ़े, सेल्फ़ी, एट-होम और अधिक।",
     "imageRule": "इमेज नियम",
-    "modelBadgeRecommended": "अनुशंसित",
-    "modelBadgeLatest": "नवीनतम",
-    "modelBadgePro": "हाई-क्वालिटी रिफ़ाइन",
     "modelDescMax4k": "4K तक",
     "aspectAuto": "ऑटो",
     "aspect45Grass": "4:5 ग्रास",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "जेनरेशन मॉडल",
     "modelAriaLabel": "जेनरेशन मॉडल",
     "modelMeta": "वर्तमान {cost} क्रेडिट/इमेज",
-    "modelBadgeRecommended": "अनुशंसित",
-    "modelBadgeNew": "नया",
-    "modelBadgePro": "प्रो रिफ़ाइन",
-    "modelDescMax4k": "4K तक",
     "ratioSectionTitle": "आस्पेक्ट रेशियो",
     "ratioDefaultLabel": "सोर्स फॉलो करता है",
     "ratioAutoLabel": "ऑटो (सोर्स रेशियो)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "फाइनल आउटपुट और हाई-रेस गारमेंट इमेज अपलोड करें; केवल गारमेंट एरिया की फ़ैब्रिक, स्टिचिंग, हार्डवेयर और डिटेल बेहतर होती है, जबकि पर्सन, पोज़ और बैकग्राउंड अपरिवर्तित रहते हैं।"
     },
-    "models": {
-      "recommended": "अनुशंसित",
-      "latest": "नवीनतम",
-      "highQuality": "हाई-क्वालिटी रीटच",
-      "max4K": "4K तक"
-    },
     "actions": {
       "download": "इमेज डाउनलोड",
       "copy": "लिंक कॉपी",
@@ -2612,16 +2587,6 @@
     "referenceImage": "रेफ़रेंस इमेज",
     "referenceTitle": "एक्सक्लूसिव मॉडल रेफ़रेंस",
     "resultTitlePrefix": "एक्सक्लूसिव मॉडल रिज़ल्ट",
-    "models": {
-      "desc": {
-        "4k": "4K तक"
-      },
-      "badge": {
-        "recommended": "अनुशंसित",
-        "latest": "नवीनतम",
-        "premium": "प्रीमियम रीटच"
-      }
-    },
     "aspects": {
       "auto": "ऑटो",
       "portrait34": "3:4 पोर्ट्रेट",
@@ -3041,12 +3006,6 @@
     "model": {
       "title": "जेनरेशन मॉडल",
       "perImageCredit": "{cost} क्रेडिट प्रति इमेज"
-    },
-    "models": {
-      "desc": "4K तक",
-      "badgeRecommended": "अनुशंसित",
-      "badgeLatest": "नवीनतम",
-      "badgeHighQuality": "हाई-क्वालिटी"
     },
     "angles": {
       "title": "पोज़ जेनरेट करें",
@@ -3723,10 +3682,6 @@
       "handwritten": "हस्तलेखन / सुलेख",
       "custom": "कस्टम"
     },
-    "modelDescMax4k": "4K तक",
-    "modelBadgeDefault": "डिफ़ॉल्ट",
-    "modelBadgeQuality": "उच्च गुणवत्ता",
-    "modelBadgePro": "प्रो गुणवत्ता",
     "previewAction": {
       "download": "छवि डाउनलोड करें",
       "copy": "लिंक कॉपी करें",

@@ -1335,12 +1335,6 @@
     "header": {
       "tooltip": "Качете оригиналното изображение на крайния резултат и висококачествено изображение на дрехата; подобряват се само тъканите, шевовете, обковите и детайлите в зоната на дрехите, без промяна на човека, позата и фона."
     },
-    "models": {
-      "recommended": "Препоръчано",
-      "latest": "Най-ново",
-      "highQuality": "Висококачествен ретуш",
-      "max4K": "До 4K"
-    },
     "actions": {
       "download": "Изтегли изображението",
       "copy": "Копирай линка",
@@ -1626,16 +1620,6 @@
     "referenceImage": "Референтно изображение",
     "referenceTitle": "Референтно изображение за персонален модел",
     "resultTitlePrefix": "Резултат за персонален модел",
-    "models": {
-      "desc": {
-        "4k": "До 4K"
-      },
-      "badge": {
-        "recommended": "Препоръчано",
-        "latest": "Най-ново",
-        "premium": "Висококачествен ретуш"
-      }
-    },
     "aspects": {
       "auto": "Интелигентно",
       "portrait34": "3:4 вертикално",
@@ -1895,10 +1879,6 @@
     "previewProductSet": "Комплект продуктови изображения",
     "previewRegenerateAll": "Нов комплект",
     "previewFeedback": "Обратна връзка",
-    "modelBadgeDefault": "По подразбиране",
-    "modelBadgeHighQuality": "Високо качество",
-    "modelBadgeRefined": "Висококачествен ретуш",
-    "modelDesc": "До 4K",
     "aspectPortrait": "3:4 вертикално",
     "aspectLandscape": "4:3 хоризонтално",
     "aspectSquare": "1:1 квадратно",
@@ -2031,10 +2011,6 @@
     "metaCount": "Брой генерирания",
     "outputModeReferenceValue": "Контрол чрез референция",
     "outputModePromptValue": "Контрол чрез промпт",
-    "modelBadgeRecommended": "Препоръчано",
-    "modelBadgeNew": "Най-ново",
-    "modelBadgeRefined": "Висококачествен ретуш",
-    "modelDesc": "До 4K",
     "refHoodie": "Сиво суитчърт с качулка",
     "refDenim": "Обемен деним",
     "refJacket": "Бейзболно яке",
@@ -2402,10 +2378,6 @@
     "modelSectionTitle": "Генериращ модел",
     "modelAriaLabel": "Генериращ модел",
     "modelMeta": "Текущо {cost} кредита/изображение",
-    "modelBadgeRecommended": "Препоръчано",
-    "modelBadgeNew": "Най-ново",
-    "modelBadgePro": "Висококачествен ретуш",
-    "modelDescMax4k": "До 4K",
     "ratioSectionTitle": "Съотношение на изображението",
     "ratioDefaultLabel": "По подразбиране следва оригинала",
     "ratioAutoLabel": "Интелигентно (съотношение на оригинала)",
@@ -2454,10 +2426,6 @@
     "textToImageEmptyTitle": "Създаване на изображение от текст",
     "imageToImageEmptySubtitle": "Разпределете ролите на дрехи, човек, стил или фон ясно за изображение 1, 2 и 3, за да генерира моделът ново изображение според връзките.",
     "textToImageEmptySubtitle": "Опишете обекта, сцената, светлината и стила, или използвайте изображение в промпт за по-стабилно описание.",
-    "modelBadgeDefault": "По подразбиране",
-    "modelBadgeQuality": "Високо качество",
-    "modelBadgePro": "Висококачествен ретуш",
-    "modelDescMax4k": "До 4K",
     "aspect34": "3:4 вертикално",
     "aspect43": "4:3 хоризонтално",
     "aspect11": "1:1 квадратно",
@@ -2601,9 +2569,6 @@
     "moduleHeaderTitle": "Препоръчани снимки на дрехи",
     "moduleHeaderTooltip": "Качете изображение на дреха или тоалет; запазва същия тоалет и генерира реалистични препоръчани снимки — улица, кафене, селфи, у дома.",
     "imageRule": "Правила за изображението",
-    "modelBadgeRecommended": "Препоръчано",
-    "modelBadgeLatest": "Най-ново",
-    "modelBadgePro": "Висококачествен ретуш",
     "modelDescMax4k": "До 4K",
     "aspectAuto": "Интелигентно",
     "aspect45Grass": "4:5 препоръка",
@@ -3186,10 +3151,6 @@
       "handwritten": "Ръкописен / калиграфия",
       "custom": "Персонализиран"
     },
-    "modelDescMax4k": "До 4K",
-    "modelBadgeDefault": "По подразбиране",
-    "modelBadgeQuality": "Високо качество",
-    "modelBadgePro": "Pro качество",
     "previewAction": {
       "download": "Изтегли изображение",
       "copy": "Копирай линк",
@@ -4327,12 +4288,6 @@
     "model": {
       "title": "Генериращ модел",
       "perImageCredit": "На изображение {cost} кредита"
-    },
-    "models": {
-      "desc": "До 4K",
-      "badgeRecommended": "Препоръчано",
-      "badgeLatest": "Най-ново",
-      "badgeHighQuality": "Висококачествен ретуш"
     },
     "angles": {
       "title": "Генерирани пози",

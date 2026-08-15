@@ -1421,10 +1421,6 @@
     "previewProductSet": "Ürün seti",
     "previewRegenerateAll": "Yeniden üret",
     "previewFeedback": "Geri bildirim",
-    "modelBadgeDefault": "Varsayılan",
-    "modelBadgeHighQuality": "Yüksek kalite",
-    "modelBadgeRefined": "Rafine",
-    "modelDesc": "4K'ya kadar",
     "aspectPortrait": "3:4 dikey",
     "aspectLandscape": "4:3 yatay",
     "aspectSquare": "1:1 kare",
@@ -1557,10 +1553,6 @@
     "metaCount": "Üretim adedi",
     "outputModeReferenceValue": "Referans kontrolü",
     "outputModePromptValue": "Komut kontrolü",
-    "modelBadgeRecommended": "Önerilen",
-    "modelBadgeNew": "Yeni",
-    "modelBadgeRefined": "Rafine",
-    "modelDesc": "4K'ya kadar",
     "refHoodie": "Gri kapüşonlu",
     "refDenim": "3D kot",
     "refJacket": "Beyzbol ceketi",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "Metinden görsel oluşturun",
     "imageToImageEmptySubtitle": "Modelin ilişkilerinden yeni görsel oluşturması için görsel 1, 2 ve 3'e giysi, konu, stil veya arka plan rolleri atayın.",
     "textToImageEmptySubtitle": "Konuyu, sahneyi, ışıklandırmayı ve stili yazın—veya daha sabit bir açıklama için önce görseli komuta dönüştürün.",
-    "modelBadgeDefault": "Varsayılan",
-    "modelBadgeQuality": "Yüksek kalite",
-    "modelBadgePro": "Pro rafine",
-    "modelDescMax4k": "4K'ya kadar",
     "aspect34": "3:4 Dikey",
     "aspect43": "4:3 Yatay",
     "aspect11": "1:1 Kare",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "Kombin Grass İçeriği",
     "moduleHeaderTooltip": "Bir giysi veya kombin görseli yükleyip tam görünümü koruyarak gerçek lookbook tarzı içerik üretin: sokak çekimleri, kafe, özçekim, ev ortamı ve daha fazlası.",
     "imageRule": "Görsel kuralları",
-    "modelBadgeRecommended": "Önerilen",
-    "modelBadgeLatest": "Güncel",
-    "modelBadgePro": "Yüksek kaliteli rafine",
     "modelDescMax4k": "4K'ya kadar",
     "aspectAuto": "Otomatik",
     "aspect45Grass": "4:5 Grass",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "Üretim modeli",
     "modelAriaLabel": "Üretim modeli",
     "modelMeta": "mevcut {cost} kredi/görsel",
-    "modelBadgeRecommended": "Önerilen",
-    "modelBadgeNew": "Yeni",
-    "modelBadgePro": "Pro rafine",
-    "modelDescMax4k": "4K'ya kadar",
     "ratioSectionTitle": "En-boy oranı",
     "ratioDefaultLabel": "Kaynağı izler",
     "ratioAutoLabel": "Otomatik (kaynak oranı)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "Nihai bir çıktı ve yüksek çözünürlüklü bir giysi görseli yükleyin; yalnızca giysi bölgesinin kumaşı, dikişi, aksamı ve detayı iyileştirilir, kişi, poz ve arka plan değişmez."
     },
-    "models": {
-      "recommended": "Önerilen",
-      "latest": "Güncel",
-      "highQuality": "Yüksek kaliteli rötuş",
-      "max4K": "4K'ya kadar"
-    },
     "actions": {
       "download": "Görseli indir",
       "copy": "Bağlantıyı kopyala",
@@ -2612,16 +2587,6 @@
     "referenceImage": "Referans görsel",
     "referenceTitle": "Özel model referansı",
     "resultTitlePrefix": "Özel model sonucu",
-    "models": {
-      "desc": {
-        "4k": "4K'ya kadar"
-      },
-      "badge": {
-        "recommended": "Önerilen",
-        "latest": "Güncel",
-        "premium": "Premium rötuş"
-      }
-    },
     "aspects": {
       "auto": "Otomatik",
       "portrait34": "3:4 Dikey",
@@ -3041,12 +3006,6 @@
     "model": {
       "title": "Üretim modeli",
       "perImageCredit": "{cost} kredi/görsel"
-    },
-    "models": {
-      "desc": "4K'ya kadar",
-      "badgeRecommended": "Önerilen",
-      "badgeLatest": "Güncel",
-      "badgeHighQuality": "Yüksek kalite"
     },
     "angles": {
       "title": "Pozları üret",
@@ -3723,10 +3682,6 @@
       "handwritten": "El yazısı / kaligrafi",
       "custom": "Özel"
     },
-    "modelDescMax4k": "4K'ya kadar",
-    "modelBadgeDefault": "Varsayılan",
-    "modelBadgeQuality": "Yüksek kalite",
-    "modelBadgePro": "Pro kalite",
     "previewAction": {
       "download": "Görseli indir",
       "copy": "Bağlantıyı kopyala",

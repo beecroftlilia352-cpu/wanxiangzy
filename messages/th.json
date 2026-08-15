@@ -1335,12 +1335,6 @@
     "header": {
       "tooltip": "อัปโหลดภาพต้นฉบับของภาพสุดท้ายและภาพเสื้อผ้าความละเอียดสูง เพิ่มเฉพาะเนื้อผ้า ตะเข็บ ฮาร์ดแวร์ และรายละเอียดของบริเวณเสื้อผ้า โดยคงคน ท่าทาง และพื้นหลังเดิม"
     },
-    "models": {
-      "recommended": "แนะนำ",
-      "latest": "ล่าสุด",
-      "highQuality": "รีทัชคุณภาพสูง",
-      "max4K": "สูงสุด 4K"
-    },
     "actions": {
       "download": "ดาวน์โหลดภาพ",
       "copy": "คัดลอกลิงก์",
@@ -1626,16 +1620,6 @@
     "referenceImage": "ภาพอ้างอิง",
     "referenceTitle": "ภาพอ้างอิงโมเดลเฉพาะตัว",
     "resultTitlePrefix": "ผลลัพธ์โมเดลเฉพาะตัว",
-    "models": {
-      "desc": {
-        "4k": "สูงสุด 4K"
-      },
-      "badge": {
-        "recommended": "แนะนำ",
-        "latest": "ล่าสุด",
-        "premium": "รีทัชคุณภาพสูง"
-      }
-    },
     "aspects": {
       "auto": "อัจฉริยะ",
       "portrait34": "3:4 แนวตั้ง",
@@ -1895,10 +1879,6 @@
     "previewProductSet": "ชุดภาพสินค้า",
     "previewRegenerateAll": "สร้างชุดใหม่",
     "previewFeedback": "ติชม",
-    "modelBadgeDefault": "ค่าเริ่มต้น",
-    "modelBadgeHighQuality": "คุณภาพสูง",
-    "modelBadgeRefined": "รีทัชคุณภาพสูง",
-    "modelDesc": "สูงสุด 4K",
     "aspectPortrait": "3:4 แนวตั้ง",
     "aspectLandscape": "4:3 แนวนอน",
     "aspectSquare": "1:1 จัตุรัส",
@@ -2031,10 +2011,6 @@
     "metaCount": "จำนวนรูปที่สร้าง",
     "outputModeReferenceValue": "ควบคุมด้วยภาพอ้างอิง",
     "outputModePromptValue": "ควบคุมด้วยพรอมต์",
-    "modelBadgeRecommended": "แนะนำ",
-    "modelBadgeNew": "ล่าสุด",
-    "modelBadgeRefined": "รีทัชคุณภาพสูง",
-    "modelDesc": "สูงสุด 4K",
     "refHoodie": "ฮู้ดสีเทา",
     "refDenim": "เดนิมสามมิติ",
     "refJacket": "แจ็กเก็ตเบสบอล",
@@ -2402,10 +2378,6 @@
     "modelSectionTitle": "โมเดลสร้างภาพ",
     "modelAriaLabel": "โมเดลสร้างภาพ",
     "modelMeta": "ปัจจุบัน {cost} เครดิต/ภาพ",
-    "modelBadgeRecommended": "แนะนำ",
-    "modelBadgeNew": "ล่าสุด",
-    "modelBadgePro": "รีทัชคุณภาพสูง",
-    "modelDescMax4k": "สูงสุด 4K",
     "ratioSectionTitle": "สัดส่วนภาพ",
     "ratioDefaultLabel": "ค่าเริ่มต้นตามภาพต้นฉบับ",
     "ratioAutoLabel": "อัจฉริยะ (สัดส่วนตามภาพต้นฉบับ)",
@@ -2454,10 +2426,6 @@
     "textToImageEmptyTitle": "สร้างภาพจากข้อความ",
     "imageToImageEmptySubtitle": "กำหนดบทบาทเสื้อผ้า คน สไตล์ หรือพื้นหลังตามภาพ 1 ภาพ 2 ภาพ 3 ให้ชัดเจน ให้โมเดลสร้างภาพใหม่ตามความสัมพันธ์",
     "textToImageEmptySubtitle": "เขียนตัวหลัก ฉาก แสง และสไตล์ หรือใช้ภาพเป็นพรอมต์ละเพื่อได้คำอธิบายที่เสถียรกว่า",
-    "modelBadgeDefault": "ค่าเริ่มต้น",
-    "modelBadgeQuality": "คุณภาพสูง",
-    "modelBadgePro": "รีทัชคุณภาพสูง",
-    "modelDescMax4k": "สูงสุด 4K",
     "aspect34": "3:4 แนวตั้ง",
     "aspect43": "4:3 แนวนอน",
     "aspect11": "1:1 จัตุรัส",
@@ -2601,9 +2569,6 @@
     "moduleHeaderTitle": "ภาพแนะนำสินค้า เสื้อผ้า",
     "moduleHeaderTooltip": "อัปโหลดภาพเสื้อผ้าหรือชุดแต่งตัว คงชุดเดิมไว้ สร้างภาพแนะนำสินค้า จริง เช่น ภาพสตรีท คาเฟ่ เซลฟี อยู่บ้าน",
     "imageRule": "กติการูปภาพ",
-    "modelBadgeRecommended": "แนะนำ",
-    "modelBadgeLatest": "ล่าสุด",
-    "modelBadgePro": "รีทัชคุณภาพสูง",
     "modelDescMax4k": "สูงสุด 4K",
     "aspectAuto": "อัจฉริยะ",
     "aspect45Grass": "4:5 แนะนำสินค้า",
@@ -3186,10 +3151,6 @@
       "handwritten": "เขียนมือ / อักษรวิจิตร",
       "custom": "กำหนดเอง"
     },
-    "modelDescMax4k": "สูงสุด 4K",
-    "modelBadgeDefault": "ค่าเริ่มต้น",
-    "modelBadgeQuality": "คุณภาพสูง",
-    "modelBadgePro": "คุณภาพโปร",
     "previewAction": {
       "download": "ดาวน์โหลดภาพ",
       "copy": "คัดลอกลิงก์",
@@ -4327,12 +4288,6 @@
     "model": {
       "title": "โมเดลสร้างภาพ",
       "perImageCredit": "ต่อภาพ{cost}เครดิต"
-    },
-    "models": {
-      "desc": "สูงสุด 4K",
-      "badgeRecommended": "แนะนำ",
-      "badgeLatest": "ล่าสุด",
-      "badgeHighQuality": "รีทัชคุณภาพสูง"
     },
     "angles": {
       "title": "ท่าทางที่สร้าง",

@@ -1421,10 +1421,6 @@
     "previewProductSet": "Serie prodotto",
     "previewRegenerateAll": "Genera di nuovo",
     "previewFeedback": "Feedback",
-    "modelBadgeDefault": "Predefinito",
-    "modelBadgeHighQuality": "Alta qualità",
-    "modelBadgeRefined": "Rifinito",
-    "modelDesc": "Fino a 4K",
     "aspectPortrait": "3:4 verticale",
     "aspectLandscape": "4:3 orizzontale",
     "aspectSquare": "1:1 quadrato",
@@ -1557,10 +1553,6 @@
     "metaCount": "Quantità di generazione",
     "outputModeReferenceValue": "Controllo da riferimento",
     "outputModePromptValue": "Controllo da prompt",
-    "modelBadgeRecommended": "Consigliato",
-    "modelBadgeNew": "Nuovo",
-    "modelBadgeRefined": "Rifinito",
-    "modelDesc": "Fino a 4K",
     "refHoodie": "Felpa grigia",
     "refDenim": "Denim 3D",
     "refJacket": "Giacca da baseball",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "Crea un'immagine da testo",
     "imageToImageEmptySubtitle": "Assegna i ruoli di capo, soggetto, stile o sfondo alle immagini 1, 2 e 3 affinché il modello componga una nuova immagine dalle loro relazioni.",
     "textToImageEmptySubtitle": "Scrivi soggetto, scena, illuminazione e stile—oppure converti prima un'immagine in prompt per una descrizione più stabile.",
-    "modelBadgeDefault": "Predefinito",
-    "modelBadgeQuality": "Alta qualità",
-    "modelBadgePro": "Rifinitura pro",
-    "modelDescMax4k": "Fino a 4K",
     "aspect34": "3:4 Verticale",
     "aspect43": "4:3 Orizzontale",
     "aspect11": "1:1 Quadrato",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "Immagini promozionali dell'outfit",
     "moduleHeaderTooltip": "Carica un'immagine del capo o dell'outfit e mantieni l'esatto look mentre generi contenuti promozionali realistici: scatti di strada, caffetteria, selfie, a casa e altro.",
     "imageRule": "Regole immagine",
-    "modelBadgeRecommended": "Consigliato",
-    "modelBadgeLatest": "Ultimo",
-    "modelBadgePro": "Rifinitura di alta qualità",
     "modelDescMax4k": "Fino a 4K",
     "aspectAuto": "Auto",
     "aspect45Grass": "4:5 Promozionale",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "Modello di generazione",
     "modelAriaLabel": "Modello di generazione",
     "modelMeta": "attualmente {cost} crediti/immagine",
-    "modelBadgeRecommended": "Consigliato",
-    "modelBadgeNew": "Nuovo",
-    "modelBadgePro": "Rifinitura pro",
-    "modelDescMax4k": "Fino a 4K",
     "ratioSectionTitle": "Proporzioni",
     "ratioDefaultLabel": "Segue la sorgente",
     "ratioAutoLabel": "Auto (proporzioni sorgente)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "Carica un output finale e un'immagine del capo ad alta risoluzione; solo tessuto, cuciture, hardware e dettagli dell'area del capo vengono migliorati, mentre persona, posa e sfondo restano invariati."
     },
-    "models": {
-      "recommended": "Consigliato",
-      "latest": "Ultimo",
-      "highQuality": "Ritocco di alta qualità",
-      "max4K": "Fino a 4K"
-    },
     "actions": {
       "download": "Scarica immagine",
       "copy": "Copia link",
@@ -2612,16 +2587,6 @@
     "referenceImage": "Immagine di riferimento",
     "referenceTitle": "Riferimento modella esclusiva",
     "resultTitlePrefix": "Risultato modella esclusiva",
-    "models": {
-      "desc": {
-        "4k": "Fino a 4K"
-      },
-      "badge": {
-        "recommended": "Consigliato",
-        "latest": "Ultimo",
-        "premium": "Ritocco premium"
-      }
-    },
     "aspects": {
       "auto": "Auto",
       "portrait34": "3:4 Verticale",
@@ -3358,10 +3323,6 @@
       "handwritten": "Scritto a mano / calligrafia",
       "custom": "Personalizzato"
     },
-    "modelDescMax4k": "Fino a 4K",
-    "modelBadgeDefault": "Predefinito",
-    "modelBadgeQuality": "Alta qualità",
-    "modelBadgePro": "Qualità pro",
     "previewAction": {
       "download": "Scarica immagine",
       "copy": "Copia link",
@@ -3814,12 +3775,6 @@
     "model": {
       "title": "Modello di generazione",
       "perImageCredit": "{cost} crediti per immagine"
-    },
-    "models": {
-      "desc": "Fino a 4K",
-      "badgeRecommended": "Consigliato",
-      "badgeLatest": "Ultimo",
-      "badgeHighQuality": "Alta qualità"
     },
     "angles": {
       "title": "Genera pose",

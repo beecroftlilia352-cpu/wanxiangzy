@@ -48,6 +48,7 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import {
   fetchHistoryApplyDetail,
   getHistoryApplyFailureMessage,
@@ -86,12 +87,6 @@ type ImageTranslationGenerateOptions = {
   retryResultIndex?: number;
   toastMessage?: string;
 };
-
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string; labelKey?: string; descKey?: string; badgeKey?: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高 4K", descKey: "modelDescMax4k", badge: "推荐", badgeKey: "modelBadgeRecommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高 4K", descKey: "modelDescMax4k", badge: "最新", badgeKey: "modelBadgeNew", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高 4K", descKey: "modelDescMax4k", badge: "高质精修", badgeKey: "modelBadgePro", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
 
 const DEFAULT_ASPECT_RATIO: AspectRatio = "auto";
 
@@ -154,6 +149,7 @@ export default function ImageTranslationPage() {
   const [exampleResources, setExampleResources] = useState<ImageTranslationExampleConfig>([]);
   const [userPrompt, setUserPrompt] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(DEFAULT_ASPECT_RATIO);
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -815,14 +811,7 @@ export default function ImageTranslationPage() {
               {t("modelSectionTitle")}
             </h3>
             <StudioModelSelector
-              models={MODELS.map((model) => {
-                const { descKey, badgeKey, ...rest } = model;
-                return {
-                  ...rest,
-                  desc: descKey ? t(descKey) : model.desc,
-                  badge: model.badge ? (badgeKey ? t(badgeKey) : model.badge) : undefined,
-                };
-              })}
+              models={modelOptions}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("modelAriaLabel")}

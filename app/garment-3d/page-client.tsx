@@ -26,6 +26,7 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
@@ -59,12 +60,6 @@ type Garment3dGenerateOptions = {
 const DEFAULT_PROMPT = "衣服变为类似穿在人身上的立体效果，微微向左旋转，保留原始版型、面料厚度、纹理和所有细节，使用干净白色或浅灰棚拍背景。";
 const GARMENT_3D_QUALITY =
   "photorealistic, 8K ultra-detailed, RAW photo quality, high contrast, commercial e-commerce catalog quality, sharp fabric details";
-
-const MODELS: { value: LingyaModel; label: string; desc: string; descKey: string; badgeKey: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeRecommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeNew", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeRefined", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
 
 const SITE_ASSET_BASE = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original";
 
@@ -130,6 +125,7 @@ export default function Garment3dPage() {
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<Extract<AspectRatio, "auto" | "1:1" | "3:4">>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -876,7 +872,7 @@ export default function Garment3dPage() {
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("modelSectionTitle")}</h3>
             <StudioModelSelector
-              models={MODELS.map((m) => ({ value: m.value, label: m.label, desc: t(m.descKey), badge: t(m.badgeKey), icon: m.icon }))}
+              models={modelOptions}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("modelSectionTitle")}

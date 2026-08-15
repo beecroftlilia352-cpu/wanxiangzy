@@ -1421,10 +1421,6 @@
     "previewProductSet": "Bộ ảnh sản phẩm",
     "previewRegenerateAll": "Tạo bộ khác",
     "previewFeedback": "Góp ý",
-    "modelBadgeDefault": "Mặc định",
-    "modelBadgeHighQuality": "Chất lượng cao",
-    "modelBadgeRefined": "Tinh chỉnh chất lượng cao",
-    "modelDesc": "Tối đa 4K",
     "aspectPortrait": "3:4 dọc",
     "aspectLandscape": "4:3 ngang",
     "aspectSquare": "1:1 vuông",
@@ -1557,10 +1553,6 @@
     "metaCount": "Số lượng tạo",
     "outputModeReferenceValue": "Điều khiển bởi ảnh tham chiếu",
     "outputModePromptValue": "Điều khiển bởi prompt",
-    "modelBadgeRecommended": "Đề xuất",
-    "modelBadgeNew": "Mới nhất",
-    "modelBadgeRefined": "Tinh chỉnh chất lượng cao",
-    "modelDesc": "Tối đa 4K",
     "refHoodie": "Hoodie xám",
     "refDenim": "Denim 3D",
     "refJacket": "Áo khoác bóng chày",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "Tạo ảnh từ văn bản",
     "imageToImageEmptySubtitle": "Phân vai trò trang phục, người, phong cách hoặc nền cho ảnh 1, 2, 3 để mô hình tạo ảnh mới theo quan hệ.",
     "textToImageEmptySubtitle": "Viết chủ thể, bối cảnh, ánh sáng và phong cách, hoặc dùng ảnh sang prompt trước cho mô tả ổn định hơn.",
-    "modelBadgeDefault": "Mặc định",
-    "modelBadgeQuality": "Chất lượng cao",
-    "modelBadgePro": "Tinh chỉnh chất lượng cao",
-    "modelDescMax4k": "Tối đa 4K",
     "aspect34": "3:4 dọc",
     "aspect43": "4:3 ngang",
     "aspect11": "1:1 vuông",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "Ảnh gợi mua trang phục",
     "moduleHeaderTooltip": "Tải ảnh trang phục hoặc phối đồ lên, giữ nguyên bộ đồ, tạo nội dung gợi mua chân thực như đường phố, quán cà phê, selfie, tại nhà.",
     "imageRule": "Quy tắc ảnh",
-    "modelBadgeRecommended": "Đề xuất",
-    "modelBadgeLatest": "Mới nhất",
-    "modelBadgePro": "Tinh chỉnh chất lượng cao",
     "modelDescMax4k": "Tối đa 4K",
     "aspectAuto": "Thông minh",
     "aspect45Grass": "4:5 gợi mua",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "Mô hình tạo ảnh",
     "modelAriaLabel": "Mô hình tạo ảnh",
     "modelMeta": "Hiện {cost} Credit/ảnh",
-    "modelBadgeRecommended": "Đề xuất",
-    "modelBadgeNew": "Mới nhất",
-    "modelBadgePro": "Tinh chỉnh chất lượng cao",
-    "modelDescMax4k": "Tối đa 4K",
     "ratioSectionTitle": "Tỷ lệ ảnh",
     "ratioDefaultLabel": "Mặc định theo ảnh gốc",
     "ratioAutoLabel": "Thông minh (tỷ lệ ảnh gốc)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "Tải ảnh gốc thành phẩm và ảnh trang phục độ phân giải cao, chỉ tăng cường chất lượng vải, đường may, phụ kiện kim loại và chi tiết ở vùng trang phục, giữ nguyên người, tư thế và nền."
     },
-    "models": {
-      "recommended": "Đề xuất",
-      "latest": "Mới nhất",
-      "highQuality": "Tinh chỉnh chất lượng cao",
-      "max4K": "Tối đa 4K"
-    },
     "actions": {
       "download": "Tải ảnh",
       "copy": "Sao chép liên kết",
@@ -2612,16 +2587,6 @@
     "referenceImage": "Ảnh tham chiếu",
     "referenceTitle": "Ảnh tham chiếu người mẫu độc quyền",
     "resultTitlePrefix": "Kết quả người mẫu độc quyền",
-    "models": {
-      "desc": {
-        "4k": "Tối đa 4K"
-      },
-      "badge": {
-        "recommended": "Đề xuất",
-        "latest": "Mới nhất",
-        "premium": "Tinh chỉnh chất lượng cao"
-      }
-    },
     "aspects": {
       "auto": "Thông minh",
       "portrait34": "3:4 dọc",
@@ -3041,12 +3006,6 @@
     "model": {
       "title": "Mô hình tạo ảnh",
       "perImageCredit": "{cost} Credit mỗi ảnh"
-    },
-    "models": {
-      "desc": "Tối đa 4K",
-      "badgeRecommended": "Đề xuất",
-      "badgeLatest": "Mới nhất",
-      "badgeHighQuality": "Tinh chỉnh chất lượng cao"
     },
     "angles": {
       "title": "Tạo tư thế",
@@ -3723,10 +3682,6 @@
       "handwritten": "Viết tay / thư pháp",
       "custom": "Tùy chỉnh"
     },
-    "modelDescMax4k": "Lên đến 4K",
-    "modelBadgeDefault": "Mặc định",
-    "modelBadgeQuality": "Chất lượng cao",
-    "modelBadgePro": "Chất lượng pro",
     "previewAction": {
       "download": "Tải ảnh",
       "copy": "Sao chép liên kết",

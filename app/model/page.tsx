@@ -25,7 +25,7 @@ import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreview
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE_MB, isLikelyImageFile, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { modelOptionName, selectableModelsByCapability, useConfigStore } from "@/stores/use-config-store";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
@@ -55,20 +55,6 @@ type ModelGenerateOptions = {
   retryResultIndex?: number;
   toastMessage?: string;
 };
-
-// 模型策展元数据（品牌名/卖点/徽标/图标）。可选列表由 channel 配置推导
-// （selectableModelsByCapability），与全局 ModelPicker/后台配置保持一致，
-// 避免新增/下架模型时页面列表漂移；可见性仍由服务端 /api/model-catalog 过滤。
-const MODEL_META: Record<
-  LingyaModel,
-  { label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }
-> = {
-  "nano-banana-2": { label: "Nano-Banana-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "推荐", badgeKey: "Model.models.badge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  "gpt-image-2": { label: "GPT-Image-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "最新", badgeKey: "Model.models.badge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  "nano-banana-pro": { label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "高质精修", badgeKey: "Model.models.badge.premium", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-};
-
-const ALL_CURATED_MODELS = Object.keys(MODEL_META) as LingyaModel[];
 
 type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
 
@@ -118,7 +104,6 @@ const HAIR_COLORS = [
 export default function ModelPage() {
   const t = useTranslations("Model");
   // descKey/badgeKey 为根相对全路径（StudioModelSelector 内部用根 t 解析），这里同样用根翻译器
-  const tRoot = useTranslations();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hairInputRef = useRef<HTMLInputElement>(null);
@@ -152,16 +137,8 @@ export default function ModelPage() {
   const [hairReferenceUrl, setHairReferenceUrl] = useState<string | null>(null);
   const [hairColorReferenceUrl, setHairColorReferenceUrl] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  // 可选模型列表由 channel 配置推导，元数据来自 MODEL_META 策展表；
-  // 配置缺失/未加载时兜底展示全部策展模型。
-  const config = useConfigStore((state) => state.config);
-  const modelOptions = useMemo(() => {
-    const known = selectableModelsByCapability(config, "image")
-      .map(modelOptionName)
-      .filter((name): name is LingyaModel => Object.hasOwn(MODEL_META, name));
-    const values = ALL_CURATED_MODELS.filter((name) => known.includes(name));
-    return (values.length ? values : ALL_CURATED_MODELS).map((value) => ({ value, ...MODEL_META[value] }));
-  }, [config]);
+  // 可选模型列表来自共享模块（lib/studio-models）：channel 配置推导 + 根相对翻译键
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -1013,7 +990,7 @@ export default function ModelPage() {
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("genModel")}
-              getMeta={(model) => `${model.descKey ? tRoot(model.descKey) : model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
+              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
             />
           </section>
 

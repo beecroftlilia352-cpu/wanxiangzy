@@ -1,8 +1,8 @@
 import { Activity } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { MODELS } from "@/features/product-set/create/config";
 import { getCreditCost, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import type { ProductSetImageType } from "@/lib/product-set";
 
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2";
@@ -29,6 +29,7 @@ export function ModelConfigPanel({
   onQualityChange,
 }: ModelConfigPanelProps) {
   const t = useTranslations("ProductSet");
+  const modelOptions = useStudioImageModelOptions();
   return (
     <section id="product-set-generation-settings" aria-label={t("create.modelConfig.ariaLabel")} className="space-y-3">
       <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
@@ -36,7 +37,7 @@ export function ModelConfigPanel({
           <Activity aria-hidden="true" className="h-4 w-4 text-[var(--codex-accent)]" /> {t("create.modelConfig.model")}
         </legend>
         <div role="radiogroup" className="grid grid-cols-2 items-stretch gap-2">
-          {MODELS.map((model) => (
+          {modelOptions.map((model) => (
             <button
               key={model.value}
               type="button"
@@ -54,11 +55,11 @@ export function ModelConfigPanel({
                 <span className="min-w-0 truncate text-[11px] font-black">{model.label}</span>
                 {model.badge ? (
                   <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-black text-[var(--codex-accent)]">
-                    {model.badgeKey ? t(model.badgeKey) : model.badge}
+                    {model.badge}
                   </span>
                 ) : null}
               </span>
-              <span className="mt-1 line-clamp-2 block pl-5 text-[11px] font-semibold leading-tight text-slate-400" title={model.descKey ? t(model.descKey) : model.desc}>{model.descKey ? t(model.descKey) : model.desc}</span>
+              <span className="mt-1 line-clamp-2 block pl-5 text-[11px] font-semibold leading-tight text-slate-400" title={model.desc}>{model.desc}</span>
             </button>
           ))}
         </div>

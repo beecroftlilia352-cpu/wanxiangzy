@@ -23,6 +23,7 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -62,11 +63,6 @@ function fieldGarmentTypeLabelKey(type: string): string {
   return GARMENT_TYPE_LABEL_KEYS[type] ?? "garmentTypes.other";
 }
 
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
 
 const MATERIAL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -82,11 +78,7 @@ const MATERIAL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
 
 export default function MaterialEnhancementPage() {
   const t = useTranslations("MaterialEnhancement");
-  const displayModels = useMemo(() => MODELS.map((m, i) => ({
-    ...m,
-    desc: t("models.max4K"),
-    badge: m.badge ? t(["models.recommended", "models.latest", "models.highQuality"][i] ?? "models.recommended") : undefined,
-  })), [t]);
+  const displayModels = useStudioImageModelOptions();
   const displayActions = useMemo(() => MATERIAL_PREVIEW_ACTIONS.map((a) => {
     const labelKeys: Record<string, string> = {
       download: "actions.download",

@@ -36,6 +36,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -65,12 +66,6 @@ type GeneralImageGenerateOptions = {
   retryResultIndex?: number;
   toastMessage?: string;
 };
-
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string; descKey?: string; badgeKey?: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "modelDescMax4k", badge: "默认", badgeKey: "modelBadgeDefault", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "modelDescMax4k", badge: "高质感", badgeKey: "modelBadgeQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "modelDescMax4k", badge: "高质精修", badgeKey: "modelBadgePro", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
 
 const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
   { value: "3:4", label: "3:4 竖版", labelKey: "aspect34" },
@@ -118,6 +113,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     refreshAuth,
   } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -785,14 +781,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           <section>
             <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("modelSectionTitle")}</h3>
             <StudioModelSelector
-              models={MODELS.map((model) => {
-                const { descKey, badgeKey, ...rest } = model;
-                return {
-                  ...rest,
-                  desc: descKey ? t(descKey) : model.desc,
-                  badge: model.badge ? (badgeKey ? t(badgeKey) : model.badge) : undefined,
-                };
-              })}
+              models={modelOptions}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("modelAriaLabel")}

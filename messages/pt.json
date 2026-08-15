@@ -1421,10 +1421,6 @@
     "previewProductSet": "Conjunto de produto",
     "previewRegenerateAll": "Gerar novamente",
     "previewFeedback": "Feedback",
-    "modelBadgeDefault": "Padrão",
-    "modelBadgeHighQuality": "Alta qualidade",
-    "modelBadgeRefined": "Refinado",
-    "modelDesc": "Até 4K",
     "aspectPortrait": "3:4 retrato",
     "aspectLandscape": "4:3 paisagem",
     "aspectSquare": "1:1 quadrado",
@@ -1557,10 +1553,6 @@
     "metaCount": "Quantidade de geração",
     "outputModeReferenceValue": "Controle por referência",
     "outputModePromptValue": "Controle por prompt",
-    "modelBadgeRecommended": "Recomendado",
-    "modelBadgeNew": "Novo",
-    "modelBadgeRefined": "Refinado",
-    "modelDesc": "Até 4K",
     "refHoodie": "Moletom cinza",
     "refDenim": "Jeans 3D",
     "refJacket": "Jaqueta de beisebol",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "Crie uma imagem a partir de texto",
     "imageToImageEmptySubtitle": "Atribua papéis de peça, sujeito, estilo ou fundo às imagens 1, 2 e 3 para que o modelo componha uma nova imagem a partir de suas relações.",
     "textToImageEmptySubtitle": "Escreva o sujeito, a cena, a iluminação e o estilo—ou converta primeiro uma imagem em prompt para uma descrição mais estável.",
-    "modelBadgeDefault": "Padrão",
-    "modelBadgeQuality": "Alta qualidade",
-    "modelBadgePro": "Refinado pro",
-    "modelDescMax4k": "Até 4K",
     "aspect34": "3:4 Retrato",
     "aspect43": "4:3 Paisagem",
     "aspect11": "1:1 Quadrado",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "Imagem promocional de look",
     "moduleHeaderTooltip": "Envie uma imagem de peça ou look e mantenha a aparência exata enquanto gera conteúdo real de tipo lookbook: fotos de rua, cafeteria, selfie, em casa e mais.",
     "imageRule": "Regras de imagem",
-    "modelBadgeRecommended": "Recomendado",
-    "modelBadgeLatest": "Mais recente",
-    "modelBadgePro": "Refinado de alta qualidade",
     "modelDescMax4k": "Até 4K",
     "aspectAuto": "Automático",
     "aspect45Grass": "4:5 Promoção",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "Modelo de geração",
     "modelAriaLabel": "Modelo de geração",
     "modelMeta": "atualmente {cost} créditos/imagem",
-    "modelBadgeRecommended": "Recomendado",
-    "modelBadgeNew": "Novo",
-    "modelBadgePro": "Refinado pro",
-    "modelDescMax4k": "Até 4K",
     "ratioSectionTitle": "Proporção",
     "ratioDefaultLabel": "Segue a origem",
     "ratioAutoLabel": "Automático (proporção da origem)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "Envie uma saída final e uma imagem de peça em alta resolução; apenas o tecido, as costuras, os aviamentos e o detalhe da área da peça são melhorados, enquanto a pessoa, a pose e o fundo permanecem inalterados."
     },
-    "models": {
-      "recommended": "Recomendado",
-      "latest": "Mais recente",
-      "highQuality": "Retoque de alta qualidade",
-      "max4K": "Até 4K"
-    },
     "actions": {
       "download": "Baixar imagem",
       "copy": "Copiar link",
@@ -2612,16 +2587,6 @@
     "referenceImage": "Imagem de referência",
     "referenceTitle": "Referência de modelo exclusivo",
     "resultTitlePrefix": "Resultado de modelo exclusivo",
-    "models": {
-      "desc": {
-        "4k": "Até 4K"
-      },
-      "badge": {
-        "recommended": "Recomendado",
-        "latest": "Mais recente",
-        "premium": "Retoque premium"
-      }
-    },
     "aspects": {
       "auto": "Automático",
       "portrait34": "3:4 Retrato",
@@ -3041,12 +3006,6 @@
     "model": {
       "title": "Modelo de geração",
       "perImageCredit": "{cost} créditos por imagem"
-    },
-    "models": {
-      "desc": "Até 4K",
-      "badgeRecommended": "Recomendado",
-      "badgeLatest": "Mais recente",
-      "badgeHighQuality": "Alta qualidade"
     },
     "angles": {
       "title": "Gerar poses",
@@ -3723,10 +3682,6 @@
       "handwritten": "Manuscrita / caligrafia",
       "custom": "Personalizada"
     },
-    "modelDescMax4k": "Até 4K",
-    "modelBadgeDefault": "Padrão",
-    "modelBadgeQuality": "Alta qualidade",
-    "modelBadgePro": "Qualidade pro",
     "previewAction": {
       "download": "Baixar imagem",
       "copy": "Copiar link",

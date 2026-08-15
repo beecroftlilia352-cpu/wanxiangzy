@@ -1421,10 +1421,6 @@
     "previewProductSet": "طقم منتج",
     "previewRegenerateAll": "توليد مجددًا",
     "previewFeedback": "ملاحظات",
-    "modelBadgeDefault": "افتراضي",
-    "modelBadgeHighQuality": "جودة عالية",
-    "modelBadgeRefined": "منقّح",
-    "modelDesc": "حتى 4K",
     "aspectPortrait": "3:4 عمودي",
     "aspectLandscape": "4:3 أفقي",
     "aspectSquare": "1:1 مربع",
@@ -1557,10 +1553,6 @@
     "metaCount": "عدد التوليد",
     "outputModeReferenceValue": "التحكم بالمرجع",
     "outputModePromptValue": "التحكم بالموجه",
-    "modelBadgeRecommended": "موصى به",
-    "modelBadgeNew": "جديد",
-    "modelBadgeRefined": "منقّح",
-    "modelDesc": "حتى 4K",
     "refHoodie": "كنزة رمادية",
     "refDenim": "دينيم ثلاثي الأبعاد",
     "refJacket": "سترة بيسبول",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "إنشاء صورة من نص",
     "imageToImageEmptySubtitle": "أسند أدوار الملابس أو العنصر أو الأسلوب أو الخلفية للصور ١ و٢ و٣ كي يركّب النموذج صورة جديدة من علاقاتها.",
     "textToImageEmptySubtitle": "اكتب العنصر والمشهد والإضاءة والأسلوب — أو حوّل صورة إلى موجه أولًا للحصول على وصف أكثر استقرارًا.",
-    "modelBadgeDefault": "افتراضي",
-    "modelBadgeQuality": "جودة عالية",
-    "modelBadgePro": "تنقيح احترافي",
-    "modelDescMax4k": "حتى 4K",
     "aspect34": "3:4 عمودي",
     "aspect43": "4:3 أفقي",
     "aspect11": "1:1 مربع",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "صور ترويجية للإطلالة",
     "moduleHeaderTooltip": "حمّل صورة ملابس أو إطلالة وحافظ على المظهر نفسه تمامًا مع توليد محتوى ترويجي واقعي: لقطات شوارع ومقاهٍ وسيلفي ومنزل وغيرها.",
     "imageRule": "قواعد الصور",
-    "modelBadgeRecommended": "موصى به",
-    "modelBadgeLatest": "الأحدث",
-    "modelBadgePro": "تنقيح عالي الجودة",
     "modelDescMax4k": "حتى 4K",
     "aspectAuto": "تلقائي",
     "aspect45Grass": "4:5 ترويجي",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "نموذج التوليد",
     "modelAriaLabel": "نموذج التوليد",
     "modelMeta": "حاليًا {cost} رصيد/صورة",
-    "modelBadgeRecommended": "موصى به",
-    "modelBadgeNew": "جديد",
-    "modelBadgePro": "تنقيح احترافي",
-    "modelDescMax4k": "حتى 4K",
     "ratioSectionTitle": "نسبة الأبعاد",
     "ratioDefaultLabel": "يتبع المصدر",
     "ratioAutoLabel": "تلقائي (نسبة المصدر)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "حمّل صورة النتيجة النهائية وصورة ملابس عالية الدقة؛ يُحسَّن القماش والخياطة والمعادن وتفاصيل منطقة الملابس فقط، مع بقاء الشخص والوضعية والخلفية دون تغيير."
     },
-    "models": {
-      "recommended": "موصى به",
-      "latest": "الأحدث",
-      "highQuality": "تنقيح عالي الجودة",
-      "max4K": "حتى 4K"
-    },
     "actions": {
       "download": "تنزيل الصورة",
       "copy": "نسخ الرابط",
@@ -2612,16 +2587,6 @@
     "referenceImage": "الصورة المرجعية",
     "referenceTitle": "مرجع الموديل الخاص",
     "resultTitlePrefix": "نتيجة الموديل الخاص",
-    "models": {
-      "desc": {
-        "4k": "حتى 4K"
-      },
-      "badge": {
-        "recommended": "موصى به",
-        "latest": "الأحدث",
-        "premium": "تنقيح فاخر"
-      }
-    },
     "aspects": {
       "auto": "تلقائي",
       "portrait34": "3:4 عمودي",
@@ -3358,10 +3323,6 @@
       "handwritten": "خط يد / خط عربي",
       "custom": "مخصص"
     },
-    "modelDescMax4k": "حتى 4K",
-    "modelBadgeDefault": "افتراضي",
-    "modelBadgeQuality": "جودة عالية",
-    "modelBadgePro": "جودة احترافية",
     "previewAction": {
       "download": "تنزيل الصورة",
       "copy": "نسخ الرابط",
@@ -3814,12 +3775,6 @@
     "model": {
       "title": "نموذج التوليد",
       "perImageCredit": "{cost} رصيد للصورة"
-    },
-    "models": {
-      "desc": "حتى 4K",
-      "badgeRecommended": "موصى به",
-      "badgeLatest": "الأحدث",
-      "badgeHighQuality": "جودة عالية"
     },
     "angles": {
       "title": "توليد الوضعيات",

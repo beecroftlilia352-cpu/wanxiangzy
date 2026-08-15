@@ -1421,10 +1421,6 @@
     "previewProductSet": "Product set",
     "previewRegenerateAll": "Generate again",
     "previewFeedback": "Feedback",
-    "modelBadgeDefault": "Default",
-    "modelBadgeHighQuality": "High quality",
-    "modelBadgeRefined": "Refined",
-    "modelDesc": "Up to 4K",
     "aspectPortrait": "3:4 portrait",
     "aspectLandscape": "4:3 landscape",
     "aspectSquare": "1:1 square",
@@ -1557,10 +1553,6 @@
     "metaCount": "Generation count",
     "outputModeReferenceValue": "Reference control",
     "outputModePromptValue": "Prompt control",
-    "modelBadgeRecommended": "Recommended",
-    "modelBadgeNew": "New",
-    "modelBadgeRefined": "Refined",
-    "modelDesc": "Up to 4K",
     "refHoodie": "Gray hoodie",
     "refDenim": "3D denim",
     "refJacket": "Baseball jacket",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "Create an image from text",
     "imageToImageEmptySubtitle": "Assign garment, subject, style, or background roles to image 1, 2, and 3 so the model composes a new image from their relationships.",
     "textToImageEmptySubtitle": "Write the subject, scene, lighting, and style—or convert an image to a prompt first for a more stable description.",
-    "modelBadgeDefault": "Default",
-    "modelBadgeQuality": "High quality",
-    "modelBadgePro": "Pro refine",
-    "modelDescMax4k": "Up to 4K",
     "aspect34": "3:4 Portrait",
     "aspect43": "4:3 Landscape",
     "aspect11": "1:1 Square",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "Outfit Grass Planting",
     "moduleHeaderTooltip": "Upload a garment or outfit image and keep the exact look while generating real lookbook-style content: street snaps, café, selfie, at-home, and more.",
     "imageRule": "Image rules",
-    "modelBadgeRecommended": "Recommended",
-    "modelBadgeLatest": "Latest",
-    "modelBadgePro": "High-quality refine",
     "modelDescMax4k": "Up to 4K",
     "aspectAuto": "Auto",
     "aspect45Grass": "4:5 Grass",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "Generation model",
     "modelAriaLabel": "Generation model",
     "modelMeta": "current {cost} credits/image",
-    "modelBadgeRecommended": "Recommended",
-    "modelBadgeNew": "New",
-    "modelBadgePro": "Pro refine",
-    "modelDescMax4k": "Up to 4K",
     "ratioSectionTitle": "Aspect ratio",
     "ratioDefaultLabel": "Follows source",
     "ratioAutoLabel": "Auto (source ratio)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "Upload a final output and a high-res garment image; only the garment area's fabric, stitching, hardware and detail are enhanced while person, pose and background stay unchanged."
     },
-    "models": {
-      "recommended": "Recommended",
-      "latest": "Latest",
-      "highQuality": "High-quality retouch",
-      "max4K": "Up to 4K"
-    },
     "actions": {
       "download": "Download image",
       "copy": "Copy link",
@@ -2612,16 +2587,6 @@
     "referenceImage": "Reference image",
     "referenceTitle": "Exclusive model reference",
     "resultTitlePrefix": "Exclusive model result",
-    "models": {
-      "desc": {
-        "4k": "Up to 4K"
-      },
-      "badge": {
-        "recommended": "Recommended",
-        "latest": "Latest",
-        "premium": "Premium retouch"
-      }
-    },
     "aspects": {
       "auto": "Auto",
       "portrait34": "3:4 Portrait",
@@ -3041,12 +3006,6 @@
     "model": {
       "title": "Generation model",
       "perImageCredit": "{cost} credits per image"
-    },
-    "models": {
-      "desc": "Up to 4K",
-      "badgeRecommended": "Recommended",
-      "badgeLatest": "Latest",
-      "badgeHighQuality": "High-quality"
     },
     "angles": {
       "title": "Generate poses",
@@ -3723,10 +3682,6 @@
       "handwritten": "Handwritten / calligraphy",
       "custom": "Custom"
     },
-    "modelDescMax4k": "Up to 4K",
-    "modelBadgeDefault": "Default",
-    "modelBadgeQuality": "High quality",
-    "modelBadgePro": "Pro quality",
     "previewAction": {
       "download": "Download image",
       "copy": "Copy link",

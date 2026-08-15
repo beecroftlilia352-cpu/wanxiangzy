@@ -48,6 +48,7 @@ import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreview
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { qualifyOptionKeys } from "@/lib/i18n/options";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -92,12 +93,6 @@ import {
   mergeRetryResultUrls,
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
-
-const MODELS: { value: LingyaModel; label: string; labelKey?: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "models.desc", badge: "推荐", badgeKey: "models.badgeRecommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "models.desc", badge: "最新", badgeKey: "models.badgeLatest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "models.desc", badge: "高质精修", badgeKey: "models.badgeHighQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
 
 const POSE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
 
@@ -438,6 +433,7 @@ export default function PosePage() {
     refreshAuth,
   } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [mainImage, setMainImage] = useState<string>("");
@@ -2095,11 +2091,11 @@ export default function PosePage() {
               <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("model.title")}
             </h3>
             <StudioModelSelector
-              models={qualifyOptionKeys(MODELS, "Pose")}
+              models={modelOptions}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("model.title")}
-              getMeta={(model) => `${t(model.descKey!)} · ${t("model.perImageCredit", { cost: getCreditCost(model.value, imageSize, aspectRatio) })}`}
+              getMeta={(model) => `${model.desc} · ${t("model.perImageCredit", { cost: getCreditCost(model.value, imageSize, aspectRatio) })}`}
             />
           </section>
 

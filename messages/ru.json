@@ -1421,10 +1421,6 @@
     "previewProductSet": "Товарный сет",
     "previewRegenerateAll": "Сгенерировать ещё раз",
     "previewFeedback": "Обратная связь",
-    "modelBadgeDefault": "По умолчанию",
-    "modelBadgeHighQuality": "Высокое качество",
-    "modelBadgeRefined": "Улучшенная",
-    "modelDesc": "До 4K",
     "aspectPortrait": "3:4 портрет",
     "aspectLandscape": "4:3 пейзаж",
     "aspectSquare": "1:1 квадрат",
@@ -1557,10 +1553,6 @@
     "metaCount": "Количество",
     "outputModeReferenceValue": "Управление референсом",
     "outputModePromptValue": "Управление промптом",
-    "modelBadgeRecommended": "Рекомендуется",
-    "modelBadgeNew": "Новое",
-    "modelBadgeRefined": "Улучшенная",
-    "modelDesc": "До 4K",
     "refHoodie": "Серое худи",
     "refDenim": "3D деним",
     "refJacket": "Бейсбольная куртка",
@@ -1588,10 +1580,6 @@
     "textToImageEmptyTitle": "Создать изображение из текста",
     "imageToImageEmptySubtitle": "Назначьте изображениям 1, 2, 3 роли одежды, персонажа, стиля или фона, чтобы модель собрала новое изображение из их связей.",
     "textToImageEmptySubtitle": "Опишите объект, сцену, освещение и стиль — или сначала преобразуйте изображение в промпт для более стабильного описания.",
-    "modelBadgeDefault": "По умолчанию",
-    "modelBadgeQuality": "Высокое качество",
-    "modelBadgePro": "Про-ретушь",
-    "modelDescMax4k": "До 4K",
     "aspect34": "3:4 портрет",
     "aspect43": "4:3 пейзаж",
     "aspect11": "1:1 квадрат",
@@ -1735,9 +1723,6 @@
     "moduleHeaderTitle": "Лукбук аутфита",
     "moduleHeaderTooltip": "Загрузите одежду или аутфит и сохраните тот же образ, генерируя реалистичный контент в стиле лукбука: уличные снимки, кафе, селфи, домашняя обстановка и т.д.",
     "imageRule": "Правила для изображений",
-    "modelBadgeRecommended": "Рекомендуется",
-    "modelBadgeLatest": "Новое",
-    "modelBadgePro": "Высококачественная ретушь",
     "modelDescMax4k": "До 4K",
     "aspectAuto": "Авто",
     "aspect45Grass": "4:5 лукбук",
@@ -2234,10 +2219,6 @@
     "modelSectionTitle": "Модель генерации",
     "modelAriaLabel": "Модель генерации",
     "modelMeta": "сейчас {cost} кредитов/изображение",
-    "modelBadgeRecommended": "Рекомендуется",
-    "modelBadgeNew": "Новое",
-    "modelBadgePro": "Про-ретушь",
-    "modelDescMax4k": "До 4K",
     "ratioSectionTitle": "Соотношение сторон",
     "ratioDefaultLabel": "Следует источнику",
     "ratioAutoLabel": "Авто (соотношение источника)",
@@ -2456,12 +2437,6 @@
     "header": {
       "tooltip": "Загрузите финальный результат и HD-фото одежды; улучшаются только ткань, швы, фурнитура и детали в зоне одежды, а персонаж, поза и фон не меняются."
     },
-    "models": {
-      "recommended": "Рекомендуется",
-      "latest": "Новое",
-      "highQuality": "Высококачественная ретушь",
-      "max4K": "До 4K"
-    },
     "actions": {
       "download": "Скачать изображение",
       "copy": "Скопировать ссылку",
@@ -2612,16 +2587,6 @@
     "referenceImage": "Референсное изображение",
     "referenceTitle": "Референс своей модели",
     "resultTitlePrefix": "Результат своей модели",
-    "models": {
-      "desc": {
-        "4k": "До 4K"
-      },
-      "badge": {
-        "recommended": "Рекомендуется",
-        "latest": "Новое",
-        "premium": "Премиум-ретушь"
-      }
-    },
     "aspects": {
       "auto": "Авто",
       "portrait34": "3:4 портрет",
@@ -3041,12 +3006,6 @@
     "model": {
       "title": "Модель генерации",
       "perImageCredit": "{cost} кредитов за изображение"
-    },
-    "models": {
-      "desc": "До 4K",
-      "badgeRecommended": "Рекомендуется",
-      "badgeLatest": "Новое",
-      "badgeHighQuality": "Высокое качество"
     },
     "angles": {
       "title": "Сгенерировать позы",
@@ -3723,10 +3682,6 @@
       "handwritten": "Рукописный / каллиграфия",
       "custom": "Пользовательский"
     },
-    "modelDescMax4k": "До 4K",
-    "modelBadgeDefault": "По умолчанию",
-    "modelBadgeQuality": "Высокое качество",
-    "modelBadgePro": "Pro-качество",
     "previewAction": {
       "download": "Скачать изображение",
       "copy": "Копировать ссылку",

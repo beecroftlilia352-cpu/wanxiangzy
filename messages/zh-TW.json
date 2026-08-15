@@ -993,10 +993,6 @@
     "textToImageEmptyTitle": "建立文字生成圖片",
     "imageToImageEmptySubtitle": "按圖1、圖2、圖3明確分配服裝、人物、風格或背景角色，讓模型按關係生成新圖。",
     "textToImageEmptySubtitle": "寫下主體、場景、光線和風格，也可以先用圖片轉提示詞獲得更穩定的描述。",
-    "modelBadgeDefault": "預設",
-    "modelBadgeQuality": "高質感",
-    "modelBadgePro": "高質精修",
-    "modelDescMax4k": "最高4K",
     "aspect34": "3:4 直式",
     "aspect43": "4:3 橫式",
     "aspect11": "1:1 方圖",
@@ -1140,12 +1136,6 @@
     },
     "header": {
       "tooltip": "上傳最終畫面原圖和高清服裝圖，只增強服裝區域的面料、走線、五金和細節質感，保持人物、姿勢、背景不變。"
-    },
-    "models": {
-      "recommended": "推薦",
-      "latest": "最新",
-      "highQuality": "高質精修",
-      "max4K": "最高4K"
     },
     "actions": {
       "download": "下載圖片",
@@ -1662,10 +1652,6 @@
     "modelSectionTitle": "生成模型",
     "modelAriaLabel": "生成模型",
     "modelMeta": "目前 {cost} 點數/張",
-    "modelBadgeRecommended": "推薦",
-    "modelBadgeNew": "最新",
-    "modelBadgePro": "高質精修",
-    "modelDescMax4k": "最高 4K",
     "ratioSectionTitle": "圖片比例",
     "ratioDefaultLabel": "預設跟隨原圖",
     "ratioAutoLabel": "智慧（原圖比例）",
@@ -1813,10 +1799,6 @@
     "metaCount": "生成數量",
     "outputModeReferenceValue": "參考圖控制",
     "outputModePromptValue": "提示詞控制",
-    "modelBadgeRecommended": "推薦",
-    "modelBadgeNew": "最新",
-    "modelBadgeRefined": "高質精修",
-    "modelDesc": "最高4K",
     "refHoodie": "灰色連帽",
     "refDenim": "立體牛仔",
     "refJacket": "棒球外套",
@@ -1953,10 +1935,6 @@
     "previewProductSet": "商品套圖",
     "previewRegenerateAll": "再來一組",
     "previewFeedback": "回饋",
-    "modelBadgeDefault": "預設",
-    "modelBadgeHighQuality": "高質感",
-    "modelBadgeRefined": "高質精修",
-    "modelDesc": "最高4K",
     "aspectPortrait": "3:4 直式",
     "aspectLandscape": "4:3 橫式",
     "aspectSquare": "1:1 方形",
@@ -1989,16 +1967,6 @@
     "referenceImage": "參考圖",
     "referenceTitle": "專屬模特參考圖",
     "resultTitlePrefix": "專屬模特結果",
-    "models": {
-      "desc": {
-        "4k": "最高4K"
-      },
-      "badge": {
-        "recommended": "推薦",
-        "latest": "最新",
-        "premium": "高質精修"
-      }
-    },
     "aspects": {
       "auto": "智慧",
       "portrait34": "3:4 直式",
@@ -2146,9 +2114,6 @@
     "moduleHeaderTitle": "服裝穿搭圖",
     "moduleHeaderTooltip": "上傳服裝或穿搭圖，保持同款穿搭不變，生成街拍、咖啡店、自拍、居家等真實穿搭內容圖。",
     "imageRule": "圖片規則",
-    "modelBadgeRecommended": "推薦",
-    "modelBadgeLatest": "最新",
-    "modelBadgePro": "高質精修",
     "modelDescMax4k": "最高4K",
     "aspectAuto": "智慧",
     "aspect45Grass": "4:5 穿搭",
@@ -2867,10 +2832,6 @@
       "handwritten": "手寫/書法體",
       "custom": "自訂"
     },
-    "modelDescMax4k": "最高4K",
-    "modelBadgeDefault": "預設",
-    "modelBadgeQuality": "高質感",
-    "modelBadgePro": "高質精修",
     "previewAction": {
       "download": "下載圖片",
       "copy": "複製連結",
@@ -3836,12 +3797,6 @@
     "model": {
       "title": "生成模型",
       "perImageCredit": "單張{cost}點數"
-    },
-    "models": {
-      "desc": "最高4K",
-      "badgeRecommended": "推薦",
-      "badgeLatest": "最新",
-      "badgeHighQuality": "高質精修"
     },
     "angles": {
       "title": "生成姿勢",

@@ -55,6 +55,7 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import {
   MAX_FILE_SIZE,
   MAX_FILE_SIZE_MB,
@@ -72,12 +73,6 @@ import {
   mergeRetryResultUrls,
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
-
-const MODELS: Array<{ value: LingyaModel; label: string; desc: string; descKey: string; badgeKey: string; icon: string }> = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeDefault", icon: "/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeHighQuality", icon: "/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "modelDesc", badgeKey: "modelBadgeRefined", icon: "/model-icons/gemini.png" },
-];
 
 const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string; labelKey?: string }> = [
   { value: "3:4", label: "3:4 竖版", labelKey: "aspectPortrait" },
@@ -158,6 +153,7 @@ export default function FaceSwapPage() {
   const [sourceUrls, setSourceUrls] = useState<string[]>([]);
   const [faceUrl, setFaceUrl] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -887,7 +883,7 @@ export default function FaceSwapPage() {
               {t("modelSectionTitle")}
             </h3>
             <StudioModelSelector
-              models={MODELS.map((m) => ({ value: m.value, label: m.label, desc: t(m.descKey), badge: t(m.badgeKey), icon: m.icon }))}
+              models={modelOptions}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("modelSectionTitle")}

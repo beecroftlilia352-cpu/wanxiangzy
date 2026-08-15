@@ -28,6 +28,7 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import {
   buildGrassPrompt,
   GRASS_PROMPT_REFERENCES,
@@ -52,12 +53,6 @@ import {
   mergeRetryResultUrls,
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
-
-const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "推荐", badgeKey: "Shared.modelBadge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "最新", badgeKey: "Shared.modelBadge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "高质精修", badgeKey: "Shared.modelBadge.highQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
 
 type GrassHistoryPayload = Extract<HistoryJobPayload, { kind: "grass" }>;
 type GrassGenerateOptions = {
@@ -126,6 +121,7 @@ export default function GrassPage() {
   const { unsavedDialog } = useUnsavedChangesGuard(Boolean(garmentUrl || userPrompt.trim()));
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -847,7 +843,7 @@ export default function GrassPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("generationModelTitle")}</h3>
-            <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel={t("generationModelAria")} />
+            <StudioModelSelector models={modelOptions} value={aiModel} onChange={setAiModel} ariaLabel={t("generationModelAria")} />
           </section>
 
           <section>

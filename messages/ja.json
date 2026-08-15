@@ -993,10 +993,6 @@
     "textToImageEmptyTitle": "テキストから画像を作成",
     "imageToImageEmptySubtitle": "画像1・2・3に衣類・人物・スタイル・背景の役割を明確に割り当て、モデルが関係性から新たな画像を構成します。",
     "textToImageEmptySubtitle": "被写体・シーン・光・スタイルを記述するか、画像→プロンプトで安定した説明を得てください。",
-    "modelBadgeDefault": "デフォルト",
-    "modelBadgeQuality": "高画質",
-    "modelBadgePro": "プロ補正",
-    "modelDescMax4k": "最大4K",
     "aspect34": "3:4 縦向き",
     "aspect43": "4:3 横向き",
     "aspect11": "1:1 正方形",
@@ -1140,12 +1136,6 @@
     },
     "header": {
       "tooltip": "最終画像の原版と高解像度の衣類画像をアップロードすると、衣類領域の生地・ステッチ・金具・ディテールの質感だけを強化し、人物・ポーズ・背景は維持します。"
-    },
-    "models": {
-      "recommended": "おすすめ",
-      "latest": "最新",
-      "highQuality": "プロ補正",
-      "max4K": "最大4K"
     },
     "actions": {
       "download": "画像をダウンロード",
@@ -1662,10 +1652,6 @@
     "modelSectionTitle": "生成モデル",
     "modelAriaLabel": "生成モデル",
     "modelMeta": "現在 {cost} クレジット/枚",
-    "modelBadgeRecommended": "おすすめ",
-    "modelBadgeNew": "最新",
-    "modelBadgePro": "プロ補正",
-    "modelDescMax4k": "最大4K",
     "ratioSectionTitle": "画像比率",
     "ratioDefaultLabel": "原版に追従",
     "ratioAutoLabel": "自動（元の比率）",
@@ -1813,10 +1799,6 @@
     "metaCount": "生成数",
     "outputModeReferenceValue": "参照画像制御",
     "outputModePromptValue": "プロンプト制御",
-    "modelBadgeRecommended": "おすすめ",
-    "modelBadgeNew": "最新",
-    "modelBadgeRefined": "プロ補正",
-    "modelDesc": "最大4K",
     "refHoodie": "グレーのフーディ",
     "refDenim": "立体デニム",
     "refJacket": "ベースボールジャケット",
@@ -1953,10 +1935,6 @@
     "previewProductSet": "商品セット",
     "previewRegenerateAll": "もう1セット",
     "previewFeedback": "フィードバック",
-    "modelBadgeDefault": "デフォルト",
-    "modelBadgeHighQuality": "高画質",
-    "modelBadgeRefined": "プロ補正",
-    "modelDesc": "最大4K",
     "aspectPortrait": "3:4 縦向き",
     "aspectLandscape": "4:3 横向き",
     "aspectSquare": "1:1 正方形",
@@ -1989,16 +1967,6 @@
     "referenceImage": "参照画像",
     "referenceTitle": "専用モデル参照",
     "resultTitlePrefix": "専用モデルの結果",
-    "models": {
-      "desc": {
-        "4k": "最大4K"
-      },
-      "badge": {
-        "recommended": "おすすめ",
-        "latest": "最新",
-        "premium": "プロ補正"
-      }
-    },
     "aspects": {
       "auto": "自動",
       "portrait34": "3:4 縦向き",
@@ -2146,9 +2114,6 @@
     "moduleHeaderTitle": "衣類PR画像",
     "moduleHeaderTooltip": "衣類またはコーデ画像をアップロードし、同じコーデを維持したまま、ストリートスナップ・カフェ・自撮り・自宅などリアルなPRコンテンツ画像を生成します。",
     "imageRule": "画像ルール",
-    "modelBadgeRecommended": "おすすめ",
-    "modelBadgeLatest": "最新",
-    "modelBadgePro": "プロ補正",
     "modelDescMax4k": "最大4K",
     "aspectAuto": "自動",
     "aspect45Grass": "4:5 PR",
@@ -2867,10 +2832,6 @@
       "handwritten": "手書き/書道体",
       "custom": "カスタム"
     },
-    "modelDescMax4k": "最高4K",
-    "modelBadgeDefault": "デフォルト",
-    "modelBadgeQuality": "高品質",
-    "modelBadgePro": "高品質仕上げ",
     "previewAction": {
       "download": "画像をダウンロード",
       "copy": "リンクをコピー",
@@ -3836,12 +3797,6 @@
     "model": {
       "title": "生成モデル",
       "perImageCredit": "1枚{cost}クレジット"
-    },
-    "models": {
-      "desc": "最大4K",
-      "badgeRecommended": "おすすめ",
-      "badgeLatest": "最新",
-      "badgeHighQuality": "高画質"
     },
     "angles": {
       "title": "ポーズを生成",
