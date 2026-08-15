@@ -56,8 +56,9 @@ export type ResultInputReference = {
 };
 
 function getGridClass(count: number) {
-  if (count <= 1) return "max-w-[min(340px,100%)] grid-cols-1";
-  if (count === 2) return "max-w-[min(700px,100%)] grid-cols-1 sm:grid-cols-2";
+  // 单图结果以「大片」呈现（旧 340px 上限在大画布上显得局促）
+  if (count <= 1) return "max-w-[min(600px,100%)] grid-cols-1";
+  if (count === 2) return "max-w-[min(760px,100%)] grid-cols-1 sm:grid-cols-2";
   if (count === 3) return "max-w-[min(1048px,100%)] grid-cols-1 sm:grid-cols-3";
   return "max-w-[min(1396px,100%)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
 }
