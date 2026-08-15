@@ -47,7 +47,7 @@ export function PreviewGuide({
     <div className="relative mx-auto w-full max-w-[1080px] px-1 py-3 text-center sm:px-3 sm:py-6">
       <div className="pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,rgba(91,124,255,0.16),transparent_68%)] blur-3xl" />
       <div className="relative">
-        <h3 className="text-[24px] font-black tracking-[-0.02em] text-slate-950 dark:text-stone-100 sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
+        <h3 className="bg-[linear-gradient(135deg,#3f5dff_0%,#6d8dff_45%,#aeb8ff_100%)] bg-clip-text text-[24px] font-black tracking-[-0.02em] text-transparent dark:bg-[linear-gradient(135deg,#8fa8ff_0%,#b8c6ff_55%,#dbe4ff_100%)] sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
         <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 dark:text-stone-400 sm:text-[15px]">{subtitle}</p>
 
         <div className="mt-8 overflow-hidden rounded-[30px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_rgba(91,124,255,0.12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-slate-950/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
@@ -79,8 +79,11 @@ export function PreviewGuide({
                           )}
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fbff,#eef3ff)] dark:bg-[linear-gradient(135deg,#1c1c1e,#26262a)] text-[var(--codex-accent)]">
-                          {icon || <span className="text-4xl font-black text-slate-300 dark:text-stone-600">{index + 1}</span>}
+                        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fbff,#eef3ff)] dark:bg-[linear-gradient(135deg,#1c1c1e,#26262a)]">
+                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(91,124,255,0.16),transparent_52%),radial-gradient(circle_at_76%_72%,rgba(174,184,255,0.16),transparent_48%)]" />
+                          <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/72 text-3xl font-black text-[var(--codex-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_12px_28px_rgba(91,124,255,0.16)] backdrop-blur-sm dark:bg-white/8 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_28px_rgba(0,0,0,0.35)]">
+                            {icon || index + 1}
+                          </span>
                         </div>
                       )}
                       <span className="absolute left-3 top-3 inline-flex h-7 items-center gap-1 rounded-lg border border-[rgba(91,124,255,0.28)] bg-[rgba(91,124,255,0.1)] px-2.5 text-[11px] font-black leading-none text-[var(--codex-accent)] backdrop-blur-sm">
