@@ -243,7 +243,7 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
       <div className="flex h-16 w-full items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
         <Link
           href="/"
-          className="home-marketing-logo shrink-0 text-[18px] font-semibold leading-none"
+          className="home-marketing-logo shrink-0 py-2 text-[18px] font-semibold leading-none"
           aria-label={t("homeAria")}
         >
           Pixel Diffusion
@@ -261,7 +261,7 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
           <LanguageSwitcher />
           <ThemeToggle className="h-9 w-9" />
           <MarketingAccountActions {...account} />
-          <Link href="/create" className="home-trial-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 transition">
+          <Link href="/create" className="home-trial-pill hidden h-10 items-center gap-1.5 rounded-full px-5 transition sm:inline-flex">
             {t("accountMenu.workspace")}
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
@@ -368,6 +368,16 @@ function MarketingMobileMenu() {
             </Link>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuItem asChild>
+          <Link
+            href="/create"
+            prefetch={false}
+            className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-black text-[var(--codex-accent)] outline-none transition hover:bg-[rgba(91,124,255,0.1)] focus:bg-[rgba(91,124,255,0.1)] data-[highlighted]:bg-[rgba(91,124,255,0.1)] dark:text-[#9db4ff]"
+          >
+            {t("accountMenu.workspace")}
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -482,7 +492,7 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
               {item.badge && (
                 <span
                   aria-hidden="true"
-                  className="absolute -right-3 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[7px] font-black leading-none tracking-tight text-white ring-2 ring-white/90 dark:ring-stone-900/80"
+                  className="absolute -right-3 -top-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1.5 text-[9px] font-black leading-none tracking-tight text-white ring-2 ring-white/90 dark:ring-stone-900/80"
                 >
                   {item.badge}
                 </span>

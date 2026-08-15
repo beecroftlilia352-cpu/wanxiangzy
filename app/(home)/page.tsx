@@ -400,7 +400,7 @@ function Footer({ t }: { t: (key: string) => string }) {
             <ul className="mt-5 space-y-3">
               {group.links.filter(([, href]) => href !== "/agent").map(([labelKey, href]) => (
                 <li key={labelKey}>
-                  <Link href={href} className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#111] transition hover:text-[#555]">
+                  <Link href={href} className="inline-flex items-center gap-1 py-1.5 text-[14px] font-semibold text-[#111] transition hover:text-[#555]">
                     {t(`footerLink.${labelKey}`)}
                     {href !== "/" && <ExternalLink aria-hidden="true" className="h-3 w-3" />}
                   </Link>

@@ -97,7 +97,7 @@ export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | 
         aria-expanded={open}
       >
         <Languages className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="max-w-[88px] truncate">{current.label}</span>
+        <span className="hidden max-w-[88px] truncate sm:inline">{current.label}</span>
         <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} aria-hidden="true" />
       </button>
       {open ? (
