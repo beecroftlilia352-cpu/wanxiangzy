@@ -81,13 +81,13 @@ export function StudioUploadExamples({
                 <>
                   {previewUrls.slice(0, 6).map((previewUrl, index) => (
                     <span key={`${previewUrl}-${index}`} className="studio-upload-tile-example-cell">
-                      <RawPreviewImage src={getImageVariantUrl(previewUrl, "thumb")} alt={`${image.title}${index + 1}`} />
+                      <RawPreviewImage eager src={getImageVariantUrl(previewUrl, "thumb")} alt={`${image.title}${index + 1}`} />
                     </span>
                   ))}
                   <span className="studio-upload-tile-example-group-label">{t("combo")}</span>
                 </>
               ) : (
-                <RawPreviewImage src={getImageVariantUrl(previewUrls[0], "thumb")} alt={image.title} />
+                <RawPreviewImage eager src={getImageVariantUrl(previewUrls[0], "thumb")} alt={image.title} />
               )}
             </button>
           );

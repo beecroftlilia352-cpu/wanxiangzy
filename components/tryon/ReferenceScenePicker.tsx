@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { CheckCircle2, ChevronLeft, ChevronRight, Search, Sparkles, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -58,8 +59,8 @@ export type ReferenceScenePickerProps<TItem extends ReferenceScenePickerItem = R
 
 export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = ReferenceScenePickerItem>({
   open,
-  title = "选择风格场景",
-  description = "先选主场景，再从姿势图中多选参考图",
+  title,
+  description,
   tabs,
   activeTab,
   onTabChange,
@@ -84,7 +85,12 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
   onPreview,
   className,
 }: ReferenceScenePickerProps<TItem>) {
+  const t = useTranslations("TryonShared");
+
   if (!open) return null;
+
+  const pickerTitle = title ?? t("scenePicker.title");
+  const pickerDescription = description ?? t("scenePicker.description");
 
   const showAllSceneLayout = activeTab === "all";
   const activeIndex = activeReference
@@ -112,14 +118,14 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
         <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-stone-900">
           <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-slate-100 px-12">
             <div className="min-w-0 text-center">
-              <DialogTitle className="truncate text-[13px] font-bold leading-normal text-slate-950">{title}</DialogTitle>
-              <DialogDescription className="hidden truncate text-[10px] text-slate-400 sm:block">{description}</DialogDescription>
+              <DialogTitle className="truncate text-[13px] font-bold leading-normal text-slate-950">{pickerTitle}</DialogTitle>
+              <DialogDescription className="hidden truncate text-[10px] text-slate-400 sm:block">{pickerDescription}</DialogDescription>
             </div>
             <button
               type="button"
               onClick={onClose}
               className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-              aria-label="关闭场景选择"
+              aria-label={t("scenePicker.close")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -147,13 +153,13 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" className="h-7 rounded-full bg-violet-100 px-3 text-[10px] font-bold text-[var(--codex-accent)]">
-                    全部场景
+                    {t("scenePicker.allScenes")}
                   </button>
                   <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-stone-900 dark:text-stone-400">
-                    棚拍Look图
+                    {t("scenePicker.studioLook")}
                   </button>
                   <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-stone-900 dark:text-stone-400">
-                    实景拍摄
+                    {t("scenePicker.realScene")}
                   </button>
                 </div>
               </div>
@@ -163,22 +169,22 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                   value={viewFilter}
                   onChange={(event) => onViewFilterChange(event.target.value as ReferenceScenePickerViewFilter)}
                   className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-stone-400"
-                  aria-label="正背面筛选"
+                  aria-label={t("scenePicker.viewFilterLabel")}
                 >
-                  <option value="all">正/背面</option>
-                  <option value="front">正面</option>
-                  <option value="back">背面</option>
+                  <option value="all">{t("scenePicker.viewAll")}</option>
+                  <option value="front">{t("scenePicker.viewFront")}</option>
+                  <option value="back">{t("scenePicker.viewBack")}</option>
                 </select>
                 <select
                   value={bodyFilter}
                   onChange={(event) => onBodyFilterChange(event.target.value as ReferenceScenePickerBodyFilter)}
                   className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-stone-400"
-                  aria-label="身体范围筛选"
+                  aria-label={t("scenePicker.bodyFilterLabel")}
                 >
-                  <option value="all">全/半身</option>
-                  <option value="whole">全身</option>
-                  <option value="upper">上半身</option>
-                  <option value="lower">下半身</option>
+                  <option value="all">{t("scenePicker.bodyAll")}</option>
+                  <option value="whole">{t("scenePicker.bodyWhole")}</option>
+                  <option value="upper">{t("scenePicker.bodyUpper")}</option>
+                  <option value="lower">{t("scenePicker.bodyLower")}</option>
                 </select>
                 {categoryLabels.slice(0, 2).map((category) => (
                   <span key={category} className="inline-flex h-8 max-w-[210px] items-center rounded-lg bg-white px-2.5 text-[11px] font-medium text-slate-600 dark:bg-stone-800 dark:text-stone-300">
@@ -191,7 +197,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                   <input
                     value={search}
                     onChange={(event) => onSearchChange(event.target.value)}
-                    placeholder="按名称、场景搜索"
+                    placeholder={t("scenePicker.searchPlaceholder")}
                     className="h-8 w-[min(260px,calc(100vw-96px))] rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-[11px] text-slate-600 outline-none transition focus:border-[var(--codex-accent)]"
                   />
                 </label>
@@ -229,7 +235,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                     ))}
                   </div>
                 ) : (
-                  <PickerEmptyState label="当前筛选没有可用场景" />
+                  <PickerEmptyState label={t("scenePicker.emptyScene")} />
                 )}
               </div>
             </div>
@@ -249,7 +255,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                           : "border-slate-200 hover:border-slate-300"
                       )}
                     >
-                      <RawPreviewImage src={ref.url} alt={ref.label || "主场景"} className="aspect-[3/4] w-full object-cover" />
+                      <RawPreviewImage src={ref.url} alt={ref.label || t("scenePicker.mainScene")} className="aspect-[3/4] w-full object-cover" />
                       <p className="line-clamp-2 px-2 py-1.5 text-center text-[11px] font-medium text-slate-700">{ref.label}</p>
                     </button>
                   ))}
@@ -257,7 +263,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
               </div>
 
               <div className="studio-scrollbar-hide min-h-0 flex-1 overflow-y-auto px-4 py-4">
-                <h4 className="mb-4 text-center text-[13px] font-bold text-[var(--codex-accent)]">场景姿势图</h4>
+                <h4 className="mb-4 text-center text-[13px] font-bold text-[var(--codex-accent)]">{t("scenePicker.scenePose")}</h4>
                 {childReferences.length ? (
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                     {childReferences.map((ref) => (
@@ -270,7 +276,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                     ))}
                   </div>
                 ) : (
-                  <PickerEmptyState label="当前筛选没有可用场景姿势图" />
+                  <PickerEmptyState label={t("scenePicker.emptyPose")} />
                 )}
               </div>
             </div>
@@ -279,13 +285,13 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
           <footer className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-white/92 px-4">
             {selectedCount > 0 ? (
               <div className="flex items-center gap-4">
-                <span className="text-[11px] font-semibold text-[var(--codex-accent)]">已选 {selectedCount}/{maxSelected}</span>
+                <span className="text-[11px] font-semibold text-[var(--codex-accent)]">{t("scenePicker.selectedCount", { count: selectedCount, max: maxSelected })}</span>
                 <button
                   type="button"
                   onClick={onClearSelected}
                   className="text-[11px] font-medium text-red-500 transition hover:text-red-600"
                 >
-                  全部删除
+                  {t("scenePicker.clearAll")}
                 </button>
               </div>
             ) : (
@@ -297,7 +303,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 onClick={onClose}
                 className="h-10 min-w-[120px] rounded-lg border border-slate-200 bg-white px-5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50"
               >
-                取消
+                {t("scenePicker.cancel")}
               </button>
               <button
                 type="button"
@@ -305,7 +311,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 disabled={!selectedCount}
                 className="h-10 min-w-[120px] rounded-lg bg-[var(--codex-accent)] px-5 text-[13px] font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-200"
               >
-                确定
+                {t("scenePicker.confirm")}
               </button>
             </div>
           </footer>
@@ -336,6 +342,7 @@ function ScenePreviewPane({
   onNext: () => void;
   canMove: boolean;
 }) {
+  const t = useTranslations("TryonShared");
   return (
     <aside className="flex min-h-[320px] flex-col border-b border-slate-100 bg-slate-50 p-4 lg:min-h-0 lg:border-b-0 lg:border-r">
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-100">
@@ -343,11 +350,11 @@ function ScenePreviewPane({
           <>
             <button
               type="button"
-              onClick={() => onPreview?.(activeReference.url, activeReference.label || "主场景")}
+              onClick={() => onPreview?.(activeReference.url, activeReference.label || t("scenePicker.mainScene"))}
               className="block h-full w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-              aria-label={`预览场景：${activeReference.label}`}
+              aria-label={t("scenePicker.previewScene", { label: activeReference.label })}
             >
-              <RawPreviewImage src={activeReference.url} alt={activeReference.label || "主场景"} className="h-full min-h-[320px] w-full object-cover lg:min-h-0" />
+              <RawPreviewImage src={activeReference.url} alt={activeReference.label || t("scenePicker.mainScene")} className="h-full min-h-[320px] w-full object-cover lg:min-h-0" />
             </button>
             <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-slate-950/68 to-transparent p-3 text-white">
               <div className="min-w-0">
@@ -370,7 +377,7 @@ function ScenePreviewPane({
                   type="button"
                   onClick={onPrevious}
                   className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/50 text-white transition hover:bg-slate-950/68"
-                  aria-label="上一个场景"
+                  aria-label={t("scenePicker.previousScene")}
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -378,7 +385,7 @@ function ScenePreviewPane({
                   type="button"
                   onClick={onNext}
                   className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/50 text-white transition hover:bg-slate-950/68"
-                  aria-label="下一个场景"
+                  aria-label={t("scenePicker.nextScene")}
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -388,20 +395,22 @@ function ScenePreviewPane({
         ) : (
           <div className="flex h-full min-h-[360px] flex-col items-center justify-center text-center text-slate-400">
             <Sparkles className="mb-2 h-6 w-6" />
-            <p className="text-xs font-medium">暂未选择</p>
-            <p className="mt-1 text-[11px] text-[var(--codex-accent)]">右侧选择场景后展示该场景 AI 生成图效果</p>
+            <p className="text-xs font-medium">{t("scenePicker.notSelected")}</p>
+            <p className="mt-1 text-[11px] text-[var(--codex-accent)]">{t("scenePicker.notSelectedHint")}</p>
           </div>
         )}
       </div>
 
       <div className="mt-3 rounded-xl bg-white px-3 py-3">
         <p className="text-center text-xs text-slate-500">
-          选择与服装<span className="font-semibold text-red-500">款式、长短</span>相匹配的场景效果最佳
+          {t("scenePicker.matchHintPrefix")}
+          <span className="font-semibold text-red-500">{t("scenePicker.matchHintHighlight")}</span>
+          {t("scenePicker.matchHintSuffix")}
         </p>
         <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
-          <span>共 {total} 个风格场景</span>
+          <span>{t("scenePicker.totalScenes", { total })}</span>
           {selectedCount > 0 && (
-            <span className="font-semibold text-[var(--codex-accent)]">已选 {selectedCount}/{maxSelected}</span>
+            <span className="font-semibold text-[var(--codex-accent)]">{t("scenePicker.selectedCount", { count: selectedCount, max: maxSelected })}</span>
           )}
         </div>
       </div>
@@ -420,6 +429,7 @@ function SceneMainCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const t = useTranslations("TryonShared");
   return (
     <button
       type="button"
@@ -428,9 +438,9 @@ function SceneMainCard({
         "group relative overflow-hidden rounded-lg border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
         active || selected ? "border-[var(--codex-accent)] shadow-sm" : "border-slate-200 hover:border-slate-300"
       )}
-      aria-label={`选择风格场景：${item.label}`}
+      aria-label={t("scenePicker.selectScene", { label: item.label })}
     >
-      <RawPreviewImage src={item.url} alt={item.label || "风格场景"} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
+      <RawPreviewImage src={item.url} alt={item.label || t("scenePicker.sceneImage")} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
       <span className={cn(
         "absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 bg-white/92 shadow-sm",
         selected ? "border-[var(--codex-accent)] bg-[var(--codex-accent)]" : "border-white"
@@ -451,6 +461,7 @@ function SceneChildCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const t = useTranslations("TryonShared");
   return (
     <button
       type="button"
@@ -459,9 +470,9 @@ function SceneChildCard({
         "group relative overflow-hidden rounded-xl border-2 bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
         selected ? "border-[var(--codex-accent)] shadow-sm" : "border-transparent hover:border-slate-300"
       )}
-      aria-label={`选择场景姿势图：${item.label}`}
+      aria-label={t("scenePicker.selectPose", { label: item.label })}
     >
-      <RawPreviewImage src={item.url} alt={item.label || "场景姿势图"} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
+      <RawPreviewImage src={item.url} alt={item.label || t("scenePicker.poseImage")} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
       <span className={cn(
         "absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 bg-white/90 shadow-sm",
         selected ? "border-[var(--codex-accent)] bg-[var(--codex-accent)]" : "border-white"

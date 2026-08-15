@@ -263,7 +263,7 @@ export function StudioImagePreviewWorkspace({
     <TooltipProvider>
       <div className={cn("studio-image-preview-workspace", className)}>
         <div className="studio-image-preview-main">
-          <div className="studio-image-preview-stage-shell" aria-label={`${session.title}预览区`}>
+          <div className="studio-image-preview-stage-shell" aria-label={t("resultPreviewArea", { title: session.title })}>
             <ResultRail
               results={session.results}
               activeIndex={activeIndex}
@@ -541,7 +541,7 @@ function PreviewInspector({
   onReferenceFocus: (url: string, title: string) => void;
 }) {
   const t = useTranslations("Shared");
-  const referenceGroups = getInspectorReferenceGroups(session);
+  const referenceGroups = getInspectorReferenceGroups(session, t);
   const statusText = result.status === "completed"
     ? t("completed")
     : result.status === "failed"
@@ -607,7 +607,7 @@ function PreviewInspector({
           <h3>{t("qualityInfo")}</h3>
           {result.quality?.score !== undefined && (
             <p className="studio-image-preview-quality-score">
-              {Math.round(result.quality.score * 100)}分{result.quality.label ? ` · ${result.quality.label}` : ""}
+              {Math.round(result.quality.score * 100)}{t("scoreUnit")}{result.quality.label ? ` · ${result.quality.label}` : ""}
             </p>
           )}
           {result.quality?.summary && <p className="studio-image-preview-quality-summary">{result.quality.summary}</p>}
@@ -1039,7 +1039,10 @@ function filterUsableActions(
   });
 }
 
-function getInspectorReferenceGroups(session: ImagePreviewSession): Array<{ title: string; references: ImagePreviewReference[] }> {
+function getInspectorReferenceGroups(
+  session: ImagePreviewSession,
+  t: (key: string) => string
+): Array<{ title: string; references: ImagePreviewReference[] }> {
   const references = session.references || [];
   if (!references.length) return [];
   if (session.module === "outfitFusion") {
@@ -1052,13 +1055,13 @@ function getInspectorReferenceGroups(session: ImagePreviewSession): Array<{ titl
     const referenceImages = references.filter((reference) => reference.role === "reference" || /参考图/.test(reference.label));
     const modelReferences = references.filter((reference) => reference.role === "model" || /模特/.test(reference.label));
     const groups = [
-      outfitReferences.length ? { title: "搭配图", references: outfitReferences } : null,
-      referenceImages.length ? { title: "参考图", references: referenceImages } : null,
-      modelReferences.length ? { title: "模特", references: modelReferences } : null,
+      outfitReferences.length ? { title: t("outfitGroup"), references: outfitReferences } : null,
+      referenceImages.length ? { title: t("referenceGroup"), references: referenceImages } : null,
+      modelReferences.length ? { title: t("modelGroup"), references: modelReferences } : null,
     ].filter(Boolean) as Array<{ title: string; references: ImagePreviewReference[] }>;
-    return groups.length ? groups : [{ title: "输入参考", references }];
+    return groups.length ? groups : [{ title: t("inputReference"), references }];
   }
-  if (session.module !== "tryon") return [{ title: "输入参考", references }];
+  if (session.module !== "tryon") return [{ title: t("inputReference"), references }];
 
   const isModel = (reference: ImagePreviewReference) => reference.role === "model" || /模特/.test(reference.label);
   const isClothing = (reference: ImagePreviewReference) => (
@@ -1071,12 +1074,12 @@ function getInspectorReferenceGroups(session: ImagePreviewSession): Array<{ titl
   const modelReferences = references.filter(isModel);
   const sceneReferences = references.filter((reference) => !isModel(reference) && !isClothing(reference));
   const groups = [
-    clothingReferences.length ? { title: "服装", references: clothingReferences } : null,
-    modelReferences.length ? { title: "模特", references: modelReferences } : null,
-    sceneReferences.length ? { title: "参考图", references: sceneReferences } : null,
+    clothingReferences.length ? { title: t("clothingGroup"), references: clothingReferences } : null,
+    modelReferences.length ? { title: t("modelGroup"), references: modelReferences } : null,
+    sceneReferences.length ? { title: t("referenceGroup"), references: sceneReferences } : null,
   ].filter(Boolean) as Array<{ title: string; references: ImagePreviewReference[] }>;
 
-  return groups.length ? groups : [{ title: "输入参考", references }];
+  return groups.length ? groups : [{ title: t("inputReference"), references }];
 }
 
 function actionIcon(kind: ImagePreviewActionKind) {

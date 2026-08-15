@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
+import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
@@ -136,7 +137,7 @@ ${userStyle || "无"}
 9. 敏感服装：${garmentCategory === "intimate" ? "按成人贴身/泳装类商品图处理，必须保持中性、专业、非色情，不要裸露、挑逗姿势、床上/情色场景、未成年人或未成年人外观。" : "无。"}
 
 【格式要求】
-- 用中文描述服装和风格，用英文写摄影技术参数
+- 用${getLlmLanguageName(request.headers.get("x-next-intl-locale"))}描述服装和风格，用英文写摄影技术参数
 - 一段连贯的话，350-500字，不要分段，不要解释
 - 必须去AI味：强调真实摄影质感、自然光影、真实皮肤、自然表情、非对称真实感、布料褶皱；不要素材库假笑、塑料脸、过干净灰底棚拍
 

@@ -2,10 +2,11 @@
 
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import {
   getOutfitFusionAssetLabel,
-  getOutfitFusionRoleLabel,
   OUTFIT_FUSION_TEMPLATES,
+  type OutfitFusionAssetRole,
   type OutfitFusionTemplate,
 } from "@/lib/outfit-fusion";
 
@@ -16,14 +17,21 @@ export type OutfitFusionExampleGalleryProps = {
   className?: string;
 };
 
+function getOutfitFusionRoleLabelKey(role: OutfitFusionAssetRole) {
+  if (role === "reference") return "roles.reference";
+  if (role === "model") return "roles.model";
+  return "roles.outfit";
+}
+
 export function OutfitFusionExampleGallery({
   templates = OUTFIT_FUSION_TEMPLATES,
   activeTemplateId,
   onUseTemplate,
   className,
 }: OutfitFusionExampleGalleryProps) {
+  const t = useTranslations("OutfitFusion");
   return (
-    <section className={cn("mx-auto w-full max-w-[1680px]", className)} aria-label="搭配融图示例">
+    <section className={cn("mx-auto w-full max-w-[1680px]", className)} aria-label={t("galleryAriaLabel")}>
       <div className="grid overflow-hidden rounded-[8px] bg-white dark:bg-white/5 grid-cols-1 gap-[3px] sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
         {templates.map((template, index) => (
           <article
@@ -45,7 +53,7 @@ export function OutfitFusionExampleGallery({
               <div className="flex min-w-0 gap-1">
                 {template.assets.slice(0, 3).map((asset, assetIndex) => {
                   const label = getOutfitFusionAssetLabel(asset, assetIndex);
-                  const roleLabel = getOutfitFusionRoleLabel(asset.role);
+                  const roleLabel = t(getOutfitFusionRoleLabelKey(asset.role));
                   return (
                     <div key={asset.id} className="w-12 overflow-hidden rounded-[4px] border border-white/70 bg-white shadow-sm transition duration-200 group-hover:shadow-md" title={`${label} · ${roleLabel}`}>
                       <div className="truncate bg-black/55 px-1 py-0.5 text-[10px] leading-none text-white">
@@ -61,7 +69,7 @@ export function OutfitFusionExampleGallery({
                 className="pointer-events-auto mb-0.5 ml-auto inline-flex h-8 shrink-0 items-center justify-center rounded-[4px] border border-white/70 bg-[rgba(0,0,0,0.58)] px-3 text-xs font-semibold leading-4 text-white shadow-[0_6px_14px_rgba(0,0,0,0.18)] transition duration-200 hover:border-white/90 hover:bg-[rgba(0,0,0,0.70)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 onClick={() => onUseTemplate(template)}
               >
-                做同款
+                {t("makeSame")}
               </button>
             </div>
             <div className="absolute left-2 top-2 rounded-[5px] bg-black/55 px-2 py-1 text-xs font-medium leading-4 text-white opacity-0 transition duration-300 group-hover:opacity-100 group-focus-within:opacity-100">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Check, Search } from "lucide-react";
 import { type UIEvent, useEffect, useState } from "react";
 import { App, Empty, Input, Modal, Spin, Tag } from "antd";
@@ -14,6 +15,7 @@ export function PromptSelectDialog({ open, onOpenChange, onSelect }: { open: boo
     const [keyword, setKeyword] = useState("");
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_PROMPTS_OPTION);
+    const t = useTranslations("Shared");
     const { query, items, tags: promptTags, categories: promptCategories } = usePromptList({ keyword, tags: selectedTags, category: selectedCategory, enabled: open });
     const toggleTag = (tag: string) => {
         if (tag === ALL_PROMPTS_OPTION) return setSelectedTags([]);
@@ -34,14 +36,14 @@ export function PromptSelectDialog({ open, onOpenChange, onSelect }: { open: boo
     };
 
     return (
-        <Modal title="提示词库" open={open} onCancel={() => onOpenChange(false)} footer={null} width={1040} centered>
+        <Modal title={t("promptLibraryTitle")} open={open} onCancel={() => onOpenChange(false)} footer={null} width={1040} centered>
             <div data-canvas-no-zoom onWheelCapture={(event) => event.stopPropagation()}>
                 <div className="mx-auto max-w-2xl">
-                    <Input size="large" prefix={<Search className="size-4 text-stone-400" />} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="按标题查询" />
+                    <Input size="large" prefix={<Search className="size-4 text-stone-400" />} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder={t("promptSearchPlaceholder")} />
                 </div>
                 <div className="mt-5 grid gap-3">
                     <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-start">
-                        <div className="pt-2 text-xs font-medium text-stone-500 dark:text-stone-400">分类</div>
+                        <div className="pt-2 text-xs font-medium text-stone-500 dark:text-stone-400">{t("promptCategory")}</div>
                         <div className="flex flex-wrap gap-2">
                             {promptCategories.map((category) => (
                                 <Tag.CheckableTag key={category} checked={selectedCategory === category} className={cn("prompt-filter-tag", selectedCategory === category && "is-active")} onChange={() => setSelectedCategory(category)}>
@@ -51,7 +53,7 @@ export function PromptSelectDialog({ open, onOpenChange, onSelect }: { open: boo
                         </div>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-start">
-                        <div className="pt-2 text-xs font-medium text-stone-500 dark:text-stone-400">标签</div>
+                        <div className="pt-2 text-xs font-medium text-stone-500 dark:text-stone-400">{t("promptTags")}</div>
                         <div className="flex flex-wrap gap-2">
                             {promptTags.map((tag) => {
                                 const active = tag === ALL_PROMPTS_OPTION ? selectedTags.length === 0 : selectedTags.includes(tag);

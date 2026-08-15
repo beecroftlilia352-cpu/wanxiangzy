@@ -136,15 +136,6 @@ const MODELS: Array<{ value: LingyaModel; label: string; badge?: string; badgeKe
 
 const MAIN_ASPECTS: AspectRatio[] = ["auto", "1:1", "3:4", "4:3"];
 const DETAILS_ASPECTS: AspectRatio[] = ["auto", "3:4", "4:5", "4:3", "1:1"];
-const ANALYZE_PROGRESS_MESSAGES = ["正在识别商品主体…", "正在分析材质与卖点…", "正在生成视觉规划…"];
-const GENERATE_PROGRESS_MESSAGES = [
-  "正在模拟物理级光影分布…",
-  "正在深度解析设计特征…",
-  "正在构建创意构图与排版…",
-  "正在进行高保真像素渲染…",
-  "正在优化图像纹理与细节…",
-  "即将完成，正在进行最后润色…",
-];
 
 const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -257,8 +248,10 @@ function buildResultSlots(modules: PlanningModule[], moduleResults: ProductSetMo
   });
 }
 
-function getProgressMessage(step: StepKey, progress: number) {
-  const messages = step === "generating" ? GENERATE_PROGRESS_MESSAGES : ANALYZE_PROGRESS_MESSAGES;
+function getProgressMessage(t: (key: string) => string, step: StepKey, progress: number) {
+  const messages = step === "generating"
+    ? [t("generateProgress1"), t("generateProgress2"), t("generateProgress3"), t("generateProgress4"), t("generateProgress5"), t("generateProgress6")]
+    : [t("analyzeProgress1"), t("analyzeProgress2"), t("analyzeProgress3")];
   const normalizedProgress = Math.min(Math.max(progress || 0, 0), 99);
   const index = Math.min(messages.length - 1, Math.floor(normalizedProgress / (100 / messages.length)));
   return messages[index];
@@ -320,20 +313,20 @@ export default function AllCategoryProductImagePage() {
       statusGroup: isGenerating ? "running" : activeStep === "done" ? "completed" : undefined,
       references: productImages.map((image, index) => ({
         url: image.uploadedUrl || image.url,
-        label: image.name || `商品图 ${index + 1}`,
+        label: image.name || t("productImageSlot", { index: index + 1 }),
         role: "product" as const,
       })),
       promptText: userBrief,
       metaItems: [
-        { label: "图片类型", value: imageType === "main" ? "主图辅图" : "详情页" },
-        { label: "平台", value: platform },
-        { label: "语言", value: language },
-        { label: "模型", value: aiModel },
-        { label: "分辨率", value: imageSize },
-        { label: "生成数量", value: modules.length },
+        { label: t("imageTypeLabel"), value: imageType === "main" ? t("imageTypeMain") : t("imageTypeDetails") },
+        { label: t("platformLabel"), value: platform },
+        { label: t("languageLabel"), value: language },
+        { label: t("modelLabel"), value: aiModel },
+        { label: t("resolutionLabel"), value: imageSize },
+        { label: t("genCountLabel"), value: modules.length },
       ],
-      titles: resultSlots.map((slot, index) => slot.module.title || `商品图 ${index + 1}`),
-      subtitles: resultSlots.map((slot) => `${slot.module.description} · ${getAspectRatioLabel(slot.module.aspectRatio || defaultAspect)}`),
+      titles: resultSlots.map((slot, index) => slot.module.title || t("productImageSlot", { index: index + 1 })),
+      subtitles: resultSlots.map((slot) => `${slot.module.description} · ${getAspectRatioLabel(slot.module.aspectRatio || defaultAspect, t)}`),
       statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.status || (isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
       errors: resultSlots.map((slot) => slot.error || null),
       qualities: resultSlots.map((slot) => {
@@ -347,7 +340,7 @@ export default function AllCategoryProductImagePage() {
       }),
       aspectRatio: defaultAspect,
     }),
-    [activeStep, aiModel, defaultAspect, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, resultSlots, userBrief]
+    [activeStep, aiModel, defaultAspect, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, resultSlots, t, userBrief]
   );
 
   useEffect(() => {
@@ -862,7 +855,7 @@ export default function AllCategoryProductImagePage() {
                   <div className="min-w-0">
                     <h2 className="text-sm font-black text-slate-950">{activeStep === "done" ? t("generationDone") : activeStep === "generating" ? t("generatingDots") : activeStep === "analyzing" ? t("analyzingDots") : activeStep === "planning" ? t("designPreview") : t("generationResult")}</h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {activeStep === "input" ? t("inputStepHint") : activeStep === "planning" ? t("planningStepHint") : activeStep === "done" ? t("doneStepHint") : getProgressMessage(activeStep, progress)}
+                      {activeStep === "input" ? t("inputStepHint") : activeStep === "planning" ? t("planningStepHint") : activeStep === "done" ? t("doneStepHint") : getProgressMessage(t, activeStep, progress)}
                     </p>
                   </div>
                 </div>
@@ -882,7 +875,7 @@ export default function AllCategoryProductImagePage() {
 
               {(activeStep === "analyzing" || activeStep === "generating") && (
                 <div className="mt-6">
-                  <ProgressLine value={progress} label={getProgressMessage(activeStep, progress)} />
+                  <ProgressLine value={progress} label={getProgressMessage(t, activeStep, progress)} />
                   {activeStep === "generating" && (
                     <div className="mt-6 grid gap-4 md:grid-cols-2">
                       {resultSlots.map((slot, index) => (
@@ -937,7 +930,19 @@ export default function AllCategoryProductImagePage() {
                     selectedIndex={previewIndex || 0}
                     onSelectedIndexChange={setPreviewIndex}
                     filenamePrefix="all-category-product-image"
-                    actions={ALL_CATEGORY_PREVIEW_ACTIONS}
+                    actions={ALL_CATEGORY_PREVIEW_ACTIONS.map((a) => {
+                      const key: Record<string, string> = {
+                        download: "actionDownload",
+                        copy: "actionCopy",
+                        regenerateOne: "actionRegenerateOne",
+                        aiVideo: "actionAiVideo",
+                        modelBackground: "actionModelBackground",
+                        pose: "actionPose",
+                        productSet: "actionProductSet",
+                        feedback: "actionFeedback",
+                      };
+                      return { ...a, label: t(key[a.kind]) };
+                    })}
                     onRegenerateOne={(_, index) => void submitGeneration(index)}
                   />
                 </div>
@@ -1007,6 +1012,7 @@ function SelectField({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("AllCategoryProduct");
   return (
     <label className="block">
       <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
@@ -1021,7 +1027,7 @@ function SelectField({
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {labels?.[option] || getAspectRatioLabel(option)}
+            {labels?.[option] || getAspectRatioLabel(option, t)}
           </option>
         ))}
       </select>
@@ -1029,8 +1035,8 @@ function SelectField({
   );
 }
 
-function getAspectRatioLabel(value: string) {
-  return value === "auto" ? "智能" : value;
+function getAspectRatioLabel(value: string, t?: (key: string) => string) {
+  return value === "auto" ? (t ? t("aspectAuto") : "智能") : value;
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {
@@ -1162,7 +1168,7 @@ function GenerationSkeleton({ title, progress }: { title: string; progress: numb
         <PackageCheck aria-hidden="true" className="h-6 w-6" />
       </div>
       <p className="mt-4 text-sm font-black text-slate-700">{title}</p>
-      <p className="mt-1 px-4 text-xs text-slate-500">{getProgressMessage("generating", progress)}</p>
+      <p className="mt-1 px-4 text-xs text-slate-500">{getProgressMessage(t, "generating", progress)}</p>
       <p className="mt-1 text-[11px] font-semibold text-slate-400">{progress ? `${progress}%` : t("waitingRender")}</p>
     </div>
   );
@@ -1218,7 +1224,7 @@ function ResultGrid({
             </div>
             <div className="p-3">
               <h4 className="truncate text-sm font-black text-slate-950">{slot.module.title}</h4>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{slot.url ? t("regenerated") : slot.status === "failed" ? t("failedStatus") : t("generatingStatus")} · {getAspectRatioLabel(slot.module.aspectRatio)}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{slot.url ? t("regenerated") : slot.status === "failed" ? t("failedStatus") : t("generatingStatus")} · {getAspectRatioLabel(slot.module.aspectRatio, t)}</p>
             </div>
           </article>
         ))}

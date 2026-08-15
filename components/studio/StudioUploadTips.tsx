@@ -4,8 +4,12 @@ import type { CSSProperties, ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 export type StudioUploadTip = {
-  label: string;
-  text: string;
+  /** 渲染兜底文案；携带 labelKey 时由渲染端按 Shared 命名空间翻译 */
+  label?: string;
+  text?: string;
+  /** 当 tips 由 buildStudioUploadTips 生成时携带，用于渲染端按 Shared 命名空间翻译 */
+  labelKey?: string;
+  textKey?: string;
 };
 
 type BuildStudioUploadTipsOptions = {
@@ -16,8 +20,8 @@ type BuildStudioUploadTipsOptions = {
 };
 
 type TipPreset = {
-  info: string;
-  requirement: string;
+  infoKey: string;
+  requirementKey: string;
 };
 
 type StudioUploadTipsProps = {
@@ -41,44 +45,26 @@ function inferTipPreset({ title, description, footnote }: BuildStudioUploadTipsO
   const source = `${title || ""} ${description || ""} ${footnote || ""}`;
 
   if (/姿势|动作|参考/.test(source)) {
-    return {
-      info: "参考图只锁定动作和构图。",
-      requirement: "肢体完整、动作清楚、单人同框。",
-    };
+    return { infoKey: "infoOnlyPose", requirementKey: "reqPose" };
   }
 
   if (/换脸|脸|面部|正脸|五官/.test(source)) {
-    return {
-      info: "用于保持脸型和五官气质。",
-      requirement: "正脸清晰、无遮挡、光线均匀。",
-    };
+    return { infoKey: "infoFace", requirementKey: "reqFace" };
   }
 
   if (/服装|上装|下装|连体|衣服|款式|商品|穿搭/.test(source)) {
-    return {
-      info: "款式越干净，上身越稳定。",
-      requirement: "主体完整、边缘清楚、无遮挡。",
-    };
+    return { infoKey: "infoClothing", requirementKey: "reqClothing" };
   }
 
   if (/背景|场景|空间/.test(source)) {
-    return {
-      info: "用于锁定场景氛围和光线。",
-      requirement: "空间完整、光线方向明确。",
-    };
+    return { infoKey: "infoScene", requirementKey: "reqScene" };
   }
 
   if (/模特|人物|人像|写真/.test(source)) {
-    return {
-      info: "多张同身份图更稳。",
-      requirement: "五官清晰、光线稳定。",
-    };
+    return { infoKey: "infoModel", requirementKey: "reqModel" };
   }
 
-  return {
-    info: "上传越清晰，生成越稳定。",
-    requirement: "主体清晰、构图完整。",
-  };
+  return { infoKey: "infoDefault", requirementKey: "reqDefault" };
 }
 
 export function buildStudioUploadTips({
@@ -86,22 +72,31 @@ export function buildStudioUploadTips({
   description,
   footnote,
   imageRequirement,
-}: BuildStudioUploadTipsOptions) {
+}: BuildStudioUploadTipsOptions): StudioUploadTip[] {
   const preset = inferTipPreset({ title, description, footnote });
-  const requirement = normalizeTipText(imageRequirement) || preset.requirement;
+  const requirement = normalizeTipText(imageRequirement);
 
   return [
-    { label: "说明", text: preset.info },
-    { label: "图片要求", text: requirement.replace(/^图片要求[:：]\s*/, "") },
+    { labelKey: "tipInfo", textKey: preset.infoKey },
+    {
+      labelKey: "tipRequirement",
+      textKey: requirement ? undefined : preset.requirementKey,
+      text: requirement.replace(/^图片要求[:：]\s*/, ""),
+    },
   ];
 }
 
 export function StudioUploadTips({ tips, action }: StudioUploadTipsProps) {
   const t = useTranslations("Shared");
   const visibleTips = tips
+    .map((tip) => ({
+      ...tip,
+      label: tip.labelKey ? t(tip.labelKey) : tip.label || "",
+      text: tip.textKey ? t(tip.textKey) : tip.text || "",
+    }))
     .filter((tip) => normalizeTipText(tip.text))
     .slice(0, 2)
-    .map((tip) => ({ ...tip, text: shortenTipText(tip.text) }));
+    .map((tip) => ({ ...tip, text: shortenTipText(tip.text || "") }));
 
   if (!visibleTips.length) return null;
 

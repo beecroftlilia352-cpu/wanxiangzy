@@ -789,11 +789,14 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           <section>
             <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("modelSectionTitle")}</h3>
             <StudioModelSelector
-              models={MODELS.map((model) => ({
-                ...model,
-                desc: model.descKey ? t(model.descKey) : model.desc,
-                badge: model.badgeKey && model.badge ? t(model.badgeKey) : model.badge,
-              }))}
+              models={MODELS.map((model) => {
+                const { descKey, badgeKey, ...rest } = model;
+                return {
+                  ...rest,
+                  desc: descKey ? t(descKey) : model.desc,
+                  badge: model.badge ? (badgeKey ? t(badgeKey) : model.badge) : undefined,
+                };
+              })}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("modelAriaLabel")}

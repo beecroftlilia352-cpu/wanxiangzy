@@ -1,3 +1,4 @@
+import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
@@ -54,7 +55,7 @@ ${displayStylePrompt}
 - 【最重要】最终提示词中必须出现"图1"引用（如"忠实还原图1的服装"、"根据图1判断正面或背面"），这是图片生成模型识别图片的唯一方式
 - 所有参数必须根据输入图片智能分析
 - 服装必须100%忠实于原图，不能改变任何细节
-- 用英文生成摄影技术参数，用中文描述服装细节
+- 用英文生成摄影技术参数，用${getLlmLanguageName(request.headers.get("x-next-intl-locale"))}描述服装细节
 - 最终输出为一段连贯的提示词，150-250字，不要分点，不要解释
 - 必须去 AI 味
 

@@ -5,6 +5,7 @@
  * 将用户的简短描述扩展为专业的摄影/时尚风格指令
  */
 
+import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
             content: `你是一位专业的时尚摄影 AI 提示词工程师。你的任务是将用户的简短风格描述扩展为详细、专业的图片生成提示词。
 
 规则：
-1. 输出必须是中文
+1. 输出必须是${getLlmLanguageName(request.headers.get("x-next-intl-locale"))}
 2. 保留用户的核心意图
 3. 补充摄影专业术语：光线、色调、构图、氛围、质感
 4. 输出 2-4 句话，简洁有力，不超过 100 字

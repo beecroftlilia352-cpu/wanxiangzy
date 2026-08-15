@@ -855,10 +855,13 @@ export default function FaceSwapPage() {
           <section>
             <PanelTitle title={t("modeSectionTitle")} />
             <StudioOptionGrid
-              options={FACE_SWAP_MODE_OPTIONS.map((opt) => ({
-                ...opt,
-                label: opt.value === "featuresHairSkin" ? t("modeFeatureHairSkin") : t("modeFeature"),
-              }))}
+              options={FACE_SWAP_MODE_OPTIONS.map((opt) => {
+                const { labelKey, ...rest } = opt as typeof opt & { labelKey?: string };
+                return {
+                  ...rest,
+                  label: opt.value === "featuresHairSkin" ? t("modeFeatureHairSkin") : t("modeFeature"),
+                };
+              })}
               value={faceSwapMode}
               columns={2}
               ariaLabel={t("modeSectionTitle")}

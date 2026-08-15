@@ -1,3 +1,4 @@
+import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig, getLlmFallbackConfigs } from "@/lib/api/llm-provider";
@@ -169,7 +170,7 @@ ${referenceStyleInstruction}
 - ${requestedImageType === "main" ? "main_plan 和 main_scripts" : "details_plan 和 details_scripts"} 必须各输出 ${requestedCount} 个模块，顺序就是最终生成顺序。
 - 非当前输出类型的 plan/scripts 可以为空数组，不要为了凑默认数量输出无关模块。
 - 商品信息总结必须服务后续规划，覆盖目标平台、风格名称、视觉风格、整组统一场景、产品名称、核心卖点、用户痛点、适用人群、产品参数、设计风格、主题配色和用户需求原文。
-- 所有面向用户展示的字段必须使用中文：商品名称、商品描述、目标受众、商品卖点、strategy_name、style_strategy、purpose、layout、copy_rule、title、scene_design、visual_composition、copy_content、layout_rules、constraints、style_tags、visible_details、possible_selling_points、target_audience_guess、usage_scenarios。
+- 所有面向用户展示的字段必须使用${getLlmLanguageName(request.headers.get("x-next-intl-locale"))}：商品名称、商品描述、目标受众、商品卖点、strategy_name、style_strategy、purpose、layout、copy_rule、title、scene_design、visual_composition、copy_content、layout_rules、constraints、style_tags、visible_details、possible_selling_points、target_audience_guess、usage_scenarios。
 - 不要输出裸英文品名或英文方案标题。例如识别到 jacket，应写“夹克 / 户外夹克 / 反光连帽夹克”，不要只写 jacket；识别到 outdoor enthusiasts，应写“户外运动人群”。技术枚举字段 module_key 可以使用英文。
 
 非常重要：

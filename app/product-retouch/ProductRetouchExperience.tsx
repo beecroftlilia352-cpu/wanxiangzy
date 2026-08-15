@@ -150,21 +150,30 @@ type PreviewState = {
 
 export function ProductRetouchExperience() {
   const t = useTranslations("ProductRetouch");
-  const displayModels = useMemo(() => MODEL_OPTIONS.map((m) => ({
-    ...m,
-    label: m.labelKey ? t(m.labelKey) : m.label,
-    desc: m.descKey ? t(m.descKey) : m.desc,
-    badge: m.badgeKey ? t(m.badgeKey) : m.badge,
-  })), [t]);
-  const displayAspects = useMemo(() => ASPECT_OPTIONS.map((m) => ({
-    ...m,
-    label: m.labelKey ? t(m.labelKey) : m.label,
-    description: m.descriptionKey ? t(m.descriptionKey) : m.description,
-  })), [t]);
-  const displaySizes = useMemo(() => SIZE_OPTIONS.map((m) => ({
-    ...m,
-    description: m.descriptionKey ? t(m.descriptionKey) : m.description,
-  })), [t]);
+  const displayModels = useMemo(() => MODEL_OPTIONS.map((m) => {
+    const { labelKey, descKey, badgeKey, ...rest } = m;
+    return {
+      ...rest,
+      label: labelKey ? t(labelKey) : m.label,
+      desc: descKey ? t(descKey) : m.desc,
+      badge: m.badge ? (badgeKey ? t(badgeKey) : m.badge) : undefined,
+    };
+  }), [t]);
+  const displayAspects = useMemo(() => ASPECT_OPTIONS.map((m) => {
+    const { labelKey, descriptionKey, ...rest } = m;
+    return {
+      ...rest,
+      label: labelKey ? t(labelKey) : m.label,
+      description: descriptionKey ? t(descriptionKey) : m.description,
+    };
+  }), [t]);
+  const displaySizes = useMemo(() => SIZE_OPTIONS.map((m) => {
+    const { descriptionKey, ...rest } = m;
+    return {
+      ...rest,
+      description: descriptionKey ? t(descriptionKey) : m.description,
+    };
+  }), [t]);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const restoredIdRef = useRef<string | null>(null);

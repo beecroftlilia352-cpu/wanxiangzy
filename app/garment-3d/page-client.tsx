@@ -208,7 +208,7 @@ export default function Garment3dPage() {
       ],
       promptText: prompt.trim() && prompt.trim() !== DEFAULT_PROMPT ? prompt : "",
       metaItems: [
-        { label: t("metaGarmentType"), value: garmentType === "其他" ? customGarmentType : garmentType },
+        { label: t("metaGarmentType"), value: garmentType === "其他" ? customGarmentType : translateGarmentType(t, garmentType) },
         { label: t("metaOutputMode"), value: outputMode === "reference" ? t("outputModeReferenceValue") : t("outputModePromptValue") },
         { label: t("metaDisplayStyle"), value: displayStyleLabel },
         { label: t("metaModel"), value: aiModel },

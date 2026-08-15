@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useTranslations } from "next-intl";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
@@ -82,7 +83,7 @@ export function ResultImageGrid({
   extension = "png",
   expectedCount,
   isGenerating,
-  imageAltPrefix = "生成结果",
+  imageAltPrefix,
   inputThumbnails = [],
   inputReferences = [],
   createdAt,
@@ -102,6 +103,8 @@ export function ResultImageGrid({
   tileAspectRatio,
   reducePendingMotion = false,
 }: ResultImageGridProps) {
+  const t = useTranslations("Shared");
+  const resolvedImageAltPrefix = imageAltPrefix ?? t("resultImageAlt");
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const isSingle = count <= 1;
@@ -109,8 +112,8 @@ export function ResultImageGrid({
   const completedSlotCount = slots.filter(Boolean).length;
   const allExpectedResultsReady = completedSlotCount >= count;
   const incomingReferenceItems = useMemo(
-    () => buildReferenceItems(inputReferences, inputThumbnails),
-    [inputReferences, inputThumbnails]
+    () => buildReferenceItems(inputReferences, inputThumbnails, t("referenceGroup")),
+    [inputReferences, inputThumbnails, t]
   );
   const activeTaskSet = variant === "task" && (Boolean(isGenerating) || urls.length > 0 || Boolean(statusGroup));
   const referenceSnapshotKey = useMemo(
@@ -153,7 +156,7 @@ export function ResultImageGrid({
     return (
       <div className="studio-result-set w-full max-w-[min(1480px,100%)]">
         <p className="studio-result-disclaimer">
-          因产品处于持续学习调优阶段，可能有不恰当的信息，请您谨慎甄别。
+          {t("groupIdDisclaimer")}
         </p>
         <p className="studio-result-time">{timestamp}</p>
 
@@ -185,7 +188,7 @@ export function ResultImageGrid({
                   calmPendingMotion={calmPendingMotion}
                   filenamePrefix={filenamePrefix}
                   extension={extension}
-                  imageAltPrefix={imageAltPrefix}
+                  imageAltPrefix={resolvedImageAltPrefix}
                   onOpen={onOpen}
                   failureLabel={failed ? failureLabel : missingFailed ? missingFailureLabel : undefined}
                   failureDetail={failed ? failureDetail : missingFailed ? missingFailureDetail : undefined}
@@ -222,7 +225,7 @@ export function ResultImageGrid({
             calmPendingMotion={Boolean(running && (reducePendingMotion || count >= 6))}
             filenamePrefix={filenamePrefix}
             extension={extension}
-            imageAltPrefix={imageAltPrefix}
+            imageAltPrefix={resolvedImageAltPrefix}
             onOpen={onOpen}
             isSingle={isSingle}
             failureLabel={statusGroup === "failed" ? failureLabel : missingFailed ? missingFailureLabel : undefined}
@@ -238,17 +241,17 @@ export function ResultImageGrid({
   );
 }
 
-function buildReferenceItems(inputReferences: ResultInputReference[], inputThumbnails: string[]): ResultInputReference[] {
+function buildReferenceItems(inputReferences: ResultInputReference[], inputThumbnails: string[], referenceLabel: string): ResultInputReference[] {
   const labeled = inputReferences
     .filter((item) => item.url)
     .map((item) => ({
       url: item.url,
-      label: item.label || "参考图",
+      label: item.label || referenceLabel,
     }));
   if (labeled.length) return labeled;
   return inputThumbnails
     .filter(Boolean)
-    .map((url, index) => ({ url, label: `参考图${index + 1}` }));
+    .map((url, index) => ({ url, label: `${referenceLabel}${index + 1}` }));
 }
 
 type ResultCardProps = {
@@ -294,6 +297,7 @@ const ResultCard = memo(function ResultCard({
   cellLabel,
   tileAspectRatio,
 }: ResultCardProps) {
+  const t = useTranslations("Shared");
   const router = useRouter();
   const openPreview = () => {
     if (url) onOpen(url, index);
@@ -319,12 +323,12 @@ const ResultCard = memo(function ResultCard({
         {url ? (
           <button
             type="button"
-            aria-label={`预览${imageAltPrefix} ${index + 1}`}
-            title={`预览${imageAltPrefix} ${index + 1}`}
+            aria-label={t("previewResult", { label: imageAltPrefix, index: index + 1 })}
+            title={t("previewResult", { label: imageAltPrefix, index: index + 1 })}
             className="absolute inset-0 z-[1] cursor-zoom-in"
             onClick={openPreview}
           >
-            <span className="sr-only">预览{imageAltPrefix} {index + 1}</span>
+            <span className="sr-only">{t("previewResult", { label: imageAltPrefix, index: index + 1 })}</span>
           </button>
         ) : null}
         {cellLabel ? (
@@ -343,8 +347,8 @@ const ResultCard = memo(function ResultCard({
             />
           ) : completedMissing ? (
             <div className="studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-100/70 text-slate-500 dark:bg-slate-800/40 dark:text-slate-300">
-              <p className="text-xs font-semibold">已完成，缺图</p>
-              <p className="px-4 text-center text-[11px] leading-4 text-slate-400 dark:text-slate-500">服务端已结算，无图片结果</p>
+              <p className="text-xs font-semibold">{t("completedMissing")}</p>
+              <p className="px-4 text-center text-[11px] leading-4 text-slate-400 dark:text-slate-500">{t("noImageResult")}</p>
             </div>
           ) : (
             <PendingResultSlot
@@ -365,8 +369,8 @@ const ResultCard = memo(function ResultCard({
           <>
             <button
               type="button"
-              aria-label={`下载${imageAltPrefix} ${index + 1}`}
-              title="下载"
+              aria-label={t("downloadResultLabel", { label: imageAltPrefix, index: index + 1 })}
+              title={t("download")}
               onClick={(event) => {
                 event.stopPropagation();
                 downloadResult();
@@ -388,12 +392,12 @@ const ResultCard = memo(function ResultCard({
                 onKeyDown={(event) => event.stopPropagation()}
               >
                 <Eye className="h-4 w-4" aria-hidden="true" />
-                查看
+                {t("view")}
               </Button>
             <div className="studio-result-focus-actions">
-              <ResultFocusAction label="AI修图" onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
-              <ResultFocusAction label="AI视频" onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
-              <ResultFocusAction label="下载" onClick={downloadResult} icon={<Download className="h-3.5 w-3.5" />} />
+              <ResultFocusAction label={t("actionRepair")} onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
+              <ResultFocusAction label={t("actionAiVideo")} onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
+              <ResultFocusAction label={t("download")} onClick={downloadResult} icon={<Download className="h-3.5 w-3.5" />} />
             </div>
           </div>
           </>
@@ -510,6 +514,7 @@ function PendingResultSlot({
   onFailureAction?: () => void;
   failureActionDisabled?: boolean;
 }) {
+  const t = useTranslations("Shared");
   return (
     <div className={`gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2 ${failed ? "studio-result-pending-card-failed" : ""} ${calmMotion ? "studio-result-pending-card-calm" : ""}`}>
       {!failed && !calmMotion && <StudioHomeHeroLoadingBackdrop />}
@@ -520,7 +525,7 @@ function PendingResultSlot({
         </div>
       </div>
       <p className="relative z-[1] text-xs font-semibold text-white/90">
-        {failed ? failureLabel || "生成失败，可套用参数重试" : running ? "生成中，请稍候" : "等待生成"}
+        {failed ? failureLabel || t("generateFailedRetry") : running ? t("generatingPleaseWait") : t("waitingToGenerate")}
       </p>
       {failed && failureDetail && (
         <p className="studio-result-failure-detail relative z-[1] max-h-24 max-w-[82%] overflow-auto rounded-lg px-2.5 py-2 text-left text-[11px] font-medium leading-4">
@@ -538,11 +543,11 @@ function PendingResultSlot({
           className="studio-result-failure-action relative z-[1]"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{failureActionLabel || "重试本张"}</span>
+          <span>{failureActionLabel || t("retryThis")}</span>
         </button>
       )}
       {!failed && running && (
-        <p className="relative z-[1] text-[11px] font-medium text-white/80">第 {index + 1} 张生成中</p>
+        <p className="relative z-[1] text-[11px] font-medium text-white/80">{t("generatingImageN", { index: index + 1 })}</p>
       )}
     </div>
   );

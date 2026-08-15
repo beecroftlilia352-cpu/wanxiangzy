@@ -217,6 +217,13 @@ function formatVisualAudienceSuggestion(audience: TryOnGarmentAudience | null, a
 
 export default function CreatePage() {
   const t = useTranslations("Create");
+  // 服装角色分类标签键（lib TRYON_CLOTHING_ROLE_LABELS 为中文兜底）
+  const ROLE_LABEL_KEYS: Record<string, string> = {
+    single: "clothing.roleSingle",
+    upper: "clothing.roleUpper",
+    lower: "clothing.roleLower",
+    extra: "clothing.roleExtra",
+  };
   const router = useRouter();
   const store = useTryOnStore();
   const {
@@ -775,7 +782,7 @@ export default function CreatePage() {
           if (autoMode !== clothingMode) setClothingMode(autoMode);
           setPendingClothingRole(autoRole);
           setClothingRoles([autoRole]);
-          toast.info(t("analysis.autoRoleDetected", { role: TRYON_CLOTHING_ROLE_LABELS[autoRole] }));
+          toast.info(t("analysis.autoRoleDetected", { role: t(ROLE_LABEL_KEYS[autoRole]) }));
         }
         const audienceSuggestion = getVisualAudienceSuggestion(nextAnalysis);
         const hasAudienceSuggestion = Boolean(audienceSuggestion.audience || audienceSuggestion.ageGroup);
@@ -1173,7 +1180,7 @@ export default function CreatePage() {
       },
     ]);
     sourceLibrary.close();
-    toast.success(t("clothing.libraryAdded", { role: TRYON_CLOTHING_ROLE_LABELS[nextRole] || t("clothing.garment") }));
+    toast.success(t("clothing.libraryAdded", { role: t(ROLE_LABEL_KEYS[nextRole]) || t("clothing.garment") }));
   };
 
   const applyRuleDemo = (demo: TryOnRuleDemo) => {
@@ -2621,9 +2628,9 @@ export default function CreatePage() {
                     <div key={role} className="studio-clothing-slot-card">
                       <StudioUploadTile
                         title={title}
-                        description={t("clothing.multiDesc", { role: TRYON_CLOTHING_ROLE_LABELS[role] })}
+                        description={t("clothing.multiDesc", { role: t(ROLE_LABEL_KEYS[role]) })}
                         imageUrl={item?.preview}
-                        imageAlt={t("clothing.uploadedRoleAlt", { role: TRYON_CLOTHING_ROLE_LABELS[role] })}
+                        imageAlt={t("clothing.uploadedRoleAlt", { role: t(ROLE_LABEL_KEYS[role]) })}
                         disabled={isUploading}
                         loading={isUploading && uploadingClothingRoles.includes(role)}
                         supportBadge={t("clothing.individualUploadBadge")}
@@ -2828,7 +2835,7 @@ export default function CreatePage() {
                         className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                         aria-label={t("reference.previewSelected", { label: ref.label })}
                       >
-                        <RawPreviewImage src={ref.url} alt={ref.label || t("common.referenceImage")} className="aspect-[3/4] w-full object-cover" />
+                        <RawPreviewImage eager src={ref.url} alt={ref.label || t("common.referenceImage")} className="aspect-[3/4] w-full object-cover" />
                         <CheckCircle2 className="absolute right-1 top-1 h-4 w-4 rounded-full bg-[var(--codex-accent)] text-white" />
                       </button>
                     ))}
@@ -2894,7 +2901,7 @@ export default function CreatePage() {
                           className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                           aria-label={t("reference.preview", { label: ref.label })}
                         >
-                          <RawPreviewImage src={ref.url} alt={t("reference.previewAlt", { label: ref.label })} className="aspect-[3/4] w-full object-cover" />
+                          <RawPreviewImage eager src={ref.url} alt={t("reference.previewAlt", { label: ref.label })} className="aspect-[3/4] w-full object-cover" />
                           <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 opacity-0 transition group-hover:bg-slate-950/18 group-hover:opacity-100 group-focus-within:bg-slate-950/18 group-focus-within:opacity-100">
                             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow-sm">
                               <ZoomIn className="h-4 w-4" />
@@ -2916,7 +2923,7 @@ export default function CreatePage() {
                     ))}
                     {visibleCustomRefUploads.map((item) => (
                       <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-white dark:border-white/10 dark:bg-white/5">
-                        <RawPreviewImage src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
+                        <RawPreviewImage eager src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
                         <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
                           {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
                           {item.status === "uploading" ? t("common.uploading") : t("common.failed")}
@@ -3030,7 +3037,7 @@ export default function CreatePage() {
                               aria-label={t("favorite.applyTemplate", { name: template.name })}
                             >
                               <div className="relative aspect-[4/3] overflow-hidden">
-                                <RawPreviewImage src={template.coverUrl} alt={template.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" />
+                                <RawPreviewImage eager src={template.coverUrl} alt={template.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" />
                                 <span className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-[var(--codex-accent)]">
                                   {t("common.countImages", { count: template.references.length })}
                                 </span>
@@ -3353,7 +3360,7 @@ export default function CreatePage() {
               {STYLE_PRESETS.map((s, i) => (
                 <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); store.setPromptUsed(""); }}
                   aria-pressed={customStyle === s}
-                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300">{s}</button>
+                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300">{t(`stylePreset.${i}`)}</button>
               ))}
             </div>
 

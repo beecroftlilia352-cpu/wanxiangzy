@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   ChevronDown,
   Clapperboard,
@@ -81,6 +82,7 @@ const PREVIEW_ACTIONS: ImagePreviewAction[] = [
 ];
 
 export function OutfitFusionPageClient() {
+  const t = useTranslations("OutfitFusion");
   const router = useRouter();
   const [assets, setAssets] = useState<OutfitFusionAsset[]>([]);
   const [prompt, setPrompt] = useState("");
@@ -117,7 +119,7 @@ export function OutfitFusionPageClient() {
   const totalCost = getCreditCost(config.aiModel, config.imageSize, config.aspectRatio) * clampOutfitFusionCount(config.genCount);
   const taskQueue = useTaskQueueGeneration({
     module: "outfitFusion",
-    title: "搭配融图",
+    title: t("moduleName"),
     defaultExpectedCount: DEFAULT_OUTFIT_FUSION_CONFIG.genCount,
     applyPath: "/outfit-fusion",
   });
@@ -148,7 +150,7 @@ export function OutfitFusionPageClient() {
           const historyDetail = await fetchHistoryApplyDetail(generationId, "outfitFusion");
           applyOutfitFusionApplyDetailRef.current(historyDetail);
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "作品库参数加载失败");
+          toast.error(error instanceof Error ? error.message : t("toast.historyLoadFailed"));
         }
       })();
     }
@@ -282,7 +284,7 @@ export function OutfitFusionPageClient() {
     if (!previewTask) return null;
     return createGenericImagePreviewSession({
       module: "outfitFusion",
-      title: "搭配融图生成",
+      title: t("previewTitle"),
       urls: previewTask.resultUrls,
       expectedCount: previewTask.expectedCount,
       statusGroup: previewTask.statusGroup,
@@ -291,17 +293,17 @@ export function OutfitFusionPageClient() {
       references: outfitFusionReferencesFromAssets(previewTask.inputAssets),
       promptText: previewTask.prompt,
       selectedIndex: preview?.index || 0,
-      resultTitlePrefix: "生成图",
-      aspectRatio: getOutfitFusionAspectRatioLabel(previewTask.config.aspectRatio),
+      resultTitlePrefix: t("resultTitlePrefix"),
+      aspectRatio: getOutfitFusionAspectRatioLabel(previewTask.config.aspectRatio, t),
       metaItems: [
-        { label: "来源", value: "搭配融图生成" },
-        { label: "比例", value: getOutfitFusionAspectRatioLabel(previewTask.config.aspectRatio) },
-        { label: "分辨率", value: previewTask.config.imageSize },
-        { label: "模型", value: previewTask.config.aiModel },
-        { label: "任务 ID", value: previewTask.remoteId || previewTask.taskNo },
+        { label: t("meta.source"), value: t("meta.sourceValue") },
+        { label: t("meta.ratio"), value: getOutfitFusionAspectRatioLabel(previewTask.config.aspectRatio, t) },
+        { label: t("meta.resolution"), value: previewTask.config.imageSize },
+        { label: t("meta.model"), value: previewTask.config.aiModel },
+        { label: t("meta.taskId"), value: previewTask.remoteId || previewTask.taskNo },
       ],
     });
-  }, [preview?.index, previewTask]);
+  }, [preview?.index, previewTask, t]);
 
   const assetPreviewIndex = useMemo(() => {
     if (!assetPreviewId) return -1;
@@ -316,15 +318,15 @@ export function OutfitFusionPageClient() {
     return {
       asset,
       label,
-      roleLabel: getOutfitFusionRoleLabel(asset.role),
+      roleLabel: t(getOutfitFusionRoleLabelKey(asset.role)),
     };
-  }, [assetPreviewIndex, assets]);
+  }, [assetPreviewIndex, assets, t]);
 
   const assetPreviewSession = useMemo(() => {
     if (!assetPreview) return null;
     const metaItems = [
-      { label: "图片类型", value: assetPreview.roleLabel },
-      { label: "图片编号", value: assetPreview.label },
+      { label: t("meta.imageType"), value: assetPreview.roleLabel },
+      { label: t("meta.imageNo"), value: assetPreview.label },
     ];
     return createImagePreviewSession({
       module: "outfitFusion",
@@ -339,7 +341,7 @@ export function OutfitFusionPageClient() {
         status: "completed",
       }],
     });
-  }, [assetPreview]);
+  }, [assetPreview, t]);
 
   useEffect(() => {
     if (assetPreviewId && !assets.some((asset) => asset.id === assetPreviewId)) {
@@ -380,11 +382,11 @@ export function OutfitFusionPageClient() {
     const limited = role === "outfit" ? selected.slice(0, Math.max(1, 8 - assets.filter((asset) => asset.role === "outfit").length)) : selected.slice(0, 1);
     const valid = limited.filter((file) => {
       if (!file.type.startsWith("image/")) {
-        toast.error(`${file.name} 不是图片文件`);
+        toast.error(t("toast.notImage", { name: file.name }));
         return false;
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+        toast.error(t("toast.exceedSize", { name: file.name, max: MAX_FILE_SIZE_MB }));
         return false;
       }
       return true;
@@ -411,9 +413,9 @@ export function OutfitFusionPageClient() {
       if (!prompt.trim()) {
         setPrompt(limitComposerPrompt(buildPromptDraft(uploaded, role)));
       }
-      toast.success("素材已上传到 OSS");
+      toast.success(t("toast.uploadSuccess"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "上传失败");
+      toast.error(error instanceof Error ? error.message : t("toast.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -433,7 +435,7 @@ export function OutfitFusionPageClient() {
 
   async function handleAutoWrite() {
     if (!assets.length) {
-      toast.info("请先上传或套用搭配素材");
+      toast.info(t("toast.uploadMaterialFirst"));
       return;
     }
     const seedPrompt = prompt.trim() || (selectedTemplate ? buildOutfitFusionComposerText(selectedTemplate) : buildPromptDraft(assets, "outfit"));
@@ -450,7 +452,7 @@ export function OutfitFusionPageClient() {
       });
       const data = await response.json().catch(() => ({})) as { prompt?: unknown; source?: unknown; error?: unknown };
       if (!response.ok) {
-        throw new Error(typeof data.error === "string" ? data.error : "AI 帮写失败");
+        throw new Error(typeof data.error === "string" ? data.error : t("toast.aiWriteFailed"));
       }
       const nextPrompt = data.source === "fallback"
         ? seedPrompt
@@ -458,10 +460,10 @@ export function OutfitFusionPageClient() {
         ? normalizeOutfitFusionAssistantPrompt(data.prompt, seedPrompt)
         : seedPrompt;
       setPrompt(limitComposerPrompt(getOutfitFusionDisplayPrompt(nextPrompt, seedPrompt)));
-      toast.success(data.source === "fallback" ? "已生成搭配描述" : "视觉分析完成");
+      toast.success(data.source === "fallback" ? t("toast.promptGenerated") : t("toast.visionDone"));
     } catch (error) {
       setPrompt(seedPrompt);
-      toast.error(error instanceof Error ? error.message : "AI 帮写失败，已保留基础描述");
+      toast.error(error instanceof Error ? error.message : t("toast.aiWriteFailedKeepBase"));
     } finally {
       setAutoWriting(false);
     }
@@ -501,9 +503,9 @@ export function OutfitFusionPageClient() {
     const value = task.remoteId || task.taskNo;
     try {
       await navigator.clipboard.writeText(value);
-      toast.success("任务编号已复制");
+      toast.success(t("toast.taskIdCopied"));
     } catch {
-      toast.error("复制失败，请手动选择任务编号");
+      toast.error(t("toast.copyFailed"));
     }
   }
 
@@ -523,11 +525,11 @@ export function OutfitFusionPageClient() {
     template: OutfitFusionTemplate | null
   ) {
     if (!inputAssets.length) {
-      toast.error("请先上传或套用搭配素材");
+      toast.error(t("toast.uploadMaterialFirst"));
       return;
     }
     if (!inputPrompt.trim()) {
-      toast.error("请先填写搭配描述");
+      toast.error(t("toast.fillPromptFirst"));
       return;
     }
 
@@ -535,7 +537,7 @@ export function OutfitFusionPageClient() {
     const taskCost = getCreditCost(inputConfig.aiModel, inputConfig.imageSize, inputConfig.aspectRatio) * expectedCount;
     const inputThumbnails = inputAssets.map((asset) => asset.url);
     if (!isAuthenticated && !(await refreshAuth())) {
-      toast.error("请先登录");
+      toast.error(t("toast.loginFirst"));
       router.push("/login");
       return;
     }
@@ -578,7 +580,7 @@ export function OutfitFusionPageClient() {
     });
     setComposerCollapsed(true);
     scrollTaskListToTop(80);
-    toast.success("创建成功，请等待任务执行完成");
+    toast.success(t("toast.createSuccess"));
 
     setCreating(true);
     try {
@@ -599,31 +601,31 @@ export function OutfitFusionPageClient() {
         });
         taskQueue.refresh();
         void pollGeneration(taskId, remoteId, expectedCount, inputThumbnails).catch(async (error) => {
-          taskQueue.markFailed(remoteId, error instanceof Error ? error.message : "生成轮询超时", {
+          taskQueue.markFailed(remoteId, error instanceof Error ? error.message : t("toast.pollTimeout"), {
             expectedCount,
             inputThumbnails,
           });
           updateTask(taskId, {
-            error: error instanceof Error ? error.message : "生成轮询超时",
+            error: error instanceof Error ? error.message : t("toast.pollTimeout"),
             progress: 100,
             statusGroup: "failed",
           });
           taskQueue.refresh();
         });
       } else {
-        taskQueue.markFailed(taskId, "任务提交失败，未返回任务编号", {
+        taskQueue.markFailed(taskId, t("toast.submitNoTaskId"), {
           expectedCount,
           inputThumbnails,
         });
         updateTask(taskId, {
-          error: "任务提交失败，未返回任务编号",
+          error: t("toast.submitNoTaskId"),
           progress: 100,
           statusGroup: "failed",
         });
       }
     } catch (error) {
       setCreating(false);
-      const message = error instanceof Error ? error.message : "生成任务提交失败";
+      const message = error instanceof Error ? error.message : t("toast.submitFailed");
       taskQueue.markFailed(taskId, message, {
         expectedCount,
         inputThumbnails,
@@ -664,7 +666,7 @@ export function OutfitFusionPageClient() {
       if (response.status === 402 && typeof data.balance === "number") {
         setCredits(data.balance);
       }
-      throw new Error(typeof data.error === "string" ? data.error : "生成任务提交失败");
+      throw new Error(typeof data.error === "string" ? data.error : t("toast.submitFailed"));
     }
     return {
       generationId: typeof data.generation_id === "string" ? data.generation_id : null,
@@ -698,18 +700,18 @@ export function OutfitFusionPageClient() {
           resultThumbnails: latestUrls,
           resultCount: latestUrls.length,
         });
-        toast.success("搭配融图生成完成");
+        toast.success(t("toast.generateComplete"));
         taskQueue.refresh();
         return;
       }
       if (state.status === "failed") {
-        taskQueue.markFailed(remoteId, typeof state.error === "string" ? state.error : "生成失败", {
+        taskQueue.markFailed(remoteId, typeof state.error === "string" ? state.error : t("toast.generateFailed"), {
           expectedCount,
           inputThumbnails,
           resultThumbnails: latestUrls,
           resultCount: latestUrls.length,
         });
-        throw new Error(typeof state.error === "string" ? state.error : "生成失败");
+        throw new Error(typeof state.error === "string" ? state.error : t("toast.generateFailed"));
       }
       taskQueue.markRunning(remoteId, {
         expectedCount,
@@ -720,7 +722,7 @@ export function OutfitFusionPageClient() {
         status: "processing",
       });
     }
-    throw new Error("生成超时");
+    throw new Error(t("toast.generateTimeout"));
   }
 
   function updateTask(id: string, patch: Partial<OutfitFusionTask>) {
@@ -766,7 +768,7 @@ export function OutfitFusionPageClient() {
     } catch {
       if (session.signal.aborted || !session.isCurrent()) return true;
       upsertTaskFromQueueItem(item);
-      if (item.statusGroup === "failed") toast.error(item.error || "历史任务加载失败");
+      if (item.statusGroup === "failed") toast.error(item.error || t("toast.historyTaskLoadFailed"));
       return true;
     }
   }
@@ -802,7 +804,7 @@ export function OutfitFusionPageClient() {
     });
     setComposerCollapsed(false);
     scrollTaskListToTop(80);
-    if (!options?.silent) toast.success("已套用侧边历史任务");
+    if (!options?.silent) toast.success(t("toast.historyApplied"));
   }
 
   function applyOutfitFusionApplyDetail(
@@ -831,7 +833,7 @@ export function OutfitFusionPageClient() {
     return {
       id,
       module: "outfitFusion",
-      title: "搭配融图",
+      title: t("moduleName"),
       status: detail.row.status || (statusGroup === "completed" ? "completed" : "processing"),
       statusGroup,
       time: "0:00",
@@ -859,7 +861,7 @@ export function OutfitFusionPageClient() {
     }));
     const resultUrls = patch.resultUrls || safeTaskQueueUrls(item.resultThumbnails);
     const queueTitle = item.title?.trim() || "";
-    const titleLooksGeneric = !queueTitle || queueTitle === "搭配融图" || queueTitle === "搭配融图任务";
+    const titleLooksGeneric = !queueTitle || queueTitle === t("moduleName") || queueTitle === t("taskGenericTitle");
     const fallbackPrompt = titleLooksGeneric ? prompt.trim() || buildPromptDraft(inputAssets, "outfit") : queueTitle;
     const restoredPrompt = patch.prompt || existingTask?.prompt || fallbackPrompt;
     const preservedTaskPatch = {
@@ -890,7 +892,7 @@ export function OutfitFusionPageClient() {
       <FeatureTabs active="outfitFusion" />
       <ModuleTaskRail
         module="outfitFusion"
-        moduleLabel="搭配融图"
+        moduleLabel={t("moduleName")}
         onContinue={handleContinueCreate}
         onRunningTask={handleRailRunningTask}
         onCompletedTask={handleRailTaskSelect}
@@ -903,7 +905,7 @@ export function OutfitFusionPageClient() {
       >
         <section className="px-4 pb-8 pt-10 sm:px-6 lg:px-10">
           <div className="mx-auto mb-5 w-full max-w-[1120px] text-[12px] leading-5 tracking-normal text-slate-400 dark:text-stone-500">
-            因产品处于持续学习调优阶段，可能有不恰当的信息，请您谨慎甄别。
+            {t("disclaimer")}
           </div>
 
           <div ref={taskListRef} className="mx-auto w-full max-w-[1120px]">
@@ -925,7 +927,7 @@ export function OutfitFusionPageClient() {
           </div>
 
           <div className={cn("animate-fade-in motion-reduce:animate-none", tasks.length > 0 && "mt-8")}>
-            <h1 className="mb-6 text-center text-[24px] font-semibold leading-[34px] tracking-normal text-slate-900 dark:text-stone-100">自由搭配组合，生成模特图</h1>
+            <h1 className="mb-6 text-center text-[24px] font-semibold leading-[34px] tracking-normal text-slate-900 dark:text-stone-100">{t("heroTitle")}</h1>
             <OutfitFusionExampleGallery
               templates={OUTFIT_FUSION_TEMPLATES}
               activeTemplateId={selectedTemplate?.id || null}
@@ -1035,6 +1037,7 @@ function OutfitFusionTaskCard({
   onCopy: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("OutfitFusion");
   const router = useRouter();
   const running = task.statusGroup === "running" || task.statusGroup === "queued";
   const failed = task.statusGroup === "failed";
@@ -1069,7 +1072,7 @@ function OutfitFusionTaskCard({
                 className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-[5px] px-1.5 py-0.5 text-xs font-medium text-[var(--codex-accent)] transition hover:bg-[rgba(91,124,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
                 aria-expanded={promptExpanded}
               >
-                {promptExpanded ? "收起" : "展开"}
+                {promptExpanded ? t("collapsePrompt") : t("expandPrompt")}
                 <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", promptExpanded && "rotate-180")} />
               </button>
             ) : null}
@@ -1085,8 +1088,8 @@ function OutfitFusionTaskCard({
                 key={`${task.id}-${index}`}
                 role="button"
                 tabIndex={0}
-                aria-label={`预览生成图 ${index + 1}`}
-                title={`预览生成图 ${index + 1}`}
+                aria-label={t("previewResult", { index: index + 1 })}
+                title={t("previewResult", { index: index + 1 })}
                 onClick={() => onPreview(index)}
                 onKeyDown={(event) => {
                   if (event.key !== "Enter" && event.key !== " ") return;
@@ -1095,7 +1098,7 @@ function OutfitFusionTaskCard({
                 }}
                 className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-[4px] bg-[#f4f6fa] text-sm text-slate-400 dark:text-stone-500 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
               >
-                <LoadableResultImage src={url} alt={`生成图${index + 1}`} />
+                <LoadableResultImage src={url} alt={t("resultImageAlt", { index: index + 1 })} />
                 <span className="pointer-events-none absolute left-2 top-2 rounded-[4px] bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
                   {index + 1}/{slots}
                 </span>
@@ -1112,12 +1115,12 @@ function OutfitFusionTaskCard({
                     onKeyDown={(event) => event.stopPropagation()}
                   >
                     <Eye className="h-4 w-4" />
-                    查看
+                    {t("view")}
                   </Button>
                   <div className="studio-result-focus-actions">
-                    <OutfitFusionFocusAction label="AI修图" onClick={() => openImageRepair(url)} icon={<WandSparkles className="h-3.5 w-3.5" />} />
-                    <OutfitFusionFocusAction label="AI视频" onClick={() => openAiVideo(url)} icon={<Clapperboard className="h-3.5 w-3.5" />} />
-                    <OutfitFusionFocusAction label="下载" onClick={() => downloadResult(url, index)} icon={<Download className="h-3.5 w-3.5" />} />
+                    <OutfitFusionFocusAction label={t("previewActions.repair")} onClick={() => openImageRepair(url)} icon={<WandSparkles className="h-3.5 w-3.5" />} />
+                    <OutfitFusionFocusAction label={t("previewActions.aiVideo")} onClick={() => openAiVideo(url)} icon={<Clapperboard className="h-3.5 w-3.5" />} />
+                    <OutfitFusionFocusAction label={t("download")} onClick={() => downloadResult(url, index)} icon={<Download className="h-3.5 w-3.5" />} />
                   </div>
                 </div>
               </div>
@@ -1130,7 +1133,7 @@ function OutfitFusionTaskCard({
               >
                 <div className={cn("gen-card studio-result-pending-card outfit-fusion-pending-card relative z-[1] flex h-full w-full flex-col items-center justify-center gap-2", failed && "studio-result-pending-card-failed")}>
                   {failed ? (
-                    <span className="text-xs font-semibold text-red-50">生成失败</span>
+                    <span className="text-xs font-semibold text-red-50">{t("taskGenerateFailed")}</span>
                   ) : (
                     <>
                       <div className="relative flex h-14 w-14 items-center justify-center">
@@ -1139,8 +1142,8 @@ function OutfitFusionTaskCard({
                           <Loader2 className="h-6 w-6 animate-spin text-white" />
                         </div>
                       </div>
-                      <p className="relative z-[1] text-xs font-semibold text-white/90">生成中，请稍候</p>
-                      <p className="relative z-[1] text-[11px] font-medium text-white/80">第 {index + 1} 张生成中</p>
+                      <p className="relative z-[1] text-xs font-semibold text-white/90">{t("generatingWait")}</p>
+                      <p className="relative z-[1] text-[11px] font-medium text-white/80">{t("generatingIndex", { index: index + 1 })}</p>
                     </>
                   )}
                 </div>
@@ -1153,12 +1156,12 @@ function OutfitFusionTaskCard({
         <div className="flex flex-wrap items-center gap-2">
           <span>{formatTaskTime(task.createdAt)}</span>
           <span>|</span>
-          <span>任务: {task.remoteId || task.taskNo}</span>
+          <span>{t("taskLabel", { id: task.remoteId || task.taskNo })}</span>
           <button
             type="button"
             onClick={onCopy}
             className="rounded-[5px] p-0.5 text-slate-400 dark:text-stone-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
-            aria-label="复制任务编号"
+            aria-label={t("copyTaskId")}
           >
             <Copy className="h-3.5 w-3.5" />
           </button>
@@ -1167,7 +1170,7 @@ function OutfitFusionTaskCard({
         <div className="flex items-center gap-3">
           <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
             <PenLine className="h-3.5 w-3.5" />
-            重新编辑
+            {t("reedit")}
           </button>
           <button
             type="button"
@@ -1176,11 +1179,11 @@ function OutfitFusionTaskCard({
             className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300 dark:text-stone-500"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            重新生成
+            {t("regenerate")}
           </button>
           <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-500 dark:text-stone-400 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
             <Trash2 className="h-3.5 w-3.5" />
-            删除
+            {t("delete")}
           </button>
         </div>
       </div>
@@ -1214,6 +1217,7 @@ function OutfitFusionFocusAction({ label, icon, onClick }: { label: string; icon
 }
 
 function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[]; onReuse: () => void }) {
+  const t = useTranslations("OutfitFusion");
   const displayAssets = assets.slice(0, 3);
   const hiddenCount = Math.max(assets.length - displayAssets.length, 0);
   const hasHiddenAssets = hiddenCount > 0;
@@ -1227,10 +1231,11 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
               type="button"
               onClick={onReuse}
               className="group/reuse relative h-[54px] w-[68px] rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.45)] focus-visible:ring-offset-2"
-              aria-label="再次使用图片"
+              aria-label={t("reuseImages")}
             >
               {displayAssets.map((asset, index) => {
                 const label = getCanonicalInputImageLabel(index);
+                const roleLabel = t(getOutfitFusionRoleLabelKey(asset.role));
                 return (
                   <span
                     key={asset.id}
@@ -1240,12 +1245,12 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                       index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
                       index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")
                     )}
-                    title={`${label} · ${getOutfitFusionRoleLabel(asset.role)}`}
+                    title={`${label} · ${roleLabel}`}
                   >
                     <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[9px] font-semibold leading-none text-white">
                       {label}
                     </span>
-                    <RawPreviewImage src={asset.url} alt={`${label}${getOutfitFusionRoleLabel(asset.role)}`} className="h-full w-full object-cover" />
+                    <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="h-full w-full object-cover" />
                   </span>
                 );
               })}
@@ -1257,7 +1262,7 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" align="center" sideOffset={6} className="rounded-[4px] bg-slate-950 px-2.5 py-1 text-xs font-medium text-white">
-            再次使用图片
+            {t("reuseImages")}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -1329,8 +1334,14 @@ function getOutfitFusionPayloadAssetUrls(payload: OutfitFusionHistoryPayload) {
   return payload.referenceUrls.filter((url) => typeof url === "string" && url.trim().length > 0);
 }
 
-function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"]) {
-  return value === "auto" ? "智能" : value;
+function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"], t?: (key: string) => string) {
+  return value === "auto" ? (t ? t("smartAspect") : "智能") : value;
+}
+
+function getOutfitFusionRoleLabelKey(role: OutfitFusionAssetRole) {
+  if (role === "reference") return "roles.reference";
+  if (role === "model") return "roles.model";
+  return "roles.outfit";
 }
 
 function normalizeOutfitFusionAssetRole(value: unknown): OutfitFusionAssetRole | null {

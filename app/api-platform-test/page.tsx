@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ImagePlus, KeyRound, Loader2, Send, Server, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -48,25 +49,25 @@ const MODEL_OPTIONS = [
 ];
 
 const ASPECT_OPTIONS = [
-  { value: "3:4", label: "3:4 竖版" },
-  { value: "4:3", label: "4:3 横版" },
-  { value: "1:1", label: "1:1 方图" },
-  { value: "9:16", label: "9:16 手机" },
-  { value: "16:9", label: "16:9 宽屏" },
+  { value: "3:4", label: "3:4 竖版", labelKey: "aspect.portrait" },
+  { value: "4:3", label: "4:3 横版", labelKey: "aspect.landscape" },
+  { value: "1:1", label: "1:1 方图", labelKey: "aspect.square" },
+  { value: "9:16", label: "9:16 手机", labelKey: "aspect.phone" },
+  { value: "16:9", label: "16:9 宽屏", labelKey: "aspect.widescreen" },
   { value: "2:3", label: "2:3" },
   { value: "3:2", label: "3:2" },
   { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" },
   { value: "21:9", label: "21:9" },
-  { value: "auto", label: "智能" },
+  { value: "auto", label: "智能", labelKey: "aspect.auto" },
 ];
 
 const IMAGE_SIZE_OPTIONS = ["1K", "2K", "4K"] as const;
-const QUALITY_OPTIONS = [
-  { value: "auto", label: "自动" },
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-] as const;
+const QUALITY_OPTIONS: Array<{ value: "auto" | "low" | "medium"; label: string; labelKey: string }> = [
+  { value: "auto", label: "自动", labelKey: "quality.auto" },
+  { value: "low", label: "低", labelKey: "quality.low" },
+  { value: "medium", label: "中", labelKey: "quality.medium" },
+];
 
 type ImageSize = typeof IMAGE_SIZE_OPTIONS[number];
 type ImageQuality = typeof QUALITY_OPTIONS[number]["value"];
@@ -95,6 +96,7 @@ type TestResult = {
 };
 
 export default function ApiPlatformTestPage() {
+  const t = useTranslations("ApiTest");
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
   const [model, setModel] = useState("nano-banana-2");
@@ -102,7 +104,7 @@ export default function ApiPlatformTestPage() {
   const [aspectRatio, setAspectRatio] = useState("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [quality, setQuality] = useState<ImageQuality>("auto");
-  const [prompt, setPrompt] = useState("根据参考图生成一张高质量商业摄影风格图片，保持主体结构、材质纹理和关键细节，干净白色或浅灰棚拍背景，真实光影，photorealistic, 8K ultra-detailed。");
+  const [prompt, setPrompt] = useState(() => t("placeholder.defaultPrompt"));
   const [inputImages, setInputImages] = useState<InputImage[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -130,28 +132,28 @@ export default function ApiPlatformTestPage() {
 
     const invalid = selected.find((file) => !file.type.startsWith("image/"));
     if (invalid) {
-      toast.error("请选择图片文件");
+      toast.error(t("toast.selectImage"));
       return;
     }
 
     const tooLarge = selected.find((file) => file.size > MAX_FILE_SIZE);
     if (tooLarge) {
-      toast.error(`单张测试图请控制在 ${MAX_FILE_SIZE_MB}MB 内`);
+      toast.error(t("toast.fileTooLarge", { mb: MAX_FILE_SIZE_MB }));
       return;
     }
 
     const remain = Math.max(0, 6 - inputImages.length);
     const limited = selected.slice(0, remain);
     if (limited.length === 0) {
-      toast.error("最多上传 6 张参考图");
+      toast.error(t("toast.maxImages"));
       return;
     }
-    if (selected.length > limited.length) toast.info("已自动保留前 6 张参考图");
+    if (selected.length > limited.length) toast.info(t("toast.keptFirstImages"));
 
     const nextImages = await Promise.all(limited.map((file) => readImageFile(file)));
     setInputImages((prev) => [...prev, ...nextImages]);
     setIsUploading(true);
-    toast.info(`正在上传 ${nextImages.length} 张参考图…`);
+    toast.info(t("toast.uploading", { count: nextImages.length }));
 
     const uploadResults = await Promise.allSettled(limited.map((file) => uploadImage(file)));
     setInputImages((prev) => prev.map((image) => {
@@ -166,17 +168,17 @@ export default function ApiPlatformTestPage() {
     setIsUploading(false);
 
     const successCount = uploadResults.filter((item) => item.status === "fulfilled").length;
-    if (successCount === nextImages.length) toast.success("参考图已上传");
-    else toast.error(`有 ${nextImages.length - successCount} 张参考图上传失败`);
+    if (successCount === nextImages.length) toast.success(t("toast.uploadSuccess"));
+    else toast.error(t("toast.uploadFailed", { count: nextImages.length - successCount }));
   }
 
   async function runTest() {
-    if (!apiUrl.trim()) return toast.error("请输入 API URL");
-    if (!apiKey.trim()) return toast.error("请输入 API Key");
-    if (!activeModel.trim()) return toast.error("请选择或输入模型");
-    if (!prompt.trim()) return toast.error("请输入提示词");
-    if (isUploading) return toast.error("参考图还在上传中");
-    if (inputImages.some((image) => image.status === "failed")) return toast.error("请先移除上传失败的参考图");
+    if (!apiUrl.trim()) return toast.error(t("toast.enterApiUrl"));
+    if (!apiKey.trim()) return toast.error(t("toast.enterApiKey"));
+    if (!activeModel.trim()) return toast.error(t("toast.selectModel"));
+    if (!prompt.trim()) return toast.error(t("toast.enterPrompt"));
+    if (isUploading) return toast.error(t("toast.stillUploading"));
+    if (inputImages.some((image) => image.status === "failed")) return toast.error(t("toast.removeFailedImages"));
 
     setIsLoading(true);
     setProgress(12);
@@ -198,19 +200,19 @@ export default function ApiPlatformTestPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        const message = formatTestError(data);
+        const message = formatTestError(data, t("format.testFailed"));
         setResult({ ...data, error: message });
         toast.error(message);
       } else if ((data.image_urls?.length || 0) + (data.b64_images?.length || 0) > 0) {
         setResult(data);
         setProgress(100);
-        toast.success("生成成功");
+        toast.success(t("toast.generateSuccess"));
       } else {
         setResult(data);
-        toast.warning("请求成功，但没有解析到图片 URL");
+        toast.warning(t("toast.noImageUrl"));
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "测试失败";
+      const msg = err instanceof Error ? err.message : t("format.testFailed");
       setResult({ error: msg });
       toast.error(msg);
     } finally {
@@ -226,8 +228,8 @@ export default function ApiPlatformTestPage() {
           <section className="studio-parameters min-w-0 rounded-2xl border p-4">
             <div className="mb-4">
               <ModuleHeader
-                title="模型生图测试"
-                tooltip="测试中转平台、模型、比例、清晰度和多张参考图输入；GPT-Image-2 带参考图时会按官方 Edits multipart 格式请求。"
+                title={t("header.title")}
+                tooltip={t("header.tooltip")}
               />
             </div>
 
@@ -258,11 +260,11 @@ export default function ApiPlatformTestPage() {
               </label>
 
               <div className="rounded-lg border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-2 text-xs text-[var(--codex-accent)]">
-                调用模式：GPT-Image-2 + 参考图走 Edits /v1/images/edits；其他走 Generations
+                {t("field.callModeHint")}
               </div>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">大模型</span>
+                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.model")}</span>
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
@@ -273,28 +275,28 @@ export default function ApiPlatformTestPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">自定义模型名（可选）</span>
+                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.customModel")}</span>
                 <input
                   value={customModel}
                   onChange={(e) => setCustomModel(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
-                  placeholder="留空则使用上方选择"
+                  placeholder={t("field.customModelPlaceholder")}
                 />
               </label>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-gray-700">比例</span>
+                  <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.aspect")}</span>
                   <select
                     value={aspectRatio}
                     onChange={(e) => setAspectRatio(e.target.value)}
                     className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   >
-                    {ASPECT_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    {ASPECT_OPTIONS.map((item) => <option key={item.value} value={item.value}>{"labelKey" in item && item.labelKey ? t(item.labelKey) : item.label}</option>)}
                   </select>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-gray-700">清晰度</span>
+                  <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.imageSize")}</span>
                   <select
                     value={imageSize}
                     onChange={(e) => setImageSize(e.target.value as ImageSize)}
@@ -304,19 +306,19 @@ export default function ApiPlatformTestPage() {
                   </select>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-gray-700">质量</span>
+                  <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.quality")}</span>
                   <select
                     value={quality}
                     onChange={(e) => setQuality(e.target.value as ImageQuality)}
                     className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   >
-                    {QUALITY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    {QUALITY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.labelKey ? t(item.labelKey) : item.label}</option>)}
                   </select>
                 </label>
               </div>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">提示词</span>
+                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.prompt")}</span>
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
@@ -325,10 +327,10 @@ export default function ApiPlatformTestPage() {
               </label>
 
               <div>
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">参考图（可多选，最多 6 张）</span>
+                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.referenceImages")}</span>
                 <label className="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-xs text-gray-500 hover:border-[rgba(91,124,255,0.3)]">
                   <ImagePlus className="mb-2 h-6 w-6 text-gray-300" />
-                  点击选择参考图
+                  {t("field.selectReference")}
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} />
                 </label>
 
@@ -344,13 +346,13 @@ export default function ApiPlatformTestPage() {
                               ? "bg-red-50 text-red-600"
                               : "bg-white/90 text-[var(--codex-accent)]"
                         }`}>
-                          {image.status === "uploaded" ? "URL" : image.status === "failed" ? "失败" : "上传中"}
+                          {image.status === "uploaded" ? "URL" : image.status === "failed" ? t("image.failed") : t("image.uploading")}
                         </div>
                         <button
                           type="button"
                           onClick={() => setInputImages((prev) => prev.filter((item) => item.id !== image.id))}
                           className="absolute right-1 top-1 rounded-full bg-white/90 p-1 shadow"
-                          title="移除"
+                          title={t("image.remove")}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -369,7 +371,7 @@ export default function ApiPlatformTestPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-slate-700 to-slate-950 py-3 text-sm font-bold text-white shadow-lg shadow-slate-300/40 disabled:opacity-50"
               >
                 {isLoading || isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {isUploading ? "上传参考图…" : isLoading ? "测试中…" : "开始测试"}
+                {isUploading ? t("button.uploading") : isLoading ? t("button.testing") : t("button.start")}
               </button>
             </div>
           </section>
@@ -377,9 +379,11 @@ export default function ApiPlatformTestPage() {
           <section className="studio-glass-card min-h-[560px] min-w-0 rounded-2xl p-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-gray-950">预览区域</h2>
+                <h2 className="text-sm font-bold text-gray-950">{t("preview.title")}</h2>
                 <p className="mt-1 text-xs text-gray-500">
-                  {result?.elapsed_ms ? `耗时 ${(result.elapsed_ms / 1000).toFixed(1)}s · 模型 ${result.model || activeModel}` : "生成结果会显示在这里"}
+                  {result?.elapsed_ms
+                    ? t("preview.elapsedInfo", { seconds: (result.elapsed_ms / 1000).toFixed(1), model: result.model || activeModel })
+                    : t("preview.emptyHint")}
                 </p>
               </div>
             </div>
@@ -394,9 +398,9 @@ export default function ApiPlatformTestPage() {
                   <div className="studio-glass-card mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[28px]">
                     <ImagePlus className="h-10 w-10 text-[var(--codex-accent)]" />
                   </div>
-                  <p className="text-sm font-bold text-gray-900">等待生成结果</p>
+                  <p className="text-sm font-bold text-gray-900">{t("preview.waitingTitle")}</p>
                   <p className="mt-2 text-xs leading-6 text-gray-500">
-                    配好模型、比例、清晰度和参考图后开始测试，输出图和请求参数会在这里归档展示。
+                    {t("preview.waitingHint")}
                   </p>
                   <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-gray-500">
                     <span className="rounded-full border bg-white/75 px-3 py-1">{activeModel}</span>
@@ -411,8 +415,8 @@ export default function ApiPlatformTestPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 {outputImages.map((url, index) => (
                   <a key={index} href={url} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-[22px] border border-white/70 bg-white/75 shadow-xl shadow-slate-200/60 transition hover:-translate-y-0.5 hover:shadow-2xl">
-                    <RawPreviewImage src={url} className="h-[420px] w-full object-contain" alt={`生成结果 ${index + 1}`} />
-                    <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-gray-500 group-hover:text-[var(--codex-accent)]">打开原图</div>
+                    <RawPreviewImage src={url} className="h-[420px] w-full object-contain" alt={t("preview.resultAlt", { index: index + 1 })} />
+                    <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-gray-500 group-hover:text-[var(--codex-accent)]">{t("preview.openOriginal")}</div>
                   </a>
                 ))}
               </div>
@@ -420,7 +424,7 @@ export default function ApiPlatformTestPage() {
 
             {!isLoading && result?.error && (
               <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-700">
-                <p className="mb-2 font-bold">请求失败：{result.error}</p>
+                <p className="mb-2 font-bold">{t("preview.requestFailed", { error: result.error })}</p>
                 <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap">
                   {JSON.stringify({ status: result.status, raw: result.raw, request_body: result.request_body }, null, 2)}
                 </pre>
@@ -429,20 +433,20 @@ export default function ApiPlatformTestPage() {
 
             {!isLoading && result && !result.error && outputImages.length === 0 && (
               <pre className="max-h-[520px] overflow-auto rounded-xl border bg-gray-50 p-3 text-xs text-gray-700">
-                {result.content || result.raw_preview || "请求成功，但没有解析到图片。"}
+                {result.content || result.raw_preview || t("preview.noImageParsed")}
               </pre>
             )}
 
             {!isLoading && Boolean(result?.request_body) && (
               <details className="mt-4 rounded-[18px] border border-white/70 bg-white/72 p-3 shadow-sm">
-                <summary className="cursor-pointer text-xs font-bold text-gray-700">实际请求参数</summary>
+                <summary className="cursor-pointer text-xs font-bold text-gray-700">{t("preview.requestBody")}</summary>
                 <pre className="mt-3 max-h-64 overflow-auto text-xs text-gray-600">{JSON.stringify(result?.request_body, null, 2)}</pre>
               </details>
             )}
 
             {!isLoading && result?.raw_preview && (
               <details className="mt-4 rounded-[18px] border border-white/70 bg-white/72 p-3 shadow-sm">
-                <summary className="cursor-pointer text-xs font-bold text-gray-700">原始返回摘要</summary>
+                <summary className="cursor-pointer text-xs font-bold text-gray-700">{t("preview.rawPreview")}</summary>
                 <pre className="mt-3 max-h-64 overflow-auto text-xs text-gray-600">{result.raw_preview}</pre>
               </details>
             )}
@@ -471,13 +475,13 @@ function GenerationLoading({ progress, model }: { progress: number; model: strin
   return <LoadingStage genCount={1} progress={progress} moduleName={model} />;
 }
 
-function formatTestError(result: TestResult) {
+function formatTestError(result: TestResult, fallback = "Test failed") {
   const parts = [
     typeof result.status === "number" ? `HTTP ${result.status}` : "",
     result.error || "",
     extractErrorMessage(result.raw),
   ].filter(Boolean);
-  return Array.from(new Set(parts)).join(" · ") || "测试失败";
+  return Array.from(new Set(parts)).join(" · ") || fallback;
 }
 
 function extractErrorMessage(value: unknown): string {

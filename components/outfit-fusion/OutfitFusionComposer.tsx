@@ -8,9 +8,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import {
   DEFAULT_OUTFIT_FUSION_CONFIG,
-  getOutfitFusionRoleLabel,
   OUTFIT_FUSION_MODELS,
   type OutfitFusionAsset,
   type OutfitFusionAssetRole,
@@ -18,10 +18,10 @@ import {
 } from "@/lib/outfit-fusion";
 import type { ImageSize } from "@/lib/api/lingya";
 
-const EMPTY_SLOTS: Array<{ role: OutfitFusionAssetRole; label: string; optional?: boolean }> = [
-  { role: "outfit", label: "搭配图" },
-  { role: "reference", label: "参考图", optional: true },
-  { role: "model", label: "模特", optional: true },
+const EMPTY_SLOTS: Array<{ role: OutfitFusionAssetRole; labelKey: string; optional?: boolean }> = [
+  { role: "outfit", labelKey: "roles.outfit" },
+  { role: "reference", labelKey: "roles.reference", optional: true },
+  { role: "model", labelKey: "roles.model", optional: true },
 ];
 
 const IMAGE_SIZES: ImageSize[] = ["1K", "2K", "4K"];
@@ -84,6 +84,7 @@ export function OutfitFusionComposer({
   onExpand,
   onJumpToBottom,
 }: OutfitFusionComposerProps) {
+  const t = useTranslations("OutfitFusion");
   const canGenerate = assets.length > 0 && prompt.trim().length > 0 && !generating && !uploading && !autoWriting;
   const modelLabel = OUTFIT_FUSION_MODELS.find((item) => item.value === config.aiModel)?.label || config.aiModel;
   const visibleSlots = EMPTY_SLOTS.filter((slot) => {
@@ -91,9 +92,9 @@ export function OutfitFusionComposer({
     return !assets.some((asset) => asset.role === slot.role);
   });
   const compactPrompt = assets.length === 0 && prompt.trim().length === 0;
-  const primaryLabel = authIsAnonymous ? "登录后生成" : generating ? "创建中" : `生成${config.genCount}张`;
-  const costLabel = authIsAnonymous ? "登录后查看灵点" : `消耗${creditCost}灵点`;
-  const balanceLabel = authIsAnonymous ? "" : `余额${credits ?? "-"}`;
+  const primaryLabel = authIsAnonymous ? t("loginToGenerate") : generating ? t("creating") : t("generateCount", { count: config.genCount });
+  const costLabel = authIsAnonymous ? t("loginToViewCredits") : t("costCredits", { count: creditCost });
+  const balanceLabel = authIsAnonymous ? "" : t("balanceCredits", { count: credits ?? "-" });
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -115,7 +116,7 @@ export function OutfitFusionComposer({
                 onUploadClick("outfit");
               }}
               className="flex size-12 shrink-0 items-center justify-center rounded-[6px] border border-dashed border-slate-300 dark:border-white/15 bg-slate-50 dark:bg-white/5 text-slate-400 dark:text-stone-500 transition duration-[250ms] ease-out hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
-              aria-label="上传搭配图"
+              aria-label={t("uploadOutfit")}
             >
               <ImagePlus className="h-5 w-5" />
             </button>
@@ -124,7 +125,7 @@ export function OutfitFusionComposer({
               onClick={onExpand}
               className="min-w-0 flex-1 rounded-[6px] px-1 py-2 text-left text-sm leading-5 text-slate-500 dark:text-stone-400 transition duration-[250ms] ease-out hover:translate-x-0.5 hover:text-slate-800 dark:text-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
             >
-              <span className="line-clamp-1">{prompt.trim() || "上传搭配图，智能识别并生成穿搭推荐描述"}</span>
+              <span className="line-clamp-1">{prompt.trim() || t("uploadPlaceholder")}</span>
             </button>
             <Button
               type="button"
@@ -136,7 +137,7 @@ export function OutfitFusionComposer({
                 onJumpToBottom();
               }}
             >
-              回到底部
+              {t("backToBottom")}
               <ChevronDown className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -154,17 +155,17 @@ export function OutfitFusionComposer({
           <div className="rounded-[8px] bg-white dark:bg-[#1c1c1e] p-4 shadow-[0_14px_46px_rgba(15,23,42,0.14)] ring-1 ring-slate-200 dark:ring-white/10 transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_18px_54px_rgba(15,23,42,0.16)] sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2 text-[14px] font-semibold leading-5 tracking-normal text-slate-900 dark:text-stone-100">
-            融合多种搭配，得到模特图
+            {t("composerTitle")}
             <Sparkles className="h-4 w-4 shrink-0 text-[var(--codex-accent)]" />
           </div>
           <div className="flex items-center gap-1.5">
             {assets.length > 0 ? (
               <Button type="button" variant="ghost" size="sm" className="rounded-[6px] text-slate-500 dark:text-stone-400 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)]" onClick={onClear}>
                 <Trash2 className="h-3.5 w-3.5" />
-                清空素材
+                {t("clearAssets")}
               </Button>
             ) : null}
-            <Button type="button" variant="ghost" size="icon-sm" className="rounded-[6px]" aria-label="收起输入框" onClick={onCollapse}>
+            <Button type="button" variant="ghost" size="icon-sm" className="rounded-[6px]" aria-label={t("collapseComposer")} onClick={onCollapse}>
               <ChevronsDown className="h-4 w-4" />
             </Button>
           </div>
@@ -173,7 +174,7 @@ export function OutfitFusionComposer({
         <div className="mt-4 flex flex-wrap gap-2">
           {assets.map((asset, index) => {
             const label = getCanonicalAssetLabel(index);
-            const roleLabel = getOutfitFusionRoleLabel(asset.role);
+            const roleLabel = t(getOutfitFusionRoleLabelKey(asset.role));
             const active = hasPromptAssetReference(prompt, index);
             return (
                 <div key={asset.id} className="group relative w-[78px] overflow-hidden rounded-[6px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#26262a] shadow-sm ring-1 ring-transparent transition duration-200 hover:border-[rgba(91,124,255,0.28)] hover:ring-[rgba(91,124,255,0.22)] hover:shadow-md">
@@ -184,7 +185,7 @@ export function OutfitFusionComposer({
                     type="button"
                     onClick={() => onPreviewAsset?.(asset.id)}
                     className="block w-full cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.38)]"
-                    aria-label={`预览${label}${roleLabel}`}
+                    aria-label={t("previewAsset", { label, role: roleLabel })}
                     title={`${label} · ${roleLabel}`}
                   >
                     <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
@@ -196,7 +197,7 @@ export function OutfitFusionComposer({
                     type="button"
                     onClick={() => onRemoveAsset(asset.id)}
                     className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 shadow-sm transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    aria-label={`移除${label}${roleLabel}`}
+                    aria-label={t("removeAsset", { label, role: roleLabel })}
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -207,8 +208,8 @@ export function OutfitFusionComposer({
             <UploadSlot
               key={slot.role}
               role={slot.role}
-              label={slot.label}
-              optionalLabel={slot.optional ? "(选填)" : undefined}
+              label={t(slot.labelKey)}
+              optionalLabel={slot.optional ? t("uploadSlotOptional") : undefined}
               uploading={uploading}
               onClick={onUploadClick}
               onFiles={onUploadFiles}
@@ -220,7 +221,7 @@ export function OutfitFusionComposer({
           assets={assets}
           value={prompt}
           onChange={(value) => onPromptChange(value.slice(0, 800))}
-          placeholder="上传搭配图，智能识别并生成穿搭推荐描述"
+          placeholder={t("uploadPlaceholder")}
           compact={compactPrompt}
         />
 
@@ -234,7 +235,7 @@ export function OutfitFusionComposer({
             disabled={!assets.length || autoWriting}
           >
             {autoWriting ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--codex-accent)]" /> : <WandSparkles className="h-3.5 w-3.5" />}
-            {autoWriting ? "视觉分析中" : "帮我写"}
+            {autoWriting ? t("analyzingVision") : t("autoWrite")}
           </Button>
 
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -275,6 +276,7 @@ function UploadSlot({
   onClick: (role: OutfitFusionAssetRole) => void;
   onFiles: (role: OutfitFusionAssetRole, files: File[]) => void;
 }) {
+  const t = useTranslations("OutfitFusion");
   const [isDragging, setIsDragging] = useState(false);
   const { dragHandlers } = useStableFileDrag<HTMLButtonElement>({
     isDragging,
@@ -299,7 +301,7 @@ function UploadSlot({
     >
       {uploading ? <Loader2 className="h-5 w-5 animate-spin text-[var(--codex-accent)]" /> : <Plus className="h-5 w-5 stroke-[1.6] transition duration-200 group-hover:scale-105" />}
       <span className="max-w-[72px] truncate text-center text-[12px] font-normal leading-[17px] tracking-normal text-slate-500 dark:text-stone-400">
-        {isDragging ? "释放上传" : (
+        {isDragging ? t("releaseUpload") : (
           <>
             {label}
             {optionalLabel && <span className="ml-0.5 text-slate-300 dark:text-stone-500">{optionalLabel}</span>}
@@ -323,6 +325,7 @@ function HighlightedPromptTextarea({
   onChange: (value: string) => void;
   compact?: boolean;
 }) {
+  const t = useTranslations("OutfitFusion");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [mention, setMention] = useState<{ start: number; query: string; activeIndex: number } | null>(null);
   const [hasTextSelection, setHasTextSelection] = useState(false);
@@ -334,10 +337,10 @@ function HighlightedPromptTextarea({
           asset,
           index,
           label,
-          roleLabel: getOutfitFusionRoleLabel(asset.role),
+          roleLabel: t(getOutfitFusionRoleLabelKey(asset.role)),
         };
       }),
-    [assets]
+    [assets, t]
   );
   const referencedOptions = assetOptions.filter((option) => hasPromptAssetReference(value, option.index));
   const filteredOptions = mention
@@ -474,7 +477,7 @@ function HighlightedPromptTextarea({
           maxLength={800}
           rows={compact ? 1 : 3}
           spellCheck={false}
-          aria-label="搭配描述"
+          aria-label={t("promptAria")}
           aria-controls="outfit-fusion-mention-list"
           style={showHighlightLayer ? { WebkitTextFillColor: "transparent" } : undefined}
           className={cn(
@@ -516,21 +519,21 @@ function HighlightedPromptTextarea({
               </button>
             ))
           ) : (
-            <div className="px-3 py-2 text-sm text-slate-500 dark:text-stone-400">{assetOptions.length ? "没有匹配的素材" : "先上传或套用素材后再引用"}</div>
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-stone-400">{assetOptions.length ? t("noMatchAsset") : t("noAssetFirst")}</div>
           )}
         </div>
       ) : null}
       {compact ? null : <div className="mt-2 flex min-h-6 flex-wrap items-center gap-1.5 text-xs leading-5">
         {referencedOptions.length ? (
           <>
-            <span className="text-slate-400 dark:text-stone-500">已引用</span>
+            <span className="text-slate-400 dark:text-stone-500">{t("referenced")}</span>
             {referencedOptions.map((option) => (
               <button
                 key={option.asset.id}
                 type="button"
                 onClick={() => insertMention(option)}
                 className={cn("inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-semibold ring-1 transition", getAssetReferenceTone(option.asset.role))}
-                title={`再次插入 ${option.label}`}
+                title={t("insertAgain", { label: option.label })}
               >
                 <RawPreviewImage src={option.asset.url} alt="" className="size-4 rounded object-cover" />
                 {option.label}
@@ -538,7 +541,7 @@ function HighlightedPromptTextarea({
             ))}
           </>
         ) : (
-          <span className="text-slate-400 dark:text-stone-500">输入 @ 可快速引用上方素材，生成时会把对应图片作为视觉约束</span>
+          <span className="text-slate-400 dark:text-stone-500">{t("mentionHint")}</span>
         )}
       </div>}
     </div>
@@ -632,13 +635,14 @@ function OutfitFusionConfigPopover({
   onChange: (config: OutfitFusionConfig) => void;
   modelLabel: string;
 }) {
+  const t = useTranslations("OutfitFusion");
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button type="button" variant="secondary" className="h-9 w-auto max-w-[calc(100vw-48px)] justify-between gap-1.5 rounded-[6px] bg-slate-100 dark:bg-white/10 px-2.5 text-slate-700 dark:text-stone-300 transition hover:bg-slate-200 dark:hover:bg-white/15 sm:max-w-[340px]">
           <Settings2 className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 max-w-[260px] truncate text-center text-[13px] font-medium leading-5 tracking-normal">
-            {getOutfitFusionAspectRatioLabel(config.aspectRatio)} · {config.imageSize} · 生成{config.genCount}张 · {modelLabel}
+            {getOutfitFusionAspectRatioLabel(config.aspectRatio, t)} · {config.imageSize} · {t("generateCount", { count: config.genCount })} · {modelLabel}
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0" />
         </Button>
@@ -651,12 +655,12 @@ function OutfitFusionConfigPopover({
         className="w-[min(316px,calc(100vw-32px))] overflow-visible rounded-[8px] p-4 shadow-[0_18px_48px_rgba(15,23,42,0.18)]"
       >
         <div className="space-y-4">
-          <ControlGroup label="生成比例">
+          <ControlGroup label={t("aspectRatio")}>
             <Segmented
-              ariaLabel="生成比例"
+              ariaLabel={t("aspectRatio")}
               value={config.aspectRatio}
               options={[
-                { value: "auto", label: "智能" },
+                { value: "auto", label: t("smartAspect") },
                 { value: "3:4", label: "3:4" },
                 { value: "1:1", label: "1:1" },
               ]}
@@ -664,18 +668,18 @@ function OutfitFusionConfigPopover({
             />
           </ControlGroup>
 
-          <ControlGroup label="生成张数">
+          <ControlGroup label={t("genCount")}>
             <Segmented
-              ariaLabel="生成张数"
+              ariaLabel={t("genCount")}
               value={String(config.genCount)}
-              options={[1, 2, 3, 4].map((count) => ({ value: String(count), label: `${count}张` }))}
+              options={[1, 2, 3, 4].map((count) => ({ value: String(count), label: t("countImage", { count }) }))}
               onChange={(value) => onChange({ ...config, genCount: Number(value) || DEFAULT_OUTFIT_FUSION_CONFIG.genCount })}
             />
           </ControlGroup>
 
-          <ControlGroup label="分辨率">
+          <ControlGroup label={t("resolution")}>
             <Segmented
-              ariaLabel="分辨率"
+              ariaLabel={t("resolution")}
               value={config.imageSize}
               options={IMAGE_SIZES.map((size) => ({ value: size, label: size }))}
               onChange={(value) => onChange({ ...config, imageSize: value as ImageSize })}
@@ -683,7 +687,7 @@ function OutfitFusionConfigPopover({
           </ControlGroup>
 
           <div className="grid grid-cols-1 gap-3">
-            <ControlGroup label="模型选择">
+            <ControlGroup label={t("modelSelect")}>
               <InlineConfigSelect
                 value={config.aiModel}
                 options={OUTFIT_FUSION_MODELS.map((model) => ({ value: model.value, label: model.label }))}
@@ -697,8 +701,14 @@ function OutfitFusionConfigPopover({
   );
 }
 
-function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"]) {
-  return value === "auto" ? "智能" : value;
+function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"], t?: (key: string) => string) {
+  return value === "auto" ? (t ? t("smartAspect") : "智能") : value;
+}
+
+function getOutfitFusionRoleLabelKey(role: OutfitFusionAssetRole) {
+  if (role === "reference") return "roles.reference";
+  if (role === "model") return "roles.model";
+  return "roles.outfit";
 }
 
 function ControlGroup({ label, children }: { label: string; children: ReactNode }) {

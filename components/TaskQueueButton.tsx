@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock3, ImageIcon, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
+import { useTranslations } from "next-intl";
 import type { TaskQueueItem, TaskQueuePayload } from "@/lib/task-queue";
 import { isTaskFinished, isTaskRunning } from "@/lib/task-queue";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -30,6 +31,7 @@ const TASK_QUEUE_MENU_RUNNING_POLL_MS = 20_000;
 const TASK_QUEUE_MENU_IDLE_POLL_MS = 120_000;
 
 export function TaskQueueButton() {
+  const t = useTranslations("Shared");
   const [rows, setRows] = useState<TaskQueueItem[]>([]);
   const [summary, setSummary] = useState<QueueSummary>(EMPTY_QUEUE_SUMMARY);
   const [open, setOpen] = useState(false);
@@ -55,7 +57,7 @@ export function TaskQueueButton() {
   const finishedCount = Math.max(summary.finishedTaskNum + summary.failedTaskNum, finished.length);
   const visibleRunning = detailsLoaded && summaryLoaded ? running.slice(0, runningCount) : running;
   const activeRows = activeTab === "running" ? visibleRunning : finished;
-  const groupedRows = groupQueueRows(activeRows.slice(0, 12));
+  const groupedRows = groupQueueRows(activeRows.slice(0, 12), t);
   const isRunning = runningCount > 0;
   const totalCount = Math.max(summary.totalTaskNum, runningCount + finishedCount);
 
@@ -165,8 +167,10 @@ export function TaskQueueButton() {
   }, [finishedCount, runningCount]);
 
   const buttonLabel = useMemo(() => (
-    isRunning ? `任务 ${Math.max(runningCount, 1)}` : `任务 ${summary.finishedNeedReadTaskNum || totalCount || 0}`
-  ), [isRunning, runningCount, summary.finishedNeedReadTaskNum, totalCount]);
+    isRunning
+      ? t("taskWithCount", { count: Math.max(runningCount, 1) })
+      : t("taskWithCount", { count: summary.finishedNeedReadTaskNum || totalCount || 0 })
+  ), [isRunning, runningCount, summary.finishedNeedReadTaskNum, totalCount, t]);
 
   return (
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
@@ -191,14 +195,14 @@ export function TaskQueueButton() {
               onClick={() => setActiveTab("finished")}
               className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "finished" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
             >
-              已完成({finishedCount})
+              {t("finishedTabCount", { count: finishedCount })}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("running")}
               className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "running" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
             >
-              进行中({runningCount})
+              {t("runningTabCount", { count: runningCount })}
             </button>
           </div>
 
@@ -206,7 +210,7 @@ export function TaskQueueButton() {
             {loading && !detailsLoaded ? (
               <div className="flex h-28 items-center justify-center text-xs font-semibold text-slate-400">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                加载任务中…
+                {t("loadingTasks")}
               </div>
             ) : activeRows.length ? (
               groupedRows.map((group) => (
@@ -234,7 +238,7 @@ export function TaskQueueButton() {
             ) : (
               <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-slate-400">
                 <Clock3 className="mb-2 h-5 w-5" aria-hidden="true" />
-                暂无{activeTab === "running" ? "进行中" : "已完成"}任务
+                {activeTab === "running" ? t("noRunningTasks") : t("noFinishedTasks")}
               </div>
             )}
           </div>
@@ -246,11 +250,11 @@ export function TaskQueueButton() {
               className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
-              刷新
+              {t("refresh")}
             </button>
             <DropdownMenu.Item asChild>
               <Link href="/history" className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-bold text-white outline-none">
-                查看全部
+                {t("viewAllTasks")}
               </Link>
             </DropdownMenu.Item>
           </div>
@@ -376,10 +380,10 @@ function isFailedQueueStatus(status: string) {
   return normalized === "failed" || normalized === "error" || normalized === "cancelled" || normalized === "canceled";
 }
 
-function groupQueueRows(items: TaskQueueItem[]) {
+function groupQueueRows(items: TaskQueueItem[], t: (key: string) => string) {
   const groups: { label: string; rows: TaskQueueItem[] }[] = [];
   for (const item of items) {
-    const label = getQueueDateLabel(item.createdAt);
+    const label = getQueueDateLabel(item.createdAt, t);
     const group = groups.find((entry) => entry.label === label);
     if (group) group.rows.push(item);
     else groups.push({ label, rows: [item] });
@@ -387,14 +391,14 @@ function groupQueueRows(items: TaskQueueItem[]) {
   return groups;
 }
 
-function getQueueDateLabel(value: string) {
+function getQueueDateLabel(value: string, t: (key: string) => string) {
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "更早";
+  if (!Number.isFinite(date.getTime())) return t("dateEarlier");
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const diffDays = Math.round((today - target) / 86400000);
-  if (diffDays === 0) return "今天";
-  if (diffDays === 1) return "昨天";
+  if (diffDays === 0) return t("dateToday");
+  if (diffDays === 1) return t("dateYesterday");
   return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
 }

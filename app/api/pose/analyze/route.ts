@@ -1,3 +1,4 @@
+import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
 11. 只改变人物动作、克制自然但可察觉的表情眼神，以及用户允许的镜头/构图变化；不要改变人物身份、性别表达、身体骨架、身体比例、服装结构、背景光线和色调。
 12. 不要套用固定姿势模板。根据当前风格、图1人物气质、服装版型和用户选择的角度数量，自主设计自然可信、彼此不同、适合商业展示的姿势。
 13. 如果需要描述镜头，只写风格化方向，不要写死 consistent medium full-body framing、50mm、eye level 等固定参数；图1是全身时也不要强制所有分格都全身，可按姿势选择近全身、七分身或偏半身商业构图。
-14. 用中文描述，一段总述加若干姿势行，按用户当前需要的数量组织，340-520字。
+14. 用${getLlmLanguageName(request.headers.get("x-next-intl-locale"))}描述，一段总述加若干姿势行，按用户当前需要的数量组织，340-520字。
 15. 结尾必须包含：${POSE_QUALITY}
 16. 负面：不要换脸、不要换衣服、不要改变性别表达、不要把男性变成女性或女性化男性身体、不要改变场景、不要改变服装结构或固有色、不要重绘服装材质、不要生成多余人物、不要自动美白、不要雪白皮或冷白皮、不要标准鹅蛋脸或小V脸、不要AI味、不要文字水印。
 
