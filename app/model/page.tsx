@@ -13,7 +13,9 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -996,12 +998,10 @@ export default function ModelPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("aspectRatio")}</h3>
-            <StudioOptionGrid
+            <AspectRatioSelector
               options={ASPECTS}
               value={aspectRatio}
               onChange={setAspectRatio}
-              columns={3}
               ariaLabel={t("aspectRatio")}
             />
           </section>
@@ -1035,7 +1035,7 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("genCount")}</h3>
-            <StudioGenerationCountSelector
+            <GenerationCountField
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("genCount")}

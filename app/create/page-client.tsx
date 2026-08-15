@@ -41,7 +41,9 @@ import { useTaskSelectionSession, type TaskSelectionSession } from "@/components
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useTaskQueueStore } from "@/lib/task-queue-client-store";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -388,6 +390,11 @@ export default function CreatePage() {
 
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
+  const imageSizeOptions = useImageSizeOptions(
+    imageSizes,
+    (size) => getCreditCost(aiModel, size, aspectRatio),
+    t("resolution.creditUnit"),
+  );
   const allSelectedReferenceImages = useMemo(() => (
     uniqueReferenceImages((store.referenceImages?.length ? store.referenceImages : store.referenceImage ? [store.referenceImage] : []) as SelectedReferenceImage[])
   ), [store.referenceImage, store.referenceImages]);
@@ -3327,8 +3334,13 @@ export default function CreatePage() {
 
           {/* ---- 比例 ---- */}
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("ratio.title")}</h3>
-            <StudioOptionGrid options={aspects} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("ratio.title")} />
+            <AspectRatioSelector
+              options={aspects}
+              value={aspectRatio}
+              onChange={setAspectRatio}
+              titleKey="ratio.title"
+              ariaLabel={t("ratio.title")}
+            />
           </section>
 
           {/* ---- 分辨率 ---- */}
@@ -3336,7 +3348,7 @@ export default function CreatePage() {
             <section>
               <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution.title")}</h3>
               <StudioOptionGrid
-                options={useImageSizeOptions(imageSizes, (size) => getCreditCost(aiModel, size, aspectRatio), t("resolution.creditUnit"))}
+                options={imageSizeOptions}
                 value={imageSize}
                 onChange={setImageSize}
                 ariaLabel={t("resolution.title")}
@@ -3378,7 +3390,7 @@ export default function CreatePage() {
 
           {/* ---- 生成数量 ---- */}
           <StudioSection title={t("genCount.title")} description={t("genCount.description")} icon={<Images className="h-4 w-4" />}>
-            <StudioGenerationCountSelector
+            <GenerationCountField
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("genCount.ariaLabel")}

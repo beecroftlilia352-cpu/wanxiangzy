@@ -14,7 +14,9 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -847,8 +849,7 @@ export default function GrassPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("aspectRatioTitle")}</h3>
-            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("aspectRatioAria")} />
+            <AspectRatioSelector options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("aspectRatioAria")} />
           </section>
 
           <section>
@@ -862,7 +863,7 @@ export default function GrassPage() {
           </section>
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("genCountTitle")}</h3>
-            <StudioGenerationCountSelector
+            <GenerationCountField
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("genCountAria")}

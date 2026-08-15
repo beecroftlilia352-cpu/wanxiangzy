@@ -1062,6 +1062,7 @@
     "infoDefault": "อัปโหลดยิ่งชัด ยิ่งสร้างได้เสถียร",
     "reqDefault": "ตัวหลักชัด องค์ประกอบภาพครบ",
     "unitZhang": "ภาพ",
+    "totalLabel": "รวม",
     "remixNumber": "{number}",
     "onboardingUpload": "อัปโหลดแอสเซ็ต",
     "onboardingUploadDesc": "อัปโหลดภาพเสื้อผ้าวางหรือภาพโมเดล ระบบจะจดจำทรง สี และโครงสร้างอัตโนมัติ",
@@ -1134,8 +1135,7 @@
       "square": "สี่เหลี่ยม",
       "landscape": "แนวนอน",
       "phone": "แนวตั้งมือถือ",
-      "wide": "จอกว้าง"
-    },
+      "wide": "จอกว้าง"},
     "countLabel": "จำนวนการสร้าง",
     "modelPickerPlaceholder": "เลือกรุ่น",
     "moduleHeaderAria": "ข้อมูล {title}",

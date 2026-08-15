@@ -15,11 +15,11 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
 import {
-  StudioGenerationCountSelector,
   StudioModelSelector,
   StudioOptionGrid,
   StudioPromptTextarea,
 } from "@/components/studio/StudioFormControls";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
@@ -811,7 +811,7 @@ export function ProductRetouchExperience() {
                 </div>
                 <div className="mt-4">
                   <Label className="mb-2 block">{t("section.perSourceLabel")}</Label>
-                  <StudioGenerationCountSelector
+                  <GenerationCountField
                     value={variantsPerSource}
                     onChange={setVariantsPerSource}
                     counts={[1, 2, 3, 4]}

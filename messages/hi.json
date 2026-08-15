@@ -4235,6 +4235,7 @@
     "infoDefault": "अपलोड जितना साफ़, जेनरेशन उतना स्थिर।",
     "reqDefault": "साफ़ सब्जेक्ट, संपूर्ण कंपोज़िशन।",
     "unitZhang": "इमेज",
+    "totalLabel": "Total",
     "remixNumber": "{number}",
     "onboardingUpload": "मटेरियल अपलोड करें",
     "onboardingUploadDesc": "फ्लैट-ले या मॉडल शॉट अपलोड करें; सिस्टम फ़िट, रंग और स्ट्रक्चर अपने आप डिटेक्ट करता है।",
@@ -4307,8 +4308,7 @@
       "square": "वर्गाकार",
       "landscape": "लैंडस्केप",
       "phone": "मोबाइल पोर्ट्रेट",
-      "wide": "वाइडस्क्रीन"
-    },
+      "wide": "वाइडस्क्रीन"},
     "countLabel": "जनरेशन संख्या",
     "modelPickerPlaceholder": "मॉडल चुनें",
     "moduleHeaderAria": "{title} जानकारी",

@@ -4235,6 +4235,7 @@
     "infoDefault": "업로드가 선명할수록 생성이 안정적입니다.",
     "reqDefault": "주체 선명, 구도 완전.",
     "unitZhang": "장",
+    "totalLabel": "총",
     "remixNumber": "{number}",
     "onboardingUpload": "소재 업로드",
     "onboardingUploadDesc": "의류 플랫레이 또는 모델 이미지를 업로드하면 시스템이 핏·색상·구조를 자동 인식합니다.",
@@ -4307,8 +4308,7 @@
       "square": "정사각형",
       "landscape": "가로형",
       "phone": "모바일 세로",
-      "wide": "와이드"
-    },
+      "wide": "와이드"},
     "countLabel": "생성 매수",
     "modelPickerPlaceholder": "모델 선택",
     "moduleHeaderAria": "{title} 설명",

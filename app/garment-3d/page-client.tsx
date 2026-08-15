@@ -13,7 +13,8 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -906,7 +907,7 @@ export default function Garment3dPage() {
           </section>
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("countSectionTitle")}</h3>
-            <StudioGenerationCountSelector
+            <GenerationCountField
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("countSectionTitle")}

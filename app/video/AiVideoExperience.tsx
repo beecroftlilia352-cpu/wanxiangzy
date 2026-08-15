@@ -20,7 +20,8 @@ import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultVideoGrid } from "@/components/ResultVideoGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { StudioGenerationCountSelector, StudioOptionGrid, StudioPromptTextarea, StudioToggleRow } from "@/components/studio/StudioFormControls";
+import { StudioOptionGrid, StudioPromptTextarea, StudioToggleRow } from "@/components/studio/StudioFormControls";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -1124,7 +1125,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             <h3 className="text-sm font-black text-codex-ink">{t("genCountSection")}</h3>
             <span className="text-[11px] font-bold text-codex-faint">{t("genCountPerVideo", { cost: perVideoCost })}</span>
           </div>
-          <StudioGenerationCountSelector
+          <GenerationCountField
             value={genCount}
             onChange={(value) => setGenCount(normalizeAiVideoGenCount(value))}
             counts={[1, 2, 3, 4]}

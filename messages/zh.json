@@ -4235,6 +4235,7 @@
     "infoDefault": "上传越清晰，生成越稳定。",
     "reqDefault": "主体清晰、构图完整。",
     "unitZhang": "张",
+    "totalLabel": "共",
     "remixNumber": "{number}",
     "onboardingUpload": "上传素材",
     "onboardingUploadDesc": "上传服装平铺图或模特图，系统自动识别版型、颜色与结构。",
@@ -4307,8 +4308,7 @@
       "square": "方形",
       "landscape": "横版",
       "phone": "手机竖屏",
-      "wide": "宽屏"
-    },
+      "wide": "宽屏"},
     "countLabel": "生成张数",
     "modelPickerPlaceholder": "选择模型",
     "moduleHeaderAria": "{title}说明",

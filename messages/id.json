@@ -4235,6 +4235,7 @@
     "infoDefault": "Semakin jelas unggahan, semakin stabil hasil.",
     "reqDefault": "Subjek jelas, komposisi utuh.",
     "unitZhang": "gambar",
+    "totalLabel": "Total",
     "remixNumber": "{number}",
     "onboardingUpload": "Unggah materi",
     "onboardingUploadDesc": "Unggah gambar flat pakaian atau gambar model, sistem otomatis mengenali bentuk, warna, dan struktur.",
@@ -4307,8 +4308,7 @@
       "square": "Persegi",
       "landscape": "Lanskap",
       "phone": "Potret ponsel",
-      "wide": "Lebar"
-    },
+      "wide": "Lebar"},
     "countLabel": "Jumlah generasi",
     "modelPickerPlaceholder": "Pilih model",
     "moduleHeaderAria": "Info {title}",

@@ -25,7 +25,9 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -945,8 +947,7 @@ export default function ModelBackgroundPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("imageAspectRatio")}</h3>
-            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} columns={3} ariaLabel={t("imageAspectRatio")} />
+            <AspectRatioSelector options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("imageAspectRatio")} />
           </section>
 
           <section>
@@ -964,7 +965,7 @@ export default function ModelBackgroundPage() {
           </section>
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genCount")}</h3>
-            <StudioGenerationCountSelector
+            <GenerationCountField
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("genCount")}

@@ -4235,6 +4235,7 @@
     "infoDefault": "Cuanto más clara la subida, más estable la generación.",
     "reqDefault": "Sujeto nítido, composición completa.",
     "unitZhang": "imágenes",
+    "totalLabel": "Total",
     "remixNumber": "{number}",
     "onboardingUpload": "Subir material",
     "onboardingUploadDesc": "Sube una toma plana o con modelo; el sistema detecta automáticamente el ajuste, el color y la estructura.",
@@ -4307,8 +4308,7 @@
       "square": "Cuadrado",
       "landscape": "Horizontal",
       "phone": "Vertical móvil",
-      "wide": "Panorámico"
-    },
+      "wide": "Panorámico"},
     "countLabel": "Cantidad de generaciones",
     "modelPickerPlaceholder": "Seleccionar modelo",
     "moduleHeaderAria": "Información de {title}",

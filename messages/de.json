@@ -4238,6 +4238,7 @@
     "tryIt": "Ausprobieren",
     "unavailable": "Nicht verfügbar",
     "unitZhang": "Bilder",
+    "totalLabel": "Gesamt",
     "upload": "{title} hochladen",
     "uploadExamplesToggle": "Beispiele ansehen",
     "uploadFromLibrary": "Aus der Bibliothek auswählen",
@@ -4307,8 +4308,7 @@
       "square": "Quadrat",
       "landscape": "Querformat",
       "phone": "Mobiles Hochformat",
-      "wide": "Breitbild"
-    },
+      "wide": "Breitbild"},
     "countLabel": "Anzahl Generierungen",
     "modelPickerPlaceholder": "Modell wählen",
     "moduleHeaderAria": "{title}-Info",

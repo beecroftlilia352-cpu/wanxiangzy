@@ -4235,6 +4235,7 @@
     "infoDefault": "Tải càng rõ, tạo càng ổn định.",
     "reqDefault": "Chủ thể rõ, bố cục trọn vẹn.",
     "unitZhang": "ảnh",
+    "totalLabel": "Tổng",
     "remixNumber": "{number}",
     "onboardingUpload": "Tải tư liệu",
     "onboardingUploadDesc": "Tải ảnh phẳng trang phục hoặc ảnh người mẫu, hệ thống tự nhận diện form, màu và cấu trúc.",
@@ -4307,8 +4308,7 @@
       "square": "Vuông",
       "landscape": "Ngang",
       "phone": "Dọc điện thoại",
-      "wide": "Màn hình rộng"
-    },
+      "wide": "Màn hình rộng"},
     "countLabel": "Số lượng tạo",
     "modelPickerPlaceholder": "Chọn mô hình",
     "moduleHeaderAria": "Thông tin {title}",

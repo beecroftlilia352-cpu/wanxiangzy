@@ -4235,6 +4235,7 @@
     "infoDefault": "Più nitido è il caricamento, più stabile è la generazione.",
     "reqDefault": "Soggetto nitido, composizione completa.",
     "unitZhang": "",
+    "totalLabel": "Totale",
     "remixNumber": "{number}",
     "onboardingUpload": "Carica le risorse",
     "onboardingUploadDesc": "Carica un'immagine flat lay del capo o della modella, il sistema riconosce automaticamente forma, colore e struttura.",
@@ -4307,8 +4308,7 @@
       "square": "Quadrato",
       "landscape": "Orizzontale",
       "phone": "Verticale mobile",
-      "wide": "Widescreen"
-    },
+      "wide": "Widescreen"},
     "countLabel": "Numero di generazioni",
     "modelPickerPlaceholder": "Seleziona modello",
     "moduleHeaderAria": "Info {title}",

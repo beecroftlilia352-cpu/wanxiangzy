@@ -4235,6 +4235,7 @@
     "infoDefault": "Quanto mais clara a imagem enviada, mais estável a geração.",
     "reqDefault": "Sujeito nítido, composição completa.",
     "unitZhang": "imagens",
+    "totalLabel": "Total",
     "remixNumber": "{number}",
     "onboardingUpload": "Enviar material",
     "onboardingUploadDesc": "Envie uma foto plana ou com modelo; o sistema detecta automaticamente o ajuste, a cor e a estrutura.",
@@ -4307,8 +4308,7 @@
       "square": "Quadrado",
       "landscape": "Paisagem",
       "phone": "Retrato móvel",
-      "wide": "Widescreen"
-    },
+      "wide": "Widescreen"},
     "countLabel": "Quantidade de gerações",
     "modelPickerPlaceholder": "Selecionar modelo",
     "moduleHeaderAria": "Informações de {title}",

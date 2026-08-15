@@ -21,11 +21,11 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import {
-  StudioGenerationCountSelector,
   StudioModelSelector,
   StudioOptionGrid,
   StudioPromptTextarea,
 } from "@/components/studio/StudioFormControls";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -851,7 +851,7 @@ export default function ImageTranslationPage() {
 
           <section>
             <h3 className="mb-3 text-sm font-bold text-slate-900">{t("genCountSectionTitle")}</h3>
-            <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel={t("genCountAriaLabel")} />
+            <GenerationCountField value={genCount} onChange={setGenCount} ariaLabel={t("genCountAriaLabel")} summary="" />
             <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
               {t("genTotalHint", { count: sourceUrls.length * Math.max(languages.length, 1) * genCount })}
             </p>

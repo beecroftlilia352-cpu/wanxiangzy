@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
  */
 export type AspectRatioShape = string;
 
-export type AspectRatioOption = {
-  value: string;
+export type AspectRatioOption<T extends string = string> = {
+  value: T;
   /** Raw label text. Use `labelKey` for i18n. */
   label?: string;
   /** next-intl key path; takes precedence over `label` when provided. */
@@ -25,10 +25,10 @@ export type AspectRatioOption = {
   disabled?: boolean;
 };
 
-export type AspectRatioSelectorProps = {
-  options: readonly AspectRatioOption[];
-  value: string;
-  onChange: (value: string) => void;
+export type AspectRatioSelectorProps<T extends string = string> = {
+  options: readonly AspectRatioOption<T>[];
+  value: T;
+  onChange: (value: T) => void;
   /** Title rendered above the grid with the purple marker accent. */
   title?: ReactNode;
   /** next-intl key for the title; takes precedence over `title`. */
@@ -80,7 +80,7 @@ function RatioShape({ shape }: { shape: AspectRatioShape }) {
   );
 }
 
-export function AspectRatioSelector({
+export function AspectRatioSelector<T extends string = string>({
   options,
   value,
   onChange,
@@ -88,7 +88,7 @@ export function AspectRatioSelector({
   titleKey,
   ariaLabel,
   className,
-}: AspectRatioSelectorProps) {
+}: AspectRatioSelectorProps<T>) {
   const t = useTranslations();
   const resolvedTitle = titleKey ? t(titleKey) : title;
   const fallbackAria = titleKey ? t(titleKey) : typeof title === "string" ? title : undefined;
@@ -118,7 +118,7 @@ export function AspectRatioSelector({
               role="radio"
               aria-checked={selected}
               disabled={option.disabled}
-              onClick={() => onChange(option.value)}
+              onClick={() => onChange(option.value as T)}
               title={typeof labelText === "string" ? labelText : undefined}
               className={cn(
                 "studio-aspect-ratio-selector-card",

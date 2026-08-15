@@ -30,7 +30,9 @@ import { StudioResultViewport, type StudioResultStatus } from "@/components/stud
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
@@ -893,11 +895,11 @@ export default function FaceSwapPage() {
 
           <section>
             <PanelTitle title={t("aspectSectionTitle")} />
-            <StudioOptionGrid
+            <AspectRatioSelector
               options={ASPECT_RATIOS.map((r) => ({ value: r.value, label: r.labelKey ? t(r.labelKey) : r.label }))}
               value={aspectRatio}
               ariaLabel={t("aspectSectionTitle")}
-              onChange={(value) => setAspectRatio(value as AspectRatio)}
+              onChange={setAspectRatio}
             />
           </section>
 
@@ -916,7 +918,7 @@ export default function FaceSwapPage() {
 
           <section>
             <PanelTitle title={t("countSectionTitle")} />
-            <StudioGenerationCountSelector
+            <GenerationCountField
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("countSectionTitle")}

@@ -3,7 +3,7 @@
 import { Check, ChevronRight, ImagePlus, Layers3, Loader2, Plus, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import type { ProductSetImageType, ProductSetTemplate } from "@/lib/product-set";
 
@@ -101,7 +101,7 @@ export function CountSelector({ imageType, value, options, onChange, helper }: {
         <span className="font-bold text-slate-700">{countLabel}</span>
         <span className="font-black text-[var(--codex-accent)]">{value > 0 ? `${value} ${unit}` : t("create.count.unselected")}</span>
       </div>
-      <StudioGenerationCountSelector value={value} onChange={onChange} counts={options} unit={unit} ariaLabel={countLabel} />
+      <GenerationCountField value={value} onChange={onChange} counts={options} unit={unit} ariaLabel={countLabel} />
       {helper ? <p className="mt-2 text-[11px] leading-5 text-slate-400">{helper}</p> : null}
     </div>
   );

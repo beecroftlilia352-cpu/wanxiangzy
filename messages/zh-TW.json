@@ -3384,6 +3384,7 @@
     "infoDefault": "上傳越清晰，生成越穩定。",
     "reqDefault": "主體清晰、構圖完整。",
     "unitZhang": "張",
+    "totalLabel": "共",
     "remixNumber": "{number}",
     "onboardingUpload": "上傳素材",
     "onboardingUploadDesc": "上傳服裝平鋪圖或模特圖，系統自動識別版型、顏色與結構。",
@@ -3456,8 +3457,7 @@
       "square": "方形",
       "landscape": "橫式",
       "phone": "手機直屏",
-      "wide": "寬屏"
-    },
+      "wide": "寬屏"},
     "countLabel": "生成張數",
     "modelPickerPlaceholder": "選擇模型",
     "moduleHeaderAria": "{title}說明",

@@ -4238,6 +4238,7 @@
     "tryIt": "Essayer",
     "unavailable": "Indisponible",
     "unitZhang": "images",
+    "totalLabel": "Total",
     "upload": "Téléverser {title}",
     "uploadExamplesToggle": "Voir les exemples",
     "uploadFromLibrary": "Choisir depuis la bibliothèque",
@@ -4307,8 +4308,7 @@
       "square": "Carré",
       "landscape": "Paysage",
       "phone": "Portrait mobile",
-      "wide": "Écran large"
-    },
+      "wide": "Écran large"},
     "countLabel": "Nombre de générations",
     "modelPickerPlaceholder": "Choisir un modèle",
     "moduleHeaderAria": "Infos {title}",

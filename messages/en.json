@@ -4235,6 +4235,7 @@
     "infoDefault": "The clearer the upload, the more stable the generation.",
     "reqDefault": "Clear subject, complete composition.",
     "unitZhang": "images",
+    "totalLabel": "Total",
     "remixNumber": "{number}",
     "onboardingUpload": "Upload material",
     "onboardingUploadDesc": "Upload a flat-lay or model shot; the system auto-detects fit, color, and structure.",
@@ -4307,8 +4308,7 @@
       "square": "Square",
       "landscape": "Landscape",
       "phone": "Mobile portrait",
-      "wide": "Widescreen"
-    },
+      "wide": "Widescreen"},
     "countLabel": "Generation count",
     "modelPickerPlaceholder": "Select model",
     "moduleHeaderAria": "{title} info",

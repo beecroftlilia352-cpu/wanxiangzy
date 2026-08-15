@@ -3384,6 +3384,7 @@
     "infoDefault": "アップロードが鮮明なほど生成が安定します。",
     "reqDefault": "被写体が鮮明、構図が完全。",
     "unitZhang": "枚",
+    "totalLabel": "合計",
     "remixNumber": "{number}",
     "onboardingUpload": "素材をアップロード",
     "onboardingUploadDesc": "衣類の平置き画像またはモデル画像をアップロードすると、システムがシルエット・色・構造を自動認識します。",
@@ -3456,8 +3457,7 @@
       "square": "正方形",
       "landscape": "横向き",
       "phone": "スマホ縦画面",
-      "wide": "ワイド"
-    },
+      "wide": "ワイド"},
     "countLabel": "生成枚数",
     "modelPickerPlaceholder": "モデルを選択",
     "moduleHeaderAria": "{title}の説明",

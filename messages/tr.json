@@ -4235,6 +4235,7 @@
     "infoDefault": "Yükleme ne kadar netse üretim o kadar kararlıdır.",
     "reqDefault": "Net konu, eksiksiz kompozisyon.",
     "unitZhang": "görsel",
+    "totalLabel": "Toplam",
     "remixNumber": "{number}",
     "onboardingUpload": "Materyal yükle",
     "onboardingUploadDesc": "Düz serim veya model çekimi yükleyin; sistem kalıbı, rengi ve yapıyı otomatik algılar.",
@@ -4307,8 +4308,7 @@
       "square": "Kare",
       "landscape": "Yatay",
       "phone": "Mobil dikey",
-      "wide": "Geniş ekran"
-    },
+      "wide": "Geniş ekran"},
     "countLabel": "Üretim sayısı",
     "modelPickerPlaceholder": "Model seç",
     "moduleHeaderAria": "{title} bilgi",

@@ -24,8 +24,8 @@ import {
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
-import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES,
@@ -824,7 +824,7 @@ export default function AllCategoryProductImagePage() {
                     <SelectField label={t("quality")} value={imageSize} options={supportedSizes} onChange={(value) => { setImageSize(value as ImageSize); resetOutput(); }} />
                     <div>
                       <span className="mb-2 block text-xs font-semibold text-slate-500">{t("genCount")}</span>
-                      <StudioGenerationCountSelector
+                      <GenerationCountField
                         value={imageCount}
                         onChange={changeCount}
                         counts={countOptions}

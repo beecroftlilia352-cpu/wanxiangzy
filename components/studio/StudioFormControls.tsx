@@ -189,38 +189,6 @@ export function StudioModelSelector<T extends string>({
   );
 }
 
-export function StudioGenerationCountSelector({
-  value,
-  onChange,
-  counts = [1, 2, 3, 4],
-  unit,
-  ariaLabel,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-  counts?: readonly number[];
-  unit?: string;
-  ariaLabel?: string;
-}) {
-  const t = useTranslations("Shared");
-  const resolvedUnit = unit ?? t("unitZhang");
-  const resolvedAriaLabel = ariaLabel ?? t("countLabel");
-  const columnCount: 2 | 3 | 4 | "auto" = counts.length === 4 ? 4 : counts.length === 3 ? 3 : counts.length === 2 ? 2 : "auto";
-
-  return (
-    <StudioOptionGrid
-      options={counts.map((count) => ({
-        value: String(count),
-        label: `${count} ${resolvedUnit}`,
-      }))}
-      value={String(value)}
-      onChange={(nextValue) => onChange(Number(nextValue))}
-      columns={columnCount}
-      ariaLabel={resolvedAriaLabel}
-    />
-  );
-}
-
 export function StudioToggleRow({
   title,
   description,

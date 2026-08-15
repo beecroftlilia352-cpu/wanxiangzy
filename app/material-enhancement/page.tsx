@@ -13,7 +13,8 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -682,7 +683,7 @@ export default function MaterialEnhancementPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.count")}</h3>
-            <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel={t("section.countAria")} />
+            <GenerationCountField value={genCount} onChange={setGenCount} ariaLabel={t("section.countAria")} />
           </section>
         </div>
 

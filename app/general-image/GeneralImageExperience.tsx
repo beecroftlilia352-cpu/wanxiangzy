@@ -26,7 +26,9 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -789,15 +791,14 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("ratioSectionTitle")}</h3>
-            <StudioOptionGrid
+            <AspectRatioSelector
               options={ASPECTS.map((item) => ({
                 value: item.value,
                 label: item.labelKey ? t(item.labelKey) : item.label,
               }))}
               value={aspectRatio}
               onChange={setAspectRatio}
-              columns={3}
+              titleKey="ratioSectionTitle"
               ariaLabel={t("ratioAriaLabel")}
             />
           </section>
@@ -819,7 +820,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
           <section>
             <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("countSectionTitle")}</h3>
-            <StudioGenerationCountSelector
+            <GenerationCountField
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("countAriaLabel")}

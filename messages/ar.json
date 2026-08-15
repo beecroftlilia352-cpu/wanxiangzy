@@ -4235,6 +4235,7 @@
     "infoDefault": "كلما كان التحميل أوضح، كان التوليد أكثر استقرارًا.",
     "reqDefault": "عنصر واضح وتكوين مكتمل.",
     "unitZhang": "",
+    "totalLabel": "Total",
     "remixNumber": "{number}",
     "onboardingUpload": "تحميل الأصول",
     "onboardingUploadDesc": "حمّل صورة ملابس مسطحة أو صورة موديل، ويتعرف النظام تلقائيًا على القصّة واللون والبنية.",
@@ -4307,8 +4308,7 @@
       "square": "مربع",
       "landscape": "أفقي",
       "phone": "عمودي للجوال",
-      "wide": "شاشة عريضة"
-    },
+      "wide": "شاشة عريضة"},
     "countLabel": "عدد الأجيال",
     "modelPickerPlaceholder": "اختر نموذجًا",
     "moduleHeaderAria": "معلومات {title}",
