@@ -331,8 +331,8 @@ export function PricingSection() {
                 mode === "credits" ? "opacity-95" : "opacity-60"
               )}
             >
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-accent)] text-[10px] font-black text-white">{t("payAli")}</span>
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-success)] text-[10px] font-black text-white">{t("payWechat")}</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-accent)] text-[11px] font-black text-white">{t("payAli")}</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-success)] text-[11px] font-black text-white">{t("payWechat")}</span>
             </span>
           </button>
           <button
@@ -443,7 +443,7 @@ function PlanCard({
     >
       {plan.featured ? (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="rounded-full bg-zinc-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="rounded-full bg-zinc-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
             {t("mostPopular")}
           </span>
         </div>
@@ -461,7 +461,7 @@ function PlanCard({
         <h3 className="flex-1 text-xl font-bold text-zinc-900 dark:text-stone-100">{t(plan.titleKey)}</h3>
         {plan.savings ? (
           <span className="ml-auto inline-flex h-14 w-14 shrink-0 rotate-[-12deg] flex-col items-center justify-center rounded-full border-2 border-dashed border-amber-300 bg-amber-50 text-amber-700">
-            <span className="text-[10px] font-bold leading-none">{t("saveBadge")}</span>
+            <span className="text-[11px] font-bold leading-none">{t("saveBadge")}</span>
             <span className="text-base font-black leading-tight">{plan.savings}%</span>
           </span>
         ) : null}

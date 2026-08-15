@@ -223,7 +223,7 @@ export default async function HomePage() {
               <Link key={index} href="/create" className="home-scene-card artistry-glass-shine group">
                 <div className="relative aspect-[1.16] overflow-hidden bg-[#f4f4f4]">
                   {"video" in card ? (
-                    <video className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
+                    <video className="h-full w-full object-cover transition duration-[var(--codex-motion-slow)] group-hover:scale-[1.025]" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
                       <source src={card.video} type="video/mp4" />
                     </video>
                   ) : (
@@ -232,7 +232,7 @@ export default async function HomePage() {
                       alt={t(`sceneTitle.${index}`)}
                       fill
                       sizes="(min-width: 1024px) 33vw, 100vw"
-                      className="object-cover object-top transition duration-500 group-hover:scale-[1.025]"
+                      className="object-cover object-top transition duration-[var(--codex-motion-slow)] group-hover:scale-[1.025]"
                     />
                   )}
                 </div>
