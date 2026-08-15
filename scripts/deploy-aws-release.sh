@@ -147,17 +147,10 @@ configure_build_environment() {
 
 # 应用 engines 要求 node >=22 <23。EC2 曾运行 node 23 导致
 # `controller[kState].transformAlgorithm is not a function` 运行时崩溃。
+# 注意：nvm 会把 `node` 变成 shell 函数（返回 default alias 的版本），
+# 判断与取路径必须用 `command -v node` 拿真实二进制，否则会被 shim 欺骗。
 ensure_node_version() {
   local required_major="${NODE_REQUIRED_MAJOR:-22}"
-  local current_major
-  current_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-
-  if [ "$current_major" = "$required_major" ]; then
-    echo "Node ${current_major}.x OK (engines: >=22 <23)"
-    return 0
-  fi
-
-  echo "Node ${current_major}.x detected; project requires node ${required_major}.x - switching via nvm..."
   export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
   if [ ! -s "$NVM_DIR/nvm.sh" ]; then
     echo "ERROR: nvm not found at $NVM_DIR" >&2
@@ -165,10 +158,26 @@ ensure_node_version() {
   fi
   # shellcheck disable=SC1091
   \. "$NVM_DIR/nvm.sh"
-  nvm install "$required_major" >/dev/null 2>&1 || true
-  nvm use "$required_major" >/dev/null
-  nvm alias default "$required_major" >/dev/null
-  echo "Switched to node $(node -v)"
+
+  local node_bin current_major
+  node_bin="$(command -v node)"
+  current_major="$("$node_bin" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+
+  if [ "$current_major" != "$required_major" ]; then
+    echo "Node ${current_major}.x detected at $node_bin; project requires node ${required_major}.x - switching via nvm..."
+    nvm install "$required_major"
+    nvm use "$required_major" || { echo "ERROR: nvm use $required_major failed" >&2; exit 1; }
+    nvm alias default "$required_major" >/dev/null
+  fi
+
+  # 切换后重新解析真实二进制并校验主版本，失败直接退出而不是带病部署
+  node_bin="$(command -v node)"
+  current_major="$("$node_bin" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+  if [ "$current_major" != "$required_major" ]; then
+    echo "ERROR: expected node ${required_major}.x but got ${current_major}.x at $node_bin" >&2
+    exit 1
+  fi
+  echo "Node ${current_major}.x OK (engines: >=22 <23) at $node_bin"
 }
 
 ensure_build_swap() {

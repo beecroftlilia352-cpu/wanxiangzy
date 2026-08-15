@@ -92,5 +92,4 @@ const nextConfig: NextConfig = {
 
 export default withSentryConfig(withNextIntl(nextConfig), {
   silent: true,
-  disableLogger: true,
 });
