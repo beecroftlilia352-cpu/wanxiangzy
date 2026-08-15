@@ -1424,9 +1424,9 @@
     "retryLabel": "重新生成",
     "badExamplesTip": "小提示：請勿上傳以下錯誤圖片，會極大影響生成效果",
     "mode": {
-      "modelBackground": "換模特換背景",
-      "backgroundOnly": "只換背景",
-      "modelOnly": "只換模特"
+      "model_background": "換模特換背景",
+      "background_only": "只換背景",
+      "model_only": "只換模特"
     },
     "sourceMode": {
       "preset": "預設背景",

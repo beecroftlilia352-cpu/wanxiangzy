@@ -2873,9 +2873,9 @@
     "retryLabel": "Пересоздать",
     "badExamplesTip": "Совет: не загружайте некорректные изображения ниже, это сильно ухудшит результат",
     "mode": {
-      "modelBackground": "Сменить модель и фон",
-      "backgroundOnly": "Только фон",
-      "modelOnly": "Только модель"
+      "model_background": "Сменить модель и фон",
+      "background_only": "Только фон",
+      "model_only": "Только модель"
     },
     "sourceMode": {
       "preset": "Готовый фон",

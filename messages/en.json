@@ -2873,9 +2873,9 @@
     "retryLabel": "Regenerate",
     "badExamplesTip": "Tip: do not upload the incorrect images below, they will greatly affect the result",
     "mode": {
-      "modelBackground": "Change model & background",
-      "backgroundOnly": "Background only",
-      "modelOnly": "Model only"
+      "model_background": "Change model & background",
+      "background_only": "Background only",
+      "model_only": "Model only"
     },
     "sourceMode": {
       "preset": "Preset background",

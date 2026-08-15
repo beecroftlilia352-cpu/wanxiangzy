@@ -1424,9 +1424,9 @@
     "retryLabel": "再生成",
     "badExamplesTip": "ヒント：以下の誤った画像をアップロードしないでください。生成結果に大きく影響します",
     "mode": {
-      "modelBackground": "モデルと背景を変更",
-      "backgroundOnly": "背景のみ変更",
-      "modelOnly": "モデルのみ変更"
+      "model_background": "モデルと背景を変更",
+      "background_only": "背景のみ変更",
+      "model_only": "モデルのみ変更"
     },
     "sourceMode": {
       "preset": "プリセット背景",

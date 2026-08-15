@@ -56,13 +56,13 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                 key={item.key}
                 aria-disabled="true"
                 title={title}
-                className="studio-nav-item group flex h-14 min-w-[92px] cursor-not-allowed flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[10px] font-black opacity-45 lg:h-[72px] lg:min-w-0"
+                className="studio-nav-item group flex h-14 min-w-[92px] cursor-not-allowed flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[12px] font-black opacity-45 lg:h-[72px] lg:min-w-0"
               >
                 <span className="relative flex h-6 w-6 items-center justify-center text-codex-faint">
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{featureLabel(t, item)}</span>
-                <span className="text-[10px] font-bold text-codex-faint">{item.disabledReason}</span>
+                <span className="text-[11px] font-bold text-codex-faint">{item.disabledReason}</span>
               </span>
             );
           }
@@ -74,7 +74,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
               href={item.href}
               prefetch={false}
               aria-current={isActive ? "page" : undefined}
-              className={`studio-nav-item group flex h-14 min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[10px] font-black transition-[background-color,color,box-shadow,border-color] duration-150 lg:h-[72px] lg:min-w-0 ${
+              className={`studio-nav-item group flex h-14 min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[12px] font-black transition-[background-color,color,box-shadow,border-color] duration-150 lg:h-[72px] lg:min-w-0 ${
                 isActive
                   ? "studio-nav-item-active bg-white/80 text-[var(--codex-accent)] shadow-sm ring-1 ring-[rgba(91,124,255,0.22)] dark:bg-white/10 dark:text-[#cfd8ff] dark:ring-[rgba(91,140,255,0.40)]"
                   : "text-codex-muted hover:bg-white/70 hover:text-codex-ink dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
@@ -87,7 +87,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                   <span
                     aria-hidden="true"
                     title={`${featureLabel(t, item)} · ${t("Header.featuresBadge.new")}`}
-                    className="absolute right-0 top-0 inline-flex h-3 min-w-[12px] -translate-y-0.5 translate-x-0.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-[3px] text-[6px] font-black leading-none text-white ring-1 ring-white dark:ring-stone-900"
+                    className="absolute right-0 top-0 inline-flex h-3.5 min-w-[14px] -translate-y-0.5 translate-x-0.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[9px] font-black leading-none text-white ring-1 ring-white dark:ring-stone-900"
                   >
                     {item.badge}
                   </span>

@@ -2873,9 +2873,9 @@
     "retryLabel": "Tạo lại",
     "badExamplesTip": "Mẹo: đừng tải các ảnh sai sau, sẽ ảnh hưởng lớn tới kết quả tạo",
     "mode": {
-      "modelBackground": "Đổi mẫu và nền",
-      "backgroundOnly": "Chỉ đổi nền",
-      "modelOnly": "Chỉ đổi mẫu"
+      "model_background": "Đổi mẫu và nền",
+      "background_only": "Chỉ đổi nền",
+      "model_only": "Chỉ đổi mẫu"
     },
     "sourceMode": {
       "preset": "Nền cài sẵn",

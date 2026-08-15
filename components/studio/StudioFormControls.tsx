@@ -76,7 +76,7 @@ export function StudioOptionGrid<T extends string>({
                 {option.description && (
                   <span
                     className={cn(
-                      "mt-0.5 block text-[10px] font-semibold opacity-65",
+                      "mt-0.5 block text-[11px] font-semibold opacity-65",
                       descriptionMode === "wrap"
                         ? "whitespace-normal break-words leading-4"
                         : "truncate"

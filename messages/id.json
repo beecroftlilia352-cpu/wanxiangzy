@@ -2873,9 +2873,9 @@
     "retryLabel": "Generate ulang",
     "badExamplesTip": "Tips: jangan unggah gambar salah berikut, sangat memengaruhi hasil generate",
     "mode": {
-      "modelBackground": "Ganti model & latar",
-      "backgroundOnly": "Hanya latar",
-      "modelOnly": "Hanya model"
+      "model_background": "Ganti model & latar",
+      "background_only": "Hanya latar",
+      "model_only": "Hanya model"
     },
     "sourceMode": {
       "preset": "Latar preset",

@@ -2873,9 +2873,9 @@
     "retryLabel": "Regenerar",
     "badExamplesTip": "Dica: não envie as imagens incorretas abaixo, elas afetarão muito o resultado",
     "mode": {
-      "modelBackground": "Mudar modelo e fundo",
-      "backgroundOnly": "Somente fundo",
-      "modelOnly": "Somente modelo"
+      "model_background": "Mudar modelo e fundo",
+      "background_only": "Somente fundo",
+      "model_only": "Somente modelo"
     },
     "sourceMode": {
       "preset": "Fundo predefinido",

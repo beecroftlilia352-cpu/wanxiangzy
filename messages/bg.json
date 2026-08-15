@@ -1311,9 +1311,9 @@
     "retryLabel": "Генерирай отново",
     "badExamplesTip": "Съвет: не качвайте следните грешни изображения, те силно влияят на качеството на генериране",
     "mode": {
-      "modelBackground": "Смяна на модел и фон",
-      "backgroundOnly": "Само фон",
-      "modelOnly": "Само модел"
+      "model_background": "Смяна на модел и фон",
+      "background_only": "Само фон",
+      "model_only": "Само модел"
     },
     "sourceMode": {
       "preset": "Готов фон",

@@ -2873,9 +2873,9 @@
     "retryLabel": "फिर बनाएँ",
     "badExamplesTip": "टिप: नीचे दी गई गलत इमेज अपलोड न करें, वे रिज़ल्ट को बहुत प्रभावित करेंगी",
     "mode": {
-      "modelBackground": "मॉडल और बैकग्राउंड बदलें",
-      "backgroundOnly": "केवल बैकग्राउंड",
-      "modelOnly": "केवल मॉडल"
+      "model_background": "मॉडल और बैकग्राउंड बदलें",
+      "background_only": "केवल बैकग्राउंड",
+      "model_only": "केवल मॉडल"
     },
     "sourceMode": {
       "preset": "प्रीसेट बैकग्राउंड",

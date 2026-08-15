@@ -2873,9 +2873,9 @@
     "retryLabel": "다시 생성",
     "badExamplesTip": "팁: 다음 잘못된 이미지를 업로드하지 마세요. 생성 효과에 큰 영향을 줍니다",
     "mode": {
-      "modelBackground": "모델 및 배경 변경",
-      "backgroundOnly": "배경만 변경",
-      "modelOnly": "모델만 변경"
+      "model_background": "모델 및 배경 변경",
+      "background_only": "배경만 변경",
+      "model_only": "모델만 변경"
     },
     "sourceMode": {
       "preset": "프리셋 배경",

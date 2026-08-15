@@ -2873,9 +2873,9 @@
     "zoomBackgroundReference": "Zoomer la référence d'arrière-plan",
     "zoomPreview": "Aperçu en zoom",
     "mode": {
-      "modelBackground": "Changer modèle et fond",
-      "backgroundOnly": "Fond uniquement",
-      "modelOnly": "Modèle uniquement"
+      "model_background": "Changer modèle et fond",
+      "background_only": "Fond uniquement",
+      "model_only": "Modèle uniquement"
     },
     "sourceMode": {
       "preset": "Fond prédéfini",

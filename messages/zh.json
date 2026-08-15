@@ -2873,9 +2873,9 @@
     "retryLabel": "重新生成",
     "badExamplesTip": "小贴士：请勿上传以下错误图片，会极大影响生成效果",
     "mode": {
-      "modelBackground": "换模特换背景",
-      "backgroundOnly": "只换背景",
-      "modelOnly": "只换模特"
+      "model_background": "换模特换背景",
+      "background_only": "只换背景",
+      "model_only": "只换模特"
     },
     "sourceMode": {
       "preset": "预设背景",

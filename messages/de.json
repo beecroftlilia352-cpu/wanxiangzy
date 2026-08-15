@@ -2873,9 +2873,9 @@
     "zoomBackgroundReference": "Hintergrundreferenz zoomen",
     "zoomPreview": "Zoom-Vorschau",
     "mode": {
-      "modelBackground": "Modell und Hintergrund ändern",
-      "backgroundOnly": "Nur Hintergrund",
-      "modelOnly": "Nur Modell"
+      "model_background": "Modell und Hintergrund ändern",
+      "background_only": "Nur Hintergrund",
+      "model_only": "Nur Modell"
     },
     "sourceMode": {
       "preset": "Vorgabe-Hintergrund",

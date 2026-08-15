@@ -548,7 +548,7 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-3 text-xs font-black text-white shadow-[0_4px_14px_rgba(91,124,255,0.3)] transition hover:-translate-y-0.5 hover:opacity-90 dark:bg-[rgba(91,140,255,0.85)] sm:inline-flex"
+        className="hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_4px_14px_rgba(91,124,255,0.3)] transition hover:-translate-y-0.5 hover:opacity-90 dark:bg-[rgba(91,140,255,0.85)] sm:inline-flex"
         title={t("topUp")}
       >
         <CreditCard className="h-3.5 w-3.5" />
@@ -556,7 +556,7 @@ function UserCreditActions({
       </Link>
       <Link
         href="/account?tab=credits"
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.3)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[rgba(91,124,255,0.16)] dark:border-[rgba(91,140,255,0.4)] dark:bg-[rgba(91,140,255,0.14)] dark:text-[#aeb8ff] dark:hover:bg-[rgba(91,140,255,0.22)]"
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.3)] bg-[rgba(91,124,255,0.1)] px-4 text-xs font-black text-[var(--codex-accent)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[rgba(91,124,255,0.16)] dark:border-[rgba(91,140,255,0.4)] dark:bg-[rgba(91,140,255,0.14)] dark:text-[#aeb8ff] dark:hover:bg-[rgba(91,140,255,0.22)]"
         title={t("creditsAria")}
       >
         <Coins className="h-3.5 w-3.5" />
@@ -599,7 +599,7 @@ function AccountAvatarDropdown({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
           title={t("openAccountCenter")}
           aria-label={t("openAccountMenuAria")}
           aria-expanded={open}
@@ -772,7 +772,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="mac-button inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm"
+          className="mac-button inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm"
           aria-label={t("switchModule")}
         >
           <ActiveIcon className="h-3.5 w-3.5" />

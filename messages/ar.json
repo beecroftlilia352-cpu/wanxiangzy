@@ -2873,9 +2873,9 @@
     "retryLabel": "إعادة التوليد",
     "badExamplesTip": "نصيحة: لا تحمّل الصور الخاطئة أدناه، فهي ستؤثر كثيرًا على النتيجة",
     "mode": {
-      "modelBackground": "تغيير العارضة والخلفية",
-      "backgroundOnly": "الخلفية فقط",
-      "modelOnly": "العارضة فقط"
+      "model_background": "تغيير العارضة والخلفية",
+      "background_only": "الخلفية فقط",
+      "model_only": "العارضة فقط"
     },
     "sourceMode": {
       "preset": "خلفية مُعدة",

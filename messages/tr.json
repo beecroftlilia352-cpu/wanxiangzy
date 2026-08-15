@@ -2873,9 +2873,9 @@
     "retryLabel": "Yeniden üret",
     "badExamplesTip": "İpucu: aşağıdaki hatalı görselleri yüklemeyin, sonucu büyük ölçüde etkilerler",
     "mode": {
-      "modelBackground": "Model ve arka planı değiştir",
-      "backgroundOnly": "Yalnızca arka plan",
-      "modelOnly": "Yalnızca model"
+      "model_background": "Model ve arka planı değiştir",
+      "background_only": "Yalnızca arka plan",
+      "model_only": "Yalnızca model"
     },
     "sourceMode": {
       "preset": "Hazır arka plan",

@@ -37,7 +37,7 @@ export function ModuleHeader({ title, tooltip, actions }: ModuleHeaderProps) {
           onMouseLeave={() => setTooltipStyle(null)}
           onFocus={showTooltip}
           onBlur={() => setTooltipStyle(null)}
-          className="flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-sm transition-colors hover:border-emerald-200 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-sm transition-colors hover:border-emerald-200 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
         >
           <CircleHelp className="h-3.5 w-3.5" />
         </button>
