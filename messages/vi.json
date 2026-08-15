@@ -3946,7 +3946,14 @@
     "videoResultAria": "Video đã tạo {index}",
     "videoResultBadge": "Kết quả",
     "videoGeneratingState": "Đang tạo video",
-    "videoEstimatedTime": "Khoảng 2-5 phút"
+    "videoEstimatedTime": "Khoảng 2-5 phút",
+    "emptyData": "Không có dữ liệu",
+    "pagingTotal": "Tổng {total}",
+    "perPage": "{option} / trang",
+    "dateStart": "Ngày bắt đầu",
+    "dateEnd": "Ngày kết thúc",
+    "recentWeek": "Tuần qua",
+    "recentMonth": "Tháng qua"
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",

@@ -3123,7 +3123,14 @@
     "videoResultAria": "生成影片 {index}",
     "videoResultBadge": "結果",
     "videoGeneratingState": "影片生成中",
-    "videoEstimatedTime": "預計 2-5 分鐘"
+    "videoEstimatedTime": "預計 2-5 分鐘",
+    "emptyData": "暫無資料",
+    "pagingTotal": "共 {total} 條",
+    "perPage": "{option} 條/頁",
+    "dateStart": "開始日期",
+    "dateEnd": "結束日期",
+    "recentWeek": "最近一週",
+    "recentMonth": "最近一個月"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾幀",

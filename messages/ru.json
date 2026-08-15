@@ -3946,7 +3946,14 @@
     "videoResultAria": "Сгенерированное видео {index}",
     "videoResultBadge": "Результат",
     "videoGeneratingState": "Генерация видео",
-    "videoEstimatedTime": "Примерно 2–5 мин"
+    "videoEstimatedTime": "Примерно 2–5 мин",
+    "emptyData": "Нет данных",
+    "pagingTotal": "Всего {total}",
+    "perPage": "{option} / стр.",
+    "dateStart": "Дата начала",
+    "dateEnd": "Дата окончания",
+    "recentWeek": "Последняя неделя",
+    "recentMonth": "Последний месяц"
   },
   "Video": {
     "moduleFirstLastFrame": "Первый и последний кадр",

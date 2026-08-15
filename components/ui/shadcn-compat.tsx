@@ -891,7 +891,8 @@ export function Badge(props: Parameters<typeof Tag>[0]) {
 }
 
 export function Empty({ description }: { image?: ReactNode; description?: ReactNode }) {
-  return <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-border bg-muted p-6 text-sm text-muted-foreground">{description || "暂无数据"}</div>;
+  const t = useTranslations("Shared");
+  return <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-border bg-muted p-6 text-sm text-muted-foreground">{description || t("emptyData")}</div>;
 }
 Empty.PRESENTED_IMAGE_SIMPLE = null;
 
@@ -931,6 +932,7 @@ export function Space({ orientation, direction, size = 8, wrap, align, className
 }
 
 export function Table<T extends Record<string, any>>({ columns = [], dataSource = [], rowKey, rowClassName, loading, scroll, pagination, locale, className, rowSelection }: { size?: "small" | "middle"; rowKey?: keyof T | ((row: T) => string); rowClassName?: string | ((row: T, index: number) => string); columns?: ColumnsType<T>; dataSource?: T[]; loading?: boolean; tableLayout?: CSSProperties["tableLayout"]; scroll?: { x?: number | string }; pagination?: false | { current?: number; pageSize?: number; total?: number; pageSizeOptions?: Array<number | string>; showSizeChanger?: boolean; showTotal?: (total: number, range: [number, number]) => ReactNode; onChange?: (page: number, pageSize: number) => void }; locale?: { emptyText?: ReactNode }; className?: string; rowSelection?: { selectedRowKeys?: string[]; onChange?: (keys: string[]) => void } }) {
+  const t = useTranslations("Shared");
   const paging = pagination === false ? undefined : pagination;
   const total = paging ? paging.total ?? dataSource.length : dataSource.length;
   const page = paging ? paging.current ?? 1 : 1;
@@ -1192,6 +1194,7 @@ export function Col({ xs = 24, sm, xl, className, children }: { xs?: number; sm?
 }
 
 export function Segmented({ value, options, onChange }: { value?: PrimitiveValue; options: Option[]; onChange?: (value: any) => void }) {
+  const t = useTranslations("Shared");
   return (
     <div className="inline-flex rounded-md border border-border bg-muted p-1">
       {options.map((option) => (
@@ -1329,6 +1332,7 @@ export function Skeleton({
 
 export const DatePicker = {
   RangePicker({ value, onChange, className, placeholder }: { value?: [any, any]; onChange?: (value: [any, any] | undefined) => void; className?: string; placeholder?: [string, string] }) {
+    const t = useTranslations("Shared");
     const selectedStart = dateValueToString(value?.[0]);
     const selectedEnd = dateValueToString(value?.[1]);
     const [open, setOpen] = useState(false);

@@ -3946,7 +3946,14 @@
     "videoResultAria": "생성된 동영상 {index}",
     "videoResultBadge": "결과",
     "videoGeneratingState": "동영상 생성 중",
-    "videoEstimatedTime": "약 2-5분 소요"
+    "videoEstimatedTime": "약 2-5분 소요",
+    "emptyData": "데이터 없음",
+    "pagingTotal": "총 {total}건",
+    "perPage": "{option}건/페이지",
+    "dateStart": "시작일",
+    "dateEnd": "종료일",
+    "recentWeek": "최근 1주",
+    "recentMonth": "최근 1개월"
   },
   "Video": {
     "moduleFirstLastFrame": "첫/끝 프레임",

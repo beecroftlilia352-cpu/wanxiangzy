@@ -3946,7 +3946,14 @@
     "videoResultAria": "生成视频 {index}",
     "videoResultBadge": "结果",
     "videoGeneratingState": "视频生成中",
-    "videoEstimatedTime": "预计 2-5 分钟"
+    "videoEstimatedTime": "预计 2-5 分钟",
+    "emptyData": "暂无数据",
+    "pagingTotal": "共 {total} 条",
+    "perPage": "{option} 条/页",
+    "dateStart": "开始日期",
+    "dateEnd": "结束日期",
+    "recentWeek": "最近一周",
+    "recentMonth": "最近一月"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾帧",

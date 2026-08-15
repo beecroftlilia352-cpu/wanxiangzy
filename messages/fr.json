@@ -3946,7 +3946,14 @@
     "videoResultAria": "Vidéo générée {index}",
     "videoResultBadge": "Résultat",
     "videoGeneratingState": "Génération de la vidéo",
-    "videoEstimatedTime": "Environ 2 à 5 min"
+    "videoEstimatedTime": "Environ 2 à 5 min",
+    "emptyData": "Aucune donnée",
+    "pagingTotal": "Total {total}",
+    "perPage": "{option} / page",
+    "dateStart": "Date de début",
+    "dateEnd": "Date de fin",
+    "recentWeek": "7 derniers jours",
+    "recentMonth": "30 derniers jours"
   },
   "Video": {
     "actionTemplateSection": "Modèle de mouvement",

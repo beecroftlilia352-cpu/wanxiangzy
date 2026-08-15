@@ -3946,7 +3946,14 @@
     "videoResultAria": "الفيديو المُنشأ {index}",
     "videoResultBadge": "النتيجة",
     "videoGeneratingState": "جارٍ إنشاء الفيديو",
-    "videoEstimatedTime": "حوالي 2-5 دقائق"
+    "videoEstimatedTime": "حوالي 2-5 دقائق",
+    "emptyData": "لا توجد بيانات",
+    "pagingTotal": "الإجمالي {total}",
+    "perPage": "{option} / صفحة",
+    "dateStart": "تاريخ البداية",
+    "dateEnd": "تاريخ النهاية",
+    "recentWeek": "الأسبوع الماضي",
+    "recentMonth": "الشهر الماضي"
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",

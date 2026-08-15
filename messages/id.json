@@ -3946,7 +3946,14 @@
     "videoResultAria": "Video yang dihasilkan {index}",
     "videoResultBadge": "Hasil",
     "videoGeneratingState": "Membuat video",
-    "videoEstimatedTime": "Sekitar 2-5 menit"
+    "videoEstimatedTime": "Sekitar 2-5 menit",
+    "emptyData": "Tidak ada data",
+    "pagingTotal": "Total {total}",
+    "perPage": "{option} / halaman",
+    "dateStart": "Tanggal mulai",
+    "dateEnd": "Tanggal selesai",
+    "recentWeek": "Minggu lalu",
+    "recentMonth": "Bulan lalu"
   },
   "Video": {
     "moduleFirstLastFrame": "Frame Awal-Akhir",

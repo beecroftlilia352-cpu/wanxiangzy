@@ -1137,7 +1137,14 @@
     "videoResultAria": "Генерирано видео {index}",
     "videoResultBadge": "Резултат",
     "videoGeneratingState": "Генериране на видео",
-    "videoEstimatedTime": "Около 2-5 мин"
+    "videoEstimatedTime": "Около 2-5 мин",
+    "emptyData": "Няма данни",
+    "pagingTotal": "Общо {total}",
+    "perPage": "{option} / стр.",
+    "dateStart": "Начална дата",
+    "dateEnd": "Крайна дата",
+    "recentWeek": "Последната седмица",
+    "recentMonth": "Последния месец"
   },
   "ModelBackground": {
     "title": "Смяна на фон",

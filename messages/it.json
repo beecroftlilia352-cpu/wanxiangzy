@@ -3946,7 +3946,14 @@
     "videoResultAria": "Video generato {index}",
     "videoResultBadge": "Risultato",
     "videoGeneratingState": "Generazione del video",
-    "videoEstimatedTime": "Circa 2-5 min"
+    "videoEstimatedTime": "Circa 2-5 min",
+    "emptyData": "Nessun dato",
+    "pagingTotal": "Totale {total}",
+    "perPage": "{option} / pagina",
+    "dateStart": "Data inizio",
+    "dateEnd": "Data fine",
+    "recentWeek": "Ultima settimana",
+    "recentMonth": "Ultimo mese"
   },
   "Video": {
     "moduleFirstLastFrame": "Primo/ultimo fotogramma",

@@ -3123,7 +3123,14 @@
     "videoResultAria": "生成動画 {index}",
     "videoResultBadge": "結果",
     "videoGeneratingState": "動画生成中",
-    "videoEstimatedTime": "約 2〜5 分"
+    "videoEstimatedTime": "約 2〜5 分",
+    "emptyData": "データなし",
+    "pagingTotal": "全 {total} 件",
+    "perPage": "{option} 件/ページ",
+    "dateStart": "開始日",
+    "dateEnd": "終了日",
+    "recentWeek": "直近1週間",
+    "recentMonth": "直近1か月"
   },
   "Video": {
     "moduleFirstLastFrame": "始点終点フレーム",

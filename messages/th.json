@@ -1137,7 +1137,14 @@
     "videoResultAria": "วิดีโอที่สร้าง {index}",
     "videoResultBadge": "ผลลัพธ์",
     "videoGeneratingState": "กำลังสร้างวิดีโอ",
-    "videoEstimatedTime": "ประมาณ 2-5 นาที"
+    "videoEstimatedTime": "ประมาณ 2-5 นาที",
+    "emptyData": "ไม่มีข้อมูล",
+    "pagingTotal": "ทั้งหมด {total}",
+    "perPage": "{option} / หน้า",
+    "dateStart": "วันที่เริ่ม",
+    "dateEnd": "วันที่สิ้นสุด",
+    "recentWeek": "สัปดาห์ที่แล้ว",
+    "recentMonth": "เดือนที่แล้ว"
   },
   "ModelBackground": {
     "title": "เปลี่ยนพื้นหลัง",

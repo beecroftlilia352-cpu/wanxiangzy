@@ -3946,7 +3946,14 @@
     "videoResultAria": "Oluşturulan video {index}",
     "videoResultBadge": "Sonuç",
     "videoGeneratingState": "Video oluşturuluyor",
-    "videoEstimatedTime": "Yaklaşık 2-5 dk"
+    "videoEstimatedTime": "Yaklaşık 2-5 dk",
+    "emptyData": "Veri yok",
+    "pagingTotal": "Toplam {total}",
+    "perPage": "{option} / sayfa",
+    "dateStart": "Başlangıç tarihi",
+    "dateEnd": "Bitiş tarihi",
+    "recentWeek": "Geçen hafta",
+    "recentMonth": "Geçen ay"
   },
   "Video": {
     "moduleFirstLastFrame": "İlk ve Son Kare",
