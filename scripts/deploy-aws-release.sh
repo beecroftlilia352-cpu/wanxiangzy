@@ -41,6 +41,10 @@ PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
 start_app() {
   local app_dir="$1"
 
+  # 应用 engines 要求 node >=22 <23；pm2 在 22 的 shell 中启动进程，
+  # 否则 node 23 下 Web Streams 内部 API 不兼容导致运行时崩溃。
+  ensure_node_version
+
   for proc in "$APP_NAME" "${APP_NAME}-worker"; do
     if pm2 describe "$proc" >/dev/null 2>&1; then
       pm2 delete "$proc"
@@ -134,6 +138,32 @@ configure_build_environment() {
       export NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE:-1536}"
     fi
   fi
+}
+
+# 应用 engines 要求 node >=22 <23。EC2 曾运行 node 23 导致
+# `controller[kState].transformAlgorithm is not a function` 运行时崩溃。
+ensure_node_version() {
+  local required_major="${NODE_REQUIRED_MAJOR:-22}"
+  local current_major
+  current_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+
+  if [ "$current_major" = "$required_major" ]; then
+    echo "Node ${current_major}.x OK (engines: >=22 <23)"
+    return 0
+  fi
+
+  echo "Node ${current_major}.x detected; project requires node ${required_major}.x - switching via nvm..."
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+    echo "ERROR: nvm not found at $NVM_DIR" >&2
+    exit 1
+  fi
+  # shellcheck disable=SC1091
+  \. "$NVM_DIR/nvm.sh"
+  nvm install "$required_major" >/dev/null 2>&1 || true
+  nvm use "$required_major" >/dev/null
+  nvm alias default "$required_major" >/dev/null
+  echo "Switched to node $(node -v)"
 }
 
 ensure_build_swap() {
@@ -358,6 +388,7 @@ cleanup_legacy_root_lockfiles
 
 cd "$RELEASE_DIR"
 configure_build_environment
+ensure_node_version
 ensure_build_swap
 install_dependencies
 
