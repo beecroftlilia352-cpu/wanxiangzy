@@ -63,7 +63,6 @@ function fieldGarmentTypeLabelKey(type: string): string {
   return GARMENT_TYPE_LABEL_KEYS[type] ?? "garmentTypes.other";
 }
 
-
 const MATERIAL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
   { kind: "copy", label: "复制链接" },

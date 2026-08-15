@@ -101,6 +101,7 @@ const HAIR_COLORS = [
   { value: "铂金白色", label: "白金", labelKey: "hairColors.platinum", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-platinum-long.png" },
   { value: "柔粉色", label: "粉色", labelKey: "hairColors.pink", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-pink-long.png" },
 ];
+
 export default function ModelPage() {
   const t = useTranslations("Model");
   // descKey/badgeKey 为根相对全路径（StudioModelSelector 内部用根 t 解析），这里同样用根翻译器

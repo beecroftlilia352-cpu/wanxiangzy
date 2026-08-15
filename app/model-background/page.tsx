@@ -5,7 +5,6 @@ const PageClient = dynamic(() => import("./page-client"), {
   loading: () => <StudioModuleSkeleton variant="default" />,
 });
 
-
 import { getTranslations } from "next-intl/server";
 
 export async function generateMetadata() {

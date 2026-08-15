@@ -1313,7 +1313,6 @@ function getRowPayload(row: HistoryRow) {
   return undefined;
 }
 
-
 function getTryonReferenceUrls(payload: Extract<HistoryJobPayload, { kind: "tryon" }>) {
   const seen = new Set<string>();
   const urls: string[] = [];
@@ -1350,7 +1349,6 @@ function uniqueUrlList(value: unknown) {
   }
   return urls;
 }
-
 
 function getPayloadDisplaySize(t: HistoryT, payload?: HistoryJobPayload) {
   if (!payload) return "";
