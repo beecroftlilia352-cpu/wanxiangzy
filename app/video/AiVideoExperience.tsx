@@ -1310,7 +1310,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
               onFocus={() => setPreviewTemplate(template)}
               onBlur={() => setPreviewTemplate(null)}
               aria-pressed={selected}
-              className={`group relative h-[78px] w-[68px] shrink-0 overflow-hidden rounded-[12px] border bg-slate-100 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
+              className={`group relative h-[78px] w-[68px] shrink-0 overflow-hidden rounded-sm border bg-slate-100 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
                 selected || previewing
                   ? "border-blue-500 shadow-[0_12px_28px_rgba(59,130,246,0.2)] ring-2 ring-blue-100"
                   : "border-slate-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_10px_22px_rgba(15,23,42,0.10)]"
@@ -1492,7 +1492,7 @@ function TemplateCard({
 
   return (
     <article
-      className={`group overflow-hidden rounded-[12px] border bg-white shadow-sm transition hover:-translate-y-0.5 ${
+      className={`group overflow-hidden rounded-sm border bg-white shadow-sm transition hover:-translate-y-0.5 ${
         selected ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"
       }`}
       onMouseEnter={() => setActive(true)}

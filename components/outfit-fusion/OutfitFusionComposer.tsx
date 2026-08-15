@@ -797,7 +797,7 @@ function InlineConfigSelect({
       {open ? (
         <div
           role="listbox"
-          className="absolute left-0 top-[calc(100%+4px)] z-[80] w-full rounded-[7px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[var(--codex-surface)] p-1 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
+          className="absolute left-0 top-[calc(100%+4px)] z-[80] w-full rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-[var(--codex-surface)] p-1 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
         >
           {options.map((option) => {
             const selected = option.value === value;
