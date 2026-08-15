@@ -44,14 +44,14 @@ export function PreviewGuide({
   const connectorVisibilityClass = steps.length >= 4 ? "lg:flex" : "sm:flex";
 
   return (
-    <div className="relative mx-auto w-full max-w-[1080px] px-1 py-2 text-center sm:px-3">
+    <div className="relative mx-auto w-full max-w-[1080px] px-1 py-3 text-center sm:px-3 sm:py-6">
       <div className="pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,rgba(91,124,255,0.16),transparent_68%)] blur-3xl" />
       <div className="relative">
-        <h3 className="text-[24px] font-black tracking-normal text-slate-950 dark:text-stone-100 sm:text-[34px]" style={{ textWrap: "balance" }}>{title}</h3>
-        <p className="mx-auto mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500 dark:text-stone-400 sm:text-[15px]">{subtitle}</p>
+        <h3 className="text-[24px] font-black tracking-[-0.02em] text-slate-950 dark:text-stone-100 sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
+        <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 dark:text-stone-400 sm:text-[15px]">{subtitle}</p>
 
         <div className="mt-8 overflow-hidden rounded-[30px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_rgba(91,124,255,0.12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-slate-950/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
-          <div className={`grid grid-cols-1 gap-5 sm:gap-6 ${stepGridClass} ${visualGridWidthClass}`}>
+          <div className={`grid grid-cols-1 gap-5 sm:gap-8 ${stepGridClass} ${visualGridWidthClass}`}>
             {steps.map((step, index) => {
               const hasImage = Boolean(step.imageSrc || imageSrc);
               const isContain = step.imageFit === "contain";
@@ -103,7 +103,7 @@ export function PreviewGuide({
                     <p className="min-w-0 truncate text-[14px] font-black text-slate-950 dark:text-stone-100 sm:text-[15px]">{step.title}</p>
                   </div>
                   {step.desc ? (
-                    <p className="mx-auto mt-1.5 max-w-[220px] text-center text-[11px] font-semibold leading-5 text-slate-500 dark:text-stone-400">
+                    <p className="mx-auto mt-1.5 max-w-[220px] text-center text-[12px] font-semibold leading-5 text-slate-500 dark:text-stone-400">
                       {step.desc}
                     </p>
                   ) : null}
