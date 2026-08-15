@@ -1,0 +1,172 @@
+/* ============================================================
+   Artistry — 大师级审美层（Liquid Glass × Syne/Manrope × Iridescent）
+   设计系统来源：ui-ux-pro-max 推荐（Liquid Glass + AI 紫粉 + 前卫时尚字体）。
+   本层只做增量覆盖，不改动既有 studio.css 的结构。
+   ============================================================ */
+
+/* ---- 1. 字体：标题用 Syne（avant-garde fashion），正文用 Manrope ---- */
+:root {
+  --codex-font-display:
+    var(--font-display),
+    var(--codex-font);
+  --codex-font-body:
+    var(--font-body),
+    var(--codex-font);
+}
+
+body {
+  font-family: var(--codex-font-body);
+}
+
+/* 标题统一走 Syne（仅 latin；CJK 自动回退系统字体，无副作用） */
+h1, h2, h3,
+.home-landing-hero h1,
+.studio-brand-copy > span:first-child,
+.font-display {
+  font-family: var(--codex-font-display);
+  letter-spacing: -0.015em;
+}
+
+/* 品牌标题更紧凑、更有力量感 */
+.home-landing-hero h1 {
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+/* ---- 2. Iridescent 光效（hero 玻璃光斑） ---- */
+.artistry-hero-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.artistry-hero-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  will-change: transform;
+  animation: artistry-float 18s ease-in-out infinite alternate;
+}
+
+.artistry-hero-blob--violet {
+  width: 520px;
+  height: 520px;
+  left: -140px;
+  top: -80px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.5), transparent 70%);
+}
+
+.artistry-hero-blob--pink {
+  width: 460px;
+  height: 460px;
+  right: -120px;
+  top: 120px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.34), transparent 70%);
+  animation-delay: -6s;
+}
+
+.artistry-hero-blob--ice {
+  width: 560px;
+  height: 560px;
+  left: 32%;
+  bottom: -180px;
+  background: radial-gradient(circle, rgba(91, 124, 255, 0.42), transparent 70%);
+  animation-delay: -12s;
+}
+
+.dark .artistry-hero-blob {
+  opacity: 0.34;
+}
+
+@keyframes artistry-float {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(40px, -30px, 0) scale(1.12); }
+}
+
+/* hero 玻璃 scrim：柔化视频背景，营造 Liquid Glass 层次 */
+.artistry-hero-glass {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.5), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.18) 42%, rgba(255, 255, 255, 0) 70%);
+  backdrop-filter: blur(2px);
+}
+
+.dark .artistry-hero-glass {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.16), transparent 55%),
+    linear-gradient(180deg, rgba(12, 10, 9, 0.5) 0%, rgba(12, 10, 9, 0.2) 46%, rgba(12, 10, 9, 0) 72%);
+}
+
+/* ---- 3. 卡片玻璃高光（hover 扫光） ---- */
+.artistry-glass-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.artistry-glass-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.55) 46%, rgba(255, 255, 255, 0.2) 52%, transparent 66%);
+  transform: translateX(-120%);
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.artistry-glass-shine:hover::after {
+  transform: translateX(120%);
+}
+
+.dark .artistry-glass-shine::after {
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.14) 46%, rgba(255, 255, 255, 0.05) 52%, transparent 66%);
+}
+
+/* ---- 4. 主 CTA 渐变升级：紫罗兰 → 鸢尾紫，带顶部高光 ---- */
+.gradient-brand {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
+    linear-gradient(135deg, #7c3aed 0%, #6366f1 48%, #5b7cff 100%);
+}
+
+.home-button-dark {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 40%),
+    linear-gradient(135deg, #7c3aed 0%, #5b7cff 100%);
+  box-shadow: 0 12px 34px rgba(91, 124, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+}
+
+.home-button-dark:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 44px rgba(91, 124, 255, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* ---- 5. 场景卡片 hover 微浮（大师级克制动效，150-300ms） ---- */
+.home-scene-card {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+}
+
+.home-scene-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 26px 60px rgba(14, 18, 38, 0.16);
+}
+
+.dark .home-scene-card:hover {
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- 6. Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .artistry-hero-blob,
+  .artistry-glass-shine::after,
+  .home-scene-card,
+  .home-button-dark {
+    animation: none !important;
+    transition: none !important;
+  }
+}

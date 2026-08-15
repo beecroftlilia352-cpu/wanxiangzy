@@ -9,10 +9,11 @@ import "./styles/studio-primitives.css";
 import "./styles/studio.css";
 import "./styles/studio-overrides.css";
 import "./styles/i18n.css";
+import "./styles/artistry.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import { RouteProgress } from "@/components/ui/route-progress";
 import "@/lib/env";
-import { Geist } from "next/font/google";
+import { Geist, Manrope, Syne } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { getSiteMonitoringConfig } from "@/lib/site-config";
 import { SentryBootstrap } from "@/components/SentryBootstrap";
@@ -36,6 +37,25 @@ const geist = Geist({
     "Noto Sans Devanagari",
     "sans-serif",
   ],
+  adjustFontFallback: false,
+});
+
+// 大师级字体组合：Syne（前卫时尚标题）+ Manrope（现代正文），latin 子集，CJK 走系统回退
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  preload: true,
+  fallback: ["system-ui", "sans-serif"],
+  adjustFontFallback: false,
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+  preload: true,
+  fallback: ["system-ui", "sans-serif"],
   adjustFontFallback: false,
 });
 
@@ -105,7 +125,7 @@ export default async function RootLayout({
   const dir = locale === "ar" ? "rtl" : "ltr";
 
   return (
-    <html lang={htmlLang} dir={dir} className={cn("font-sans", geist.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
+    <html lang={htmlLang} dir={dir} className={cn("font-sans", geist.variable, syne.variable, manrope.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
       <head>
         {/* P1.1 dark-mode bootstrap — runs before paint to avoid FOUC. */}
         <script
