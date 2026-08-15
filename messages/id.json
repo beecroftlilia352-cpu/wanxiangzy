@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Buat ulang",
     "actionRegenerateAll": "Buat ulang semua",
     "actionUseAsSource": "Gunakan sebagai referensi",
-    "actionUseAsFace": "Gunakan sebagai wajah"
+    "actionUseAsFace": "Gunakan sebagai wajah",
+    "videoLongNotice": "Pembuatan video mungkin memerlukan waktu. Setelah selesai, Anda dapat memutarnya di sini, di Tugas Terbaru, atau di Karya.",
+    "inputThumb": "Input {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "Frame Awal-Akhir",

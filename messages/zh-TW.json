@@ -2942,7 +2942,9 @@
     "actionRegenerateOne": "重新生成",
     "actionRegenerateAll": "重新創作",
     "actionUseAsSource": "用作參考",
-    "actionUseAsFace": "用作面部"
+    "actionUseAsFace": "用作面部",
+    "videoLongNotice": "影片生成可能需要較長時間，完成後可在目前模組、最近任務和作品庫中播放。",
+    "inputThumb": "輸入 {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾幀",

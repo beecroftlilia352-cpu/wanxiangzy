@@ -1082,7 +1082,9 @@
     "actionRegenerateOne": "สร้างใหม่",
     "actionRegenerateAll": "สร้างใหม่ทั้งหมด",
     "actionUseAsSource": "ใช้เป็นอ้างอิง",
-    "actionUseAsFace": "ใช้เป็นใบหน้า"
+    "actionUseAsFace": "ใช้เป็นใบหน้า",
+    "videoLongNotice": "การสร้างวิดีโออาจใช้เวลานานขึ้น เมื่อเสร็จแล้วสามารถเล่นได้ที่นี่ ในงานล่าสุด หรือในผลงานของคุณ",
+    "inputThumb": "อินพุต {index}"
   },
   "ModelBackground": {
     "title": "เปลี่ยนพื้นหลัง",

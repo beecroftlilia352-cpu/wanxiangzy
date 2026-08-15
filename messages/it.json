@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Rigenera",
     "actionRegenerateAll": "Ricrea tutto",
     "actionUseAsSource": "Usa come riferimento",
-    "actionUseAsFace": "Usa come volto"
+    "actionUseAsFace": "Usa come volto",
+    "videoLongNotice": "La generazione del video potrebbe richiedere tempo. Una volta completata, potrai riprodurlo qui, nelle Attività recenti o nei tuoi lavori.",
+    "inputThumb": "Input {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "Primo/ultimo fotogramma",

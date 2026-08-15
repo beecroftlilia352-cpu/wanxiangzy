@@ -1082,7 +1082,9 @@
     "actionRegenerateOne": "Генериране отново",
     "actionRegenerateAll": "Пресъздаване на всички",
     "actionUseAsSource": "Използвай като референция",
-    "actionUseAsFace": "Използвай като лице"
+    "actionUseAsFace": "Използвай като лице",
+    "videoLongNotice": "Генерирането на видео може да отнеме повече време. След завършване можете да го пуснете тук, в „Скорошни задачи“ или в работите си.",
+    "inputThumb": "Вход {index}"
   },
   "ModelBackground": {
     "title": "Смяна на фон",

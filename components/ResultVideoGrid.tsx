@@ -6,6 +6,7 @@ import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHer
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { downloadMedia, generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
+import { useTranslations } from "next-intl";
 
 type ResultVideoGridProps = {
   urls: string[];
@@ -32,6 +33,7 @@ export function ResultVideoGrid({
   statusGroup,
   renderKey = "video-result",
 }: ResultVideoGridProps) {
+  const t = useTranslations("Shared");
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
   const completedSlotCount = slots.filter(Boolean).length;
@@ -41,7 +43,7 @@ export function ResultVideoGrid({
   return (
     <div className="studio-result-set w-full max-w-[min(1080px,100%)]">
       <p className="studio-result-disclaimer">
-        视频生成可能需要更长时间，完成后可在当前模块、最近任务和作品库中播放。
+        {t("videoLongNotice")}
       </p>
       {createdAt && <p className="studio-result-time">{formatTaskTimestamp(createdAt)}</p>}
       <div className="flex w-full items-start gap-3">
@@ -52,9 +54,9 @@ export function ResultVideoGrid({
                 {isVideoUrl(url) ? (
                   <video src={url} muted playsInline preload="metadata" />
                 ) : (
-                  <RawPreviewImage src={url} alt={`输入 ${index + 1}`} width={96} height={96} loading="lazy" decoding="async" />
+                  <RawPreviewImage src={url} alt={t("inputThumb", { index: index + 1 })} width={96} height={96} loading="lazy" decoding="async" />
                 )}
-                <span className="studio-result-reference-label">输入{index + 1}</span>
+                <span className="studio-result-reference-label">{t("inputThumb", { index: index + 1 })}</span>
               </div>
             ))}
           </div>

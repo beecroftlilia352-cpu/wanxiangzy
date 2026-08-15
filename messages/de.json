@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Neu generieren",
     "actionRegenerateAll": "Alles neu erstellen",
     "actionUseAsSource": "Als Referenz verwenden",
-    "actionUseAsFace": "Als Gesicht verwenden"
+    "actionUseAsFace": "Als Gesicht verwenden",
+    "videoLongNotice": "Die Videogenerierung kann länger dauern. Nach Abschluss kannst du es hier, unter „Letzte Aufgaben“ oder in deinen Arbeiten abspielen.",
+    "inputThumb": "Eingabe {index}"
   },
   "Video": {
     "actionTemplateSection": "Bewegungsvorlage",

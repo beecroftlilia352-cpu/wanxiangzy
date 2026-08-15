@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "重新生成",
     "actionRegenerateAll": "重新创作",
     "actionUseAsSource": "用作参考",
-    "actionUseAsFace": "用作面部"
+    "actionUseAsFace": "用作面部",
+    "videoLongNotice": "视频生成可能需要更长时间，完成后可在当前模块、最近任务和作品库中播放。",
+    "inputThumb": "输入 {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾帧",

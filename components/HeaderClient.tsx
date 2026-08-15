@@ -210,23 +210,6 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
   const scrolledRef = useRef(false);
   const frameRef = useRef<number | null>(null);
 
-  // P5.43: home route is always rendered in light mode. Strip the `dark`
-  // class off <html> while we're on the home page so any third-party widget
-  // or late-mounting component doesn't flip into dark theme.
-  useEffect(() => {
-    const root = document.documentElement;
-    const forceLight = () => {
-      if (root.classList.contains("dark")) {
-        root.classList.remove("dark");
-        root.style.colorScheme = "light";
-      }
-    };
-    forceLight();
-    const observer = new MutationObserver(forceLight);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
   useEffect(() => {
     const threshold = overlay ? 12 : 96;
     const updateScrolled = () => {
@@ -415,6 +398,7 @@ function AppHeader({ pathname }: { pathname: string }) {
           <div className="xl:hidden">
             <MobileModuleMenu activeModule={activeModule} />
           </div>
+          <LanguageSwitcher />
           <ThemeToggle className="h-9 w-9" />
           <UserCreditActions
             authReady={authReady}

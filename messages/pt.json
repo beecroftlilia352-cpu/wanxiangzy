@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Regenerar",
     "actionRegenerateAll": "Recriar tudo",
     "actionUseAsSource": "Usar como referência",
-    "actionUseAsFace": "Usar como rosto"
+    "actionUseAsFace": "Usar como rosto",
+    "videoLongNotice": "A geração de vídeo pode demorar. Quando concluída, você poderá reproduzi-lo aqui, nas Tarefas recentes ou nos seus trabalhos.",
+    "inputThumb": "Entrada {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "Primeiro e último frame",

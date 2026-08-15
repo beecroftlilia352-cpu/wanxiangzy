@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Régénérer",
     "actionRegenerateAll": "Recréer tout",
     "actionUseAsSource": "Utiliser comme référence",
-    "actionUseAsFace": "Utiliser comme visage"
+    "actionUseAsFace": "Utiliser comme visage",
+    "videoLongNotice": "La génération vidéo peut prendre du temps. Une fois terminée, vous pourrez la lire ici, dans les tâches récentes ou dans vos créations.",
+    "inputThumb": "Entrée {index}"
   },
   "Video": {
     "actionTemplateSection": "Modèle de mouvement",

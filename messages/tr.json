@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Yeniden oluştur",
     "actionRegenerateAll": "Tümünü yeniden oluştur",
     "actionUseAsSource": "Referans olarak kullan",
-    "actionUseAsFace": "Yüz olarak kullan"
+    "actionUseAsFace": "Yüz olarak kullan",
+    "videoLongNotice": "Video oluşturma daha uzun sürebilir. Tamamlandığında buradan, Son Görevler'den veya Çalışmalar'dan oynatabilirsiniz.",
+    "inputThumb": "Girdi {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "İlk ve Son Kare",

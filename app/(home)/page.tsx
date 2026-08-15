@@ -138,8 +138,8 @@ const footerGroups = [
 export default async function HomePage() {
   const t = await getTranslations("Home");
   return (
-    <div className="min-h-screen bg-white text-[#050505] home-no-dark" data-no-dark="true">
-      <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505]">
+    <div className="min-h-screen bg-white text-[#050505] dark:bg-stone-950 dark:text-stone-100">
+      <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505] dark:bg-stone-950 dark:text-stone-100">
         {/* P2.1 hero video: preload=metadata saves bandwidth, hidden on mobile,
             poster fallback so reduced-motion / mobile users see a still frame. */}
         <video className="home-hero-video-bg hidden md:block" autoPlay muted loop playsInline preload="metadata" poster="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a-poster.jpg" aria-hidden="true">
@@ -151,13 +151,13 @@ export default async function HomePage() {
             <Image src="/gemini-icon.png" alt="" width={52} height={52} className="h-[52px] w-[52px] object-contain" priority />
           </div>
 
-          <h1 className="mt-8 text-[58px] font-semibold leading-[0.95] text-[#050505] sm:text-[72px] lg:text-[88px]">
+          <h1 className="mt-8 text-[58px] font-semibold leading-[0.95] text-[#050505] sm:text-[72px] lg:text-[88px] dark:text-white">
             {codexTheme.brand.name}
           </h1>
-          <p className="mt-7 max-w-[720px] text-[18px] font-semibold leading-8 text-[#111827]/84 sm:text-[20px]">
+          <p className="mt-7 max-w-[720px] text-[18px] font-semibold leading-8 text-[#111827]/84 sm:text-[20px] dark:text-stone-200/85">
             {t("heroSubtitle")}
           </p>
-          <p className="mt-3 max-w-[760px] text-[15px] leading-7 text-[#1f2937]/68">
+          <p className="mt-3 max-w-[760px] text-[15px] leading-7 text-[#1f2937]/68 dark:text-stone-400/70">
             {t("heroDesc")}
           </p>
 
@@ -171,7 +171,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <p className="mt-8 text-[13px] font-semibold text-[#29354d]/58">
+          <p className="mt-8 text-[13px] font-semibold text-[#29354d]/58 dark:text-stone-400/60">
             {t("heroCapabilities")}
           </p>
 
@@ -179,7 +179,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <main className="bg-white text-[#050505]">
+      <main className="bg-white text-[#050505] dark:bg-stone-950 dark:text-stone-100">
         <section id="partners" className="home-partner-band" aria-label={t("partnersAria")}>
           {partnerLogos.map((partner) => (
             <div key={partner.name} className="home-partner-item" aria-label={partner.name}>
@@ -202,7 +202,7 @@ export default async function HomePage() {
         <section id="same-agent" className="mx-auto max-w-[1440px] px-5 pb-24 sm:px-8 lg:px-10">
           <div className="mx-auto max-w-[760px] text-center">
             <h2 className="text-[36px] font-semibold leading-tight sm:text-[46px]">{t("sameAgentTitle")}</h2>
-            <p className="mt-5 text-[15px] leading-7 text-[#4b5563]">
+            <p className="mt-5 text-[15px] leading-7 text-[#4b5563] dark:text-stone-400">
               {t("sameAgentDesc")}
             </p>
             <Link href="/create" className="home-button home-button-dark mt-8">
@@ -231,7 +231,7 @@ export default async function HomePage() {
                 </div>
                 <div className="p-6">
                   <h3 className="text-[20px] font-semibold leading-tight">{t(`sceneTitle.${index}`)}</h3>
-                  <p className="mt-3 text-[14px] leading-6 text-[#5f6673]">{t(`sceneDesc.${index}`)}</p>
+                  <p className="mt-3 text-[14px] leading-6 text-[#5f6673] dark:text-stone-400">{t(`sceneDesc.${index}`)}</p>
                 </div>
               </Link>
             ))}
@@ -251,8 +251,8 @@ export default async function HomePage() {
                   className="home-testimonial-avatar"
                   aria-hidden="true"
                 />
-                <p className="mt-12 text-[18px] font-medium leading-8 text-[#111827]">“{t("testimonialQuote", { count: index })}”</p>
-                <p className="mt-16 text-[14px] font-semibold text-[#6b7280]">{t("testimonialName", { count: index })}</p>
+                <p className="mt-12 text-[18px] font-medium leading-8 text-[#111827] dark:text-stone-200">“{t("testimonialQuote", { count: index })}”</p>
+                <p className="mt-16 text-[14px] font-semibold text-[#6b7280] dark:text-stone-400">{t("testimonialName", { count: index })}</p>
               </article>
             ))}
           </div>

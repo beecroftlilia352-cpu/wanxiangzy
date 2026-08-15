@@ -2942,7 +2942,9 @@
     "actionRegenerateOne": "再生成",
     "actionRegenerateAll": "再作成",
     "actionUseAsSource": "参考として使用",
-    "actionUseAsFace": "顔として使用"
+    "actionUseAsFace": "顔として使用",
+    "videoLongNotice": "動画の生成には時間がかかる場合があります。完了後はこのモジュール、最近のタスク、作品から再生できます。",
+    "inputThumb": "入力 {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "始点終点フレーム",

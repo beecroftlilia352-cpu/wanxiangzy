@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Tạo lại",
     "actionRegenerateAll": "Tạo lại tất cả",
     "actionUseAsSource": "Dùng làm tham chiếu",
-    "actionUseAsFace": "Dùng làm khuôn mặt"
+    "actionUseAsFace": "Dùng làm khuôn mặt",
+    "videoLongNotice": "Việc tạo video có thể mất thời gian. Sau khi hoàn tất, bạn có thể phát tại đây, trong Tác vụ gần đây hoặc trong Tác phẩm.",
+    "inputThumb": "Đầu vào {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",

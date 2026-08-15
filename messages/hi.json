@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "री-जेनरेट",
     "actionRegenerateAll": "सब री-क्रिएट",
     "actionUseAsSource": "रेफ़रेंस के रूप में इस्तेमाल करें",
-    "actionUseAsFace": "चेहरे के रूप में इस्तेमाल करें"
+    "actionUseAsFace": "चेहरे के रूप में इस्तेमाल करें",
+    "videoLongNotice": "वीडियो बनाने में अधिक समय लग सकता है। पूरा होने पर आप इसे यहाँ, हाल के कार्यों या अपने वर्क्स में चला सकते हैं।",
+    "inputThumb": "इनपुट {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "फर्स्ट और लास्ट फ्रेम",

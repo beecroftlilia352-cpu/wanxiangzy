@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "Сгенерировать заново",
     "actionRegenerateAll": "Пересоздать всё",
     "actionUseAsSource": "Использовать как образец",
-    "actionUseAsFace": "Использовать как лицо"
+    "actionUseAsFace": "Использовать как лицо",
+    "videoLongNotice": "Генерация видео может занять время. После завершения его можно воспроизвести здесь, в «Недавних задачах» или в «Работах».",
+    "inputThumb": "Вход {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "Первый и последний кадр",

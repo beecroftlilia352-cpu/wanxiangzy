@@ -63,6 +63,36 @@ def fetch_meta(name, version):
         return None
 
 
+def infer_platform(name):
+    """从平台包名推断 os/cpu/libc（npm lock v3 字段），无法推断返回 {}。
+
+    例如 @parcel/watcher-linux-x64-glibc -> os=linux cpu=x64 libc=glibc
+    """
+    fields = {}
+    n = name.lower()
+    if "-darwin-" in n:
+        fields["os"] = ["darwin"]
+    elif "-linux-" in n:
+        fields["os"] = ["linux"]
+    elif "-win32-" in n:
+        fields["os"] = ["win32"]
+    elif "-android-" in n:
+        fields["os"] = ["android"]
+    elif "-freebsd-" in n:
+        fields["os"] = ["freebsd"]
+    elif "-openharmony-" in n:
+        fields["os"] = ["openharmony"]
+    for cpu in ("arm64", "x64", "ia32", "arm", "s390x", "ppc64", "riscv64"):
+        if f"-{cpu}" in n:
+            fields["cpu"] = [cpu]
+            break
+    if "glibc" in n or "gnu" in n:
+        fields["libc"] = ["glibc"]
+    elif "musl" in n:
+        fields["libc"] = ["musl"]
+    return fields
+
+
 def synthesize(name, version):
     doc = fetch_meta(name, version)
     if not doc or "dist" not in doc:
@@ -73,6 +103,7 @@ def synthesize(name, version):
         "resolved": doc["dist"]["tarball"],
         "integrity": doc["dist"].get("integrity"),
     }
+    entry.update(infer_platform(name))
     if doc.get("dependencies"):
         entry["dependencies"] = doc["dependencies"]
     if doc.get("optionalDependencies"):

@@ -3625,7 +3625,9 @@
     "actionRegenerateOne": "إعادة الإنشاء",
     "actionRegenerateAll": "إعادة إنشاء الكل",
     "actionUseAsSource": "استخدام كمرجع",
-    "actionUseAsFace": "استخدام كوجه"
+    "actionUseAsFace": "استخدام كوجه",
+    "videoLongNotice": "قد يستغرق إنشاء الفيديو وقتاً أطول. بعد اكتماله، يمكنك تشغيله هنا أو في المهام الأخيرة أو في أعمالك.",
+    "inputThumb": "الإدخال {index}"
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",
