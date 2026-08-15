@@ -44,6 +44,7 @@ const geist = Geist({
 // 大师级标题字体：Syne（前卫时尚）。正文沿用 Geist（与 Manrope 功能重叠，去掉冗余字体请求）
 const syne = Syne({
   subsets: ["latin"],
+  weight: "700", // 仅加载标题所需字重，减小字体体积
   variable: "--font-display",
   display: "swap",
   preload: true,
