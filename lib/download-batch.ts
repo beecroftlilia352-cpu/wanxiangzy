@@ -1,4 +1,3 @@
-import JSZip from "jszip";
 import { toast } from "sonner";
 
 /**
@@ -34,6 +33,7 @@ export async function downloadImagesAsZip(options: {
   const toastId = toast.loading(`${ZIP_DOWNLOAD_PACKING_PREFIX} ${validUrls.length} ${ZIP_DOWNLOAD_PACKING_UNIT}${label}…`);
 
   try {
+    const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
     const folder = zip.folder(filename) || zip;
     await Promise.all(

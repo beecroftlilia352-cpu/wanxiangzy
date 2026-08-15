@@ -71,7 +71,26 @@ button {
   50% { box-shadow: 0 8px 36px rgba(124, 58, 237, 0.48); }
 }
 
-/* ---- 5. Reduced motion：全部关闭 ---- */
+/* ---- 5. 结果卡片入场：生成完成后错峰浮现 ---- */
+@keyframes motion-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.studio-result-card,
+.studio-result-grid > * {
+  animation: motion-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.studio-result-grid > *:nth-child(2) { animation-delay: 0.05s; }
+.studio-result-grid > *:nth-child(3) { animation-delay: 0.1s; }
+.studio-result-grid > *:nth-child(4) { animation-delay: 0.15s; }
+.studio-result-grid > *:nth-child(5) { animation-delay: 0.2s; }
+.studio-result-grid > *:nth-child(6) { animation-delay: 0.25s; }
+.studio-result-grid > *:nth-child(7) { animation-delay: 0.3s; }
+.studio-result-grid > *:nth-child(8) { animation-delay: 0.35s; }
+
+/* ---- 6. Reduced motion：全部关闭 ---- */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
@@ -80,7 +99,9 @@ button {
 
   .home-landing-hero .home-hero-frame > *,
   .studio-run-button,
-  .studio-button--primary {
+  .studio-button--primary,
+  .studio-result-card,
+  .studio-result-grid > * {
     animation: none !important;
   }
 

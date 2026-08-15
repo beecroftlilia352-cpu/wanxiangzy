@@ -14,7 +14,7 @@ import "./styles/motion.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import { RouteProgress } from "@/components/ui/route-progress";
 import "@/lib/env";
-import { Geist, Manrope, Syne } from "next/font/google";
+import { Geist, Syne } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { getSiteMonitoringConfig } from "@/lib/site-config";
 import { SentryBootstrap } from "@/components/SentryBootstrap";
@@ -41,19 +41,10 @@ const geist = Geist({
   adjustFontFallback: false,
 });
 
-// 大师级字体组合：Syne（前卫时尚标题）+ Manrope（现代正文），latin 子集，CJK 走系统回退
+// 大师级标题字体：Syne（前卫时尚）。正文沿用 Geist（与 Manrope 功能重叠，去掉冗余字体请求）
 const syne = Syne({
   subsets: ["latin"],
   variable: "--font-display",
-  display: "swap",
-  preload: true,
-  fallback: ["system-ui", "sans-serif"],
-  adjustFontFallback: false,
-});
-
-const manrope = Manrope({
-  subsets: ["latin"],
-  variable: "--font-body",
   display: "swap",
   preload: true,
   fallback: ["system-ui", "sans-serif"],
@@ -126,7 +117,7 @@ export default async function RootLayout({
   const dir = locale === "ar" ? "rtl" : "ltr";
 
   return (
-    <html lang={htmlLang} dir={dir} className={cn("font-sans", geist.variable, syne.variable, manrope.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
+    <html lang={htmlLang} dir={dir} className={cn("font-sans", geist.variable, syne.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
       <head>
         {/* P1.1 dark-mode bootstrap — runs before paint to avoid FOUC. */}
         <script

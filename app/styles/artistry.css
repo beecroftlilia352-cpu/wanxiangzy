@@ -4,18 +4,11 @@
    本层只做增量覆盖，不改动既有 studio.css 的结构。
    ============================================================ */
 
-/* ---- 1. 字体：标题用 Syne（avant-garde fashion），正文用 Manrope ---- */
+/* ---- 1. 字体：标题用 Syne（avant-garde fashion），正文沿用 Geist ---- */
 :root {
   --codex-font-display:
     var(--font-display),
     var(--codex-font);
-  --codex-font-body:
-    var(--font-body),
-    var(--codex-font);
-}
-
-body {
-  font-family: var(--codex-font-body);
 }
 
 /* Syne 只用于纯英文品牌展示标题（混排中文的标题保持原字体，避免混排违和） */
