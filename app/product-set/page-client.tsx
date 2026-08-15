@@ -36,7 +36,6 @@ import { buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studi
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
   PRODUCT_SET_EXAMPLE_GROUPS,
-  PRODUCT_SET_FONT_STYLE_LABELS,
   PRODUCT_SET_PRESET_PLANS,
   PRODUCT_SET_PROMPT_VERSION,
   PRODUCT_SET_STYLE_PACKS,
@@ -271,7 +270,7 @@ export default function ProductSetPage() {
   const canAnalyzeProduct = !isAnalyzing && !isUploading && productImages.length > 0;
   const workflowStep = !productImages.length ? 1 : (!productInfo.trim() || genCount <= 0) ? 2 : canResolvePlan && outputCount > 0 ? 4 : 3;
   const selectedStylePack = PRODUCT_SET_STYLE_PACKS.find((pack) => pack.id === settings.stylePackId) || PRODUCT_SET_STYLE_PACKS[0];
-  const settingsSummary = `${settings.country} · ${settings.language} · ${settings.platform} · ${selectedStylePack.name} · ${PRODUCT_SET_FONT_STYLE_LABELS[settings.fontStyle]}`;
+  const settingsSummary = `${settings.country} · ${settings.language} · ${settings.platform} · ${selectedStylePack.name} · ${t(`fontStyle.${settings.fontStyle}`)}`;
   const countOptions = COUNT_OPTIONS;
   const outputUnit = imageType === "main" ? t("units.mainImage") : t("units.detailPage");
   const detailsResolutionWarning = imageType === "details" && imageSize === "1K";

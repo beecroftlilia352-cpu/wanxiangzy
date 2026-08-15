@@ -53,11 +53,9 @@ import {
 } from "@/lib/result-slot-retry";
 import {
   BACKGROUND_PRESETS,
-  BACKGROUND_SOURCE_LABELS,
   BACKGROUND_TEXT_PRESETS,
   DEFAULT_BACKGROUND_TEXT,
   MAX_MODEL_BACKGROUND_SOURCE_IMAGES,
-  MODEL_BACKGROUND_MODE_LABELS,
   MODEL_BACKGROUND_USER_PROMPT_PLACEHOLDER,
   MODEL_BACKGROUND_UPLOAD_RULE,
   PRESET_BACKGROUND_MODELS,
@@ -256,8 +254,8 @@ export default function ModelBackgroundPage() {
         userPrompt,
       ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
       metaItems: [
-        { label: t("meta.mode"), value: MODEL_BACKGROUND_MODE_LABELS[mode] },
-        { label: t("meta.backgroundSource"), value: mode === "model_only" ? null : BACKGROUND_SOURCE_LABELS[backgroundSource] },
+        { label: t("meta.mode"), value: t(`mode.${mode}`) },
+        { label: t("meta.backgroundSource"), value: mode === "model_only" ? null : t(`sourceMode.${backgroundSource}`) },
         { label: t("meta.backgroundTemplate"), value: backgroundSource === "preset" && mode !== "model_only" ? selectedBackgroundPreset.name : null },
         { label: t("meta.model"), value: aiModel },
         { label: t("meta.aspectRatio"), value: aspectRatio },
@@ -735,7 +733,7 @@ export default function ModelBackgroundPage() {
             <StudioOptionGrid
               options={MODE_OPTIONS.map((item) => ({
                 value: item.value,
-                label: MODEL_BACKGROUND_MODE_LABELS[item.value],
+                label: t(`mode.${item.value}`),
                 description: item.descKey ? t(item.descKey) : item.desc,
               }))}
               value={mode}
@@ -828,7 +826,7 @@ export default function ModelBackgroundPage() {
                 <StudioOptionGrid
                   options={BACKGROUND_SOURCE_OPTIONS.map((item) => ({
                     value: item,
-                    label: BACKGROUND_SOURCE_LABELS[item],
+                    label: t(`sourceMode.${item}`),
                   }))}
                   value={backgroundSource}
                   onChange={(item) => {

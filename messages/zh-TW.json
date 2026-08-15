@@ -180,7 +180,10 @@
     "openHelpMenuAria": "開啟說明選單",
     "imageGuide": "生圖指南",
     "contactUs": "聯絡我們",
-    "languageSwitchFailed": "語言切換失敗，請重試"
+    "languageSwitchFailed": "語言切換失敗，請重試",
+    "featuresBadge": {
+      "new": "新功能"
+    }
   },
   "Login": {
     "heroTitle": "把每一次上新，做成統一的品牌視覺。",
@@ -1403,7 +1406,18 @@
     "missingFailureLabel": "本張生成失敗",
     "missingFailureActionLabel": "重試本張",
     "retryLabel": "重新生成",
-    "badExamplesTip": "小提示：請勿上傳以下錯誤圖片，會極大影響生成效果"
+    "badExamplesTip": "小提示：請勿上傳以下錯誤圖片，會極大影響生成效果",
+    "mode": {
+      "modelBackground": "換模特換背景",
+      "backgroundOnly": "只換背景",
+      "modelOnly": "只換模特"
+    },
+    "sourceMode": {
+      "preset": "預設背景",
+      "upload": "上傳背景",
+      "text": "文生背景",
+      "auto": "自動設計"
+    }
   },
   "ProductRetouch": {
     "moduleName": "商品精修",
@@ -2470,6 +2484,29 @@
       "sourceModel": "原始模特圖",
       "targetFace": "目標臉圖",
       "rule": "規則"
+    },
+    "clothingRole": {
+      "single": "連體/全身",
+      "upper": "上裝",
+      "lower": "下裝",
+      "extra": "搭配單品"
+    },
+    "sceneMode": {
+      "system_reference": "系統生成參考圖",
+      "upload_reference": "上傳參考圖",
+      "auto_design": "自動設計",
+      "favorites": "我的收藏"
+    },
+    "mode": {
+      "modelBackground": "換模特換背景",
+      "backgroundOnly": "只換背景",
+      "modelOnly": "只換模特"
+    },
+    "sourceMode": {
+      "preset": "預設背景",
+      "upload": "上傳背景",
+      "text": "文生背景",
+      "auto": "自動設計"
     }
   },
   "ProductSet": {
@@ -2696,6 +2733,14 @@
       "requiresConfirmation": "請先上傳商品圖、選擇數量，並點擊「幫我寫商品資訊」。",
       "selectReferenceInMode": "請在參考圖模式中選擇預設，或上傳參考圖並新增參考。",
       "detailsResolutionWarning": "詳情頁含文字和細節，建議切到 2K 或 4K 再生成。"
+    },
+    "fontStyle": {
+      "auto": "智能字體風格",
+      "minimal": "極簡無襯線體",
+      "elegant": "優雅襯線體",
+      "bold": "力量粗體/行銷體",
+      "handwritten": "手寫/書法體",
+      "custom": "自訂"
     }
   },
   "Shared": {
@@ -3540,6 +3585,14 @@
     },
     "referenceDemos": {
       "blueDress": "藍裙商業姿勢組"
+    },
+    "planAngle": {
+      "front": "正面",
+      "side": "側面",
+      "back": "背面",
+      "detail": "細節",
+      "garment": "服飾細節",
+      "seated": "坐姿"
     }
   },
   "Create": {
@@ -3704,7 +3757,19 @@
     "audience": {
       "title": "服裝人群",
       "description": "影響人物性別線和年齡比例，預設女裝成人。",
-      "badge": "影響比例"
+      "badge": "影響比例",
+      "garment": {
+        "women": "女裝",
+        "men": "男裝"
+      },
+      "age": {
+        "adult": "成人",
+        "teen": "青少年",
+        "big_child": "大童",
+        "middle_child": "中童",
+        "small_child": "小童",
+        "toddler": "幼童"
+      }
     },
     "reference": {
       "dropHint": "鬆開上傳參考圖",
@@ -4117,6 +4182,7 @@
     "regenerate": "重新生成",
     "delete": "刪除",
     "reuseImages": "再次使用圖片",
-    "taskGenericTitle": "搭配融圖任務"
+    "taskGenericTitle": "搭配融圖任務",
+    "imageNumber": "圖{index}"
   }
 }

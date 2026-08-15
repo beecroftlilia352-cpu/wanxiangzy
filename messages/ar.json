@@ -180,7 +180,10 @@
     "openHelpMenuAria": "فتح قائمة المساعدة",
     "imageGuide": "دليل التوليد",
     "contactUs": "تواصل معنا",
-    "languageSwitchFailed": "تعذّر تبديل اللغة، يرجى المحاولة مرة أخرى"
+    "languageSwitchFailed": "تعذّر تبديل اللغة، يرجى المحاولة مرة أخرى",
+    "featuresBadge": {
+      "new": "جديد"
+    }
   },
   "Login": {
     "heroTitle": "كل إطلاق جديد برؤية بصرية موحّدة للعلامة.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "جمهور الملابس",
       "description": "يؤثر على خط الجنس ونسبة العمر للشخصية؛ الافتراضي ملابس نسائية للبالغات.",
-      "badge": "يؤثر على النسبة"
+      "badge": "يؤثر على النسبة",
+      "garment": {
+        "women": "نسائي",
+        "men": "رجالي"
+      },
+      "age": {
+        "adult": "بالغ",
+        "teen": "مراهق",
+        "big_child": "طفل كبير",
+        "middle_child": "طفل",
+        "small_child": "طفل صغير",
+        "toddler": "رضيع"
+      }
     },
     "reference": {
       "dropHint": "أفلت لتحميل الصورة المرجعية",
@@ -1946,6 +1961,29 @@
       "sourceModel": "صورة الموديل الأصلية",
       "targetFace": "الوجه المستهدف",
       "rule": "القاعدة"
+    },
+    "clothingRole": {
+      "single": "قطعة واحدة / كامل",
+      "upper": "الجزء العلوي",
+      "lower": "الجزء السفلي",
+      "extra": "إكسسوار"
+    },
+    "sceneMode": {
+      "system_reference": "صورة مرجعية من النظام",
+      "upload_reference": "صورة مرجعية مرفوعة",
+      "auto_design": "تصميم تلقائي",
+      "favorites": "المفضلة"
+    },
+    "mode": {
+      "modelBackground": "تغيير العارضة والخلفية",
+      "backgroundOnly": "الخلفية فقط",
+      "modelOnly": "العارضة فقط"
+    },
+    "sourceMode": {
+      "preset": "خلفية مُعدة",
+      "upload": "رفع خلفية",
+      "text": "خلفية من نص",
+      "auto": "تصميم تلقائي"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "فشلت هذه الصورة",
     "missingFailureActionLabel": "أعد محاولة هذه",
     "retryLabel": "إعادة التوليد",
-    "badExamplesTip": "نصيحة: لا تحمّل الصور الخاطئة أدناه، فهي ستؤثر كثيرًا على النتيجة"
+    "badExamplesTip": "نصيحة: لا تحمّل الصور الخاطئة أدناه، فهي ستؤثر كثيرًا على النتيجة",
+    "mode": {
+      "modelBackground": "تغيير العارضة والخلفية",
+      "backgroundOnly": "الخلفية فقط",
+      "modelOnly": "العارضة فقط"
+    },
+    "sourceMode": {
+      "preset": "خلفية مُعدة",
+      "upload": "رفع خلفية",
+      "text": "خلفية من نص",
+      "auto": "تصميم تلقائي"
+    }
   },
   "ProductRetouch": {
     "moduleName": "تنقيح المنتج",
@@ -3039,6 +3088,14 @@
       "requiresConfirmation": "حمّل صور المنتج واختر العدد وانقر \"اكتب معلومات المنتج\".",
       "selectReferenceInMode": "في وضع المرجع اختر إعدادًا مسبقًا، أو حمّل مرجعًا وأضفه.",
       "detailsResolutionWarning": "تحتوي صفحة التفاصيل على نص وتفاصيل؛ يُنصح بالتبديل إلى 2K أو 4K قبل التوليد."
+    },
+    "fontStyle": {
+      "auto": "خط ذكي",
+      "minimal": "بلا زخارف بسيط",
+      "elegant": "بزخارف أنيق",
+      "bold": "عريض / تسويقي",
+      "handwritten": "خط يد / خط عربي",
+      "custom": "مخصص"
     }
   },
   "Pose": {
@@ -3394,6 +3451,14 @@
     },
     "referenceDemos": {
       "blueDress": "مجموعة وضعيات تجارية لفستان أزرق"
+    },
+    "planAngle": {
+      "front": "أمامي",
+      "side": "جانبي",
+      "back": "خلفي",
+      "detail": "تفصيل",
+      "garment": "تفصيل الملابس",
+      "seated": "جلوس"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "إعادة التوليد",
     "delete": "حذف",
     "reuseImages": "إعادة استخدام الصور",
-    "taskGenericTitle": "مهمة دمج الإطلالات"
+    "taskGenericTitle": "مهمة دمج الإطلالات",
+    "imageNumber": "صورة {index}"
   }
 }

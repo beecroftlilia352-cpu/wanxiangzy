@@ -180,7 +180,10 @@
     "openHelpMenuAria": "Mở menu trợ giúp",
     "imageGuide": "Hướng dẫn tạo ảnh",
     "contactUs": "Liên hệ chúng tôi",
-    "languageSwitchFailed": "Chuyển ngôn ngữ thất bại, vui lòng thử lại"
+    "languageSwitchFailed": "Chuyển ngôn ngữ thất bại, vui lòng thử lại",
+    "featuresBadge": {
+      "new": "Mới"
+    }
   },
   "Login": {
     "heroTitle": "Mỗi đợt ra mắt, một bản sắc hình ảnh thống nhất.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "Đối tượng trang phục",
       "description": "Ảnh hưởng đến giới tính và tỷ lệ độ tuổi nhân vật, mặc định nữ trang phục người lớn.",
-      "badge": "Ảnh hưởng tỷ lệ"
+      "badge": "Ảnh hưởng tỷ lệ",
+      "garment": {
+        "women": "Nữ",
+        "men": "Nam"
+      },
+      "age": {
+        "adult": "Người lớn",
+        "teen": "Thanh thiếu niên",
+        "big_child": "Trẻ lớn",
+        "middle_child": "Trẻ em",
+        "small_child": "Trẻ nhỏ",
+        "toddler": "Em bé"
+      }
     },
     "reference": {
       "dropHint": "Thả ra để tải ảnh tham chiếu lên",
@@ -1946,6 +1961,29 @@
       "sourceModel": "Ảnh người mẫu gốc",
       "targetFace": "Ảnh khuôn mặt đích",
       "rule": "Quy tắc"
+    },
+    "clothingRole": {
+      "single": "Liền thân / toàn thân",
+      "upper": "Áo trên",
+      "lower": "Quần dưới",
+      "extra": "Phụ kiện"
+    },
+    "sceneMode": {
+      "system_reference": "Ảnh tham chiếu hệ thống",
+      "upload_reference": "Ảnh tham chiếu tải lên",
+      "auto_design": "Thiết kế tự động",
+      "favorites": "Yêu thích của tôi"
+    },
+    "mode": {
+      "modelBackground": "Đổi mẫu và nền",
+      "backgroundOnly": "Chỉ đổi nền",
+      "modelOnly": "Chỉ đổi mẫu"
+    },
+    "sourceMode": {
+      "preset": "Nền cài sẵn",
+      "upload": "Tải nền lên",
+      "text": "Nền từ văn bản",
+      "auto": "Thiết kế tự động"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "Ảnh này tạo thất bại",
     "missingFailureActionLabel": "Thử lại ảnh này",
     "retryLabel": "Tạo lại",
-    "badExamplesTip": "Mẹo: đừng tải các ảnh sai sau, sẽ ảnh hưởng lớn tới kết quả tạo"
+    "badExamplesTip": "Mẹo: đừng tải các ảnh sai sau, sẽ ảnh hưởng lớn tới kết quả tạo",
+    "mode": {
+      "modelBackground": "Đổi mẫu và nền",
+      "backgroundOnly": "Chỉ đổi nền",
+      "modelOnly": "Chỉ đổi mẫu"
+    },
+    "sourceMode": {
+      "preset": "Nền cài sẵn",
+      "upload": "Tải nền lên",
+      "text": "Nền từ văn bản",
+      "auto": "Thiết kế tự động"
+    }
   },
   "Pose": {
     "moduleName": "Biến thể tư thế",
@@ -3041,6 +3090,14 @@
     },
     "referenceDemos": {
       "blueDress": "Bộ tư thế thương mại váy xanh"
+    },
+    "planAngle": {
+      "front": "Chính diện",
+      "side": "Nghiêng",
+      "back": "Phía sau",
+      "detail": "Chi tiết",
+      "garment": "Chi tiết trang phục",
+      "seated": "Ngồi"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "requiresConfirmation": "Hãy tải ảnh sản phẩm, chọn số lượng rồi nhấn \"viết thông tin sản phẩm\".",
       "selectReferenceInMode": "Hãy chọn preset ở chế độ ảnh tham chiếu, hoặc tải ảnh tham chiếu và thêm tham chiếu.",
       "detailsResolutionWarning": "Trang chi tiết chứa chữ và chi tiết, nên chuyển 2K hoặc 4K trước khi tạo."
+    },
+    "fontStyle": {
+      "auto": "Phông chữ thông minh",
+      "minimal": "Sans-serif tối giản",
+      "elegant": "Serif thanh lịch",
+      "bold": "Đậm / marketing",
+      "handwritten": "Viết tay / thư pháp",
+      "custom": "Tùy chỉnh"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Tạo lại",
     "delete": "Xóa",
     "reuseImages": "Dùng lại ảnh",
-    "taskGenericTitle": "Tác vụ ghép trang phục"
+    "taskGenericTitle": "Tác vụ ghép trang phục",
+    "imageNumber": "Ảnh {index}"
   }
 }

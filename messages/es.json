@@ -180,7 +180,10 @@
     "openHelpMenuAria": "Abrir menú de ayuda",
     "imageGuide": "Guía de generación",
     "contactUs": "Contáctanos",
-    "languageSwitchFailed": "No se pudo cambiar el idioma, inténtalo de nuevo"
+    "languageSwitchFailed": "No se pudo cambiar el idioma, inténtalo de nuevo",
+    "featuresBadge": {
+      "new": "Nuevo"
+    }
   },
   "Login": {
     "heroTitle": "Cada lanzamiento, con una visión de marca unificada.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "Público de la prenda",
       "description": "Afecta la línea de género del personaje y la proporción de edad; por defecto, ropa de mujer adulta.",
-      "badge": "Afecta la proporción"
+      "badge": "Afecta la proporción",
+      "garment": {
+        "women": "Mujer",
+        "men": "Hombre"
+      },
+      "age": {
+        "adult": "Adulto",
+        "teen": "Adolescente",
+        "big_child": "Niño mayor",
+        "middle_child": "Niño",
+        "small_child": "Niño pequeño",
+        "toddler": "Bebé"
+      }
     },
     "reference": {
       "dropHint": "Suelta para subir la imagen de referencia",
@@ -1946,6 +1961,29 @@
       "sourceModel": "Imagen original del modelo",
       "targetFace": "Rostro objetivo",
       "rule": "Regla"
+    },
+    "clothingRole": {
+      "single": "Uno solo / conjunto",
+      "upper": "Parte superior",
+      "lower": "Parte inferior",
+      "extra": "Accesorio"
+    },
+    "sceneMode": {
+      "system_reference": "Imagen de referencia del sistema",
+      "upload_reference": "Imagen de referencia subida",
+      "auto_design": "Diseño automático",
+      "favorites": "Mis favoritos"
+    },
+    "mode": {
+      "modelBackground": "Cambiar modelo y fondo",
+      "backgroundOnly": "Solo fondo",
+      "modelOnly": "Solo modelo"
+    },
+    "sourceMode": {
+      "preset": "Fondo predefinido",
+      "upload": "Subir fondo",
+      "text": "Fondo por texto",
+      "auto": "Diseño automático"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "Esta imagen falló",
     "missingFailureActionLabel": "Reintentar esta",
     "retryLabel": "Regenerar",
-    "badExamplesTip": "Consejo: no subas las imágenes incorrectas de abajo, afectarán mucho el resultado"
+    "badExamplesTip": "Consejo: no subas las imágenes incorrectas de abajo, afectarán mucho el resultado",
+    "mode": {
+      "modelBackground": "Cambiar modelo y fondo",
+      "backgroundOnly": "Solo fondo",
+      "modelOnly": "Solo modelo"
+    },
+    "sourceMode": {
+      "preset": "Fondo predefinido",
+      "upload": "Subir fondo",
+      "text": "Fondo por texto",
+      "auto": "Diseño automático"
+    }
   },
   "Pose": {
     "moduleName": "Variación de pose",
@@ -3041,6 +3090,14 @@
     },
     "referenceDemos": {
       "blueDress": "Conjunto de pose comercial de vestido azul"
+    },
+    "planAngle": {
+      "front": "Frente",
+      "side": "Lado",
+      "back": "Espalda",
+      "detail": "Detalle",
+      "garment": "Detalle de la prenda",
+      "seated": "Sentado"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "requiresConfirmation": "Sube imágenes de producto, elige una cantidad y haz clic en \"Escribir información del producto\".",
       "selectReferenceInMode": "En modo de referencia, elige un preajuste o sube una referencia y añádela.",
       "detailsResolutionWarning": "Las páginas de detalle incluyen texto y detalle; cambia a 2K o 4K antes de generar."
+    },
+    "fontStyle": {
+      "auto": "Fuente inteligente",
+      "minimal": "Sans-serif minimalista",
+      "elegant": "Serif elegante",
+      "bold": "Negrita / marketing",
+      "handwritten": "Manuscrita / caligrafía",
+      "custom": "Personalizada"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Regenerar",
     "delete": "Eliminar",
     "reuseImages": "Reutilizar imágenes",
-    "taskGenericTitle": "Tarea de fusión de atuendos"
+    "taskGenericTitle": "Tarea de fusión de atuendos",
+    "imageNumber": "Imagen {index}"
   }
 }

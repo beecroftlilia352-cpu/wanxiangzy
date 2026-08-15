@@ -2395,7 +2395,7 @@ export default function PosePage() {
                                 </span>
                                 {slot?.angle ? (
                                   <span className={getPoseAngleBadgeClass(slot.angle)}>
-                                    {POSE_PLAN_ANGLE_LABELS[slot.angle]}
+                                    {t(`planAngle.${slot.angle}`)}
                                   </span>
                                 ) : null}
                                 <span className="min-w-0 truncate text-[13px] font-black text-slate-950 dark:text-stone-100">
@@ -2432,7 +2432,7 @@ export default function PosePage() {
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="block">
                                   <span className="mb-1.5 block text-[11px] font-black text-slate-700 dark:text-stone-300">
-                                    {selectedPosePlanSlot.angle ? t("plan.actionTemplateFor", { angle: POSE_PLAN_ANGLE_LABELS[selectedPosePlanSlot.angle] }) : t("plan.actionTemplate")}
+                                    {selectedPosePlanSlot.angle ? t("plan.actionTemplateFor", { angle: t(`planAngle.${selectedPosePlanSlot.angle}`) }) : t("plan.actionTemplate")}
                                   </span>
                                   <select
                                     value={selectedActionPresetId}

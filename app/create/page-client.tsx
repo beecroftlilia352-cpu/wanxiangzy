@@ -2723,7 +2723,7 @@ export default function CreatePage() {
                       : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
                   }`}
                 >
-                  {TRYON_GARMENT_AUDIENCE_LABELS[value]}
+                  {t(`audience.garment.${value}`)}
                 </button>
               ))}
             </div>
@@ -2742,7 +2742,7 @@ export default function CreatePage() {
                         : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
                     }`}
                   >
-                    {TRYON_AGE_GROUP_LABELS[value]}
+                    {t(`audience.age.${value}`)}
                   </button>
                 );
               })}

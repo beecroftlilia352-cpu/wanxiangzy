@@ -180,7 +180,10 @@
     "switchAccount": "Changer de compte",
     "topUp": "Recharger",
     "upgradeTeamBanner": "Passez à l'abonnement équipe pour une collaboration fluide",
-    "languageSwitchFailed": "Échec du changement de langue, veuillez réessayer"
+    "languageSwitchFailed": "Échec du changement de langue, veuillez réessayer",
+    "featuresBadge": {
+      "new": "Nouveau"
+    }
   },
   "Login": {
     "heroTitle": "À chaque nouvelle collection, une vision de marque unifiée.",
@@ -817,7 +820,19 @@
     "audience": {
       "badge": "Affecte le ratio",
       "description": "Affecte la ligne de genre et le ratio d'âge; par défaut vêtements femme adulte.",
-      "title": "Audience du vêtement"
+      "title": "Audience du vêtement",
+      "garment": {
+        "women": "Femme",
+        "men": "Homme"
+      },
+      "age": {
+        "adult": "Adulte",
+        "teen": "Ado",
+        "big_child": "Grand enfant",
+        "middle_child": "Enfant",
+        "small_child": "Jeune enfant",
+        "toddler": "Tout-petit"
+      }
     },
     "autoDesign": {
       "background": "Arrière-plan",
@@ -1946,7 +1961,30 @@
     "viewDetail": "Voir",
     "viewDetailsAria": "Voir les détails de {module}",
     "zipLabel": "créations",
-    "zoomAria": "Zoomer le résultat"
+    "zoomAria": "Zoomer le résultat",
+    "clothingRole": {
+      "single": "Pièce/ensemble",
+      "upper": "Haut",
+      "lower": "Bas",
+      "extra": "Accessoire"
+    },
+    "sceneMode": {
+      "system_reference": "Image de référence système",
+      "upload_reference": "Image de référence importée",
+      "auto_design": "Conception auto",
+      "favorites": "Mes favoris"
+    },
+    "mode": {
+      "modelBackground": "Changer modèle et fond",
+      "backgroundOnly": "Fond uniquement",
+      "modelOnly": "Modèle uniquement"
+    },
+    "sourceMode": {
+      "preset": "Fond prédéfini",
+      "upload": "Importer le fond",
+      "text": "Fond par texte",
+      "auto": "Conception auto"
+    }
   },
   "ImageTranslation": {
     "actionCopy": "Copier le lien",
@@ -2686,7 +2724,18 @@
     "uploadingLabel": "Téléversement de {label}…",
     "waitingForSource": "En attente de la source",
     "zoomBackgroundReference": "Zoomer la référence d'arrière-plan",
-    "zoomPreview": "Aperçu en zoom"
+    "zoomPreview": "Aperçu en zoom",
+    "mode": {
+      "modelBackground": "Changer modèle et fond",
+      "backgroundOnly": "Fond uniquement",
+      "modelOnly": "Modèle uniquement"
+    },
+    "sourceMode": {
+      "preset": "Fond prédéfini",
+      "upload": "Importer le fond",
+      "text": "Fond par texte",
+      "auto": "Conception auto"
+    }
   },
   "Pose": {
     "analysis": {
@@ -3041,6 +3090,14 @@
       "modelTitle": "Téléverser l'image du mannequin",
       "tryIt": "Essayer",
       "uploadingPercent": "Téléversement {percent}%"
+    },
+    "planAngle": {
+      "front": "Face",
+      "side": "Profil",
+      "back": "Dos",
+      "detail": "Détail",
+      "garment": "Détail du vêtement",
+      "seated": "Assis"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "productImageName": "Image produit {index}",
       "uploadFailed": "Échec du téléversement de {name}",
       "uploading": "Téléversement de {count} images produit…"
+    },
+    "fontStyle": {
+      "auto": "Police intelligente",
+      "minimal": "Sans-serif minimaliste",
+      "elegant": "Serif élégant",
+      "bold": "Gras / marketing",
+      "handwritten": "Manuscrite / calligraphie",
+      "custom": "Personnalisée"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Régénérer",
     "delete": "Supprimer",
     "reuseImages": "Réutiliser les images",
-    "taskGenericTitle": "Tâche de fusion de tenues"
+    "taskGenericTitle": "Tâche de fusion de tenues",
+    "imageNumber": "Image {index}"
   }
 }

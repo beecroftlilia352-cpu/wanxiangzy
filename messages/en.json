@@ -180,7 +180,10 @@
     "openHelpMenuAria": "Open help menu",
     "imageGuide": "Image guide",
     "contactUs": "Contact us",
-    "languageSwitchFailed": "Failed to switch language, please retry"
+    "languageSwitchFailed": "Failed to switch language, please retry",
+    "featuresBadge": {
+      "new": "New"
+    }
   },
   "Login": {
     "heroTitle": "Turn every new drop into one consistent brand vision.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "Garment audience",
       "description": "Affects character gender line and age ratio; defaults to adult women's wear.",
-      "badge": "Affects ratio"
+      "badge": "Affects ratio",
+      "garment": {
+        "women": "Women",
+        "men": "Men"
+      },
+      "age": {
+        "adult": "Adult",
+        "teen": "Teen",
+        "big_child": "Older kids",
+        "middle_child": "Kids",
+        "small_child": "Young kids",
+        "toddler": "Toddler"
+      }
     },
     "reference": {
       "dropHint": "Release to upload reference image",
@@ -1946,6 +1961,29 @@
       "sourceModel": "Original model image",
       "targetFace": "Target face",
       "rule": "Rule"
+    },
+    "clothingRole": {
+      "single": "One-piece",
+      "upper": "Top",
+      "lower": "Bottom",
+      "extra": "Accessory"
+    },
+    "sceneMode": {
+      "system_reference": "System reference image",
+      "upload_reference": "Uploaded reference image",
+      "auto_design": "Auto design",
+      "favorites": "My favorites"
+    },
+    "mode": {
+      "modelBackground": "Change model & background",
+      "backgroundOnly": "Background only",
+      "modelOnly": "Model only"
+    },
+    "sourceMode": {
+      "preset": "Preset background",
+      "upload": "Upload background",
+      "text": "Text-to-background",
+      "auto": "Auto design"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "This image failed",
     "missingFailureActionLabel": "Retry this one",
     "retryLabel": "Regenerate",
-    "badExamplesTip": "Tip: do not upload the incorrect images below, they will greatly affect the result"
+    "badExamplesTip": "Tip: do not upload the incorrect images below, they will greatly affect the result",
+    "mode": {
+      "modelBackground": "Change model & background",
+      "backgroundOnly": "Background only",
+      "modelOnly": "Model only"
+    },
+    "sourceMode": {
+      "preset": "Preset background",
+      "upload": "Upload background",
+      "text": "Text-to-background",
+      "auto": "Auto design"
+    }
   },
   "Pose": {
     "moduleName": "Pose Variation",
@@ -3041,6 +3090,14 @@
     },
     "referenceDemos": {
       "blueDress": "Blue dress commercial pose set"
+    },
+    "planAngle": {
+      "front": "Front",
+      "side": "Side",
+      "back": "Back",
+      "detail": "Detail",
+      "garment": "Garment detail",
+      "seated": "Seated"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "requiresConfirmation": "Upload product images, pick a count, and click \"Write product info\".",
       "selectReferenceInMode": "In reference mode, pick a preset or upload a reference and add it.",
       "detailsResolutionWarning": "Detail pages include text and detail; switch to 2K or 4K before generating."
+    },
+    "fontStyle": {
+      "auto": "Smart font style",
+      "minimal": "Minimal sans-serif",
+      "elegant": "Elegant serif",
+      "bold": "Bold / marketing font",
+      "handwritten": "Handwritten / calligraphy",
+      "custom": "Custom"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Regenerate",
     "delete": "Delete",
     "reuseImages": "Reuse images",
-    "taskGenericTitle": "Outfit Fusion task"
+    "taskGenericTitle": "Outfit Fusion task",
+    "imageNumber": "Image {index}"
   }
 }

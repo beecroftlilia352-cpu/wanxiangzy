@@ -2,9 +2,23 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
-import { getFeatureItem, getFeatureItemsForModule, type FeatureKey } from "@/lib/navigation";
+import { useTranslations } from "next-intl";
+import { getFeatureItem, getFeatureItemsForModule, type FeatureKey, type FeatureNavItem } from "@/lib/navigation";
+
+/** 数据键全路径（Header.features.*），用全局 t 解析（对齐 HeaderClient 的 tAny 用法） */
+function featureLabel(t: (key: string) => string, item: FeatureNavItem): string {
+  return item.labelKey ? t(item.labelKey) : item.label;
+}
+
+function featureTitle(t: (key: string) => string, item: FeatureNavItem): string {
+  if (item.disabled) {
+    return item.disabledReason || t(`Header.features.${item.key}.description`);
+  }
+  return t(`Header.features.${item.key}.description`);
+}
 
 export function FeatureTabs({ active }: { active: FeatureKey }) {
+  const t = useTranslations();
   const activeRef = useRef<HTMLAnchorElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const activeItem = getFeatureItem(active);
@@ -34,7 +48,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.key;
-          const title = item.disabled ? item.disabledReason || item.description : item.description;
+          const title = featureTitle(t, item);
 
           if (item.disabled) {
             return (
@@ -47,7 +61,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                 <span className="relative flex h-6 w-6 items-center justify-center text-codex-faint">
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.label}</span>
+                <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{featureLabel(t, item)}</span>
                 <span className="text-[8px] font-bold text-codex-faint">{item.disabledReason}</span>
               </span>
             );
@@ -65,21 +79,21 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                   ? "studio-nav-item-active bg-white/80 text-[var(--codex-accent)] shadow-sm ring-1 ring-[rgba(91,124,255,0.22)] dark:bg-white/10 dark:text-[#cfd8ff] dark:ring-[rgba(91,140,255,0.40)]"
                   : "text-codex-muted hover:bg-white/70 hover:text-codex-ink dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
               }`}
-              title={item.description}
+              title={featureTitle(t, item)}
             >
               <span className={`relative flex h-6 w-6 items-center justify-center ${isActive ? "text-[var(--codex-accent)]" : "text-codex-faint group-hover:text-codex-ink"}`}>
                 <Icon className="h-5 w-5" aria-hidden="true" />
                 {item.badge && (
                   <span
                     aria-hidden="true"
-                    title={`${item.label} · 新功能`}
+                    title={`${featureLabel(t, item)} · ${t("Header.featuresBadge.new")}`}
                     className="absolute right-0 top-0 inline-flex h-3 min-w-[12px] -translate-y-0.5 translate-x-0.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-[3px] text-[6px] font-black leading-none text-white ring-1 ring-white dark:ring-stone-900"
                   >
                     {item.badge}
                   </span>
                 )}
               </span>
-              <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.label}</span>
+              <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{featureLabel(t, item)}</span>
             </Link>
           );
         })}

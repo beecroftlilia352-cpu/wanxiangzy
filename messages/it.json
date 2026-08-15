@@ -180,7 +180,10 @@
     "openHelpMenuAria": "Apri menu assistenza",
     "imageGuide": "Guida alla generazione",
     "contactUs": "Contattaci",
-    "languageSwitchFailed": "Cambio lingua non riuscito, riprova"
+    "languageSwitchFailed": "Cambio lingua non riuscito, riprova",
+    "featuresBadge": {
+      "new": "Nuovo"
+    }
   },
   "Login": {
     "heroTitle": "Ogni nuovo lancio, un'unica immagine del brand.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "Pubblico del capo",
       "description": "Influenza la linea di genere e la fascia d'età del personaggio; predefinito per abbigliamento femminile adulto.",
-      "badge": "Influenza le proporzioni"
+      "badge": "Influenza le proporzioni",
+      "garment": {
+        "women": "Donna",
+        "men": "Uomo"
+      },
+      "age": {
+        "adult": "Adulto",
+        "teen": "Adolescente",
+        "big_child": "Bambino grande",
+        "middle_child": "Bambino",
+        "small_child": "Bambino piccolo",
+        "toddler": "Neonato"
+      }
     },
     "reference": {
       "dropHint": "Rilascia per caricare l'immagine di riferimento",
@@ -1946,6 +1961,29 @@
       "sourceModel": "Immagine modella originale",
       "targetFace": "Viso target",
       "rule": "Regola"
+    },
+    "clothingRole": {
+      "single": "Pezzo unico / completo",
+      "upper": "Parte superiore",
+      "lower": "Parte inferiore",
+      "extra": "Accessorio"
+    },
+    "sceneMode": {
+      "system_reference": "Immagine di riferimento di sistema",
+      "upload_reference": "Immagine di riferimento caricata",
+      "auto_design": "Design automatico",
+      "favorites": "I miei preferiti"
+    },
+    "mode": {
+      "modelBackground": "Cambia modello e sfondo",
+      "backgroundOnly": "Solo sfondo",
+      "modelOnly": "Solo modello"
+    },
+    "sourceMode": {
+      "preset": "Sfondo predefinito",
+      "upload": "Carica sfondo",
+      "text": "Sfondo da testo",
+      "auto": "Design automatico"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "Questa immagine non è riuscita",
     "missingFailureActionLabel": "Riprova questa",
     "retryLabel": "Rigenera",
-    "badExamplesTip": "Suggerimento: non caricare le immagini errate qui sotto, influenzeranno molto il risultato"
+    "badExamplesTip": "Suggerimento: non caricare le immagini errate qui sotto, influenzeranno molto il risultato",
+    "mode": {
+      "modelBackground": "Cambia modello e sfondo",
+      "backgroundOnly": "Solo sfondo",
+      "modelOnly": "Solo modello"
+    },
+    "sourceMode": {
+      "preset": "Sfondo predefinito",
+      "upload": "Carica sfondo",
+      "text": "Sfondo da testo",
+      "auto": "Design automatico"
+    }
   },
   "ProductRetouch": {
     "moduleName": "Ritocco prodotto",
@@ -3039,6 +3088,14 @@
       "requiresConfirmation": "Carica le immagini prodotto, scegli la quantità e clicca \"Scrivi le informazioni prodotto\".",
       "selectReferenceInMode": "Nella modalità riferimento scegli un preset, oppure carica un riferimento e aggiungilo.",
       "detailsResolutionWarning": "La pagina dettaglio contiene testo e dettagli; si consiglia di passare a 2K o 4K prima di generare."
+    },
+    "fontStyle": {
+      "auto": "Font intelligente",
+      "minimal": "Sans-serif minimale",
+      "elegant": "Serif elegante",
+      "bold": "Grassetto / marketing",
+      "handwritten": "Scritto a mano / calligrafia",
+      "custom": "Personalizzato"
     }
   },
   "Pose": {
@@ -3394,6 +3451,14 @@
     },
     "referenceDemos": {
       "blueDress": "Set pose commerciali abito blu"
+    },
+    "planAngle": {
+      "front": "Fronte",
+      "side": "Lato",
+      "back": "Retro",
+      "detail": "Dettaglio",
+      "garment": "Dettaglio capo",
+      "seated": "Seduto"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Rigenera",
     "delete": "Elimina",
     "reuseImages": "Riutilizza le immagini",
-    "taskGenericTitle": "Attività fusione outfit"
+    "taskGenericTitle": "Attività fusione outfit",
+    "imageNumber": "Immagine {index}"
   }
 }

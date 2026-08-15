@@ -180,7 +180,10 @@
     "openHelpMenuAria": "सहायता मेन्यू खोलें",
     "imageGuide": "इमेज गाइड",
     "contactUs": "हमसे संपर्क करें",
-    "languageSwitchFailed": "भाषा बदलने में विफल, कृपया पुनः प्रयास करें"
+    "languageSwitchFailed": "भाषा बदलने में विफल, कृपया पुनः प्रयास करें",
+    "featuresBadge": {
+      "new": "नया"
+    }
   },
   "Login": {
     "heroTitle": "हर नए लॉन्च के साथ, एक जैसी ब्रांड पहचान।",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "गारमेंट ऑडियंस",
       "description": "कैरेक्टर जेंडर लाइन और उम्र अनुपात को प्रभावित करता है; डिफ़ॉल्ट एडल्ट वीमेन्स वियर है।",
-      "badge": "अनुपात को प्रभावित करता है"
+      "badge": "अनुपात को प्रभावित करता है",
+      "garment": {
+        "women": "महिला",
+        "men": "पुरुष"
+      },
+      "age": {
+        "adult": "वयस्क",
+        "teen": "किशोर",
+        "big_child": "बड़ा बच्चा",
+        "middle_child": "बच्चा",
+        "small_child": "छोटा बच्चा",
+        "toddler": "नन्हा बच्चा"
+      }
     },
     "reference": {
       "dropHint": "रेफ़रेंस इमेज अपलोड करने के लिए छोड़ें",
@@ -1946,6 +1961,29 @@
       "sourceModel": "ओरिजिनल मॉडल इमेज",
       "targetFace": "टारगेट फेस",
       "rule": "नियम"
+    },
+    "clothingRole": {
+      "single": "एक पीस / पूरा",
+      "upper": "ऊपरी वस्त्र",
+      "lower": "निचला वस्त्र",
+      "extra": "सहायक सामग्री"
+    },
+    "sceneMode": {
+      "system_reference": "सिस्टम संदर्भ छवि",
+      "upload_reference": "अपलोड की गई संदर्भ छवि",
+      "auto_design": "ऑटो डिज़ाइन",
+      "favorites": "मेरे पसंदीदा"
+    },
+    "mode": {
+      "modelBackground": "मॉडल और बैकग्राउंड बदलें",
+      "backgroundOnly": "केवल बैकग्राउंड",
+      "modelOnly": "केवल मॉडल"
+    },
+    "sourceMode": {
+      "preset": "प्रीसेट बैकग्राउंड",
+      "upload": "बैकग्राउंड अपलोड करें",
+      "text": "टेक्स्ट से बैकग्राउंड",
+      "auto": "ऑटो डिज़ाइन"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "यह इमेज विफल",
     "missingFailureActionLabel": "इसे रीट्राई करें",
     "retryLabel": "फिर बनाएँ",
-    "badExamplesTip": "टिप: नीचे दी गई गलत इमेज अपलोड न करें, वे रिज़ल्ट को बहुत प्रभावित करेंगी"
+    "badExamplesTip": "टिप: नीचे दी गई गलत इमेज अपलोड न करें, वे रिज़ल्ट को बहुत प्रभावित करेंगी",
+    "mode": {
+      "modelBackground": "मॉडल और बैकग्राउंड बदलें",
+      "backgroundOnly": "केवल बैकग्राउंड",
+      "modelOnly": "केवल मॉडल"
+    },
+    "sourceMode": {
+      "preset": "प्रीसेट बैकग्राउंड",
+      "upload": "बैकग्राउंड अपलोड करें",
+      "text": "टेक्स्ट से बैकग्राउंड",
+      "auto": "ऑटो डिज़ाइन"
+    }
   },
   "Pose": {
     "moduleName": "पोज़ वेरिएशन",
@@ -3041,6 +3090,14 @@
     },
     "referenceDemos": {
       "blueDress": "ब्लू ड्रेस कमर्शियल पोज़ सेट"
+    },
+    "planAngle": {
+      "front": "सामने",
+      "side": "बगल",
+      "back": "पीछे",
+      "detail": "विवरण",
+      "garment": "परिधान का विवरण",
+      "seated": "बैठे हुए"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "requiresConfirmation": "प्रोडक्ट इमेज अपलोड करें, संख्या चुनें, और \"प्रोडक्ट जानकारी लिखें\" पर क्लिक करें।",
       "selectReferenceInMode": "रेफ़रेंस मोड में, प्रीसेट चुनें या रेफ़रेंस अपलोड कर जोड़ें।",
       "detailsResolutionWarning": "डिटेल पेज में टेक्स्ट और डिटेल होते हैं; जेनरेट करने से पहले 2K या 4K पर स्विच करें।"
+    },
+    "fontStyle": {
+      "auto": "स्मार्ट फ़ॉन्ट",
+      "minimal": "मिनिमल सैन्स-सेरिफ़",
+      "elegant": "एलिगेंट सेरिफ़",
+      "bold": "बोल्ड / मार्केटिंग",
+      "handwritten": "हस्तलेखन / सुलेख",
+      "custom": "कस्टम"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "दोबारा जेनरेट करें",
     "delete": "डिलीट",
     "reuseImages": "इमेज दोबारा इस्तेमाल करें",
-    "taskGenericTitle": "आउटफिट फ्यूज़न टास्क"
+    "taskGenericTitle": "आउटफिट फ्यूज़न टास्क",
+    "imageNumber": "छवि {index}"
   }
 }

@@ -180,7 +180,10 @@
     "openHelpMenuAria": "ヘルプメニューを開く",
     "imageGuide": "画像生成ガイド",
     "contactUs": "お問い合わせ",
-    "languageSwitchFailed": "言語の切り替えに失敗しました。もう一度お試しください"
+    "languageSwitchFailed": "言語の切り替えに失敗しました。もう一度お試しください",
+    "featuresBadge": {
+      "new": "新機能"
+    }
   },
   "Login": {
     "heroTitle": "すべての新作を、一貫したブランドビジュアルに。",
@@ -1403,7 +1406,18 @@
     "missingFailureLabel": "この画像は生成に失敗しました",
     "missingFailureActionLabel": "この画像を再試行",
     "retryLabel": "再生成",
-    "badExamplesTip": "ヒント：以下の誤った画像をアップロードしないでください。生成結果に大きく影響します"
+    "badExamplesTip": "ヒント：以下の誤った画像をアップロードしないでください。生成結果に大きく影響します",
+    "mode": {
+      "modelBackground": "モデルと背景を変更",
+      "backgroundOnly": "背景のみ変更",
+      "modelOnly": "モデルのみ変更"
+    },
+    "sourceMode": {
+      "preset": "プリセット背景",
+      "upload": "アップロード背景",
+      "text": "テキスト生成背景",
+      "auto": "自動デザイン"
+    }
   },
   "ProductRetouch": {
     "moduleName": "商品レタッチ",
@@ -2470,6 +2484,29 @@
       "sourceModel": "元のモデル画像",
       "targetFace": "対象の顔",
       "rule": "ルール"
+    },
+    "clothingRole": {
+      "single": "ワンピース/全身",
+      "upper": "トップス",
+      "lower": "ボトムス",
+      "extra": "コーディネート小物"
+    },
+    "sceneMode": {
+      "system_reference": "システム生成参考画像",
+      "upload_reference": "アップロード参考画像",
+      "auto_design": "自動デザイン",
+      "favorites": "お気に入り"
+    },
+    "mode": {
+      "modelBackground": "モデルと背景を変更",
+      "backgroundOnly": "背景のみ変更",
+      "modelOnly": "モデルのみ変更"
+    },
+    "sourceMode": {
+      "preset": "プリセット背景",
+      "upload": "アップロード背景",
+      "text": "テキスト生成背景",
+      "auto": "自動デザイン"
     }
   },
   "ProductSet": {
@@ -2696,6 +2733,14 @@
       "requiresConfirmation": "まず商品画像をアップロードし、数量を選び、「商品情報を作成」をクリックしてください。",
       "selectReferenceInMode": "参照モードでプリセットを選ぶか、参照画像をアップロードして参照を追加してください。",
       "detailsResolutionWarning": "詳細ページには文字とディテールが含まれます。2Kまたは4Kに切り替えてから生成してください。"
+    },
+    "fontStyle": {
+      "auto": "スマートフォント",
+      "minimal": "ミニマルサンセリフ",
+      "elegant": "エレガントセリフ",
+      "bold": "力強い太字/マーケティング体",
+      "handwritten": "手書き/書道体",
+      "custom": "カスタム"
     }
   },
   "Shared": {
@@ -3540,6 +3585,14 @@
     },
     "referenceDemos": {
       "blueDress": "青ドレスの商用ポーズセット"
+    },
+    "planAngle": {
+      "front": "正面",
+      "side": "側面",
+      "back": "背面",
+      "detail": "ディテール",
+      "garment": "服のディテール",
+      "seated": "座り姿"
     }
   },
   "Create": {
@@ -3704,7 +3757,19 @@
     "audience": {
       "title": "衣類の対象",
       "description": "人物の性別と年齢比率に影響します。デフォルトはレディース成人。",
-      "badge": "比率に影響"
+      "badge": "比率に影響",
+      "garment": {
+        "women": "レディース",
+        "men": "メンズ"
+      },
+      "age": {
+        "adult": "大人",
+        "teen": "ティーン",
+        "big_child": "大きい子供",
+        "middle_child": "子供",
+        "small_child": "小さな子供",
+        "toddler": "幼児"
+      }
     },
     "reference": {
       "dropHint": "ドロップして参照画像をアップロード",
@@ -4117,6 +4182,7 @@
     "regenerate": "再生成",
     "delete": "削除",
     "reuseImages": "画像を再利用",
-    "taskGenericTitle": "コーデ融合タスク"
+    "taskGenericTitle": "コーデ融合タスク",
+    "imageNumber": "画像{index}"
   }
 }

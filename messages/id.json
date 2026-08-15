@@ -180,7 +180,10 @@
     "openHelpMenuAria": "Buka menu bantuan",
     "imageGuide": "Panduan Pembuatan Gambar",
     "contactUs": "Hubungi Kami",
-    "languageSwitchFailed": "Gagal mengganti bahasa, silakan coba lagi"
+    "languageSwitchFailed": "Gagal mengganti bahasa, silakan coba lagi",
+    "featuresBadge": {
+      "new": "Baru"
+    }
   },
   "Login": {
     "heroTitle": "Setiap koleksi baru, satu identitas visual yang utuh.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "Audiens pakaian",
       "description": "Memengaruhi garis gender dan proporsi usia karakter, default pakaian wanita dewasa.",
-      "badge": "Memengaruhi proporsi"
+      "badge": "Memengaruhi proporsi",
+      "garment": {
+        "women": "Wanita",
+        "men": "Pria"
+      },
+      "age": {
+        "adult": "Dewasa",
+        "teen": "Remaja",
+        "big_child": "Anak besar",
+        "middle_child": "Anak-anak",
+        "small_child": "Anak kecil",
+        "toddler": "Balita"
+      }
     },
     "reference": {
       "dropHint": "Lepaskan untuk mengunggah gambar referensi",
@@ -1946,6 +1961,29 @@
       "sourceModel": "Gambar model asli",
       "targetFace": "Gambar wajah target",
       "rule": "Aturan"
+    },
+    "clothingRole": {
+      "single": "Satu potong",
+      "upper": "Atasan",
+      "lower": "Bawahan",
+      "extra": "Aksesori"
+    },
+    "sceneMode": {
+      "system_reference": "Gambar referensi sistem",
+      "upload_reference": "Gambar referensi unggahan",
+      "auto_design": "Desain otomatis",
+      "favorites": "Favorit saya"
+    },
+    "mode": {
+      "modelBackground": "Ganti model & latar",
+      "backgroundOnly": "Hanya latar",
+      "modelOnly": "Hanya model"
+    },
+    "sourceMode": {
+      "preset": "Latar preset",
+      "upload": "Unggah latar",
+      "text": "Latar dari teks",
+      "auto": "Desain otomatis"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "Gambar ini gagal dibuat",
     "missingFailureActionLabel": "Coba ulang gambar ini",
     "retryLabel": "Generate ulang",
-    "badExamplesTip": "Tips: jangan unggah gambar salah berikut, sangat memengaruhi hasil generate"
+    "badExamplesTip": "Tips: jangan unggah gambar salah berikut, sangat memengaruhi hasil generate",
+    "mode": {
+      "modelBackground": "Ganti model & latar",
+      "backgroundOnly": "Hanya latar",
+      "modelOnly": "Hanya model"
+    },
+    "sourceMode": {
+      "preset": "Latar preset",
+      "upload": "Unggah latar",
+      "text": "Latar dari teks",
+      "auto": "Desain otomatis"
+    }
   },
   "Pose": {
     "moduleName": "Variasi Pose",
@@ -3041,6 +3090,14 @@
     },
     "referenceDemos": {
       "blueDress": "Set pose komersial gaun biru"
+    },
+    "planAngle": {
+      "front": "Depan",
+      "side": "Samping",
+      "back": "Belakang",
+      "detail": "Detail",
+      "garment": "Detail pakaian",
+      "seated": "Duduk"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "requiresConfirmation": "Unggah gambar produk, pilih jumlah, lalu klik \"tulis info produk\".",
       "selectReferenceInMode": "Pilih preset di mode gambar referensi, atau unggah gambar referensi dan tambahkan referensi.",
       "detailsResolutionWarning": "Halaman detail berisi teks dan detail, disarankan pindah ke 2K atau 4K sebelum generate."
+    },
+    "fontStyle": {
+      "auto": "Font cerdas",
+      "minimal": "Sans-serif minimalis",
+      "elegant": "Serif elegan",
+      "bold": "Tebal / pemasaran",
+      "handwritten": "Tulisan tangan / kaligrafi",
+      "custom": "Kustom"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Buat ulang",
     "delete": "Hapus",
     "reuseImages": "Pakai gambar lagi",
-    "taskGenericTitle": "Tugas Fusi Outfit"
+    "taskGenericTitle": "Tugas Fusi Outfit",
+    "imageNumber": "Gambar {index}"
   }
 }

@@ -314,7 +314,7 @@ export function OutfitFusionPageClient() {
     if (assetPreviewIndex < 0) return null;
     const asset = assets[assetPreviewIndex];
     if (!asset) return null;
-    const label = getCanonicalInputImageLabel(assetPreviewIndex);
+    const label = t("imageNumber", { index: assetPreviewIndex + 1 });
     return {
       asset,
       label,
@@ -1234,7 +1234,7 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
               aria-label={t("reuseImages")}
             >
               {displayAssets.map((asset, index) => {
-                const label = getCanonicalInputImageLabel(index);
+                const label = t("imageNumber", { index: index + 1 });
                 const roleLabel = t(getOutfitFusionRoleLabelKey(asset.role));
                 return (
                   <span
@@ -1353,10 +1353,6 @@ function getUploadedAssetName(role: OutfitFusionAssetRole, existing: OutfitFusio
   const index = existing.filter((asset) => asset.role === role).length + offset + 1;
   if (role === "model") return `模特图${index}`;
   return `${getOutfitFusionRoleLabel(role)}${index}`;
-}
-
-function getCanonicalInputImageLabel(index: number) {
-  return `图${index + 1}`;
 }
 
 function getIndexedAssetLabel(asset: Pick<OutfitFusionAsset, "role">, index: number) {

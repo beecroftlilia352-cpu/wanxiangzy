@@ -24,14 +24,13 @@ import {
   type HistoryStatusFilter,
 } from "@/lib/history-page-state";
 import { isRunningStatus } from "@/lib/generation-status";
-import { AUTO_DESIGN_PLATFORMS, SCENE_MODE_LABELS } from "@/lib/tryon-scene";
-import { TRYON_CLOTHING_ROLE_LABELS } from "@/lib/tryon-upload-rules";
+import { AUTO_DESIGN_PLATFORMS } from "@/lib/tryon-scene";
 import {
   getGarment3dDisplayStyleLabel,
   getModelShootStyleLabel,
   getPoseSeriesStyleLabel,
 } from "@/lib/module-style-presets";
-import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS, normalizeModelBackgroundSourceUrls } from "@/lib/model-background";
+import { normalizeModelBackgroundSourceUrls } from "@/lib/model-background";
 import { getMaterialEnhancementLevelLabel } from "@/lib/material-enhancement";
 import { getFaceSwapModeLabel, getFaceSwapModeNote, normalizeFaceSwapMode } from "@/lib/face-swap";
 import {
@@ -1381,7 +1380,7 @@ function getInputImages(t: HistoryT, payload: HistoryJobPayload, row?: HistoryRo
     const referenceUrls = getTryonReferenceUrls(payload);
     return [
       ...payload.clothingUrls.map((url, index) => ({
-        label: payload.clothingRoles?.[index] ? TRYON_CLOTHING_ROLE_LABELS[payload.clothingRoles[index]] : t("inputImages.clothing"),
+        label: payload.clothingRoles?.[index] ? t(`clothingRole.${payload.clothingRoles[index]}`) : t("inputImages.clothing"),
         url,
       })),
       ...referenceUrls.map((url, index) => ({ label: referenceUrls.length > 1 ? t("inputImages.reference", { index: index + 1 }) : t("inputImages.referenceSingle"), url })),
@@ -1478,11 +1477,11 @@ function getParameterItems(t: HistoryT, row: HistoryRow) {
       { label: t("params.ratio"), value: payload.aspectRatio },
       { label: t("params.genCount"), value: String(payload.genCount) },
       { label: t("params.tryonMode"), value: payload.clothingMode === "multi" ? t("params.multiTryon") : t("params.singleTryon") },
-      { label: t("params.clothingRole"), value: payload.clothingRoles?.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "-" },
+      { label: t("params.clothingRole"), value: payload.clothingRoles?.map((role) => t(`clothingRole.${role}`)).join("、") || "-" },
       { label: t("params.clothingCount"), value: String(payload.clothingUrls.length) },
       { label: t("params.modelFace"), value: payload.modelFaceUrl ? t("used") : t("unused") },
       { label: t("params.reference"), value: t("resultCount", { count: getTryonReferenceUrls(payload).length }) },
-      { label: t("params.sceneMode"), value: payload.sceneMode ? SCENE_MODE_LABELS[payload.sceneMode] : "-" },
+      { label: t("params.sceneMode"), value: payload.sceneMode ? t(`sceneMode.${payload.sceneMode}`) : "-" },
       { label: t("params.autoDesign"), value: payload.autoDesign ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === payload.autoDesign?.platform)?.label || t("used") : t("unused") },
     ];
   }
@@ -1557,8 +1556,8 @@ function getParameterItems(t: HistoryT, row: HistoryRow) {
       { label: t("params.ratio"), value: payload.aspectRatio },
       { label: t("params.originalCount"), value: t("resultCount", { count: sourceCount }) },
       { label: t("params.genCount"), value: sourceCount > 1 ? `${sourceCount} × ${payload.genCount} = ${sourceCount * payload.genCount}` : String(payload.genCount) },
-      { label: t("params.operationMode"), value: MODEL_BACKGROUND_MODE_LABELS[payload.mode] },
-      { label: t("params.backgroundSource"), value: BACKGROUND_SOURCE_LABELS[payload.backgroundSource] },
+      { label: t("params.operationMode"), value: t(`mode.${payload.mode}`) },
+      { label: t("params.backgroundSource"), value: t(`sourceMode.${payload.backgroundSource}`) },
       { label: t("params.backgroundTemplate"), value: payload.templateId },
       { label: t("params.modelRef"), value: payload.modelReferenceUrl ? t("used") : t("unused") },
       { label: t("params.backgroundRef"), value: payload.backgroundReferenceUrl ? t("used") : t("unused") },

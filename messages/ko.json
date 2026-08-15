@@ -180,7 +180,10 @@
     "openHelpMenuAria": "도움말 메뉴 열기",
     "imageGuide": "이미지 생성 가이드",
     "contactUs": "문의하기",
-    "languageSwitchFailed": "언어 전환에 실패했습니다. 다시 시도해 주세요"
+    "languageSwitchFailed": "언어 전환에 실패했습니다. 다시 시도해 주세요",
+    "featuresBadge": {
+      "new": "신규"
+    }
   },
   "Login": {
     "heroTitle": "새 컬렉션마다, 하나의 브랜드 비주얼로.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "의류 타깃",
       "description": "인물의 성별 라인과 연령 비율에 영향을 주며, 기본은 여성 성인 의류입니다.",
-      "badge": "비율에 영향"
+      "badge": "비율에 영향",
+      "garment": {
+        "women": "여성",
+        "men": "남성"
+      },
+      "age": {
+        "adult": "성인",
+        "teen": "청소년",
+        "big_child": "큰 아이",
+        "middle_child": "아동",
+        "small_child": "어린이",
+        "toddler": "유아"
+      }
     },
     "reference": {
       "dropHint": "놓으면 레퍼런스 이미지 업로드",
@@ -1946,6 +1961,29 @@
       "sourceModel": "원본 모델 이미지",
       "targetFace": "목표 얼굴",
       "rule": "규칙"
+    },
+    "clothingRole": {
+      "single": "원피스/전신",
+      "upper": "상의",
+      "lower": "하의",
+      "extra": "매칭 아이템"
+    },
+    "sceneMode": {
+      "system_reference": "시스템 생성 참고 이미지",
+      "upload_reference": "업로드 참고 이미지",
+      "auto_design": "자동 디자인",
+      "favorites": "내 즐겨찾기"
+    },
+    "mode": {
+      "modelBackground": "모델 및 배경 변경",
+      "backgroundOnly": "배경만 변경",
+      "modelOnly": "모델만 변경"
+    },
+    "sourceMode": {
+      "preset": "프리셋 배경",
+      "upload": "배경 업로드",
+      "text": "텍스트 배경",
+      "auto": "자동 디자인"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "이 이미지 생성 실패",
     "missingFailureActionLabel": "이 이미지 재시도",
     "retryLabel": "다시 생성",
-    "badExamplesTip": "팁: 다음 잘못된 이미지를 업로드하지 마세요. 생성 효과에 큰 영향을 줍니다"
+    "badExamplesTip": "팁: 다음 잘못된 이미지를 업로드하지 마세요. 생성 효과에 큰 영향을 줍니다",
+    "mode": {
+      "modelBackground": "모델 및 배경 변경",
+      "backgroundOnly": "배경만 변경",
+      "modelOnly": "모델만 변경"
+    },
+    "sourceMode": {
+      "preset": "프리셋 배경",
+      "upload": "배경 업로드",
+      "text": "텍스트 배경",
+      "auto": "자동 디자인"
+    }
   },
   "Pose": {
     "moduleName": "포즈 변형",
@@ -3041,6 +3090,14 @@
     },
     "referenceDemos": {
       "blueDress": "블루 드레스 상업 포즈 세트"
+    },
+    "planAngle": {
+      "front": "정면",
+      "side": "측면",
+      "back": "후면",
+      "detail": "디테일",
+      "garment": "의상 디테일",
+      "seated": "앉은 자세"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "requiresConfirmation": "상품 이미지를 업로드하고 수량을 선택한 후 \"상품 정보 작성\"을 클릭하세요.",
       "selectReferenceInMode": "레퍼런스 모드에서 프리셋을 선택하거나 레퍼런스를 업로드해 추가하세요.",
       "detailsResolutionWarning": "상세 페이지는 텍스트와 디테일이 포함되어 2K 또는 4K로 전환 후 생성하는 것이 좋습니다."
+    },
+    "fontStyle": {
+      "auto": "스마트 글꼴",
+      "minimal": "미니멀 산세리프",
+      "elegant": "우아한 세리프",
+      "bold": "강렬한 굵은 글씨/마케팅체",
+      "handwritten": "손글씨/서예체",
+      "custom": "사용자 지정"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "다시 생성",
     "delete": "삭제",
     "reuseImages": "이미지 재사용",
-    "taskGenericTitle": "코디 퓨전 작업"
+    "taskGenericTitle": "코디 퓨전 작업",
+    "imageNumber": "이미지 {index}"
   }
 }

@@ -180,7 +180,10 @@
     "openHelpMenuAria": "Yardım menüsünü aç",
     "imageGuide": "Görsel kılavuzu",
     "contactUs": "Bize ulaşın",
-    "languageSwitchFailed": "Dil değiştirilemedi, lütfen tekrar deneyin"
+    "languageSwitchFailed": "Dil değiştirilemedi, lütfen tekrar deneyin",
+    "featuresBadge": {
+      "new": "Yeni"
+    }
   },
   "Login": {
     "heroTitle": "Her yeni koleksiyonda, tek ve tutarlı bir marka vizyonu.",
@@ -964,7 +967,19 @@
     "audience": {
       "title": "Giysi kitlesi",
       "description": "Karakter cinsiyet çizgisini ve yaş oranını etkiler; varsayılan yetişkin kadın giyimidir.",
-      "badge": "Oranı etkiler"
+      "badge": "Oranı etkiler",
+      "garment": {
+        "women": "Kadın",
+        "men": "Erkek"
+      },
+      "age": {
+        "adult": "Yetişkin",
+        "teen": "Genç",
+        "big_child": "Büyük çocuk",
+        "middle_child": "Çocuk",
+        "small_child": "Küçük çocuk",
+        "toddler": "Yürümeye başlayan çocuk"
+      }
     },
     "reference": {
       "dropHint": "Referans görselini yüklemek için bırakın",
@@ -1946,6 +1961,29 @@
       "sourceModel": "Orijinal model görseli",
       "targetFace": "Hedef yüz",
       "rule": "Kural"
+    },
+    "clothingRole": {
+      "single": "Tek parça / tam",
+      "upper": "Üst",
+      "lower": "Alt",
+      "extra": "Aksesuar"
+    },
+    "sceneMode": {
+      "system_reference": "Sistem referans görüntüsü",
+      "upload_reference": "Yüklenen referans görüntüsü",
+      "auto_design": "Otomatik tasarım",
+      "favorites": "Favorilerim"
+    },
+    "mode": {
+      "modelBackground": "Model ve arka planı değiştir",
+      "backgroundOnly": "Yalnızca arka plan",
+      "modelOnly": "Yalnızca model"
+    },
+    "sourceMode": {
+      "preset": "Hazır arka plan",
+      "upload": "Arka plan yükle",
+      "text": "Metinden arka plan",
+      "auto": "Otomatik tasarım"
     }
   },
   "ImageTranslation": {
@@ -2686,7 +2724,18 @@
     "missingFailureLabel": "Bu görsel başarısız",
     "missingFailureActionLabel": "Bunu yeniden dene",
     "retryLabel": "Yeniden üret",
-    "badExamplesTip": "İpucu: aşağıdaki hatalı görselleri yüklemeyin, sonucu büyük ölçüde etkilerler"
+    "badExamplesTip": "İpucu: aşağıdaki hatalı görselleri yüklemeyin, sonucu büyük ölçüde etkilerler",
+    "mode": {
+      "modelBackground": "Model ve arka planı değiştir",
+      "backgroundOnly": "Yalnızca arka plan",
+      "modelOnly": "Yalnızca model"
+    },
+    "sourceMode": {
+      "preset": "Hazır arka plan",
+      "upload": "Arka plan yükle",
+      "text": "Metinden arka plan",
+      "auto": "Otomatik tasarım"
+    }
   },
   "Pose": {
     "moduleName": "Poz Varyasyonu",
@@ -3041,6 +3090,14 @@
     },
     "referenceDemos": {
       "blueDress": "Mavi elbise ticari poz seti"
+    },
+    "planAngle": {
+      "front": "Ön",
+      "side": "Yan",
+      "back": "Arka",
+      "detail": "Detay",
+      "garment": "Kıyafet detayı",
+      "seated": "Oturur"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "requiresConfirmation": "Ürün görsellerini yükleyin, adet seçin ve \"Ürün bilgisini yaz\" seçeneğine tıklayın.",
       "selectReferenceInMode": "Referans modunda, hazır ayar seçin veya referans yükleyip ekleyin.",
       "detailsResolutionWarning": "Detay sayfaları metin ve detay içerir; üretmeden önce 2K veya 4K'ya geçin."
+    },
+    "fontStyle": {
+      "auto": "Akıllı yazı tipi",
+      "minimal": "Minimal sans-serif",
+      "elegant": "Zarif serif",
+      "bold": "Kalın / pazarlama",
+      "handwritten": "El yazısı / kaligrafi",
+      "custom": "Özel"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Yeniden oluştur",
     "delete": "Sil",
     "reuseImages": "Görselleri yeniden kullan",
-    "taskGenericTitle": "Kombin Füzyonu görevi"
+    "taskGenericTitle": "Kombin Füzyonu görevi",
+    "imageNumber": "Görsel {index}"
   }
 }

@@ -180,7 +180,10 @@
     "switchAccount": "Konto wechseln",
     "topUp": "Aufladen",
     "upgradeTeamBanner": "Upgrade auf Team-Mitgliedschaft für nahtlose Zusammenarbeit",
-    "languageSwitchFailed": "Sprachwechsel fehlgeschlagen, bitte erneut versuchen"
+    "languageSwitchFailed": "Sprachwechsel fehlgeschlagen, bitte erneut versuchen",
+    "featuresBadge": {
+      "new": "Neu"
+    }
   },
   "Login": {
     "heroTitle": "Jede neue Kollektion — ein einheitlicher Markenauftritt.",
@@ -817,7 +820,19 @@
     "audience": {
       "badge": "Beeinflusst das Verhältnis",
       "description": "Beeinflusst Geschlechtslinie und Altersverhältnis; standardmäßig Damenbekleidung für Erwachsene.",
-      "title": "Zielgruppe des Kleidungsstücks"
+      "title": "Zielgruppe des Kleidungsstücks",
+      "garment": {
+        "women": "Damen",
+        "men": "Herren"
+      },
+      "age": {
+        "adult": "Erwachsene",
+        "teen": "Teen",
+        "big_child": "Großes Kind",
+        "middle_child": "Kind",
+        "small_child": "Kleinkind",
+        "toddler": "Baby"
+      }
     },
     "autoDesign": {
       "background": "Hintergrund",
@@ -1946,7 +1961,30 @@
     "viewDetail": "Ansehen",
     "viewDetailsAria": "Details zu {module} ansehen",
     "zipLabel": "Werke",
-    "zoomAria": "Ergebnis zoomen"
+    "zoomAria": "Ergebnis zoomen",
+    "clothingRole": {
+      "single": "Ein Stück / gesamt",
+      "upper": "Oberteil",
+      "lower": "Unterteil",
+      "extra": "Accessoire"
+    },
+    "sceneMode": {
+      "system_reference": "System-Referenzbild",
+      "upload_reference": "Hochgeladenes Referenzbild",
+      "auto_design": "Automatisches Design",
+      "favorites": "Meine Favoriten"
+    },
+    "mode": {
+      "modelBackground": "Modell und Hintergrund ändern",
+      "backgroundOnly": "Nur Hintergrund",
+      "modelOnly": "Nur Modell"
+    },
+    "sourceMode": {
+      "preset": "Vorgabe-Hintergrund",
+      "upload": "Hintergrund hochladen",
+      "text": "Text-Hintergrund",
+      "auto": "Automatisches Design"
+    }
   },
   "ImageTranslation": {
     "actionCopy": "Link kopieren",
@@ -2686,7 +2724,18 @@
     "uploadingLabel": "{label} wird hochgeladen…",
     "waitingForSource": "Warte auf Quelle",
     "zoomBackgroundReference": "Hintergrundreferenz zoomen",
-    "zoomPreview": "Zoom-Vorschau"
+    "zoomPreview": "Zoom-Vorschau",
+    "mode": {
+      "modelBackground": "Modell und Hintergrund ändern",
+      "backgroundOnly": "Nur Hintergrund",
+      "modelOnly": "Nur Modell"
+    },
+    "sourceMode": {
+      "preset": "Vorgabe-Hintergrund",
+      "upload": "Hintergrund hochladen",
+      "text": "Text-Hintergrund",
+      "auto": "Automatisches Design"
+    }
   },
   "Pose": {
     "analysis": {
@@ -3041,6 +3090,14 @@
       "modelTitle": "Model-Bild hochladen",
       "tryIt": "Ausprobieren",
       "uploadingPercent": "Lädt {percent}%"
+    },
+    "planAngle": {
+      "front": "Vorne",
+      "side": "Seite",
+      "back": "Hinten",
+      "detail": "Detail",
+      "garment": "Kleidungsdetail",
+      "seated": "Sitzend"
     }
   },
   "ProductRetouch": {
@@ -3394,6 +3451,14 @@
       "productImageName": "Produktbild {index}",
       "uploadFailed": "{name} konnte nicht hochgeladen werden",
       "uploading": "Lade {count} Produktbilder hoch…"
+    },
+    "fontStyle": {
+      "auto": "Intelligente Schriftart",
+      "minimal": "Minimal serifenlos",
+      "elegant": "Elegant mit Serifen",
+      "bold": "Kräftig / Marketing",
+      "handwritten": "Handschrift / Kalligrafie",
+      "custom": "Benutzerdefiniert"
     }
   },
   "Shared": {
@@ -4117,6 +4182,7 @@
     "regenerate": "Neu generieren",
     "delete": "Löschen",
     "reuseImages": "Bilder wiederverwenden",
-    "taskGenericTitle": "Outfit-Fusion-Aufgabe"
+    "taskGenericTitle": "Outfit-Fusion-Aufgabe",
+    "imageNumber": "Bild {index}"
   }
 }
