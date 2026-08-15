@@ -43,7 +43,7 @@ import { useTaskQueueStore } from "@/lib/task-queue-client-store";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -1799,10 +1799,15 @@ export default function CreatePage() {
       const controller = statusWatcherControllersRef.current.get(syncedActiveQueueTask.id);
       controller?.abort();
 
-      // 生成完成：结果区平滑滚动到视野（用户体感反馈）
+      // 生成完成：结果区平滑滚动到视野（用户体感反馈）；reduced-motion 下直接跳转
       if (completedWithResults) {
         window.setTimeout(() => {
-          document.getElementById("studio-results-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          const reduceMotion =
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          document
+            .getElementById("studio-results-panel")
+            ?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
         }, 120);
       }
     }
@@ -2274,12 +2279,8 @@ export default function CreatePage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = e.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
-        throw new Error(e.error || t("generate.failed"));
+        // 402 仅在服务端返回数字余额时更新（?? 0 会把真实余额清零并持久化缓存）；其余非 ok 抛服务端错误
+        applyGenerationResponseStatus({ res, data: e, userId, setCredits, fallbackError: t("generate.failed") });
       }
 
       const { generation_id, credits_remaining } = await res.json();

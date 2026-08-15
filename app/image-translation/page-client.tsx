@@ -56,7 +56,7 @@ import {
   type HistoryJobPayload,
 } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
@@ -542,12 +542,8 @@ export default function ImageTranslationPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
-        throw new Error(data.error || t("generateFailed"));
+        // 402 仅在服务端返回数字余额时更新（?? 0 会把真实余额清零并持久化缓存）；其余非 ok 抛服务端错误
+        applyGenerationResponseStatus({ res, data, userId, setCredits, fallbackError: t("generateFailed") });
       }
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
@@ -893,6 +889,7 @@ export default function ImageTranslationPage() {
 
         <StudioRunBar
           summary={summary}
+          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}

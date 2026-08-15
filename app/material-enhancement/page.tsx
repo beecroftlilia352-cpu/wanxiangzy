@@ -25,7 +25,7 @@ import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   DEFAULT_MATERIAL_ENHANCEMENT_LEVEL,
   MATERIAL_ENHANCEMENT_LEVELS,
@@ -370,12 +370,8 @@ export default function MaterialEnhancementPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
-        throw new Error(data.error || t("generation.failed"));
+        // 402 仅在服务端返回数字余额时更新（?? 0 会把真实余额清零并持久化缓存）；其余非 ok 抛服务端错误
+        applyGenerationResponseStatus({ res, data, userId, setCredits, fallbackError: t("generation.failed") });
       }
 
       if (data.credits_remaining !== undefined) {
@@ -704,6 +700,7 @@ export default function MaterialEnhancementPage() {
 
         <StudioRunBar
           summary={t("run.summary", { unit: costPerImage, count: genCount })}
+          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("run.loginToView") : t("run.costLabel", { cost: totalCost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}

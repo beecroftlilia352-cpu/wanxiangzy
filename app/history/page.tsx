@@ -607,7 +607,7 @@ export default function HistoryPage() {
                   </span>
                 )}
                 {/* hover 操作浮层 */}
-                <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/55 to-transparent p-3 pt-8 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/55 to-transparent p-3 pt-8 opacity-0 transition-opacity duration-150 group-hover:opacity-100 max-lg:opacity-100">
                   <span
                     role="button"
                     tabIndex={-1}
@@ -773,7 +773,7 @@ export default function HistoryPage() {
                         alt={t("resultAlt", { index: selectedResultIndex + 1 })}
                         controls
                       />
-                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
+                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                         <Maximize2 className="w-3 h-3" />
                         {t("enlarge")}
                       </span>

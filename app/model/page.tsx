@@ -4,10 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { Camera, CheckCircle2, ChevronRight, Sparkles, UserRound, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, ChevronRight, Sparkles, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -19,16 +18,18 @@ import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE_MB, isLikelyImageFile, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { modelOptionName, selectableModelsByCapability, useConfigStore } from "@/stores/use-config-store";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, referencesFromUrls, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
@@ -55,11 +56,19 @@ type ModelGenerateOptions = {
   toastMessage?: string;
 };
 
-const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "推荐", badgeKey: "Model.models.badge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "最新", badgeKey: "Model.models.badge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "高质精修", badgeKey: "Model.models.badge.premium", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
+// 模型策展元数据（品牌名/卖点/徽标/图标）。可选列表由 channel 配置推导
+// （selectableModelsByCapability），与全局 ModelPicker/后台配置保持一致，
+// 避免新增/下架模型时页面列表漂移；可见性仍由服务端 /api/model-catalog 过滤。
+const MODEL_META: Record<
+  LingyaModel,
+  { label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }
+> = {
+  "nano-banana-2": { label: "Nano-Banana-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "推荐", badgeKey: "Model.models.badge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  "gpt-image-2": { label: "GPT-Image-2", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "最新", badgeKey: "Model.models.badge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  "nano-banana-pro": { label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Model.models.desc.4k", badge: "高质精修", badgeKey: "Model.models.badge.premium", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+};
+
+const ALL_CURATED_MODELS = Object.keys(MODEL_META) as LingyaModel[];
 
 type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
 
@@ -108,6 +117,8 @@ const HAIR_COLORS = [
 ];
 export default function ModelPage() {
   const t = useTranslations("Model");
+  // descKey/badgeKey 为根相对全路径（StudioModelSelector 内部用根 t 解析），这里同样用根翻译器
+  const tRoot = useTranslations();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hairInputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +152,16 @@ export default function ModelPage() {
   const [hairReferenceUrl, setHairReferenceUrl] = useState<string | null>(null);
   const [hairColorReferenceUrl, setHairColorReferenceUrl] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  // 可选模型列表由 channel 配置推导，元数据来自 MODEL_META 策展表；
+  // 配置缺失/未加载时兜底展示全部策展模型。
+  const config = useConfigStore((state) => state.config);
+  const modelOptions = useMemo(() => {
+    const known = selectableModelsByCapability(config, "image")
+      .map(modelOptionName)
+      .filter((name): name is LingyaModel => Object.hasOwn(MODEL_META, name));
+    const values = ALL_CURATED_MODELS.filter((name) => known.includes(name));
+    return (values.length ? values : ALL_CURATED_MODELS).map((value) => ({ value, ...MODEL_META[value] }));
+  }, [config]);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -148,7 +169,6 @@ export default function ModelPage() {
   const [promptTouched, setPromptTouched] = useState(false);
   const [userExtraPrompt, setUserExtraPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [activeResultMeta, setActiveResultMeta] = useState<{ createdAt: string; inputThumbnails: string[] } | null>(null);
@@ -287,7 +307,6 @@ export default function ModelPage() {
     setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
-    setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
     if (!options?.silent) toast.success(t("historyApplied"));
   }
@@ -328,7 +347,6 @@ export default function ModelPage() {
     setRunningExpectedCount(null);
     setResultUrls(detail?.resultUrls || []);
     setIsGenerating(false);
-    setProgress(detail?.resultUrls.length ? 100 : 0);
     setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
     toast.success(t("historyApplied"));
     })();
@@ -493,7 +511,6 @@ export default function ModelPage() {
 
     setIsGenerating(true);
     setRunningExpectedCount(displayExpectedCount);
-    setProgress(10);
     setError("");
     setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     if (options.toastMessage) toast.info(options.toastMessage);
@@ -541,18 +558,13 @@ export default function ModelPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
-        throw new Error(data.error || t("generateFailed"));
+        // 402 仅在服务端返回数字余额时更新（?? 0 会把真实余额清零并持久化缓存）；其余非 ok 抛服务端错误
+        applyGenerationResponseStatus({ res, data, userId, setCredits, fallbackError: t("generateFailed") });
       }
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
-      setProgress(25);
       if (typeof data.generation_id !== "string" || !data.generation_id) {
         // Server returned 200 without a generation id (partial deploy,
         // upstream outage short-circuited into JSON, etc.). Without this
@@ -613,7 +625,6 @@ export default function ModelPage() {
           const runningProgress = Number.isFinite(nextProgress)
             ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
             : Math.min(25 + attempts * 1.5, 90);
-          setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
             expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
@@ -630,7 +641,6 @@ export default function ModelPage() {
             ? state.partial_failure as { message?: unknown }
             : null;
           const completedError = state.error || partialFailure?.message || "";
-          setProgress(100);
           setResultUrls(finalUrls);
           setIsGenerating(false);
           taskQueue.markCompleted(activeTaskId, {
@@ -676,7 +686,6 @@ export default function ModelPage() {
   function handleRunningTask(item: TaskQueueItem) {
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
-    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
     setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
     setActiveResultMeta({
@@ -720,7 +729,6 @@ export default function ModelPage() {
     setUserExtraPrompt("");
     setIsGenerating(false);
     setRunningExpectedCount(null);
-    setProgress(0);
     setResultUrls([]);
     setActiveResultMeta(null);
     setError("");
@@ -1001,11 +1009,11 @@ export default function ModelPage() {
               <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("genModel")}
             </h3>
             <StudioModelSelector
-              models={MODELS}
+              models={modelOptions}
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("genModel")}
-              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
+              getMeta={(model) => `${model.descKey ? tRoot(model.descKey) : model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
             />
           </section>
 
@@ -1059,6 +1067,7 @@ export default function ModelPage() {
 
         <StudioRunBar
           summary={t("runSummary", { count: referenceUrls.length, cost, genCount })}
+          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("loginToViewCredits") : t("runCost", { totalCost, credits: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -1145,70 +1154,32 @@ export default function ModelPage() {
         />
       </div>
 
-      {showModelRules && rulesPopoverStyle && (
-        <ClientPortal>
-          <div
-            className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 dark:border-white/10 bg-white/[0.96] dark:bg-stone-900/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
-            style={{
-              top: rulesPopoverStyle.top,
-              left: rulesPopoverStyle.left,
-              maxHeight: rulesPopoverStyle.maxHeight,
-            }}
-            onMouseEnter={cancelRulesHide}
-            onMouseLeave={scheduleRulesHide}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">{MODEL_UPLOAD_RULE.shortTitle}</p>
-                <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{MODEL_UPLOAD_RULE.title}</h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{MODEL_UPLOAD_RULE.uploadSpecText}</p>
-              </div>
-              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">{t("hoverPreview")}</span>
-            </div>
-
-            <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
-              <div className="grid gap-3 md:grid-cols-3">
-                {MODEL_UPLOAD_RULE.demos.map((demo) => (
-                  <div key={demo.title} className="flex min-h-[300px] flex-col rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-white/4 p-2">
-                    <div className={`grid h-36 gap-1 ${demo.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                      {demo.imageUrls.slice(0, 4).map((url) => (
-                        <div key={url} className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl bg-white dark:bg-white/5">
-                          <RawPreviewImage src={url} alt={demo.title} className="h-full w-full object-cover object-top" />
-                          <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-emerald-500" />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs font-bold text-slate-800">{demo.title}</p>
-                    <p className="mt-1 line-clamp-2 min-h-[34px] text-[10px] leading-relaxed text-slate-400 dark:text-stone-500">{demo.description}</p>
-                    <button
-                      type="button"
-                      onClick={() => applyRuleDemo(demo)}
-                      className="mt-auto w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
-                    >
-                      {t("tryIt")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 rounded-2xl bg-red-50/40 p-3">
-                <p className="mb-3 text-center text-xs font-medium text-slate-500 dark:text-stone-400">{MODEL_UPLOAD_RULE.deprecatedTitle}</p>
-                <div className="mx-auto grid max-w-lg grid-cols-3 gap-3">
-                  {MODEL_UPLOAD_RULE.deprecatedImages.map((image) => (
-                    <div key={image.title} className="rounded-2xl border border-red-100 dark:border-red-400/30 bg-white/70 dark:bg-white/5 p-2 text-center">
-                      <div className="relative h-36 overflow-hidden rounded-xl bg-white dark:bg-white/5">
-                        <RawPreviewImage src={image.url} alt={image.title} className="h-full w-full object-cover object-top" />
-                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-red-500" />
-                      </div>
-                      <p className="mt-2 text-xs font-medium text-slate-600 dark:text-stone-300">{image.title}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioRulesPopover
+        open={showModelRules}
+        style={rulesPopoverStyle}
+        width={760}
+        demoGridClassName="md:grid-cols-3"
+        shortTitle={MODEL_UPLOAD_RULE.shortTitle}
+        title={MODEL_UPLOAD_RULE.title}
+        specText={MODEL_UPLOAD_RULE.uploadSpecText}
+        hoverPreviewLabel={t("hoverPreview")}
+        tryItLabel={t("tryIt")}
+        demos={MODEL_UPLOAD_RULE.demos.map((demo) => ({
+          key: demo.title,
+          title: demo.title,
+          description: demo.description,
+          imageUrls: demo.imageUrls,
+          onApply: () => applyRuleDemo(demo),
+        }))}
+        examples={MODEL_UPLOAD_RULE.deprecatedImages.map((image) => ({
+          key: image.title,
+          title: image.title,
+          imageUrl: image.url,
+        }))}
+        examplesTitle={MODEL_UPLOAD_RULE.deprecatedTitle}
+        onMouseEnter={cancelRulesHide}
+        onMouseLeave={scheduleRulesHide}
+      />
 
     </div>
   );

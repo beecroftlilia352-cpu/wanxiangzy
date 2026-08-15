@@ -4,10 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Loader2, Plus, Wand, XCircle, ZoomIn } from "lucide-react";
+import { ChevronRight, Loader2, Plus, Wand, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -19,6 +18,7 @@ import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -29,7 +29,7 @@ import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
@@ -457,12 +457,8 @@ export default function Garment3dPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
-        throw new Error(data.error || t("generationFailed"));
+        // 402 仅在服务端返回数字余额时更新（?? 0 会把真实余额清零并持久化缓存）；其余非 ok 抛服务端错误
+        applyGenerationResponseStatus({ res, data, userId, setCredits, fallbackError: t("generationFailed") });
       }
 
       if (data.credits_remaining !== undefined) {
@@ -927,6 +923,7 @@ export default function Garment3dPage() {
 
         <StudioRunBar
           summary={t("summary", { cost: costPerImage, count: genCount })}
+          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("costLogin") : t("costConsume", { cost: totalCost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -1013,66 +1010,32 @@ export default function Garment3dPage() {
         )}
       </div>
 
-      {showGarmentRules && rulesPopoverStyle && (
-        <ClientPortal>
-          <div
-            className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 dark:border-white/10 bg-white/[0.96] dark:bg-stone-900/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
-            style={{
-              top: rulesPopoverStyle.top,
-              left: rulesPopoverStyle.left,
-              maxHeight: rulesPopoverStyle.maxHeight,
-            }}
-            onMouseEnter={cancelRulesHide}
-            onMouseLeave={scheduleRulesHide}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">{GARMENT_3D_UPLOAD_RULE.shortTitle}</p>
-                <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{GARMENT_3D_UPLOAD_RULE.title}</h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{GARMENT_3D_UPLOAD_RULE.uploadSpecText}</p>
-              </div>
-              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">{t("hoverPreview")}</span>
-            </div>
-
-            <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
-              <div className="grid gap-3 md:grid-cols-5">
-                {GARMENT_3D_UPLOAD_RULE.demos.map((demo) => (
-                  <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-white/4 p-2">
-                    <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
-                      <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-square w-full object-cover" />
-                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-emerald-500" />
-                    </div>
-                    <p className="mt-2 truncate text-xs font-medium text-slate-700 dark:text-stone-300">{demo.title}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-400 dark:text-stone-500">{demo.description}</p>
-                    <button
-                      type="button"
-                      onClick={() => applyRuleDemo(demo)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:text-[var(--codex-accent)]"
-                    >
-                      {t("examplesLabel")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 rounded-2xl bg-red-50/40 p-3">
-                <p className="mb-3 text-center text-xs font-medium text-slate-500 dark:text-stone-400">{GARMENT_3D_UPLOAD_RULE.deprecatedTitle}</p>
-                <div className="mx-auto grid max-w-lg grid-cols-3 gap-3">
-                  {GARMENT_3D_UPLOAD_RULE.deprecatedImages.map((image) => (
-                    <div key={image.title} className="rounded-2xl border border-red-100 dark:border-red-400/30 bg-white/70 dark:bg-white/5 p-2 text-center">
-                      <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
-                        <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
-                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-red-500" />
-                      </div>
-                      <p className="mt-2 text-xs font-medium text-slate-600 dark:text-stone-300">{image.title}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioRulesPopover
+        open={showGarmentRules}
+        style={rulesPopoverStyle}
+        width={760}
+        demoGridClassName="md:grid-cols-5"
+        shortTitle={GARMENT_3D_UPLOAD_RULE.shortTitle}
+        title={GARMENT_3D_UPLOAD_RULE.title}
+        specText={GARMENT_3D_UPLOAD_RULE.uploadSpecText}
+        hoverPreviewLabel={t("hoverPreview")}
+        tryItLabel={t("examplesLabel")}
+        demos={GARMENT_3D_UPLOAD_RULE.demos.map((demo) => ({
+          key: demo.imageUrl,
+          title: demo.title,
+          description: demo.description,
+          imageUrls: [demo.imageUrl],
+          onApply: () => applyRuleDemo(demo),
+        }))}
+        examples={GARMENT_3D_UPLOAD_RULE.deprecatedImages.map((image) => ({
+          key: image.title,
+          title: image.title,
+          imageUrl: image.url,
+        }))}
+        examplesTitle={GARMENT_3D_UPLOAD_RULE.deprecatedTitle}
+        onMouseEnter={cancelRulesHide}
+        onMouseLeave={scheduleRulesHide}
+      />
 
       <StudioMediaLightbox
         src={lightboxSrc}

@@ -70,7 +70,7 @@ import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyR
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { takeSourceImageFromLocation } from "@/lib/studio-image-preview";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   MAX_FILE_SIZE,
   MAX_FILE_SIZE_MB,
@@ -538,12 +538,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           }
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
-        throw new Error(data.error || t("videoGenerateFailed"));
+        // 402 仅在服务端返回数字余额时更新（?? 0 会把真实余额清零并持久化缓存）；其余非 ok 抛服务端错误
+        applyGenerationResponseStatus({ res, data, userId, setCredits, fallbackError: t("videoGenerateFailed") });
       }
 
       if (data.credits_remaining !== undefined) {
@@ -1164,6 +1160,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         {controlPanel}
         <StudioRunBar
           summary={`${effectiveModelMode === "pro" ? t("summaryHighQuality") : t("summaryFastMode")} · ${resolution} · ${aspectRatioSummary} · ${t("durationValue", { seconds: duration })} · ${generateAudio ? t("summaryAudioOn") : t("summaryAudioOff")} · ${genCount}${t("countUnit")}`}
+          estimateLabel={isSubmitting ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost, balance: credits ?? "-" })}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}

@@ -4,12 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
-  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, XCircle, PersonStanding, Crop, Monitor } from "lucide-react";
+  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, PersonStanding, Crop, Monitor } from "lucide-react";
 import { toast } from "sonner";
 import { isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { ClientPortal } from "@/components/ClientPortal";
 import { type PoseOutputMode } from "@/lib/pose-prompt";
 import {
   buildPoseVisualAnalysisKey,
@@ -55,6 +54,7 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { VisualAnalysisStatusCard, type VisualAnalysisSummaryItem } from "@/components/studio/VisualAnalysisStatus";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -2550,6 +2550,7 @@ export default function PosePage() {
 
         <StudioRunBar
           summary={`${poseDeliveryLabel}${activeGarmentAngleUrls.length ? t("runBar.garmentSummary", { count: activeGarmentAngleUrls.length }) : ""}`}
+          estimateLabel={isSubmitting ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: posePlanTargetCount })}
           costLabel={authIsAnonymous ? t("runBar.loginToViewCredits") : t("runBar.costBalance", { cost, balance: credits ?? "-" })}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -2649,65 +2650,31 @@ export default function PosePage() {
         )}
       </div>
 
-      {showPoseRules && rulesPopoverStyle && (
-        <ClientPortal>
-          <div
-            className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 dark:border-white/10 bg-white/[0.96] dark:bg-stone-900/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
-            style={{
-              top: rulesPopoverStyle.top,
-              left: rulesPopoverStyle.left,
-              maxHeight: rulesPopoverStyle.maxHeight,
-            }}
-            onMouseEnter={cancelRulesHide}
-            onMouseLeave={scheduleRulesHide}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">{POSE_UPLOAD_RULE.shortTitle}</p>
-                <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{POSE_UPLOAD_RULE.title}</h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{POSE_UPLOAD_RULE.uploadSpecText}</p>
-              </div>
-              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">{t("rules.hoverPreview")}</span>
-            </div>
-
-            <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
-              <div className="grid gap-3 md:grid-cols-5">
-                {POSE_UPLOAD_RULE.demos.map((demo) => (
-                  <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-white/4 p-2">
-                    <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
-                      <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
-                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-emerald-500" />
-                    </div>
-                    <p className="mt-2 truncate text-center text-xs font-medium text-slate-700 dark:text-stone-300">{demo.title}</p>
-                    <button
-                      type="button"
-                      onClick={() => applyRuleDemo(demo)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
-                    >
-                      {t("upload.tryIt")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 rounded-2xl bg-red-50/40 p-3">
-                <p className="mb-3 text-center text-xs font-medium text-slate-500 dark:text-stone-400">{POSE_UPLOAD_RULE.deprecatedTitle}</p>
-                <div className="mx-auto grid max-w-lg grid-cols-3 gap-3">
-                  {POSE_UPLOAD_RULE.deprecatedImages.map((image) => (
-                    <div key={image.title} className="rounded-2xl border border-red-100 dark:border-red-400/30 bg-white/70 dark:bg-white/5 p-2 text-center">
-                      <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
-                        <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
-                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-red-500" />
-                      </div>
-                      <p className="mt-2 text-xs font-medium text-slate-600 dark:text-stone-300">{image.title}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioRulesPopover
+        open={showPoseRules}
+        style={rulesPopoverStyle}
+        width={720}
+        demoGridClassName="md:grid-cols-5"
+        shortTitle={POSE_UPLOAD_RULE.shortTitle}
+        title={POSE_UPLOAD_RULE.title}
+        specText={POSE_UPLOAD_RULE.uploadSpecText}
+        hoverPreviewLabel={t("rules.hoverPreview")}
+        tryItLabel={t("upload.tryIt")}
+        demos={POSE_UPLOAD_RULE.demos.map((demo) => ({
+          key: demo.imageUrl,
+          title: demo.title,
+          imageUrls: [demo.imageUrl],
+          onApply: () => applyRuleDemo(demo),
+        }))}
+        examples={POSE_UPLOAD_RULE.deprecatedImages.map((image) => ({
+          key: image.title,
+          title: image.title,
+          imageUrl: image.url,
+        }))}
+        examplesTitle={POSE_UPLOAD_RULE.deprecatedTitle}
+        onMouseEnter={cancelRulesHide}
+        onMouseLeave={scheduleRulesHide}
+      />
 
       <StudioMediaLightbox
         src={lightboxSrc}

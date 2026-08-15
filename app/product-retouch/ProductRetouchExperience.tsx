@@ -844,6 +844,7 @@ export function ProductRetouchExperience() {
                 <span>· {imageSize}</span>
               </span>
             )}
+            estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: expectedCount })}
             costLabel={(
               <span className="inline-flex items-center gap-1">
                 <CircleDollarSign className="h-3.5 w-3.5" />

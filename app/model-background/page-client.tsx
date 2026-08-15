@@ -15,11 +15,9 @@ import {
   Images,
   Sparkles,
   UserRound,
-  X,
   ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ClientPortal } from "@/components/ClientPortal";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -32,6 +30,7 @@ import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 
@@ -102,7 +101,7 @@ const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string; descKey?: string
 
 const BACKGROUND_SOURCE_OPTIONS: BackgroundSourceMode[] = ["preset", "upload", "text"];
 const CARD_ZOOM_BUTTON_CLASS =
-  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-[var(--codex-accent)] focus-visible:opacity-100 group-hover:opacity-100";
+  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-[var(--codex-accent)] focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 max-lg:opacity-100";
 
 type ModelBackgroundPreviewAction = ImagePreviewAction & { labelKey?: string };
 
@@ -121,6 +120,8 @@ type UploadTarget = "source" | "model" | "background";
 
 export default function ModelBackgroundPage() {
   const t = useTranslations("ModelBackground");
+  // descKey/badgeKey 为根相对全路径（Shared.modelDesc.max4k 等），getMeta 里用根翻译器解析
+  const tRoot = useTranslations();
   const router = useRouter();
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -943,7 +944,7 @@ export default function ModelBackgroundPage() {
               value={aiModel}
               onChange={setAiModel}
               ariaLabel={t("genModel")}
-              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
+              getMeta={(model) => `${model.descKey ? tRoot(model.descKey) : model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
             />
           </section>
 
@@ -976,6 +977,7 @@ export default function ModelBackgroundPage() {
         </div>
         <StudioRunBar
           summary={sourceUrls.length > 1 ? t("runSummaryMulti", { count: sourceUrls.length, genCount, imageSize }) : t("runSummarySingle", { status: sourceUrls.length ? t("sourceUploaded") : t("waitingForSource"), genCount })}
+          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("loginToViewCredits") : t("runCost", { cost, credits: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -1100,50 +1102,33 @@ export default function ModelBackgroundPage() {
         )}
       </div>
 
-      {showRules && rulesPopoverStyle ? (
-        <ClientPortal>
-          <div
-            className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
-            style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }}
-            onMouseEnter={cancelRulesHide}
-            onMouseLeave={scheduleRulesHide}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-              <div>
-                <h3 className="text-base font-black text-slate-950 dark:text-stone-100">{MODEL_BACKGROUND_UPLOAD_RULE.title}</h3>
-                <p className="mt-1 text-xs text-slate-400">{MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}</p>
-              </div>
-              <button type="button" onClick={closeRulesPopover} aria-label={t("close")} className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
-              <div className="grid gap-3 md:grid-cols-4">
-                {MODEL_BACKGROUND_UPLOAD_RULE.demos.map((demo) => (
-                  <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
-                    <div className="relative overflow-hidden rounded-xl bg-white">
-                      <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
-                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" />
-                    </div>
-                    <p className="mt-2 text-center text-xs font-semibold text-slate-700">{demo.title}</p>
-                    <button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[var(--codex-accent)]">{t("tryIt")}</button>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-5 text-center text-xs font-semibold text-slate-500">{t("badExamplesTip")}</p>
-              <div className="mt-3 grid gap-3 md:grid-cols-4">
-                {MODEL_BACKGROUND_UPLOAD_RULE.badExamples.map((bad) => (
-                  <div key={bad.imageUrl} className="rounded-2xl border border-red-100 bg-red-50/50 p-2">
-                    <div className="relative overflow-hidden rounded-xl bg-white">
-                      <RawPreviewImage src={bad.imageUrl} alt={bad.title} className="aspect-[3/4] w-full object-cover" />
-                      <X className="absolute right-2 top-2 h-5 w-5 rounded-full bg-red-500 p-0.5 text-white" />
-                    </div>
-                    <p className="mt-2 text-center text-xs font-semibold text-slate-700">{bad.title}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </ClientPortal>
-      ) : null}
+      <StudioRulesPopover
+        open={showRules}
+        style={rulesPopoverStyle}
+        width={760}
+        demoGridClassName="md:grid-cols-4"
+        examplesGridClassName="grid gap-3 md:grid-cols-4"
+        title={MODEL_BACKGROUND_UPLOAD_RULE.title}
+        specText={MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}
+        tryItLabel={t("tryIt")}
+        closeLabel={t("close")}
+        onClose={closeRulesPopover}
+        demos={MODEL_BACKGROUND_UPLOAD_RULE.demos.map((demo) => ({
+          key: demo.imageUrl,
+          title: demo.title,
+          description: demo.description,
+          imageUrls: [demo.imageUrl],
+          onApply: () => applyDemo(demo),
+        }))}
+        examples={MODEL_BACKGROUND_UPLOAD_RULE.badExamples.map((bad) => ({
+          key: bad.imageUrl,
+          title: bad.title,
+          imageUrl: bad.imageUrl,
+        }))}
+        examplesTip={t("badExamplesTip")}
+        onMouseEnter={cancelRulesHide}
+        onMouseLeave={scheduleRulesHide}
+      />
 
       <StudioMediaLightbox
         src={lightboxSrc}

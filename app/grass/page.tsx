@@ -5,11 +5,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Loader2, Sparkles, Upload, X, XCircle, ZoomIn } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Sparkles, Upload, X, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
@@ -20,6 +19,7 @@ import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -43,7 +43,7 @@ import {
 } from "@/lib/grass-planting";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
@@ -444,12 +444,8 @@ export default function GrassPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
-        throw new Error(data.error || t("generationFailed"));
+        // 402 仅在服务端返回数字余额时更新（?? 0 会把真实余额清零并持久化缓存）；其余非 ok 抛服务端错误
+        applyGenerationResponseStatus({ res, data, userId, setCredits, fallbackError: t("generationFailed") });
       }
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
@@ -690,7 +686,7 @@ export default function GrassPage() {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(tpl.imageUrl); }}
-                        className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)]"
+                        className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)] max-lg:opacity-100"
                         title={t("zoomPreview")}
                       >
                         <ZoomIn className="h-3.5 w-3.5" />
@@ -730,7 +726,7 @@ export default function GrassPage() {
                         <button
                           type="button"
                           onClick={() => setLightboxSrc(uploadedReferenceUrl)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)]"
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)] max-lg:opacity-100"
                           title={t("zoomPreview")}
                         >
                           <ZoomIn className="h-3.5 w-3.5" />
@@ -880,6 +876,7 @@ export default function GrassPage() {
 
         <StudioRunBar
           summary={`${garmentUrl ? t("summaryInputCount", { count: effectiveReferenceUrl ? 2 : 1 }) : t("summaryNoInput")} · ${t("summaryGenCount", { count: genCount })}`}
+          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("costLoginView") : t("costSummary", { cost, balance: credits ?? "-" })}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -953,18 +950,32 @@ export default function GrassPage() {
         )}
       </div>
 
-      {showRules && rulesPopoverStyle && (
-        <ClientPortal>
-          <div id="grass-rules-popover" role="region" aria-labelledby="grass-rules-title" className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in" style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }} onMouseEnter={cancelRulesHide} onMouseLeave={scheduleRulesHide}>
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 id="grass-rules-title" className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={closeRulesPopover} className="rounded-full p-1.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" aria-label={t("closeImageRule")}><X aria-hidden="true" className="h-4 w-4" /></button></div>
-            <div className="max-h-[inherit] overflow-y-auto p-5">
-              <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[var(--codex-accent)]">{t("tryIt")}</button></div>)}</div>
-              <p className="my-4 text-center text-xs font-medium text-slate-500">{t("doNotUploadWrong")}</p>
-              <div className="mx-auto grid max-w-md grid-cols-3 gap-3">{GRASS_UPLOAD_RULE.badExamples.map((image) => <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={image.imageUrl} alt={image.title} className="aspect-square w-full object-cover" /><XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-red-500" /></div><p className="mt-1 text-xs text-slate-500">{image.title}</p></div>)}</div>
-            </div>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioRulesPopover
+        open={showRules}
+        style={rulesPopoverStyle}
+        width={720}
+        demoGridClassName="md:grid-cols-5"
+        title={GRASS_UPLOAD_RULE.title}
+        specText={GRASS_UPLOAD_RULE.uploadSpecText}
+        tryItLabel={t("tryIt")}
+        closeLabel={t("closeImageRule")}
+        onClose={closeRulesPopover}
+        demos={GRASS_UPLOAD_RULE.demos.map((demo) => ({
+          key: demo.imageUrl,
+          title: demo.title,
+          description: demo.description,
+          imageUrls: [demo.imageUrl],
+          onApply: () => applyDemo(demo),
+        }))}
+        examples={GRASS_UPLOAD_RULE.badExamples.map((image) => ({
+          key: image.title,
+          title: image.title,
+          imageUrl: image.imageUrl,
+        }))}
+        examplesTip={t("doNotUploadWrong")}
+        onMouseEnter={cancelRulesHide}
+        onMouseLeave={scheduleRulesHide}
+      />
 
       <StudioMediaLightbox
         src={lightboxSrc}

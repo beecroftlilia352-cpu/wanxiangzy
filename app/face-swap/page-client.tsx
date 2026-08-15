@@ -374,6 +374,15 @@ export default function FaceSwapPage() {
           } else {
             toast.success(t("generationComplete"));
           }
+          // 生成完成：结果区平滑滚动到视野（与 create 页一致的体感反馈）；reduced-motion 下直接跳转
+          window.setTimeout(() => {
+            const reduceMotion =
+              typeof window.matchMedia === "function" &&
+              window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            document
+              .getElementById("studio-results-panel")
+              ?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+          }, 120);
           return;
         }
 
@@ -954,6 +963,7 @@ export default function FaceSwapPage() {
 
         <StudioRunBar
           summary={sourceUrls.length > 1 ? t("summaryMulti", { sourceCount: sourceUrls.length, genCount, mode: faceSwapModeLabel, size: imageSizeValue }) : t("summarySingle", { genCount, mode: faceSwapModeLabel, size: imageSizeValue })}
+          estimateLabel={status === "running" ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
           costLabel={authIsAnonymous ? t("costLogin") : t("costConsume", { cost: totalCost, balance: credits ?? "-" })}
           disabled={!canGenerate}
           disabledReason={validationHint}
