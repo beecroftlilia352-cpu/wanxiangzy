@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { StudioEmptyState } from "@/components/studio/StudioEmptyState";
 import type { ProductRetouchBatch, ProductRetouchOutput } from "@/lib/product-retouch";
 import { ProductRetouchSourceGroup } from "@/features/product-retouch/ProductRetouchSourceGroup";
@@ -19,13 +21,14 @@ export function ProductRetouchBatchGrid({
   retryingOutputId,
   downloadingSourceIndex,
 }: ProductRetouchBatchGridProps) {
+  const t = useTranslations("ProductRetouch");
   const groups = groupOutputs(batch.outputs);
 
   if (!groups.length) {
     return (
       <StudioEmptyState
-        title="暂无商品结果"
-        description="上传商品图后会自动显示每个商品的结果。"
+        title={t("empty.title")}
+        description={t("empty.description")}
       />
     );
   }

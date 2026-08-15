@@ -666,7 +666,12 @@
     "saveBadge": "Hemat",
     "perMonth": "/bulan",
     "startSubscription": "Mulai langganan",
-    "buyNow": "Beli Sekarang"
+    "buyNow": "Beli Sekarang",
+    "error": {
+      "title": "Gagal memuat halaman pembelian",
+      "fallback": "Terjadi kesalahan saat merender halaman ini. Silakan coba lagi.",
+      "retry": "Coba lagi"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "Gambar Produk Semua Kategori",
@@ -877,7 +882,9 @@
       "roleExtra": "Aksesori",
       "modeMulti": "Atas & bawah",
       "modeSingle": "Satu potong",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "Unggah gambar utama pakaian terlebih dahulu",
+      "uploadFirstDesc": "Setelah diunggah, Anda dapat menambah detail garis leher, bahan, logo, belakang, atau samping di bawah pakaian yang sesuai."
     },
     "favorite": {
       "loginRequired": "Silakan masuk untuk menyimpan favorit",
@@ -932,7 +939,26 @@
       "maxCount": "Gambar detail pakaian maksimal {count} gambar",
       "remainingTruncated": "Maksimal bisa menambah {count} gambar detail lagi, telah dipotong otomatis",
       "uploadingFiles": "Sedang mengunggah {count} gambar detail pakaian…",
-      "added": "Telah menambah {count} gambar detail untuk {owner}"
+      "added": "Telah menambah {count} gambar detail untuk {owner}",
+      "switchLabel": "Referensi detail pakaian",
+      "switchDescription": "Tambahkan detail lokal seperti bahan, garis leher, saku, atau kancing, serta bagian belakang dan samping. Hingga 5 gambar, tanpa mengubah orang, pose, latar, atau nada keseluruhan.",
+      "sectionTitle": "Tambahkan detail pada tiap pakaian",
+      "maxCountTitle": "Hingga {count} gambar detail",
+      "addForRole": "Tambah gambar detail {role}",
+      "mainImageAlt": "Gambar utama {role}",
+      "previewMainAria": "Pratinjau gambar utama {role}",
+      "roleDetailTitle": "Detail {role}",
+      "onlyItem": "Hanya bahan, struktur, atau close-up item ini.",
+      "detailCount": "{count} gambar",
+      "detailAlt": "Detail {role} {index}",
+      "previewDetailAria": "Pratinjau detail {role} {index}",
+      "removeDetailAria": "Hapus detail {role} {index}",
+      "unassignedTitle": "Detail historis belum ditetapkan",
+      "unassignedCount": "{count} gambar",
+      "unassignedAlt": "Detail belum ditetapkan {index}",
+      "previewUnassignedAria": "Pratinjau detail belum ditetapkan {index}",
+      "removeUnassignedAria": "Hapus detail belum ditetapkan {index}",
+      "unassignedHint": "Gambar detail dari tugas sebelumnya tidak memiliki penetapan dan hanya dipakai ringan bila ada kecocokan jelas."
     },
     "model": {
       "pleaseUploadImage": "Silakan unggah file gambar",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "Mengenali pakaian",
       "recommending": "Merekomendasikan skenario",
       "previewSelected": "Pratinjau gambar referensi terpilih: {label}",
-      "addSystemScene": "Tambah gambar referensi sistem"
+      "addSystemScene": "Tambah gambar referensi sistem",
+      "footerSelected": "Terpilih {selected}/{max}",
+      "footerDeleteAll": "Hapus semua",
+      "footerSaving": "Menyimpan",
+      "footerSaveAsTemplate": "Simpan sebagai template"
     },
     "autoDesign": {
       "platform": "Rencana fotografi",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "Pratinjau hover",
+    "lightbox": {
+      "previewAlt": "Pratinjau gambar uji coba"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "Aktif",
     "textureOff": "Nonaktif",
     "modeFeature": "Hanya ganti fitur wajah",
-    "modeFeatureHairSkin": "Ganti fitur wajah, gaya rambut, warna kulit"
+    "modeFeatureHairSkin": "Ganti fitur wajah, gaya rambut, warna kulit",
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "Pakaian 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "Ketebalan jaket down",
     "refBack": "Siluet belakang",
     "refShortCoat": "Mantel pendek",
-    "hoverPreview": "Pratinjau Hover"
+    "hoverPreview": "Pratinjau Hover",
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "Gambar ke Gambar",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "Gambar ini gagal dibuat",
     "retryThis": "Coba ulang gambar ini",
     "retryGenerate": "Generate ulang",
-    "retryToast": "Sedang mengulang pengisian gambar ke-{index}, gambar gagal telah direfund, akan diisi kembali setelah selesai…"
+    "retryToast": "Sedang mengulang pengisian gambar ke-{index}, gambar gagal telah direfund, akan diisi kembali setelah selesai…",
+    "imageToPromptDesc": "Unggah gambar untuk menghasilkan deskripsi konten secara otomatis guna membuat gambar serupa.",
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
+    },
+    "copyEmptyToast": "Belum ada konten untuk disalin",
+    "copySuccessToast": "Tersalin",
+    "copyFailedToast": "Gagal menyalin, silakan salin manual",
+    "uploadImageAria": "Unggah gambar untuk membuat prompt",
+    "changeImageAria": "Ganti gambar untuk prompt",
+    "uploadingState": "Mengunggah…",
+    "uploadImageButton": "Unggah gambar",
+    "generatingState": "Membuat…",
+    "promptTextareaAria": "Prompt dari gambar",
+    "promptTextareaPlaceholder": "Setelah mengunggah gambar, deskripsi untuk teks-ke-gambar akan dibuat di sini.",
+    "copyButton": "Salin",
+    "applyToDescription": "Terapkan ke deskripsi"
   },
   "Grass": {
     "moduleLabel": "Gambar Seeding",
@@ -1818,6 +1877,10 @@
       "square": "1:1 persegi",
       "phone": "9:16 ponsel",
       "landscape": "4:3 horizontal"
+    },
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "Pratinjau terjemahan gambar",
     "waitingUploadSummary": "Menunggu unggah gambar asli · {count} gambar",
     "selectLanguageSummary": "Telah mengunggah {count} gambar asli · silakan pilih bahasa target",
-    "fullSummary": "{sources} gambar asli × {langs} bahasa × {gen} · {size}"
+    "fullSummary": "{sources} gambar asli × {langs} bahasa × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "Memuat parameter peningkatan tekstur",
       "previewAria": "Memuat area pratinjau"
+    },
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "Dapatkan citra orang yang seragam, lanjut pakai untuk coba pakaian dan visual produk.",
     "missingFailureLabel": "Gambar ini gagal dibuat",
     "missingFailureActionLabel": "Coba ulang gambar ini",
-    "retryLabel": "Generate ulang"
+    "retryLabel": "Generate ulang",
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
+    }
   },
   "ModelBackground": {
     "title": "Ganti Latar",
@@ -2842,6 +2917,10 @@
       "upload": "Unggah latar",
       "text": "Latar dari teks",
       "auto": "Desain otomatis"
+    },
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
     }
   },
   "Pose": {
@@ -3174,7 +3253,9 @@
       "continueGenerating": "Lanjut generate",
       "generateRefs": "Generate {count} gambar independen",
       "generatePoses": "Generate {count} gambar pose",
-      "generateGrid": "Generate {count} grid pose"
+      "generateGrid": "Generate {count} grid pose",
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
     },
     "previewGuide": {
       "title": "Satu gambar asli, variasi banyak pose",
@@ -3332,6 +3413,14 @@
       "step2Desc": "Set seragam mode retouch, model, rasio, dan jumlah output per produk.",
       "step3Title": "Lihat hasil batch",
       "step3Desc": "Hasil dikelompokkan per produk, bisa pratinjau, coba ulang item, dan unduh per produk atau seluruh batch."
+    },
+    "empty": {
+      "title": "Belum ada hasil produk",
+      "description": "Hasil setiap produk akan tampil otomatis setelah mengunggah gambar."
+    },
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
     }
   },
   "ProductSet": {
@@ -3649,6 +3738,327 @@
     },
     "aspectRatio": {
       "auto": "Otomatis"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "Ringkasan informasi produk",
+        "productInfo": "Informasi produk",
+        "namePlaceholder": "Nama produk belum diisi",
+        "descPlaceholder": "Info produk terisi. Ketuk edit untuk menambah nilai jual, bahan, dan audiens."
+      },
+      "summary": {
+        "ariaLabel": "Rencana analisis produk",
+        "generated": "Rencana siap",
+        "planCount": "Merencanakan pembuatan {count} {unit}",
+        "imageQuality": "Kualitas gambar",
+        "qualityPrepared": "Disiapkan",
+        "collapse": "Sembunyikan detail",
+        "expand": "Lihat detail",
+        "editInfo": "Edit info",
+        "suggestSupplement": "Disarankan tambahkan: "
+      },
+      "adjustStyle": "Sesuaikan gaya",
+      "profile": {
+        "ariaLabel": "Profil produk",
+        "sourceAi": "Info gambar",
+        "sourceFallback": "Info dasar",
+        "sourceRunning": "Membaca",
+        "sourceManual": "Info manual",
+        "sourceConfirm": "Perlu dikonfirmasi",
+        "suggestModel": "Model disarankan",
+        "noModel": "Tanpa model",
+        "modify": "Edit"
+      },
+      "strategy": {
+        "ariaLabel": "Strategi visual",
+        "title": "Strategi visual",
+        "fallbackName": "Strategi visual",
+        "pending": "Perlu dinilai",
+        "imageQuality": "Kualitas gambar",
+        "currentMode": "Mode saat ini",
+        "modeMain": "Gambar utama",
+        "modeDetails": "Halaman detail",
+        "smartMatch": "Pencocokan cerdas"
+      },
+      "notice": {
+        "reading": "Membaca gambar produk",
+        "needConfirm": "Info produk perlu dikonfirmasi",
+        "incomplete": "Pembacaan produk belum selesai"
+      },
+      "progress": {
+        "ariaLabel": "Progres pembuatan modul",
+        "failed": "Gagal",
+        "done": "Selesai",
+        "generating": "Membuat",
+        "queued": "Antrean"
+      },
+      "modeTab": {
+        "ariaLabel": "Jenis set produk",
+        "mainTitle": "Gambar utama",
+        "mainDesc": "Pilih jumlah, lalu analisis",
+        "detailsTitle": "Halaman detail",
+        "detailsDesc": "Pilih layar, lalu analisis"
+      },
+      "stepper": {
+        "ariaLabel": "Progres pembuatan set",
+        "step1Title": "Gambar",
+        "step1Desc": "Unggah",
+        "step2Title": "Info",
+        "step2Desc": "Jumlah",
+        "step3Title": "Analisis",
+        "step3Desc": "Rencana",
+        "step4Title": "Buat",
+        "step4Desc": "Keluaran"
+      },
+      "count": {
+        "unselected": "Belum dipilih"
+      },
+      "template": {
+        "main": "Utama",
+        "details": "Detail",
+        "subjectConsistent": "Subjek konsisten",
+        "layoutIndependent": "Tata letak independen"
+      },
+      "upload": {
+        "uploadedReplace": "Terunggah, dapat diganti",
+        "dropHint": "Unggah / seret gambar"
+      },
+      "customSource": {
+        "ariaLabel": "Unggah referensi",
+        "description": "Unggah satu gambar referensi utama dan sistem akan memahami tata letak serta gaya, lalu membaginya menjadi rencana {count}.",
+        "library": "Pustaka template",
+        "selectedCountMain": "Jumlah dipilih",
+        "selectedCountDetails": "Layar dipilih",
+        "added": "Referensi ditambahkan",
+        "removeAria": "Hapus {name}",
+        "empty": "Belum ada referensi. Unggah gambar utama dan ketuk Tambah — referensi dikirim bersama gambar produk dan hanya memengaruhi gaya, tata letak, model, atau suasana."
+      },
+      "referenceStyle": {
+        "title": "Catatan gaya referensi",
+        "description": "Hanya menyimpan arah gaya tanpa menganalisis template; akan diteruskan ke analisis cerdas saat mengetuk \"Tulis info produk\".",
+        "restoreExample": "Pulihkan contoh",
+        "save": "Simpan gaya referensi",
+        "placeholder": "Tulis gaya referensi, platform target, gaya visual, adegan terpadu, palet, dan persyaratan…",
+        "hint": "Konten ini diteruskan ke analisis sebagai referensi gaya dan tidak digunakan langsung sebagai template."
+      },
+      "profileEditor": {
+        "title": "Perbaiki pengenalan produk",
+        "description": "Hasilnya memengaruhi template default, penggunaan model, dan batas keamanan prompt.",
+        "productType": "Jenis produk",
+        "apparelSubtype": "Subkategori pakaian",
+        "modelStrategy": "Strategi model",
+        "modelRequirement": "Persyaratan model",
+        "modelBriefPlaceholder": "Contoh: model wanita dewasa, adegan kerja Prancis, pose alami, tonjolkan siluet dan jatuh kain, tanpa pose berlebihan…",
+        "kind": {
+          "apparel": "Pakaian",
+          "footwear": "Alas kaki",
+          "bag": "Tas",
+          "accessory": "Aksesori",
+          "beauty": "Kecantikan",
+          "electronics": "Elektronik",
+          "home": "Rumah",
+          "toy": "Mainan",
+          "food": "Makanan",
+          "general": "Umum"
+        },
+        "apparel": {
+          "womenswear": "Wanita",
+          "menswear": "Pria",
+          "kidswear": "Anak",
+          "outerwear": "Outerwear / Outdoor",
+          "sportswear": "Pakaian olahraga",
+          "intimate": "Pakaian dalam",
+          "swimwear": "Pakaian renang",
+          "general": "Pakaian umum"
+        },
+        "model": {
+          "none": "Tanpa model",
+          "optional": "Model opsional",
+          "recommended": "Model disarankan",
+          "required": "Model wajib"
+        }
+      },
+      "moduleEdit": {
+        "title": "Edit modul pembuatan",
+        "description": "Gambar {index} · {type}",
+        "modelTypeDetails": "Modul halaman detail",
+        "modelTypeMain": "Modul gambar utama / bantu",
+        "remove": "Hapus modul ini",
+        "save": "Simpan",
+        "fieldName": "Nama modul",
+        "fieldRole": "Peran modul",
+        "fieldContentScope": "Cakupan konten",
+        "contentScopePlaceholder": "Contoh: hanya membahas kain dan siluet tanpa mengulang seluruh argumen; atau hanya menampilkan model dan suasana.",
+        "fieldLayoutRules": "Aturan tata letak",
+        "fieldTextRules": "Aturan teks",
+        "fieldAvoidRules": "Aturan larangan",
+        "fieldTypeDescription": "Deskripsi template",
+        "aspectRatio": "Rasio aspek",
+        "subjectConsistency": "Subjek konsisten",
+        "modelConsistency": "Model konsisten",
+        "intelligentCopy": "Teks cerdas",
+        "copyDensity": "Kepadatan teks",
+        "copyDensityNone": "Tanpa teks",
+        "copyDensityLight": "Teks ringan",
+        "copyDensityStandard": "Teks standar",
+        "copyDensityRich": "Teks kaya",
+        "modelAdviceOn": "Modul ini mengutamakan model / adegan pada tubuh. Jika tidak ingin model, ubah peran menjadi latar putih, detail, ukuran, atau matikan konsistensi model.",
+        "modelAdviceOff": "Modul ini tidak memakai model secara default dan cocok untuk latar putih, detail, dimensi, bahan, kemasan, atau spesifikasi.",
+        "fieldExtraDescription": "Deskripsi tambahan",
+        "extraDescriptionPlaceholder": "Tulis hanya persyaratan khusus gambar ini, misal: tanpa thumbnail bawah di banner wanita; gambar detail hanya menampilkan tudung, manset, dan saku."
+      },
+      "settings": {
+        "title": "Pengaturan lainnya",
+        "description": "Mengontrol pasar target, teks gambar, dan gaya visual; model, rasio, dan resolusi dikonfigurasi terpisah di kiri.",
+        "country": "Negara / wilayah target",
+        "language": "Bahasa teks gambar",
+        "platform": "Platform target",
+        "theme": "Warna tema",
+        "themeAuto": "Tema cerdas",
+        "themeCustom": "Warna kustom",
+        "themeCustomLabel": "Warna tema kustom",
+        "themeColorPlaceholder": "Contoh: putih krem + biru denim + merah muda…",
+        "fontStyle": "Gaya font",
+        "extraDescription": "Deskripsi tambahan",
+        "extraDescriptionPlaceholder": "Contoh: wanita gaya kerja Prancis, tanpa pose berlebihan, teks pendek…"
+      },
+      "favorite": {
+        "ariaLabel": "Template tersimpan saya",
+        "description": "Simpan rencana visual atau template kustom saat ini dan terapkan langsung saat berganti produk berikutnya.",
+        "setsCount": "{count} set",
+        "nameLabel": "Nama rencana tersimpan",
+        "saving": "Menyimpan…",
+        "save": "Simpan",
+        "loading": "Memuat rencana tersimpan Anda…",
+        "apply": "Terapkan",
+        "deleteAria": "Hapus rencana tersimpan {name}",
+        "modelPrefix": "Model · ",
+        "empty": "Belum ada rencana tersimpan. Sesuaikan rencana saat ini lalu ketuk Simpan.",
+        "planCustom": "Rencana kustom",
+        "planVisual": "Rencana visual",
+        "typeDetails": "Halaman detail",
+        "typeMain": "Gambar utama",
+        "justNow": "Baru saja"
+      },
+      "genSettings": {
+        "title": "Pengaturan pembuatan",
+        "advQuality": "QA lanjutan",
+        "stdQuality": "QA standar",
+        "adjust": "Sesuaikan"
+      },
+      "modelConfig": {
+        "ariaLabel": "Opsi pengaturan pembuatan",
+        "model": "Model pembuatan",
+        "resolution": "Resolusi",
+        "sizeCost": "{size} · {cost} kredit",
+        "detailsWarning": "Halaman detail memiliki judul, label, dan detail lokal — 1K cenderung memburamkan teks kecil. Mulai dari 2K untuk QA dan keterbacaan yang jauh lebih baik.",
+        "quality": "Tingkat pembuatan",
+        "standardMode": "Mode standar",
+        "advancedMode": "Mode lanjutan",
+        "aspectAutoNote": "Rasio otomatis sesuai template",
+        "aspectAutoDetail": "Banner, gambar detail, dan gambar utama latar putih masing-masing memakai rasio templatenya sendiri, sehingga satu rasio tidak menyesatkan seluruh set."
+      },
+      "planList": {
+        "empty": "Belum ada template dipilih — buka pustaka untuk menambah.",
+        "ariaLabel": "Urutan modul pembuatan",
+        "details": "Halaman detail",
+        "main": "Gambar utama / bantu",
+        "model": "Model",
+        "editAria": "Edit modul {name}",
+        "removeAria": "Hapus modul {name}",
+        "collapsed": "{count} modul lainnya disembunyikan. Ketuk lihat semua di kanan atas."
+      },
+      "recommendation": {
+        "ariaLabel": "Rencana direktur visual",
+        "safeTemplate": "Template aman",
+        "withModel": "Dengan model",
+        "lowRisk": "Risiko rendah",
+        "recommended": "Disarankan: buat {count} {unit}",
+        "modelPrefix": "Model · "
+      },
+      "quickStart": {
+        "mainRef": "Referensi utama",
+        "modelRef": "Referensi model",
+        "styleHint": "Gaya / tata letak",
+        "optional": "Opsional",
+        "extraRef": "Referensi tambahan {count}/3",
+        "focusLabel": "Fokus referensi",
+        "advancedSettings": "Pengaturan lanjutan",
+        "aspectRatio": "Rasio aspek",
+        "specialRequirement": "Persyaratan khusus",
+        "extraPlaceholder": "Contoh: tanpa teks, tanpa wajah model, tonjolkan detail…",
+        "uploadRefFirst": "Unggah gambar referensi utama terlebih dahulu",
+        "selectCountFirst": "Pilih {unit} terlebih dahulu",
+        "countUnitMain": "jumlah gambar",
+        "countUnitDetails": "jumlah layar",
+        "addRefAndGenerate": "Tambahkan referensi dan buat rencana {count} {unit}",
+        "intent": {
+          "autoDetect": "Deteksi otomatis",
+          "wearing": "Tampilan dikenakan",
+          "poster": "Poster nilai jual",
+          "scene": "Suasana adegan",
+          "autoSplit": "Pisah otomatis",
+          "hero": "Banner utama",
+          "sellingPoints": "Nilai jual",
+          "detailsTexture": "Detail & tekstur"
+        },
+        "defaultNameDetails": "Paket detail referensi",
+        "defaultNameMain": "Paket gambar utama referensi"
+      },
+      "results": {
+        "exampleAlt": "Contoh set produk",
+        "guideTitle": "Mulai membuat set",
+        "guideSubtitle": "Analisis info lebih dulu, lalu buat rencana gambar utama / halaman detail sesuai pilihan.",
+        "guideStep1Title": "Unggah gambar produk",
+        "guideStep1Desc": "Hingga 3 gambar; sertakan tampak depan, samping, belakang, atau detail agar sistem menilai struktur dan nilai jual.",
+        "guideStep2Title": "Analisis info produk",
+        "guideStep2Desc": "Sistem menyusun platform, gaya, adegan, nilai jual, poin nyeri, audiens, parameter, dan palet.",
+        "guideStep3Title": "Buat rencana set",
+        "guideStep3Desc": "Menghasilkan rencana lokal berdasarkan {count} {unit}, lalu mulai membuat.",
+        "guideStep3CountFallback": "terpilih",
+        "loadingModule": "Set produk",
+        "loadingRef": "Referensi produk {index}",
+        "failedTitle": "Pembuatan set gagal",
+        "retry": "Coba lagi",
+        "resultAria": "Hasil set",
+        "generatingTitle": "Membuat set",
+        "resultTitle": "Hasil set",
+        "generatedCount": "{current}/{total} selesai",
+        "progressCount": "{progress}% dibuat",
+        "completed": "Selesai",
+        "progressAria": "Progres pembuatan set",
+        "cardFallback": "Hasil {index}",
+        "previewAria": "Pratinjau {name}",
+        "resultAlt": "Set produk {index}",
+        "moduleFailed": "Modul ini gagal",
+        "regenerating": "Membuat ulang…",
+        "regenerate": "Buat ulang ini",
+        "waiting": "Menunggu pembuatan",
+        "waitingDesc": "Modul ini mengisi pratinjau otomatis saat selesai",
+        "statusGenerated": "Dibuat",
+        "statusFailed": "Gagal",
+        "statusGenerating": "Membuat",
+        "regenerateAria": "Buat ulang {name}",
+        "downloadAria": "Unduh {name}"
+      },
+      "library": {
+        "title": "Pustaka template referensi",
+        "description": "Template hanya mengontrol tujuan, tata letak, dan arah visual — produk akhir memakai gambar yang Anda unggah.",
+        "searchLabel": "Cari template",
+        "searchPlaceholder": "Cari template…",
+        "filterAria": "Filter template",
+        "allDetails": "Semua template halaman detail",
+        "allMain": "Semua template gambar utama",
+        "womenswearScene": "Adegan wanita",
+        "selectedCount": "Terpilih {count}",
+        "empty": "Tidak ada template yang cocok dengan filter.",
+        "uploadReference": "Unggah referensi",
+        "customTitle": "Unggah referensi sendiri",
+        "customDesc": "Tanpa aturan rumit: unggah gambar dan pilih fokus.",
+        "customStyles": "Gaya kustom",
+        "removeAria": "Hapus {name}",
+        "customEmpty": "Unggah template referensi sendiri untuk membuat gaya set eksklusif dengan deskripsi teks."
+      }
     }
   },
   "Shared": {
@@ -3955,7 +4365,20 @@
     "dateStart": "Tanggal mulai",
     "dateEnd": "Tanggal selesai",
     "recentWeek": "Minggu lalu",
-    "recentMonth": "Bulan lalu"
+    "recentMonth": "Bulan lalu",
+    "leaveConfirmTitle": "Tinggalkan halaman ini?",
+    "leaveConfirmContent": "Halaman ini berisi masukan yang belum disimpan dan akan hilang.",
+    "leaveConfirmOk": "Tinggalkan",
+    "leaveConfirmCancel": "Lanjutkan edit",
+    "selectAll": "Pilih semua",
+    "selectRow": "Pilih baris ini",
+    "selectDateRange": "Pilih rentang tanggal",
+    "clearDateRange": "Hapus rentang tanggal",
+    "previousMonth": "Bulan sebelumnya",
+    "nextMonth": "Bulan berikutnya",
+    "searchQuery": "Cari",
+    "confirmNotInitialized": "Dialog konfirmasi belum siap — tindakan tidak dijalankan",
+    "operationFailed": "Operasi gagal"
   },
   "Video": {
     "moduleFirstLastFrame": "Frame Awal-Akhir",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "Generate video",
     "motionStepGenerateDesc": "Output video aksi sama.",
     "motionStepGenerateAlt": "Generate video",
-    "badgeGenerateVideoMotion": "Generate video"
+    "badgeGenerateVideoMotion": "Generate video",
+    "runBar": {
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
+    }
   },
   "toast": {
     "selectImage": "Silakan pilih file gambar",

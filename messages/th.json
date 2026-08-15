@@ -666,7 +666,12 @@
     "saveBadge": "ประหยัด",
     "perMonth": "/ต่อเดือน",
     "startSubscription": "เปิดสมาชิก",
-    "buyNow": "ซื้อเลย"
+    "buyNow": "ซื้อเลย",
+    "error": {
+      "title": "ไม่สามารถโหลดหน้าการซื้อ",
+      "fallback": "เกิดข้อผิดพลาดขณะแสดงหน้านี้ โปรดลองอีกครั้ง",
+      "retry": "ลองใหม่"
+    }
   },
   "LibShared": {
     "history": {
@@ -1144,7 +1149,20 @@
     "dateStart": "วันที่เริ่ม",
     "dateEnd": "วันที่สิ้นสุด",
     "recentWeek": "สัปดาห์ที่แล้ว",
-    "recentMonth": "เดือนที่แล้ว"
+    "recentMonth": "เดือนที่แล้ว",
+    "leaveConfirmTitle": "ออกจากหน้านี้หรือไม่",
+    "leaveConfirmContent": "หน้านี้มีเนื้อหาที่ยังไม่ได้บันทึก จะหายไปเมื่อออกจากหน้า",
+    "leaveConfirmOk": "ออกจากหน้า",
+    "leaveConfirmCancel": "แก้ไขต่อ",
+    "selectAll": "เลือกทั้งหมด",
+    "selectRow": "เลือกแถวนี้",
+    "selectDateRange": "เลือกช่วงวันที่",
+    "clearDateRange": "ล้างช่วงวันที่",
+    "previousMonth": "เดือนก่อนหน้า",
+    "nextMonth": "เดือนถัดไป",
+    "searchQuery": "ค้นหา",
+    "confirmNotInitialized": "กล่องยืนยันยังไม่พร้อมใช้งาน จึงยังไม่ได้ดำเนินการ",
+    "operationFailed": "การดำเนินการล้มเหลว"
   },
   "ModelBackground": {
     "title": "เปลี่ยนพื้นหลัง",
@@ -1302,6 +1320,10 @@
       "upload": "อัปโหลดพื้นหลัง",
       "text": "พื้นหลังจากข้อความ",
       "auto": "ออกแบบอัตโนมัติ"
+    },
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
     }
   },
   "MaterialEnhancement": {
@@ -1453,6 +1475,10 @@
     "loading": {
       "paramsAria": "กำลังโหลดพารามิเตอร์เพิ่มความคมวัสดุ",
       "previewAria": "กำลังโหลดพื้นที่ตัวอย่าง"
+    },
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
     }
   },
   "ProductRetouch": {
@@ -1580,6 +1606,14 @@
       "step2Desc": "ตั้งค่าโหมดรีทัช โมเดล สัดส่วน และจำนวนผลลัพธ์ต่อสินค้าให้เหมือนกัน",
       "step3Title": "ดูผลลัพธ์ชุด",
       "step3Desc": "ผลลัพธ์จัดกลุ่มตามสินค้า ดูตัวอย่าง ลองใหม่รายเดี่ยว หรือดาวน์โหลดตามสินค้าและทั้งชุด"
+    },
+    "empty": {
+      "title": "ยังไม่มีผลลัพธ์สินค้า",
+      "description": "ผลลัพธ์ของแต่ละสินค้าจะแสดงอัตโนมัติหลังอัปโหลดรูป"
+    },
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
     }
   },
   "Model": {
@@ -1735,7 +1769,11 @@
     "guideStep3Desc": "ได้ภาพตัวตนที่สม่ำเสมอ นำไปใช้ต่อในงานลองสวมและภาพสินค้าได้",
     "missingFailureLabel": "ภาพนี้สร้างล้มเหลว",
     "missingFailureActionLabel": "ลองภาพนี้ใหม่",
-    "retryLabel": "สร้างใหม่"
+    "retryLabel": "สร้างใหม่",
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
+    }
   },
   "FaceSwap": {
     "moduleLabel": "สลับใบหน้า",
@@ -1877,7 +1915,11 @@
     "textureOn": "เปิด",
     "textureOff": "ปิด",
     "modeFeature": "สลับเฉพาะใบหน้า",
-    "modeFeatureHairSkin": "สลับใบหน้า ทรงผม สีผิว"
+    "modeFeatureHairSkin": "สลับใบหน้า ทรงผม สีผิว",
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "เสื้อผ้า 3D",
@@ -2003,7 +2045,11 @@
     "refDown": "ความหนาขนเป็ด",
     "refBack": "ทรงด้านหลัง",
     "refShortCoat": "โค้ทสั้น",
-    "hoverPreview": "ตัวอย่าง Hover"
+    "hoverPreview": "ตัวอย่าง Hover",
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
+    }
   },
   "History": {
     "title": "คลังผลงาน",
@@ -2391,7 +2437,11 @@
     "lightboxAlt": "ตัวอย่างการแปลภาพ",
     "waitingUploadSummary": "รออัปโหลดภาพต้นฉบับ · {count} ภาพ",
     "selectLanguageSummary": "อัปโหลดภาพต้นฉบับแล้ว {count} ภาพ · กรุณาเลือกภาษาเป้าหมาย",
-    "fullSummary": "{sources} ภาพต้นฉบับ × {langs} ภาษา × {gen} · {size}"
+    "fullSummary": "{sources} ภาพต้นฉบับ × {langs} ภาษา × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "ภาพเป็นภาพ",
@@ -2524,7 +2574,24 @@
     "missingFailLabel": "ภาพนี้สร้างล้มเหลว",
     "retryThis": "ลองภาพนี้ใหม่",
     "retryGenerate": "สร้างใหม่",
-    "retryToast": "กำลังลองภาพที่ {index} ใหม่ ภาพที่ล้มเหลวได้คืนเครดิตแล้ว หลังเสร็จจะเติมกลับเข้าผลลัพธ์ปัจจุบัน…"
+    "retryToast": "กำลังลองภาพที่ {index} ใหม่ ภาพที่ล้มเหลวได้คืนเครดิตแล้ว หลังเสร็จจะเติมกลับเข้าผลลัพธ์ปัจจุบัน…",
+    "imageToPromptDesc": "อัปโหลดภาพเพื่ออนุมานคำอธิบายเนื้อหาโดยอัตโนมัติสำหรับสร้างภาพที่คล้ายกัน",
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
+    },
+    "copyEmptyToast": "ยังไม่มีเนื้อหาให้คัดลอก",
+    "copySuccessToast": "คัดลอกแล้ว",
+    "copyFailedToast": "คัดลอกไม่สำเร็จ กรุณาคัดลอกด้วยตนเอง",
+    "uploadImageAria": "อัปโหลดรูปเพื่อสร้างพรอมต์",
+    "changeImageAria": "เปลี่ยนรูปที่ใช้สร้างพรอมต์",
+    "uploadingState": "กำลังอัปโหลด…",
+    "uploadImageButton": "อัปโหลดรูปภาพ",
+    "generatingState": "กำลังสร้าง…",
+    "promptTextareaAria": "พรอมต์จากรูปภาพ",
+    "promptTextareaPlaceholder": "หลังอัปโหลดรูป ระบบจะสร้างคำอธิบายสำหรับสร้างภาพจากข้อความที่นี่",
+    "copyButton": "คัดลอก",
+    "applyToDescription": "นำไปใช้กับคำอธิบาย"
   },
   "Grass": {
     "moduleLabel": "ภาพแนะนำสินค้า",
@@ -2676,6 +2743,10 @@
       "square": "1:1 จัตุรัส",
       "phone": "9:16 มือถือ",
       "landscape": "4:3 แนวนอน"
+    },
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
     }
   },
   "AllCategoryProduct": {
@@ -3130,6 +3201,327 @@
     },
     "aspectRatio": {
       "auto": "อัตโนมัติ"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "สรุปข้อมูลสินค้า",
+        "productInfo": "ข้อมูลสินค้า",
+        "namePlaceholder": "ยังไม่มีชื่อสินค้า",
+        "descPlaceholder": "กรอกข้อมูลแล้ว แตะแก้ไขเพื่อเพิ่มจุดขาย วัสดุ และกลุ่มเป้าหมาย"
+      },
+      "summary": {
+        "ariaLabel": "แผนวิเคราะห์สินค้า",
+        "generated": "แผนพร้อม",
+        "planCount": "วางแผนสร้าง {count} {unit}",
+        "imageQuality": "คุณภาพภาพ",
+        "qualityPrepared": "เตรียมพร้อม",
+        "collapse": "ซ่อนรายละเอียด",
+        "expand": "ดูรายละเอียด",
+        "editInfo": "แก้ไขข้อมูล",
+        "suggestSupplement": "แนะนำให้เพิ่ม: "
+      },
+      "adjustStyle": "ปรับสไตล์",
+      "profile": {
+        "ariaLabel": "โปรไฟล์สินค้า",
+        "sourceAi": "ข้อมูลภาพ",
+        "sourceFallback": "ข้อมูลพื้นฐาน",
+        "sourceRunning": "กำลังอ่าน",
+        "sourceManual": "ข้อมูลแบบกำหนดเอง",
+        "sourceConfirm": "รอยืนยัน",
+        "suggestModel": "แนะนำนางแบบ",
+        "noModel": "ไม่ใช้นางแบบ",
+        "modify": "แก้ไข"
+      },
+      "strategy": {
+        "ariaLabel": "กลยุทธ์ภาพ",
+        "title": "กลยุทธ์ภาพ",
+        "fallbackName": "กลยุทธ์ภาพ",
+        "pending": "รอประเมิน",
+        "imageQuality": "คุณภาพภาพ",
+        "currentMode": "โหมดปัจจุบัน",
+        "modeMain": "ภาพหลัก",
+        "modeDetails": "หน้าหน้ารายละเอียด",
+        "smartMatch": "จับคู่อัจฉริยะ"
+      },
+      "notice": {
+        "reading": "กำลังอ่านภาพสินค้า",
+        "needConfirm": "ข้อมูลต้องยืนยัน",
+        "incomplete": "อ่านสินค้ายังไม่เสร็จ"
+      },
+      "progress": {
+        "ariaLabel": "ความคืบหน้าการสร้างโมดูล",
+        "failed": "ล้มเหลว",
+        "done": "เสร็จแล้ว",
+        "generating": "กำลังสร้าง",
+        "queued": "เข้าคิว"
+      },
+      "modeTab": {
+        "ariaLabel": "ประเภทชุดภาพสินค้า",
+        "mainTitle": "ภาพหลัก",
+        "mainDesc": "เลือกจำนวนก่อนแล้ววิเคราะห์",
+        "detailsTitle": "หน้ารายละเอียด",
+        "detailsDesc": "เลือกจำนวนจอแล้ววิเคราะห์"
+      },
+      "stepper": {
+        "ariaLabel": "ความคืบหน้าการสร้างชุด",
+        "step1Title": "ภาพ",
+        "step1Desc": "อัปโหลด",
+        "step2Title": "ข้อมูล",
+        "step2Desc": "จำนวน",
+        "step3Title": "วิเคราะห์",
+        "step3Desc": "แผน",
+        "step4Title": "สร้าง",
+        "step4Desc": "ผลลัพธ์"
+      },
+      "count": {
+        "unselected": "ยังไม่เลือก"
+      },
+      "template": {
+        "main": "หลัก",
+        "details": "รายละเอียด",
+        "subjectConsistent": "วัตถุสอดคล้อง",
+        "layoutIndependent": "เลย์เอาต์อิสระ"
+      },
+      "upload": {
+        "uploadedReplace": "อัปโหลดแล้ว เปลี่ยนได้",
+        "dropHint": "อัปโหลด / ลากภาพ"
+      },
+      "customSource": {
+        "ariaLabel": "อัปโหลดภาพอ้างอิง",
+        "description": "อัปโหลดภาพอ้างอิงหลัก 1 ภาพ ระบบจะเข้าใจเลย์เอาต์และสไตล์ แล้วแบ่งเป็นแผน {count}",
+        "library": "คลังเทมเพลต",
+        "selectedCountMain": "จำนวนที่เลือก",
+        "selectedCountDetails": "จำนวนจอที่เลือก",
+        "added": "เพิ่มการอ้างอิงแล้ว",
+        "removeAria": "ลบ {name}",
+        "empty": "ยังไม่มีการอ้างอิง อัปโหลดภาพหลักแล้วแตะเพิ่ม — ภาพอ้างอิงส่งพร้อมภาพสินค้า และมีผลต่อสไตล์ เลย์เอาต์ นางแบบ หรือบรรยากาศเท่านั้น"
+      },
+      "referenceStyle": {
+        "title": "หมายเหตุสไตล์อ้างอิง",
+        "description": "บันทึกเฉพาะทิศทางสไตล์โดยไม่วิเคราะห์เทมเพลต และส่งไปวิเคราะห์อัจฉริยะเมื่อแตะ \"เขียนข้อมูลสินค้า\"",
+        "restoreExample": "กู้คืนตัวอย่าง",
+        "save": "บันทึกสไตล์อ้างอิง",
+        "placeholder": "เขียนสไตล์อ้างอิง แพลตฟอร์มเป้าหมาย สไตล์ภาพ ฉากเดียวกัน สี และข้อกำหนด…",
+        "hint": "เนื้อหานี้ส่งไปวิเคราะห์เป็นข้อมูลอ้างอิงสไตล์ ไม่ใช้เป็นเทมเพลตโดยตรง"
+      },
+      "profileEditor": {
+        "title": "แก้ไขการจดจำสินค้า",
+        "description": "ผลลัพธ์มีผลต่อเทมเพลตเริ่มต้น การใช้นางแบบ และขอบเขตความปลอดภัยของพรอมต์",
+        "productType": "ประเภทสินค้า",
+        "apparelSubtype": "หมวดหมู่ย่อยเครื่องแต่งกาย",
+        "modelStrategy": "กลยุทธ์นางแบบ",
+        "modelRequirement": "ข้อกำหนดนางแบบ",
+        "modelBriefPlaceholder": "เช่น นางแบบหญิงผู้ใหญ่ ฉากทำงานสไตล์ฝรั่งเศส ท่าทางธรรมชาติ เน้นทรงและความพลิ้ว ไม่โพสเกินจริง…",
+        "kind": {
+          "apparel": "เสื้อผ้า",
+          "footwear": "รองเท้า",
+          "bag": "กระเป๋า",
+          "accessory": "เครื่องประดับ",
+          "beauty": "ความงาม",
+          "electronics": "อิเล็กทรอนิกส์",
+          "home": "บ้าน",
+          "toy": "ของเล่น",
+          "food": "อาหาร",
+          "general": "ทั่วไป"
+        },
+        "apparel": {
+          "womenswear": "ผู้หญิง",
+          "menswear": "ผู้ชาย",
+          "kidswear": "เด็ก",
+          "outerwear": "เสื้อนอก / กลางแจ้ง",
+          "sportswear": "ชุดกีฬา",
+          "intimate": "ชุดชั้นใน",
+          "swimwear": "ชุดว่ายน้ำ",
+          "general": "เสื้อผ้าทั่วไป"
+        },
+        "model": {
+          "none": "ไม่ใช้นางแบบ",
+          "optional": "นางแบบตามต้องการ",
+          "recommended": "แนะนำนางแบบ",
+          "required": "ต้องใช้นางแบบ"
+        }
+      },
+      "moduleEdit": {
+        "title": "แก้ไขโมดูลการสร้าง",
+        "description": "ภาพที่ {index} · {type}",
+        "modelTypeDetails": "โมดูลหน้ารายละเอียด",
+        "modelTypeMain": "โมดูลภาพหลัก / ภาพเสริม",
+        "remove": "ลบโมดูลนี้",
+        "save": "บันทึก",
+        "fieldName": "ชื่อโมดูล",
+        "fieldRole": "บทบาทโมดูล",
+        "fieldContentScope": "ขอบเขตเนื้อหา",
+        "contentScopePlaceholder": "เช่น กล่าวถึงเฉพาะผ้าและทรง โดยไม่ซ้ำข้อเสนอทั้งหมด หรือแสดงเฉพาะนางแบบและบรรยากาศ",
+        "fieldLayoutRules": "กฎเลย์เอาต์",
+        "fieldTextRules": "กฎข้อความ",
+        "fieldAvoidRules": "กฎที่หลีกเลี่ยง",
+        "fieldTypeDescription": "คำอธิบายเทมเพลต",
+        "aspectRatio": "อัตราส่วนภาพ",
+        "subjectConsistency": "วัตถุสอดคล้อง",
+        "modelConsistency": "นางแบบสอดคล้อง",
+        "intelligentCopy": "ข้อความอัจฉริยะ",
+        "copyDensity": "ความหนาแน่นข้อความ",
+        "copyDensityNone": "ไม่มีข้อความ",
+        "copyDensityLight": "ข้อความเบา",
+        "copyDensityStandard": "ข้อความมาตรฐาน",
+        "copyDensityRich": "ข้อความเข้มข้น",
+        "modelAdviceOn": "โมดูลนี้ให้ความสำคัญนางแบบ/ฉากสวมใส่ หากไม่ต้องการนางแบบ ให้เปลี่ยนบทบาทเป็นพื้นขาว รายละเอียด ไซส์ หรือปิดความสอดคล้องของนางแบบ",
+        "modelAdviceOff": "โมดูลนี้ไม่ใช้นางแบบตามค่าเริ่มต้น เหมาะกับพื้นขาว รายละเอียด ขนาด วัสดุ บรรจุภัณฑ์ หรือข้อมูลจำเพาะ",
+        "fieldExtraDescription": "คำอธิบายเพิ่มเติม",
+        "extraDescriptionPlaceholder": "เขียนเฉพาะข้อกำหนดพิเศษของภาพนี้ เช่น ไม่มีภาพย่อด้านล่างในแบนเนอร์ผู้หญิง ภาพรายละเอียดแสดงเฉพาะฮู้ด ปลายแขน และกระเป๋า"
+      },
+      "settings": {
+        "title": "ตั้งค่าเพิ่มเติม",
+        "description": "ควบคุมตลาดเป้าหมาย ข้อความภาพ และสไตล์ภาพ ส่วนโมเดล อัตราส่วน และความละเอียดตั้งค่าด้านซ้าย",
+        "country": "ประเทศ / ภูมิภาคเป้าหมาย",
+        "language": "ภาษาข้อความภาพ",
+        "platform": "แพลตฟอร์มเป้าหมาย",
+        "theme": "สีธีม",
+        "themeAuto": "ธีมอัจฉริยะ",
+        "themeCustom": "สีกำหนดเอง",
+        "themeCustomLabel": "สีธีมกำหนดเอง",
+        "themeColorPlaceholder": "เช่น ขาวครีม + น้ำเงินเดนิม + ชมพูกุหลาบ…",
+        "fontStyle": "สไตล์ฟอนต์",
+        "extraDescription": "คำอธิบายเพิ่มเติม",
+        "extraDescriptionPlaceholder": "เช่น ผู้หญิงสไตล์ทำงานฝรั่งเศส ไม่โพสเกินจริง ข้อความสั้น…"
+      },
+      "favorite": {
+        "ariaLabel": "เทมเพลตที่บันทึกไว้ของฉัน",
+        "description": "บันทึกแผนภาพปัจจุบันหรือเทมเพลตกำหนดเอง และนำไปใช้ได้ทันทีเมื่อเปลี่ยนสินค้าครั้งหน้า",
+        "setsCount": "{count} ชุด",
+        "nameLabel": "ชื่อแผนที่บันทึก",
+        "saving": "กำลังบันทึก…",
+        "save": "บันทึก",
+        "loading": "กำลังโหลดแผนที่บันทึก…",
+        "apply": "นำไปใช้",
+        "deleteAria": "ลบแผน {name}",
+        "modelPrefix": "นางแบบ · ",
+        "empty": "ยังไม่มีแผนที่บันทึก ปรับแผนปัจจุบันแล้วแตะบันทึก",
+        "planCustom": "แผนกำหนดเอง",
+        "planVisual": "แผนภาพ",
+        "typeDetails": "หน้ารายละเอียด",
+        "typeMain": "ภาพหลัก",
+        "justNow": "เมื่อสักครู่"
+      },
+      "genSettings": {
+        "title": "ตั้งค่าการสร้าง",
+        "advQuality": "QA ขั้นสูง",
+        "stdQuality": "QA มาตรฐาน",
+        "adjust": "ปรับ"
+      },
+      "modelConfig": {
+        "ariaLabel": "ตัวเลือกการตั้งค่าการสร้าง",
+        "model": "โมเดลการสร้าง",
+        "resolution": "ความละเอียด",
+        "sizeCost": "{size} · {cost} เครดิต",
+        "detailsWarning": "หน้ารายละเอียดมีชื่อ ป้าย และรายละเอียดเฉพาะจุด — 1K ทำให้ข้อความเล็กเบลอ เริ่มจาก 2K เพื่อคุณภาพและความชัดเจนที่ดีขึ้น",
+        "quality": "ระดับการสร้าง",
+        "standardMode": "โหมดมาตรฐาน",
+        "advancedMode": "โหมดขั้นสูง",
+        "aspectAutoNote": "อัตราส่วนอัตโนมัติตามเทมเพลต",
+        "aspectAutoDetail": "แบนเนอร์ ภาพรายละเอียด และภาพหลักพื้นขาวใช้แต่ละอัตราส่วนของตัวเอง เพื่อไม่ให้อัตราส่วนเดียวทำให้ทั้งชุดเพี้ยน"
+      },
+      "planList": {
+        "empty": "ยังไม่ได้เลือกเทมเพลต — เปิดคลังเพื่อเพิ่ม",
+        "ariaLabel": "ลำดับโมดูลการสร้าง",
+        "details": "หน้ารายละเอียด",
+        "main": "ภาพหลัก / ภาพเสริม",
+        "model": "นางแบบ",
+        "editAria": "แก้ไขโมดูล {name}",
+        "removeAria": "ลบโมดูล {name}",
+        "collapsed": "ซ่อนโมดูลถัดไปอีก {count} โมดูล แตะดูทั้งหมดมุมขวาบน"
+      },
+      "recommendation": {
+        "ariaLabel": "แผนผู้กำกับภาพ",
+        "safeTemplate": "เทมเพลตปลอดภัย",
+        "withModel": "มีนางแบบ",
+        "lowRisk": "ความเสี่ยงต่ำ",
+        "recommended": "แนะนำ: สร้าง {count} {unit}",
+        "modelPrefix": "นางแบบ · "
+      },
+      "quickStart": {
+        "mainRef": "ภาพอ้างอิงหลัก",
+        "modelRef": "ภาพอ้างอิงนางแบบ",
+        "styleHint": "สไตล์ / เลย์เอาต์",
+        "optional": "ตามต้องการ",
+        "extraRef": "ภาพอ้างอิงเพิ่ม {count}/3",
+        "focusLabel": "จุดเน้นอ้างอิง",
+        "advancedSettings": "ตั้งค่าขั้นสูง",
+        "aspectRatio": "อัตราส่วนภาพ",
+        "specialRequirement": "ข้อกำหนดพิเศษ",
+        "extraPlaceholder": "เช่น ไม่มีข้อความ ไม่มีหน้านางแบบ เน้นรายละเอียด…",
+        "uploadRefFirst": "กรุณาอัปโหลดภาพอ้างอิงหลักก่อน",
+        "selectCountFirst": "กรุณาเลือก {unit} ก่อน",
+        "countUnitMain": "จำนวนภาพ",
+        "countUnitDetails": "จำนวนจอ",
+        "addRefAndGenerate": "เพิ่มภาพอ้างอิงและสร้างแผน {count} {unit}",
+        "intent": {
+          "autoDetect": "จดจำอัตโนมัติ",
+          "wearing": "โชว์การสวมใส่",
+          "poster": "โปสเตอร์จุดขาย",
+          "scene": "บรรยากาศฉาก",
+          "autoSplit": "แบ่งอัตโนมัติ",
+          "hero": "แบนเนอร์หลัก",
+          "sellingPoints": "จุดขาย",
+          "detailsTexture": "รายละเอียดและเนื้อผ้า"
+        },
+        "defaultNameDetails": "แผนรายละเอียดอ้างอิง",
+        "defaultNameMain": "แผนภาพหลักอ้างอิง"
+      },
+      "results": {
+        "exampleAlt": "ตัวอย่างชุดภาพสินค้า",
+        "guideTitle": "เริ่มสร้างชุดภาพ",
+        "guideSubtitle": "วิเคราะห์ข้อมูลก่อน แล้วสร้างแผนภาพหลัก / หน้ารายละเอียดตามจำนวนที่เลือก",
+        "guideStep1Title": "อัปโหลดภาพสินค้า",
+        "guideStep1Desc": "มากสุด 3 ภาพ รวมหน้าตรง ด้านข้าง ด้านหลัง หรือรายละเอียด เพื่อให้ระบบประเมินโครงสร้างและจุดขาย",
+        "guideStep2Title": "วิเคราะห์ข้อมูล",
+        "guideStep2Desc": "ระบบจัดวางแพลตฟอร์ม สไตล์ ฉาก จุดขาย จุดเจ็บปวด กลุ่มเป้าหมาย พารามิเตอร์ และสี",
+        "guideStep3Title": "สร้างแผนชุดภาพ",
+        "guideStep3Desc": "สร้างแผนเฉพาะท้องถิ่นตาม {count} {unit} แล้วเริ่มสร้าง",
+        "guideStep3CountFallback": "ที่เลือก",
+        "loadingModule": "ชุดภาพสินค้า",
+        "loadingRef": "อ้างอิงสินค้า {index}",
+        "failedTitle": "สร้างชุดภาพล้มเหลว",
+        "retry": "ลองใหม่",
+        "resultAria": "ผลลัพธ์ชุดภาพ",
+        "generatingTitle": "กำลังสร้างชุดภาพ",
+        "resultTitle": "ผลลัพธ์ชุดภาพ",
+        "generatedCount": "{current}/{total} เสร็จ",
+        "progressCount": "{progress}% สร้างแล้ว",
+        "completed": "เสร็จแล้ว",
+        "progressAria": "ความคืบหน้าการสร้างชุดภาพ",
+        "cardFallback": "ผลลัพธ์ {index}",
+        "previewAria": "ดูตัวอย่าง {name}",
+        "resultAlt": "ชุดภาพสินค้า {index}",
+        "moduleFailed": "โมดูลนี้ล้มเหลว",
+        "regenerating": "กำลังสร้างใหม่…",
+        "regenerate": "สร้างใหม่ภาพนี้",
+        "waiting": "รอการสร้าง",
+        "waitingDesc": "โมดูลนี้เติมช่องดูตัวอย่างอัตโนมัติเมื่อเสร็จ",
+        "statusGenerated": "สร้างแล้ว",
+        "statusFailed": "ล้มเหลว",
+        "statusGenerating": "กำลังสร้าง",
+        "regenerateAria": "สร้างใหม่ {name}",
+        "downloadAria": "ดาวน์โหลด {name}"
+      },
+      "library": {
+        "title": "คลังเทมเพลตอ้างอิง",
+        "description": "เทมเพลตควบคุมเฉพาะวัตถุประสงค์ เลย์เอาต์ และทิศทางภาพ — สินค้าสุดท้ายใช้ภาพที่คุณอัปโหลด",
+        "searchLabel": "ค้นหาเทมเพลต",
+        "searchPlaceholder": "ค้นหาเทมเพลต…",
+        "filterAria": "ตัวกรองเทมเพลต",
+        "allDetails": "เทมเพลตหน้ารายละเอียดทั้งหมด",
+        "allMain": "เทมเพลตภาพหลักทั้งหมด",
+        "womenswearScene": "ฉากผู้หญิง",
+        "selectedCount": "เลือก {count}",
+        "empty": "ไม่มีเทมเพลตตรงกับตัวกรอง",
+        "uploadReference": "อัปโหลดภาพอ้างอิง",
+        "customTitle": "อัปโหลดภาพอ้างอิงของคุณ",
+        "customDesc": "ไม่ต้องใช้กฎซับซ้อน แค่อัปโหลดภาพและเลือกจุดเน้น",
+        "customStyles": "สไตล์กำหนดเอง",
+        "removeAria": "ลบ {name}",
+        "customEmpty": "อัปโหลดเทมเพลตอ้างอิงของคุณเองเพื่อสร้างสไตล์ชุดภาพเฉพาะตัวพร้อมคำอธิบาย"
+      }
     }
   },
   "Video": {
@@ -3320,7 +3712,11 @@
     "motionStepGenerateTitle": "สร้างวิดีโอ",
     "motionStepGenerateDesc": "แสดงผลลัพธ์ท่าทางเดียวกัน",
     "motionStepGenerateAlt": "สร้างวิดีโอ",
-    "badgeGenerateVideoMotion": "สร้างวิดีโอ"
+    "badgeGenerateVideoMotion": "สร้างวิดีโอ",
+    "runBar": {
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
+    }
   },
   "Create": {
     "tryon": {
@@ -3394,7 +3790,9 @@
       "roleExtra": "ไอเท็มเข้าชุด",
       "modeMulti": "เสื้อและกางเกง",
       "modeSingle": "ชิ้นเดียว",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "อัปโหลดภาพหลักเครื่องแต่งกายก่อน",
+      "uploadFirstDesc": "หลังอัปโหลด คุณสามารถเพิ่มรายละเอียดคอเสื้อ ผ้า โลโก้ ด้านหลังหรือด้านข้างใต้เครื่องแต่งกายที่สอดคล้อง"
     },
     "favorite": {
       "loginRequired": "กรุณาเข้าสู่ระบบก่อนเก็บ",
@@ -3449,7 +3847,26 @@
       "maxCount": "ภาพรายละเอียดเสื้อผ้าสูงสุด {count} ภาพ",
       "remainingTruncated": "เพิ่มภาพรายละเอียดได้อีกสูงสุด {count} ภาพ ตัดอัตโนมัติแล้ว",
       "uploadingFiles": "กำลังอัปโหลดภาพรายละเอียดเสื้อผ้า {count} ภาพ…",
-      "added": "เพิ่มภาพรายละเอียด {count} ภาพให้{owner}แล้ว"
+      "added": "เพิ่มภาพรายละเอียด {count} ภาพให้{owner}แล้ว",
+      "switchLabel": "การอ้างอิงรายละเอียดเครื่องแต่งกาย",
+      "switchDescription": "เพิ่มรายละเอียดเฉพาะจุด เช่น ผ้า คอเสื้อ กระเป๋า หรือกระดุม รวมถึงด้านหลังและด้านข้าง เปิดแล้วมากสุด 5 ภาพ โดยไม่เปลี่ยนบุคคล ท่าทาง พื้นหลัง หรือโทนโดยรวม",
+      "sectionTitle": "เพิ่มรายละเอียดให้เครื่องแต่งกายแต่ละชิ้น",
+      "maxCountTitle": "มากสุด {count} ภาพรายละเอียด",
+      "addForRole": "เพิ่มภาพรายละเอียด {role}",
+      "mainImageAlt": "ภาพหลัก {role}",
+      "previewMainAria": "ดูตัวอย่างภาพหลัก {role}",
+      "roleDetailTitle": "รายละเอียด {role}",
+      "onlyItem": "เฉพาะวัสดุ โครงสร้าง หรือภาพใกล้ของชิ้นนี้",
+      "detailCount": "{count} ภาพ",
+      "detailAlt": "รายละเอียด {role} {index}",
+      "previewDetailAria": "ดูตัวอย่างรายละเอียด {role} {index}",
+      "removeDetailAria": "ลบรายละเอียด {role} {index}",
+      "unassignedTitle": "รายละเอียดประวัติที่ยังไม่จัดสรร",
+      "unassignedCount": "{count} ภาพ",
+      "unassignedAlt": "รายละเอียดไม่จัดสรร {index}",
+      "previewUnassignedAria": "ดูตัวอย่างรายละเอียดไม่จัดสรร {index}",
+      "removeUnassignedAria": "ลบรายละเอียดไม่จัดสรร {index}",
+      "unassignedHint": "ภาพรายละเอียดจากงานก่อนไม่มีการจัดสรร และใช้เบา ๆ เฉพาะเมื่อตรงกันชัดเจน"
     },
     "model": {
       "pleaseUploadImage": "กรุณาอัปโหลดไฟล์ภาพ",
@@ -3531,7 +3948,11 @@
       "recognizingClothing": "กำลังจดจำเสื้อผ้า",
       "recommending": "กำลังแนะนำฉาก",
       "previewSelected": "ตัวอย่างภาพอ้างอิงที่เลือก：{label}",
-      "addSystemScene": "เพิ่มภาพอ้างอิงระบบ"
+      "addSystemScene": "เพิ่มภาพอ้างอิงระบบ",
+      "footerSelected": "เลือก {selected}/{max}",
+      "footerDeleteAll": "ลบทั้งหมด",
+      "footerSaving": "กำลังบันทึก",
+      "footerSaveAsTemplate": "บันทึกเป็นเทมเพลต"
     },
     "autoDesign": {
       "platform": "แผนการถ่ายภาพ",
@@ -3782,6 +4203,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "ดูตัวอย่างเมื่อวางเมาส์",
+    "lightbox": {
+      "previewAlt": "ดูตัวอย่างภาพทดลองสวม"
     }
   },
   "Pose": {
@@ -4114,7 +4539,9 @@
       "continueGenerating": "สร้างต่อ",
       "generateRefs": "สร้าง {count} ภาพอิสระ",
       "generatePoses": "สร้าง {count} ภาพท่าทาง",
-      "generateGrid": "สร้าง {count} ตารางท่าทาง"
+      "generateGrid": "สร้าง {count} ตารางท่าทาง",
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
     },
     "previewGuide": {
       "title": "ภาพเดียว สร้างหลายท่าทาง",

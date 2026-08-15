@@ -666,7 +666,12 @@
     "saveBadge": "وفّر",
     "perMonth": "/شهرياً",
     "startSubscription": "بدء الاشتراك",
-    "buyNow": "اشترِ الآن"
+    "buyNow": "اشترِ الآن",
+    "error": {
+      "title": "تعذّر تحميل صفحة الشراء",
+      "fallback": "حدث خطأ أثناء عرض هذه الصفحة. يُرجى المحاولة مرة أخرى.",
+      "retry": "إعادة المحاولة"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "صور منتجات جميع الفئات",
@@ -877,7 +882,9 @@
       "roleExtra": "إكسسوار",
       "modeMulti": "الجزء العلوي والسفلي",
       "modeSingle": "قطعة واحدة",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "ارفع الصورة الرئيسية للملابس أولاً",
+      "uploadFirstDesc": "بعد الرفع يمكنك إضافة تفاصيل الياقة والقماش والشعار والظهر أو الجوانب تحت الملابس المقابلة."
     },
     "favorite": {
       "loginRequired": "سجّل الدخول لحفظ المفضلة",
@@ -932,7 +939,26 @@
       "maxCount": "حتى {count} صورة تفاصيل ملابس",
       "remainingTruncated": "يمكن إضافة {count} صورة تفاصيل أخرى كحد أقصى؛ تم قص الفائض",
       "uploadingFiles": "جارٍ تحميل {count} صورة تفاصيل ملابس…",
-      "added": "تمت إضافة {count} صورة تفاصيل لـ {owner}"
+      "added": "تمت إضافة {count} صورة تفاصيل لـ {owner}",
+      "switchLabel": "مرجع تفاصيل الملابس",
+      "switchDescription": "أضف تفاصيل موضعية مثل القماش وفتحة الرقبة والجيوب أو الأزرار، إضافة إلى الظهر والجوانب. حتى 5 صور، دون تغيير الشخص أو الوضعية أو الخلفية أو النغمة العامة.",
+      "sectionTitle": "أضف تفاصيل لكل قطعة ملابس",
+      "maxCountTitle": "حتى {count} صور تفاصيل",
+      "addForRole": "أضف صورة تفاصيل {role}",
+      "mainImageAlt": "الصورة الرئيسية {role}",
+      "previewMainAria": "معاينة الصورة الرئيسية {role}",
+      "roleDetailTitle": "تفاصيل {role}",
+      "onlyItem": "فقط مادة هذه القطعة أو بنيتها أو لقطاتها القريبة.",
+      "detailCount": "{count} صورة",
+      "detailAlt": "تفصيل {role} {index}",
+      "previewDetailAria": "معاينة تفصيل {role} {index}",
+      "removeDetailAria": "إزالة تفصيل {role} {index}",
+      "unassignedTitle": "تفاصيل تاريخية غير مخصصة",
+      "unassignedCount": "{count} صورة",
+      "unassignedAlt": "تفصيل غير مخصص {index}",
+      "previewUnassignedAria": "معاينة تفصيل غير مخصص {index}",
+      "removeUnassignedAria": "إزالة تفصيل غير مخصص {index}",
+      "unassignedHint": "صور التفاصيل من المهام السابقة بلا تخصيص وتُستخدم فقط بشكل خفيف عند وجود تطابق واضح."
     },
     "model": {
       "pleaseUploadImage": "يرجى تحميل ملف صورة",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "جارٍ التعرف على الملابس",
       "recommending": "جارٍ التوصية بالمشهد",
       "previewSelected": "معاينة المرجع المحدد: {label}",
-      "addSystemScene": "إضافة مرجع نظامي"
+      "addSystemScene": "إضافة مرجع نظامي",
+      "footerSelected": "المحدد {selected}/{max}",
+      "footerDeleteAll": "حذف الكل",
+      "footerSaving": "جارٍ الحفظ",
+      "footerSaveAsTemplate": "حفظ كقالب"
     },
     "autoDesign": {
       "platform": "خطة التصوير",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "معاينة عند التمرير",
+    "lightbox": {
+      "previewAlt": "معاينة صورة التجربة"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "مفعل",
     "textureOff": "متوقف",
     "modeFeature": "الملامح فقط",
-    "modeFeatureHairSkin": "الملامح + الشعر والبشرة"
+    "modeFeatureHairSkin": "الملامح + الشعر والبشرة",
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "ملابس ثلاثية الأبعاد",
@@ -1533,7 +1571,11 @@
     "refDown": "سترة منتفخة",
     "refBack": "صورة ظلّ خلفية",
     "refShortCoat": "معطف قصير",
-    "hoverPreview": "معاينة عند التحويم"
+    "hoverPreview": "معاينة عند التحويم",
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "من صورة إلى صورة",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "فشل توليد هذه الصورة",
     "retryThis": "أعد محاولة هذه الصورة",
     "retryGenerate": "إعادة التوليد",
-    "retryToast": "جارٍ إعادة محاولة الخانة {index}… تُرد الصور الفاشلة وتُدرج ضمن النتائج عند الاكتمال…"
+    "retryToast": "جارٍ إعادة محاولة الخانة {index}… تُرد الصور الفاشلة وتُدرج ضمن النتائج عند الاكتمال…",
+    "imageToPromptDesc": "ارفع صورة لاستنتاج وصف المحتوى تلقائيًا لإنشاء صور مشابهة.",
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
+    },
+    "copyEmptyToast": "لا يوجد محتوى للنسخ بعد",
+    "copySuccessToast": "تم النسخ",
+    "copyFailedToast": "فشل النسخ، يُرجى النسخ يدويًا",
+    "uploadImageAria": "ارفع صورة لاستخراج الوصف",
+    "changeImageAria": "تغيير الصورة المستخدمة للوصف",
+    "uploadingState": "جارٍ الرفع…",
+    "uploadImageButton": "رفع صورة",
+    "generatingState": "جارٍ الإنشاء…",
+    "promptTextareaAria": "الوصف المستخرج من الصورة",
+    "promptTextareaPlaceholder": "بعد رفع الصورة، سيُنشأ هنا وصف يُستخدم في توليد الصور من النص.",
+    "copyButton": "نسخ",
+    "applyToDescription": "تطبيق على الوصف"
   },
   "Grass": {
     "moduleLabel": "صور ترويجية",
@@ -1818,6 +1877,10 @@
       "square": "1:1 مربع",
       "phone": "9:16 موبايل",
       "landscape": "4:3 أفقي"
+    },
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "معاينة ترجمة الصور",
     "waitingUploadSummary": "في انتظار التحميل · {count} صورة",
     "selectLanguageSummary": "تم تحميل {count} صورة مصدر · اختر لغة مستهدفة",
-    "fullSummary": "{sources} مصادر × {langs} لغات × {gen} · {size}"
+    "fullSummary": "{sources} مصادر × {langs} لغات × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "جارٍ تحميل معاملات تحسين الخامات",
       "previewAria": "جارٍ تحميل منطقة المعاينة"
+    },
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "احصل على شخصية متسقة يمكن إعادة استخدامها للتجربة والمرئيات التجارية.",
     "missingFailureLabel": "فشلت هذه الصورة",
     "missingFailureActionLabel": "أعد محاولة هذه",
-    "retryLabel": "إعادة التوليد"
+    "retryLabel": "إعادة التوليد",
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
+    }
   },
   "ModelBackground": {
     "title": "تغيير الخلفية",
@@ -2842,6 +2917,10 @@
       "upload": "رفع خلفية",
       "text": "خلفية من نص",
       "auto": "تصميم تلقائي"
+    },
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
     }
   },
   "ProductRetouch": {
@@ -2969,6 +3048,14 @@
       "step2Desc": "اضبط بشكل موحد وضع التنقيح والنموذج والنسبة وكمية الإخراج لكل منتج.",
       "step3Title": "عرض نتائج الدفعة",
       "step3Desc": "تُجمّع النتائج حسب المنتج؛ ويمكنك معاينتها وإعادة محاولة عناصر مفردة أو تنزيلها حسب المنتج أو للدفعة كاملة."
+    },
+    "empty": {
+      "title": "لا توجد نتائج للمنتجات بعد",
+      "description": "ستظهر نتائج كل منتج تلقائيًا بعد رفع الصور."
+    },
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
     }
   },
   "ProductSet": {
@@ -3286,6 +3373,327 @@
     },
     "aspectRatio": {
       "auto": "تلقائي"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "ملخص معلومات المنتج",
+        "productInfo": "معلومات المنتج",
+        "namePlaceholder": "اسم المنتج لم يُحدد",
+        "descPlaceholder": "تم تعبئة معلومات المنتج. اضغط «تعديل» لإضافة نقاط البيع والمواد والجمهور."
+      },
+      "summary": {
+        "ariaLabel": "خطة تحليل المنتج",
+        "generated": "الخطة جاهزة",
+        "planCount": "التخطيط لإنشاء {count} {unit}",
+        "imageQuality": "جودة الصورة",
+        "qualityPrepared": "جاهزة",
+        "collapse": "إخفاء التفاصيل",
+        "expand": "عرض التفاصيل",
+        "editInfo": "تعديل المعلومات",
+        "suggestSupplement": "يُنصح بإضافة: "
+      },
+      "adjustStyle": "ضبط النمط",
+      "profile": {
+        "ariaLabel": "ملف المنتج",
+        "sourceAi": "معلومات الصورة",
+        "sourceFallback": "معلومات أساسية",
+        "sourceRunning": "جارٍ القراءة",
+        "sourceManual": "معلومات يدوية",
+        "sourceConfirm": "قيد التأكيد",
+        "suggestModel": "نموذج مُقترح",
+        "noModel": "بدون نموذج",
+        "modify": "تعديل"
+      },
+      "strategy": {
+        "ariaLabel": "الاستراتيجية المرئية",
+        "title": "الاستراتيجية المرئية",
+        "fallbackName": "الاستراتيجية المرئية",
+        "pending": "قيد التقييم",
+        "imageQuality": "جودة الصورة",
+        "currentMode": "الوضع الحالي",
+        "modeMain": "الصور الرئيسية",
+        "modeDetails": "صفحة التفاصيل",
+        "smartMatch": "مطابقة ذكية"
+      },
+      "notice": {
+        "reading": "جارٍ قراءة صور المنتج",
+        "needConfirm": "المعلومات تحتاج تأكيدًا",
+        "incomplete": "قراءة المنتج غير مكتملة"
+      },
+      "progress": {
+        "ariaLabel": "تقدم توليد الوحدات",
+        "failed": "فشل",
+        "done": "تم",
+        "generating": "توليد",
+        "queued": "في الانتظار"
+      },
+      "modeTab": {
+        "ariaLabel": "نوع مجموعة المنتج",
+        "mainTitle": "الصور الرئيسية",
+        "mainDesc": "اختر العدد ثم حلّل",
+        "detailsTitle": "صفحة التفاصيل",
+        "detailsDesc": "اختر الشاشات ثم حلّل"
+      },
+      "stepper": {
+        "ariaLabel": "تقدم إنشاء المجموعة",
+        "step1Title": "الصور",
+        "step1Desc": "رفع",
+        "step2Title": "معلومات",
+        "step2Desc": "العدد",
+        "step3Title": "تحليل",
+        "step3Desc": "الخطة",
+        "step4Title": "توليد",
+        "step4Desc": "الإخراج"
+      },
+      "count": {
+        "unselected": "غير محدد"
+      },
+      "template": {
+        "main": "رئيسية",
+        "details": "تفاصيل",
+        "subjectConsistent": "موضوع متناسق",
+        "layoutIndependent": "تخطيط مستقل"
+      },
+      "upload": {
+        "uploadedReplace": "مُرفع، قابل للاستبدال",
+        "dropHint": "رفع / سحب الصورة"
+      },
+      "customSource": {
+        "ariaLabel": "رفع مرجع",
+        "description": "ارفع صورة مرجعية رئيسية واحدة وسيفهم النظام التخطيط والنمط ثم يقسمها إلى خطة من {count}.",
+        "library": "مكتبة القوالب",
+        "selectedCountMain": "العدد المختار",
+        "selectedCountDetails": "الشاشات المختارة",
+        "added": "تمت إضافة المراجع",
+        "removeAria": "إزالة {name}",
+        "empty": "لا توجد مراجع بعد. ارفع صورة رئيسية واضغط «إضافة» — يُرسل المرجع مع صور المنتج ويؤثر فقط على النمط والتخطيط والنموذج أو الأجواء."
+      },
+      "referenceStyle": {
+        "title": "ملاحظات نمط المرجع",
+        "description": "يُحفظ اتجاه النمط فقط دون تحليل القوالب؛ وعند الضغط على «اكتب معلومات المنتج» يُمرَّر إلى التحليل الذكي.",
+        "restoreExample": "استعادة المثال",
+        "save": "حفظ نمط المرجع",
+        "placeholder": "اكتب نمط المرجع والمنصة المستهدفة والنمط المرئي والمشهد الموحد ولوحة الألوان والمتطلبات…",
+        "hint": "يُمرَّر هذا المحتوى إلى التحليل كمرجع نمط ولا يُستخدم مباشرة كقالب."
+      },
+      "profileEditor": {
+        "title": "تصحيح التعرف على المنتج",
+        "description": "تؤثر النتائج على القالب الافتراضي واستخدام النموذج وحدود أمان التلميح.",
+        "productType": "نوع المنتج",
+        "apparelSubtype": "فئة الملابس الفرعية",
+        "modelStrategy": "استراتيجية النموذج",
+        "modelRequirement": "متطلبات النموذج",
+        "modelBriefPlaceholder": "مثال: عارضة بالغة في مشهد مكتبي فرنسي، وضعيات طبيعية تُبرز القصّة والانسيابية، دون وضعيات مبالغ فيها…",
+        "kind": {
+          "apparel": "ملابس",
+          "footwear": "أحذية",
+          "bag": "حقائب",
+          "accessory": "إكسسوارات",
+          "beauty": "تجميل",
+          "electronics": "إلكترونيات",
+          "home": "منزل",
+          "toy": "ألعاب",
+          "food": "أغذية",
+          "general": "عام"
+        },
+        "apparel": {
+          "womenswear": "نساء",
+          "menswear": "رجال",
+          "kidswear": "أطفال",
+          "outerwear": "ملابس خارجية",
+          "sportswear": "ملابس رياضية",
+          "intimate": "ملابس داخلية",
+          "swimwear": "ملابس سباحة",
+          "general": "ملابس عامة"
+        },
+        "model": {
+          "none": "بدون نموذج",
+          "optional": "نموذج اختياري",
+          "recommended": "نموذج مُقترح",
+          "required": "نموذج مطلوب"
+        }
+      },
+      "moduleEdit": {
+        "title": "تعديل وحدة التوليد",
+        "description": "الصورة {index} · {type}",
+        "modelTypeDetails": "وحدة صفحة التفاصيل",
+        "modelTypeMain": "وحدة الصورة الرئيسية / المساعدة",
+        "remove": "إزالة هذه الوحدة",
+        "save": "حفظ",
+        "fieldName": "اسم الوحدة",
+        "fieldRole": "دور الوحدة",
+        "fieldContentScope": "نطاق المحتوى",
+        "contentScopePlaceholder": "مثال: تغطية القماش والقصّة فقط دون تكرار الحجة كاملة؛ أو عرض النموذج والأجواء فقط.",
+        "fieldLayoutRules": "قواعد التخطيط",
+        "fieldTextRules": "قواعد النص",
+        "fieldAvoidRules": "قواعد المنع",
+        "fieldTypeDescription": "وصف القالب",
+        "aspectRatio": "نسبة العرض",
+        "subjectConsistency": "موضوع متناسق",
+        "modelConsistency": "نموذج متناسق",
+        "intelligentCopy": "نص ذكي",
+        "copyDensity": "كثافة النص",
+        "copyDensityNone": "بدون نص",
+        "copyDensityLight": "نص خفيف",
+        "copyDensityStandard": "نص قياسي",
+        "copyDensityRich": "نص غني",
+        "modelAdviceOn": "تفضل هذه الوحدة النموذج / مشهد الارتداء. إذا لم ترغب بنموذج، غيّر الدور إلى خلفية بيضاء أو تفاصيل أو مقاسات أو أوقف تناسق النموذج.",
+        "modelAdviceOff": "لا تستخدم هذه الوحدة نموذجًا افتراضيًا وتناسب الخلفية البيضاء والتفاصيل والأبعاد والمادة والتغليف أو المواصفات.",
+        "fieldExtraDescription": "وصف إضافي",
+        "extraDescriptionPlaceholder": "اكتب فقط متطلبات هذه الصورة، مثل: بدون صور مصغرة أسفل البانر النسائي؛ تعرض صورة التفاصيل الغطاء والأكمام والجيوب فقط."
+      },
+      "settings": {
+        "title": "مزيد من الإعدادات",
+        "description": "يتحكم بالسوق المستهدف ونص الصورة والنمط المرئي؛ يُضبط النموذج والنسبة والدقة على اليسار.",
+        "country": "البلد / المنطقة المستهدفة",
+        "language": "لغة نص الصورة",
+        "platform": "المنصة المستهدفة",
+        "theme": "لون السمة",
+        "themeAuto": "سمة ذكية",
+        "themeCustom": "لون مخصص",
+        "themeCustomLabel": "لون سمة مخصص",
+        "themeColorPlaceholder": "مثال: أبيض كريمي + أزرق دنيم + وردي…",
+        "fontStyle": "نمط الخط",
+        "extraDescription": "وصف إضافي",
+        "extraDescriptionPlaceholder": "مثال: نمط مكتبي فرنسي نسائي، دون وضعيات مبالغ فيها، نص قصير…"
+      },
+      "favorite": {
+        "ariaLabel": "قوالبي المحفوظة",
+        "description": "احفظ الخطة المرئية الحالية أو القالب المخصص وطبّقه مباشرة عند تبديل المنتج.",
+        "setsCount": "{count} مجموعات",
+        "nameLabel": "اسم الخطة المحفوظة",
+        "saving": "جارٍ الحفظ…",
+        "save": "حفظ",
+        "loading": "جارٍ تحميل خططك المحفوظة…",
+        "apply": "تطبيق",
+        "deleteAria": "حذف الخطة {name}",
+        "modelPrefix": "نموذج · ",
+        "empty": "لا توجد خطط محفوظة. اضبط الخطة الحالية ثم اضغط «حفظ».",
+        "planCustom": "خطة مخصصة",
+        "planVisual": "خطة مرئية",
+        "typeDetails": "صفحة التفاصيل",
+        "typeMain": "الصور الرئيسية",
+        "justNow": "الآن"
+      },
+      "genSettings": {
+        "title": "إعدادات التوليد",
+        "advQuality": "مراجعة جودة متقدمة",
+        "stdQuality": "مراجعة جودة قياسية",
+        "adjust": "ضبط"
+      },
+      "modelConfig": {
+        "ariaLabel": "خيارات التوليد",
+        "model": "نموذج التوليد",
+        "resolution": "الدقة",
+        "sizeCost": "{size} · {cost} رصيد",
+        "detailsWarning": "تحتوي صفحات التفاصيل على عناوين وتسميات وتفاصيل موضعية — تعمل 1K على تشويش النص الصغير. ابدأ من 2K لجودة وقراءة أفضل.",
+        "quality": "مستوى التوليد",
+        "standardMode": "الوضع القياسي",
+        "advancedMode": "الوضع المتقدم",
+        "aspectAutoNote": "النسبة تلقائيًا حسب القالب",
+        "aspectAutoDetail": "تستخدم البانرات وصور التفاصيل والصور الرئيسية ذات الخلفية البيضاء كلٌّ نسبتها الخاصة، حتى لا تشوّه نسبة واحدة المجموعة."
+      },
+      "planList": {
+        "empty": "لم يُحدد قالب بعد — افتح المكتبة لإضافة واحد.",
+        "ariaLabel": "ترتيب وحدات التوليد",
+        "details": "صفحة التفاصيل",
+        "main": "صورة رئيسية / مساعدة",
+        "model": "نموذج",
+        "editAria": "تعديل الوحدة {name}",
+        "removeAria": "إزالة الوحدة {name}",
+        "collapsed": "تم إخفاء {count} وحدة إضافية. اضغط «عرض الكل» أعلى اليمين."
+      },
+      "recommendation": {
+        "ariaLabel": "خطة المدير المرئي",
+        "safeTemplate": "قالب آمن",
+        "withModel": "مع نموذج",
+        "lowRisk": "منخفض الخطورة",
+        "recommended": "مُقترح: إنشاء {count} {unit}",
+        "modelPrefix": "نموذج · "
+      },
+      "quickStart": {
+        "mainRef": "المرجع الرئيسي",
+        "modelRef": "مرجع النموذج",
+        "styleHint": "النمط / التخطيط",
+        "optional": "اختياري",
+        "extraRef": "مرجع إضافي {count}/3",
+        "focusLabel": "محور المرجع",
+        "advancedSettings": "إعدادات متقدمة",
+        "aspectRatio": "نسبة العرض",
+        "specialRequirement": "متطلبات خاصة",
+        "extraPlaceholder": "مثال: بدون نص، بدون وجه النموذج، إبراز التفاصيل…",
+        "uploadRefFirst": "ارفع صورة مرجعية رئيسية أولاً",
+        "selectCountFirst": "اختر {unit} أولاً",
+        "countUnitMain": "عدد الصور",
+        "countUnitDetails": "عدد الشاشات",
+        "addRefAndGenerate": "إضافة المرجع وإنشاء خطة من {count} {unit}",
+        "intent": {
+          "autoDetect": "تعرف تلقائي",
+          "wearing": "عرض الارتداء",
+          "poster": "ملصق نقطة البيع",
+          "scene": "أجواء المشهد",
+          "autoSplit": "تقسيم تلقائي",
+          "hero": "البانر الرئيسي",
+          "sellingPoints": "نقاط البيع",
+          "detailsTexture": "التفاصيل والملمس"
+        },
+        "defaultNameDetails": "خطة تفاصيل المرجع",
+        "defaultNameMain": "خطة الصورة الرئيسية للمرجع"
+      },
+      "results": {
+        "exampleAlt": "مثال مجموعة المنتج",
+        "guideTitle": "ابدأ إنشاء مجموعة",
+        "guideSubtitle": "حلّل المعلومات أولاً ثم أنشئ خطة صور رئيسية / صفحة تفاصيل حسب اختيارك.",
+        "guideStep1Title": "ارفع صور المنتج",
+        "guideStep1Desc": "حتى 3 صور؛ أضف الأمام والجانب والخلف أو التفاصيل لمساعدة النظام على تقييم البنية ونقاط البيع.",
+        "guideStep2Title": "حلّل المعلومات",
+        "guideStep2Desc": "ينظم النظام المنصة والنمط والمشهد ونقاط البيع ونقاط الألم والجمهور والمعايير ولوحة الألوان.",
+        "guideStep3Title": "أنشئ خطة المجموعة",
+        "guideStep3Desc": "ينتج خطة محلية وفق {count} {unit} ويبدأ التوليد.",
+        "guideStep3CountFallback": "المحدد",
+        "loadingModule": "مجموعة المنتج",
+        "loadingRef": "مرجع المنتج {index}",
+        "failedTitle": "فشل إنشاء المجموعة",
+        "retry": "إعادة المحاولة",
+        "resultAria": "نتائج المجموعة",
+        "generatingTitle": "جارٍ إنشاء المجموعة",
+        "resultTitle": "نتائج المجموعة",
+        "generatedCount": "{current}/{total} تم",
+        "progressCount": "{progress}% تم التوليد",
+        "completed": "تم",
+        "progressAria": "تقدم توليد المجموعة",
+        "cardFallback": "النتيجة {index}",
+        "previewAria": "معاينة {name}",
+        "resultAlt": "مجموعة المنتج {index}",
+        "moduleFailed": "فشلت هذه الوحدة",
+        "regenerating": "إعادة التوليد…",
+        "regenerate": "أعد توليد هذه",
+        "waiting": "في انتظار التوليد",
+        "waitingDesc": "تملأ هذه الوحدة المعاينة تلقائيًا عند الاكتمال",
+        "statusGenerated": "تم التوليد",
+        "statusFailed": "فشل",
+        "statusGenerating": "توليد",
+        "regenerateAria": "أعد توليد {name}",
+        "downloadAria": "تنزيل {name}"
+      },
+      "library": {
+        "title": "مكتبة القوالب المرجعية",
+        "description": "تتحكم القوالب فقط بالغرض والتخطيط والاتجاه المرئي؛ يستخدم المنتج النهائي صورك.",
+        "searchLabel": "ابحث عن قوالب",
+        "searchPlaceholder": "ابحث عن قوالب…",
+        "filterAria": "مرشح القوالب",
+        "allDetails": "كل قوالب صفحات التفاصيل",
+        "allMain": "كل قوالب الصور الرئيسية",
+        "womenswearScene": "مشاهد نسائية",
+        "selectedCount": "المحدد {count}",
+        "empty": "لا توجد قوالب تطابق المرشح.",
+        "uploadReference": "رفع مرجع",
+        "customTitle": "ارفع مرجعك الخاص",
+        "customDesc": "بدون قواعد معقدة: ارفع صورة واختر محورًا.",
+        "customStyles": "أنماط مخصصة",
+        "removeAria": "إزالة {name}",
+        "customEmpty": "ارفع قالب مرجعي خاص بك لإنشاء نمط مجموعة حصري مع وصف نصي."
+      }
     }
   },
   "Pose": {
@@ -3618,7 +4026,9 @@
       "continueGenerating": "مواصلة التوليد",
       "generateRefs": "توليد {count} صورة منفصلة",
       "generatePoses": "توليد {count} صورة وضعية",
-      "generateGrid": "توليد {count} شبكة وضعيات"
+      "generateGrid": "توليد {count} شبكة وضعيات",
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
     },
     "previewGuide": {
       "title": "صورة واحدة، وضعيات عديدة",
@@ -3955,7 +4365,20 @@
     "dateStart": "تاريخ البداية",
     "dateEnd": "تاريخ النهاية",
     "recentWeek": "الأسبوع الماضي",
-    "recentMonth": "الشهر الماضي"
+    "recentMonth": "الشهر الماضي",
+    "leaveConfirmTitle": "مغادرة هذه الصفحة؟",
+    "leaveConfirmContent": "تحتوي هذه الصفحة على محتوى غير محفوظ سيُفقد عند المغادرة.",
+    "leaveConfirmOk": "مغادرة",
+    "leaveConfirmCancel": "متابعة التحرير",
+    "selectAll": "تحديد الكل",
+    "selectRow": "تحديد هذا الصف",
+    "selectDateRange": "تحديد نطاق التاريخ",
+    "clearDateRange": "مسح نطاق التاريخ",
+    "previousMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
+    "searchQuery": "بحث",
+    "confirmNotInitialized": "نافذة التأكيد غير مهيأة — لم يتم تنفيذ العملية",
+    "operationFailed": "فشلت العملية"
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "توليد الفيديو",
     "motionStepGenerateDesc": "أخرج نتيجة بنفس الحركة.",
     "motionStepGenerateAlt": "توليد الفيديو",
-    "badgeGenerateVideoMotion": "توليد الفيديو"
+    "badgeGenerateVideoMotion": "توليد الفيديو",
+    "runBar": {
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
+    }
   },
   "toast": {
     "selectImage": "يرجى اختيار ملف صورة",

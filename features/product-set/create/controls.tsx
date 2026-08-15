@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronRight, ImagePlus, Layers3, Loader2, Plus, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import { getImageVariantUrl } from "@/lib/image-variants";
@@ -9,14 +10,15 @@ import type { ProductSetImageType, ProductSetTemplate } from "@/lib/product-set"
 const interactiveRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2";
 
 export function ProductModeTabs({ imageType, onChange }: { imageType: ProductSetImageType; onChange: (value: ProductSetImageType) => void }) {
+  const t = useTranslations("ProductSet");
   const options: Array<{ value: ProductSetImageType; title: string; desc: string }> = [
-    { value: "main", title: "商品主图", desc: "先选张数，再分析" },
-    { value: "details", title: "详情页", desc: "先选屏数，再分析" },
+    { value: "main", title: t("create.modeTab.mainTitle"), desc: t("create.modeTab.mainDesc") },
+    { value: "details", title: t("create.modeTab.detailsTitle"), desc: t("create.modeTab.detailsDesc") },
   ];
 
   return (
     <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-1.5 shadow-sm dark:border-white/10 dark:bg-white/5">
-      <div className="grid grid-cols-2 items-stretch gap-1.5" role="tablist" aria-label="商品套图类型">
+      <div className="grid grid-cols-2 items-stretch gap-1.5" role="tablist" aria-label={t("create.modeTab.ariaLabel")}>
         {options.map((item) => {
           const selected = imageType === item.value;
           return (
@@ -52,15 +54,16 @@ export function ProductModeTabs({ imageType, onChange }: { imageType: ProductSet
 }
 
 export function WorkflowStepper({ currentStep }: { currentStep: number }) {
+  const t = useTranslations("ProductSet");
   const steps = [
-    { value: 1, title: "商品图", desc: "上传" },
-    { value: 2, title: "信息", desc: "数量" },
-    { value: 3, title: "分析", desc: "方案" },
-    { value: 4, title: "生成", desc: "出图" },
+    { value: 1, title: t("create.stepper.step1Title"), desc: t("create.stepper.step1Desc") },
+    { value: 2, title: t("create.stepper.step2Title"), desc: t("create.stepper.step2Desc") },
+    { value: 3, title: t("create.stepper.step3Title"), desc: t("create.stepper.step3Desc") },
+    { value: 4, title: t("create.stepper.step4Title"), desc: t("create.stepper.step4Desc") },
   ];
 
   return (
-    <nav className="rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-white/5" aria-label="商品套图创建进度">
+    <nav className="rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-white/5" aria-label={t("create.stepper.ariaLabel")}>
       <ol className="grid grid-cols-4 gap-1.5">
         {steps.map((step) => {
           const active = currentStep === step.value;
@@ -89,14 +92,16 @@ export function WorkflowStepper({ currentStep }: { currentStep: number }) {
 }
 
 export function CountSelector({ imageType, value, options, onChange, helper }: { imageType: ProductSetImageType; value: number; options: number[]; onChange: (value: number) => void; helper?: string }) {
-  const unit = imageType === "main" ? "张" : "屏";
+  const t = useTranslations("ProductSet");
+  const unit = imageType === "main" ? t("units.singleImage") : t("units.singleScreen");
+  const countLabel = imageType === "main" ? t("analysis.genCount") : t("analysis.detailScreenCount");
   return (
     <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
       <div className="mb-2 flex items-center justify-between text-xs">
-        <span className="font-bold text-slate-700">{imageType === "main" ? "生成张数" : "详情页屏数"}</span>
-        <span className="font-black text-[var(--codex-accent)]">{value > 0 ? `${value} ${unit}` : "未选择"}</span>
+        <span className="font-bold text-slate-700">{countLabel}</span>
+        <span className="font-black text-[var(--codex-accent)]">{value > 0 ? `${value} ${unit}` : t("create.count.unselected")}</span>
       </div>
-      <StudioGenerationCountSelector value={value} onChange={onChange} counts={options} unit={unit} ariaLabel={imageType === "main" ? "生成张数" : "详情页屏数"} />
+      <StudioGenerationCountSelector value={value} onChange={onChange} counts={options} unit={unit} ariaLabel={countLabel} />
       {helper ? <p className="mt-2 text-[11px] leading-5 text-slate-400">{helper}</p> : null}
     </div>
   );
@@ -121,7 +126,8 @@ export function FieldTextarea({ label, value, maxLength, onChange, placeholder }
 }
 
 export function TemplateCard({ template, selected, onToggle }: { template: ProductSetTemplate; selected: boolean; onToggle: () => void }) {
-  const aspectRatioLabel = template.aspectRatio === "auto" ? "智能" : template.aspectRatio;
+  const t = useTranslations("ProductSet");
+  const aspectRatioLabel = template.aspectRatio === "auto" ? t("aspectRatio.auto") : template.aspectRatio;
   return (
     <button type="button" aria-pressed={selected} onClick={onToggle} className={`group flex h-full flex-col overflow-hidden rounded-3xl border bg-white text-left shadow-sm transition-[transform,border-color,box-shadow] hover:-translate-y-0.5 hover:shadow-xl ${interactiveRing} ${selected ? "border-[rgba(91,124,255,0.22)] ring-2 ring-[rgba(91,124,255,0.18)]" : "border-slate-100"}`}>
       <div className="relative aspect-[4/3] shrink-0 bg-slate-100">
@@ -130,17 +136,17 @@ export function TemplateCard({ template, selected, onToggle }: { template: Produ
         <span className={`absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${selected ? "bg-[var(--codex-accent)] text-white" : "bg-white/90 text-slate-400"}`}>
           {selected ? <Check aria-hidden="true" className="h-4 w-4" /> : <Plus aria-hidden="true" className="h-4 w-4" />}
         </span>
-        {template.scenario === "womenswear" ? <span className="absolute bottom-3 left-3 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">女装</span> : null}
+        {template.scenario === "womenswear" ? <span className="absolute bottom-3 left-3 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">{t("preset.womenswear")}</span> : null}
       </div>
       <div className="flex min-h-[126px] flex-1 flex-col p-3">
         <div className="flex min-h-6 items-start justify-between gap-2">
           <h3 className="min-w-0 line-clamp-1 text-sm font-black text-slate-900 dark:text-stone-100">{template.name}</h3>
-          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{template.imageType === "main" ? "主图" : "详情"}</span>
+          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{template.imageType === "main" ? t("create.template.main") : t("create.template.details")}</span>
         </div>
         <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{template.typeDescriptionV2}</p>
         <div className="mt-auto flex items-center gap-2 pt-3 text-[10px] font-bold text-slate-400">
           <Layers3 aria-hidden="true" className="h-3.5 w-3.5" />
-          {template.subjectConsistency ? "主体一致" : "版式独立"}
+          {template.subjectConsistency ? t("create.template.subjectConsistent") : t("create.template.layoutIndependent")}
           <ChevronRight aria-hidden="true" className="ml-auto h-3.5 w-3.5" />
         </div>
       </div>
@@ -160,6 +166,7 @@ export function ToggleButton({ active, label, onClick }: { active: boolean; labe
 }
 
 export function ReferenceUploadButton({ label, hint, url, loading, onClick }: { label: string; hint?: string; url?: string; loading: boolean; onClick: () => void }) {
+  const t = useTranslations("ProductSet");
   return (
     <button type="button" onClick={onClick} className={`flex min-h-[60px] w-full items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 text-left text-xs font-bold text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] ${interactiveRing}`}>
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${url ? "studio-checkerboard" : "bg-white"}`}>
@@ -167,7 +174,7 @@ export function ReferenceUploadButton({ label, hint, url, loading, onClick }: { 
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{label}</span>
-        <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">{url ? "已上传，可替换" : (hint || "上传 / 拖拽图片")}</span>
+        <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">{url ? t("create.upload.uploadedReplace") : (hint || t("create.upload.dropHint"))}</span>
       </span>
     </button>
   );

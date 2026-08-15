@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { Plus, Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,7 @@ export function TemplateLibraryDialog({
   onAddCustomTemplate,
   onRemoveCustomTemplate,
 }: TemplateLibraryDialogProps) {
+  const t = useTranslations("ProductSet");
   const normalizedQuery = query.trim().toLowerCase();
   const visibleTemplates = templates.filter((template) => {
     if (filter === "selected" && !selectedTemplateIds.includes(template.id)) return false;
@@ -82,29 +84,29 @@ export function TemplateLibraryDialog({
       >
         <DialogHeader className="shrink-0 flex-col gap-3 border-b border-slate-100 px-5 py-4 pr-16 text-left lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-lg font-black leading-6 text-slate-950 text-pretty dark:text-stone-100">参考模板库</DialogTitle>
-            <DialogDescription className="mt-1 text-xs text-slate-400">模板只控制用途、版式和视觉方向，最终商品会以你上传的图片为准。</DialogDescription>
+            <DialogTitle className="text-lg font-black leading-6 text-slate-950 text-pretty dark:text-stone-100">{t("create.library.title")}</DialogTitle>
+            <DialogDescription className="mt-1 text-xs text-slate-400">{t("create.library.description")}</DialogDescription>
           </div>
           <label className="relative min-w-0 shrink-0">
-            <span className="sr-only">搜索模板</span>
+            <span className="sr-only">{t("create.library.searchLabel")}</span>
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
             <input
               name="template-search"
               autoComplete="off"
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="搜索模板…"
+              placeholder={t("create.library.searchPlaceholder")}
               className={`h-10 w-40 rounded-full border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs transition-colors focus-visible:border-[rgba(91,124,255,0.5)] sm:w-52 ${focusRing}`}
             />
           </label>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
-            <div className="mb-4 flex flex-wrap gap-2" aria-label="模板筛选">
+            <div className="mb-4 flex flex-wrap gap-2" aria-label={t("create.library.filterAria")}>
               {([
-                ["all", imageType === "details" ? "全部详情页模板" : "全部主图模板"],
-                ["womenswear", "女装场景"],
-                ["selected", `已选 ${selectedTemplateIds.length}`],
+                ["all", imageType === "details" ? t("create.library.allDetails") : t("create.library.allMain")],
+                ["womenswear", t("create.library.womenswearScene")],
+                ["selected", t("create.library.selectedCount", { count: selectedTemplateIds.length })],
               ] as [TemplateFilter, string][]).map(([value, label]) => (
                 <button
                   key={value}
@@ -131,7 +133,7 @@ export function TemplateLibraryDialog({
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-400">
-                  没有符合当前筛选条件的模板。
+                  {t("create.library.empty")}
                 </div>
               )}
             </div>
@@ -143,14 +145,14 @@ export function TemplateLibraryDialog({
               onClick={() => onShowCustomBuilder(!showCustomBuilder)}
               className={`inline-flex w-full touch-manipulation items-center justify-center gap-2 rounded-2xl border border-dashed border-[rgba(91,124,255,0.22)] bg-white px-3 py-3 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)] ${focusRing}`}
             >
-              <Plus aria-hidden="true" className="h-4 w-4" /> 上传参考图
+              <Plus aria-hidden="true" className="h-4 w-4" /> {t("create.library.uploadReference")}
             </button>
 
             {showCustomBuilder ? (
               <div className="mt-3 space-y-3 rounded-2xl border border-slate-100 bg-white p-3">
                 <div>
-                  <p className="text-xs font-black text-slate-800">上传自己的参考</p>
-                  <p className="mt-1 text-[11px] leading-4 text-slate-400">不需要写复杂规则，上传参考图后选择参考重点即可。</p>
+                  <p className="text-xs font-black text-slate-800">{t("create.library.customTitle")}</p>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-400">{t("create.library.customDesc")}</p>
                 </div>
                 <ReferenceQuickStart
                   imageType={imageType}
@@ -168,7 +170,7 @@ export function TemplateLibraryDialog({
             ) : null}
 
             <div className="mt-5">
-              <h3 className="text-xs font-black text-slate-700">自定义样式</h3>
+              <h3 className="text-xs font-black text-slate-700">{t("create.library.customStyles")}</h3>
               {activeCustomTemplates.length ? (
                 <div className="mt-2 space-y-2">
                   {activeCustomTemplates.map((template) => (
@@ -178,7 +180,7 @@ export function TemplateLibraryDialog({
                         type="button"
                         onClick={() => onRemoveCustomTemplate(template.id)}
                         className={`flex h-7 w-7 shrink-0 touch-manipulation items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 ${focusRing}`}
-                        aria-label={`移除${template.name}`}
+                        aria-label={t("create.library.removeAria", { name: template.name })}
                       >
                         <X aria-hidden="true" className="h-3.5 w-3.5" />
                       </button>
@@ -186,7 +188,7 @@ export function TemplateLibraryDialog({
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 rounded-2xl bg-white px-3 py-4 text-xs leading-5 text-slate-400">可上传自己的参考模板图，配合文字描述生成专属套图风格。</p>
+                <p className="mt-2 rounded-2xl bg-white px-3 py-4 text-xs leading-5 text-slate-400">{t("create.library.customEmpty")}</p>
               )}
             </div>
           </aside>

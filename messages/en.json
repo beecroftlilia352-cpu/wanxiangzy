@@ -666,7 +666,12 @@
     "saveBadge": "Save",
     "perMonth": "/month",
     "startSubscription": "Start subscription",
-    "buyNow": "Buy Now"
+    "buyNow": "Buy Now",
+    "error": {
+      "title": "Failed to load the pricing page",
+      "fallback": "Something went wrong while rendering this page. Please try again.",
+      "retry": "Retry"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "All-Category Product Images",
@@ -877,7 +882,9 @@
       "roleExtra": "Accessory",
       "modeMulti": "Top & bottom",
       "modeSingle": "One-piece",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "Upload the main garment image first",
+      "uploadFirstDesc": "After uploading, you can add neckline, fabric, logo, back, or side details under the corresponding garment."
     },
     "favorite": {
       "loginRequired": "Please sign in to save favorites",
@@ -932,7 +939,26 @@
       "maxCount": "Up to {count} garment detail images",
       "remainingTruncated": "At most {count} more detail images will be added; extras truncated",
       "uploadingFiles": "Uploading {count} garment detail images…",
-      "added": "Added {count} detail images for {owner}"
+      "added": "Added {count} detail images for {owner}",
+      "switchLabel": "Garment detail reference",
+      "switchDescription": "Add local garment details like fabric, neckline, pockets, or buttons, or the back and sides. Up to 5 images when enabled, without changing the person, pose, background, or overall tone.",
+      "sectionTitle": "Add details to each garment",
+      "maxCountTitle": "Up to {count} detail images",
+      "addForRole": "Add {role} detail image",
+      "mainImageAlt": "{role} main image",
+      "previewMainAria": "Preview {role} main image",
+      "roleDetailTitle": "{role} details",
+      "onlyItem": "Only this item's material, structure, or close-up details.",
+      "detailCount": "{count} images",
+      "detailAlt": "{role} detail {index}",
+      "previewDetailAria": "Preview {role} detail {index}",
+      "removeDetailAria": "Remove {role} detail {index}",
+      "unassignedTitle": "Unassigned historical details",
+      "unassignedCount": "{count} images",
+      "unassignedAlt": "Unassigned detail {index}",
+      "previewUnassignedAria": "Preview unassigned detail {index}",
+      "removeUnassignedAria": "Remove unassigned detail {index}",
+      "unassignedHint": "Detail images from previous tasks have no garment assignment and are only lightly used when there's a clear match."
     },
     "model": {
       "pleaseUploadImage": "Please upload an image file",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "Recognizing garment",
       "recommending": "Recommending scene",
       "previewSelected": "Preview selected reference: {label}",
-      "addSystemScene": "Add system reference"
+      "addSystemScene": "Add system reference",
+      "footerSelected": "Selected {selected}/{max}",
+      "footerDeleteAll": "Delete all",
+      "footerSaving": "Saving",
+      "footerSaveAsTemplate": "Save as template"
     },
     "autoDesign": {
       "platform": "Photography plan",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "Hover preview",
+    "lightbox": {
+      "previewAlt": "Try-on image preview"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "On",
     "textureOff": "Off",
     "modeFeature": "Features only",
-    "modeFeatureHairSkin": "Features + hair & skin"
+    "modeFeatureHairSkin": "Features + hair & skin",
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "Garment 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "Down puffer",
     "refBack": "Back silhouette",
     "refShortCoat": "Short coat",
-    "hoverPreview": "Hover preview"
+    "hoverPreview": "Hover preview",
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "Image to Image",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "This image failed to generate",
     "retryThis": "Retry this image",
     "retryGenerate": "Regenerate",
-    "retryToast": "Retrying slot {index}… failed images are refunded and filled back into results when done…"
+    "retryToast": "Retrying slot {index}… failed images are refunded and filled back into results when done…",
+    "imageToPromptDesc": "Upload an image to reverse-engineer a content description for generating similar images.",
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
+    },
+    "copyEmptyToast": "Nothing to copy yet",
+    "copySuccessToast": "Copied",
+    "copyFailedToast": "Copy failed — please copy manually",
+    "uploadImageAria": "Upload an image to reverse-engineer a prompt",
+    "changeImageAria": "Change the image used for the prompt",
+    "uploadingState": "Uploading…",
+    "uploadImageButton": "Upload image",
+    "generatingState": "Generating…",
+    "promptTextareaAria": "Prompt generated from the image",
+    "promptTextareaPlaceholder": "Upload an image and the description for text-to-image will be generated here.",
+    "copyButton": "Copy",
+    "applyToDescription": "Apply to description"
   },
   "Grass": {
     "moduleLabel": "Grass Planting",
@@ -1818,6 +1877,10 @@
       "square": "1:1 Square",
       "phone": "9:16 Mobile",
       "landscape": "4:3 Landscape"
+    },
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "Image translation preview",
     "waitingUploadSummary": "Waiting for upload · {count} image(s)",
     "selectLanguageSummary": "{count} source image(s) uploaded · select a target language",
-    "fullSummary": "{sources} sources × {langs} languages × {gen} · {size}"
+    "fullSummary": "{sources} sources × {langs} languages × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "Loading material enhancement parameters",
       "previewAria": "Loading preview area"
+    },
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "Get a consistent character that can be reused for try-on and product visuals.",
     "missingFailureLabel": "This image failed",
     "missingFailureActionLabel": "Retry this one",
-    "retryLabel": "Regenerate"
+    "retryLabel": "Regenerate",
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
+    }
   },
   "ModelBackground": {
     "title": "Change Background",
@@ -2842,6 +2917,10 @@
       "upload": "Upload background",
       "text": "Text-to-background",
       "auto": "Auto design"
+    },
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
     }
   },
   "Pose": {
@@ -3174,7 +3253,9 @@
       "continueGenerating": "Continue generating",
       "generateRefs": "Generate {count} separate images",
       "generatePoses": "Generate {count} pose images",
-      "generateGrid": "Generate {count} pose grid"
+      "generateGrid": "Generate {count} pose grid",
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
     },
     "previewGuide": {
       "title": "One image, many poses",
@@ -3332,6 +3413,14 @@
       "step2Desc": "Set the retouch mode, model, ratio and output count per product.",
       "step3Title": "Review batch results",
       "step3Desc": "Results are grouped by product; preview, retry individually, or download by product or whole batch."
+    },
+    "empty": {
+      "title": "No product results yet",
+      "description": "Results for each product appear automatically after you upload product images."
+    },
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
     }
   },
   "ProductSet": {
@@ -3649,6 +3738,327 @@
     },
     "aspectRatio": {
       "auto": "Auto"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "Product info summary",
+        "productInfo": "Product info",
+        "namePlaceholder": "Product name pending",
+        "descPlaceholder": "Product info is filled in. Tap edit to add selling points, materials, and audience."
+      },
+      "summary": {
+        "ariaLabel": "Product analysis plan",
+        "generated": "Plan ready",
+        "planCount": "Planning to generate {count} {unit}",
+        "imageQuality": "Image quality",
+        "qualityPrepared": "Prepared",
+        "collapse": "Hide details",
+        "expand": "View details",
+        "editInfo": "Edit info",
+        "suggestSupplement": "Suggested to add: "
+      },
+      "adjustStyle": "Adjust style",
+      "profile": {
+        "ariaLabel": "Product profile",
+        "sourceAi": "Image info",
+        "sourceFallback": "Basic info",
+        "sourceRunning": "Reading",
+        "sourceManual": "Manual info",
+        "sourceConfirm": "To confirm",
+        "suggestModel": "Model suggested",
+        "noModel": "No model",
+        "modify": "Edit"
+      },
+      "strategy": {
+        "ariaLabel": "Visual strategy",
+        "title": "Visual strategy",
+        "fallbackName": "Visual strategy",
+        "pending": "To evaluate",
+        "imageQuality": "Image quality",
+        "currentMode": "Current mode",
+        "modeMain": "Main images",
+        "modeDetails": "Detail page",
+        "smartMatch": "Smart match"
+      },
+      "notice": {
+        "reading": "Reading product images",
+        "needConfirm": "Product info needs confirmation",
+        "incomplete": "Product reading incomplete"
+      },
+      "progress": {
+        "ariaLabel": "Module generation progress",
+        "failed": "Failed",
+        "done": "Done",
+        "generating": "Generating",
+        "queued": "Queued"
+      },
+      "modeTab": {
+        "ariaLabel": "Product set type",
+        "mainTitle": "Main images",
+        "mainDesc": "Pick a count, then analyze",
+        "detailsTitle": "Detail page",
+        "detailsDesc": "Pick a screen count, then analyze"
+      },
+      "stepper": {
+        "ariaLabel": "Product set creation progress",
+        "step1Title": "Product images",
+        "step1Desc": "Upload",
+        "step2Title": "Info",
+        "step2Desc": "Count",
+        "step3Title": "Analyze",
+        "step3Desc": "Plan",
+        "step4Title": "Generate",
+        "step4Desc": "Output"
+      },
+      "count": {
+        "unselected": "Not selected"
+      },
+      "template": {
+        "main": "Main",
+        "details": "Details",
+        "subjectConsistent": "Consistent subject",
+        "layoutIndependent": "Independent layout"
+      },
+      "upload": {
+        "uploadedReplace": "Uploaded, replaceable",
+        "dropHint": "Upload / drag image"
+      },
+      "customSource": {
+        "ariaLabel": "Upload reference",
+        "description": "Upload one main reference image and the system will understand the layout and style, then split it into a plan of {count}.",
+        "library": "Template library",
+        "selectedCountMain": "Selected counts",
+        "selectedCountDetails": "Selected screens",
+        "added": "References added",
+        "removeAria": "Remove {name}",
+        "empty": "No references yet. Upload a main reference image and tap Add — the reference is sent together with the product images and only affects style, layout, model, or mood."
+      },
+      "referenceStyle": {
+        "title": "Reference style notes",
+        "description": "This only stores the style direction and does not start analyzing templates; it will be passed into smart analysis when you tap “Help me write product info”.",
+        "restoreExample": "Restore example",
+        "save": "Save reference style",
+        "placeholder": "Write the reference style, target platform, visual style, unified scene, palette, and user requirements…",
+        "hint": "This content is passed into analysis as a style reference and is not used directly as a template."
+      },
+      "profileEditor": {
+        "title": "Correct product recognition",
+        "description": "Recognition results affect the default template, whether a model is used, and prompt safety boundaries.",
+        "productType": "Product type",
+        "apparelSubtype": "Apparel subtype",
+        "modelStrategy": "Model strategy",
+        "modelRequirement": "Model requirements",
+        "modelBriefPlaceholder": "e.g. adult female model, French commuter scene, natural poses, highlight the silhouette and drape, no exaggerated poses…",
+        "kind": {
+          "apparel": "Clothing",
+          "footwear": "Footwear",
+          "bag": "Bags",
+          "accessory": "Accessories",
+          "beauty": "Beauty",
+          "electronics": "Electronics",
+          "home": "Home",
+          "toy": "Toys",
+          "food": "Food",
+          "general": "General"
+        },
+        "apparel": {
+          "womenswear": "Women",
+          "menswear": "Men",
+          "kidswear": "Kids",
+          "outerwear": "Outerwear / Outdoor",
+          "sportswear": "Sportswear",
+          "intimate": "Intimates",
+          "swimwear": "Swimwear",
+          "general": "General apparel"
+        },
+        "model": {
+          "none": "No model",
+          "optional": "Optional model",
+          "recommended": "Model recommended",
+          "required": "Model required"
+        }
+      },
+      "moduleEdit": {
+        "title": "Edit generation module",
+        "description": "Image {index} · {type}",
+        "modelTypeDetails": "Detail page module",
+        "modelTypeMain": "Main / aux image module",
+        "remove": "Remove this module",
+        "save": "Save",
+        "fieldName": "Module name",
+        "fieldRole": "Module role",
+        "fieldContentScope": "Content scope",
+        "contentScopePlaceholder": "e.g. only cover fabric and silhouette without repeating the full pitch; or only show the model wearing it and the styling mood.",
+        "fieldLayoutRules": "Layout rules",
+        "fieldTextRules": "Text rules",
+        "fieldAvoidRules": "Avoid rules",
+        "fieldTypeDescription": "Template description",
+        "aspectRatio": "Aspect ratio",
+        "subjectConsistency": "Consistent subject",
+        "modelConsistency": "Consistent model",
+        "intelligentCopy": "Smart copy",
+        "copyDensity": "Copy density",
+        "copyDensityNone": "No copy",
+        "copyDensityLight": "Light copy",
+        "copyDensityStandard": "Standard copy",
+        "copyDensityRich": "Rich copy",
+        "modelAdviceOn": "This module prefers a model / on-body scene. If you don't want a model, change the module role to white background, details, sizing, or turn off model consistency.",
+        "modelAdviceOff": "This module uses no model by default and suits white background, details, dimensions, material, packaging, or spec notes.",
+        "fieldExtraDescription": "Extra description",
+        "extraDescriptionPlaceholder": "Write only this image's special requirements, e.g. no bottom thumbnails on the women's hero banner; the detail image shows only hood, cuffs, and pockets."
+      },
+      "settings": {
+        "title": "More settings",
+        "description": "Control target market, image copy, and visual style; model, aspect ratio, and resolution are configured separately on the left.",
+        "country": "Target country / region",
+        "language": "Image copy language",
+        "platform": "Target platform",
+        "theme": "Theme color",
+        "themeAuto": "Smart theme",
+        "themeCustom": "Custom color",
+        "themeCustomLabel": "Custom theme color",
+        "themeColorPlaceholder": "e.g. cream white + denim blue + rose pink…",
+        "fontStyle": "Font style",
+        "extraDescription": "Extra description",
+        "extraDescriptionPlaceholder": "e.g. French commuter style for women, no exaggerated poses, short copy…"
+      },
+      "favorite": {
+        "ariaLabel": "My saved templates",
+        "description": "Save the current visual plan or custom template and apply it directly next time you switch products.",
+        "setsCount": "{count} sets",
+        "nameLabel": "Saved plan name",
+        "saving": "Saving…",
+        "save": "Save",
+        "loading": "Loading your saved plans…",
+        "apply": "Apply",
+        "deleteAria": "Delete saved plan {name}",
+        "modelPrefix": "Model · ",
+        "empty": "No saved plans yet. Adjust the current generation plan, then tap Save.",
+        "planCustom": "Custom plan",
+        "planVisual": "Visual plan",
+        "typeDetails": "Detail page",
+        "typeMain": "Main images",
+        "justNow": "Just now"
+      },
+      "genSettings": {
+        "title": "Generation settings",
+        "advQuality": "Advanced QA",
+        "stdQuality": "Standard QA",
+        "adjust": "Adjust"
+      },
+      "modelConfig": {
+        "ariaLabel": "Generation settings options",
+        "model": "Generation model",
+        "resolution": "Resolution",
+        "sizeCost": "{size} · {cost} credits",
+        "detailsWarning": "Detail pages have titles, labels, and local details — 1K tends to blur small text. Start at 2K for noticeably better QA and readability.",
+        "quality": "Generation tier",
+        "standardMode": "Standard mode",
+        "advancedMode": "Advanced mode",
+        "aspectAutoNote": "Aspect ratio auto-set by template",
+        "aspectAutoDetail": "Hero banners, detail images, and white-background main images each use their own template ratio, so one ratio doesn't mislead the whole set."
+      },
+      "planList": {
+        "empty": "No template selected yet — open the template library to add one.",
+        "ariaLabel": "Generation module order",
+        "details": "Detail page",
+        "main": "Main / aux image",
+        "model": "Model",
+        "editAria": "Edit module {name}",
+        "removeAria": "Remove module {name}",
+        "collapsed": "{count} more modules hidden. Tap view all in the top-right."
+      },
+      "recommendation": {
+        "ariaLabel": "Visual director plan",
+        "safeTemplate": "Safe template",
+        "withModel": "With model",
+        "lowRisk": "Low risk",
+        "recommended": "Recommended: generate {count} {unit}",
+        "modelPrefix": "Model · "
+      },
+      "quickStart": {
+        "mainRef": "Main reference",
+        "modelRef": "Model reference",
+        "styleHint": "Style / layout",
+        "optional": "Optional",
+        "extraRef": "Extra reference {count}/3",
+        "focusLabel": "Reference focus",
+        "advancedSettings": "Advanced settings",
+        "aspectRatio": "Aspect ratio",
+        "specialRequirement": "Special requirements",
+        "extraPlaceholder": "e.g. no text, no model face, highlight details…",
+        "uploadRefFirst": "Please upload a main reference image first",
+        "selectCountFirst": "Please select {unit} first",
+        "countUnitMain": "image count",
+        "countUnitDetails": "screen count",
+        "addRefAndGenerate": "Add reference and generate a {count} {unit} plan",
+        "intent": {
+          "autoDetect": "Auto detect",
+          "wearing": "On-body showcase",
+          "poster": "Selling-point poster",
+          "scene": "Scene mood",
+          "autoSplit": "Auto split",
+          "hero": "Hero banner",
+          "sellingPoints": "Selling points",
+          "detailsTexture": "Details & texture"
+        },
+        "defaultNameDetails": "Reference detail plan",
+        "defaultNameMain": "Reference main-image plan"
+      },
+      "results": {
+        "exampleAlt": "Product set example",
+        "guideTitle": "Start creating a product set",
+        "guideSubtitle": "Analyze product info first, then generate a main-image / detail-page plan based on your selected count.",
+        "guideStep1Title": "Upload product images",
+        "guideStep1Desc": "Up to 3 images; include front, side, back, or details to help the system judge structure and selling points.",
+        "guideStep2Title": "Analyze product info",
+        "guideStep2Desc": "The system organizes target platform, style, unified scene, selling points, pain points, audience, parameters, and palette.",
+        "guideStep3Title": "Generate set plan",
+        "guideStep3Desc": "Output a localized plan based on {count} {unit}, then start generating.",
+        "guideStep3CountFallback": "selected",
+        "loadingModule": "Product set",
+        "loadingRef": "Product reference {index}",
+        "failedTitle": "Product set generation failed",
+        "retry": "Retry",
+        "resultAria": "Product set results",
+        "generatingTitle": "Generating product set",
+        "resultTitle": "Product set results",
+        "generatedCount": "{current}/{total} done",
+        "progressCount": "{progress}% generated",
+        "completed": "Done",
+        "progressAria": "Product set generation progress",
+        "cardFallback": "Result {index}",
+        "previewAria": "Preview {name}",
+        "resultAlt": "Product set {index}",
+        "moduleFailed": "This module failed",
+        "regenerating": "Regenerating…",
+        "regenerate": "Regenerate this",
+        "waiting": "Waiting to generate",
+        "waitingDesc": "This module fills the preview automatically when complete",
+        "statusGenerated": "Generated",
+        "statusFailed": "Failed",
+        "statusGenerating": "Generating",
+        "regenerateAria": "Regenerate {name}",
+        "downloadAria": "Download {name}"
+      },
+      "library": {
+        "title": "Reference template library",
+        "description": "Templates only control purpose, layout, and visual direction — the final product uses the images you upload.",
+        "searchLabel": "Search templates",
+        "searchPlaceholder": "Search templates…",
+        "filterAria": "Template filter",
+        "allDetails": "All detail-page templates",
+        "allMain": "All main-image templates",
+        "womenswearScene": "Women's scenes",
+        "selectedCount": "Selected {count}",
+        "empty": "No templates match the current filter.",
+        "uploadReference": "Upload reference",
+        "customTitle": "Upload your own reference",
+        "customDesc": "No complex rules needed — upload a reference image and pick a reference focus.",
+        "customStyles": "Custom styles",
+        "removeAria": "Remove {name}",
+        "customEmpty": "Upload your own reference template image to craft an exclusive set style with a text description."
+      }
     }
   },
   "Shared": {
@@ -3955,7 +4365,20 @@
     "dateStart": "Start date",
     "dateEnd": "End date",
     "recentWeek": "Last week",
-    "recentMonth": "Last month"
+    "recentMonth": "Last month",
+    "leaveConfirmTitle": "Leave this page?",
+    "leaveConfirmContent": "This page has unsaved inputs. If you leave, they will be lost.",
+    "leaveConfirmOk": "Leave",
+    "leaveConfirmCancel": "Keep editing",
+    "selectAll": "Select all",
+    "selectRow": "Select this row",
+    "selectDateRange": "Select date range",
+    "clearDateRange": "Clear date range",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "searchQuery": "Search",
+    "confirmNotInitialized": "Confirm dialog not initialized — action was not executed",
+    "operationFailed": "Operation failed"
   },
   "Video": {
     "moduleFirstLastFrame": "First & Last Frame",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "Generate video",
     "motionStepGenerateDesc": "Output a matching motion video.",
     "motionStepGenerateAlt": "Generated video",
-    "badgeGenerateVideoMotion": "Generate video"
+    "badgeGenerateVideoMotion": "Generate video",
+    "runBar": {
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
+    }
   },
   "toast": {
     "selectImage": "Please select an image file",

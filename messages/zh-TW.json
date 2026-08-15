@@ -666,7 +666,12 @@
     "saveBadge": "立省",
     "perMonth": "/連續包月",
     "startSubscription": "開通訂閱",
-    "buyNow": "立即購買"
+    "buyNow": "立即購買",
+    "error": {
+      "title": "購買頁載入失敗",
+      "fallback": "頁面執行時出現異常，請重試。",
+      "retry": "重試"
+    }
   },
   "LibShared": {
     "history": {
@@ -1108,7 +1113,24 @@
     "missingFailLabel": "本張生成失敗",
     "retryThis": "重試本張",
     "retryGenerate": "重新生成",
-    "retryToast": "正在補位重試第 {index} 張，失敗圖已退款，完成後會回填到目前結果中…"
+    "retryToast": "正在補位重試第 {index} 張，失敗圖已退款，完成後會回填到目前結果中…",
+    "imageToPromptDesc": "上傳圖片，自動反推圖片內容描述，用於生成相似內容圖片。",
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
+    },
+    "copyEmptyToast": "暫無可複製內容",
+    "copySuccessToast": "已複製",
+    "copyFailedToast": "複製失敗，請手動複製",
+    "uploadImageAria": "上傳用於反推提示詞的圖片",
+    "changeImageAria": "更換用於反推提示詞的圖片",
+    "uploadingState": "上傳中…",
+    "uploadImageButton": "上傳圖片",
+    "generatingState": "生成中…",
+    "promptTextareaAria": "圖片反推提示詞",
+    "promptTextareaPlaceholder": "上傳圖片後，系統會在這裡生成可用於文生圖的內容描述。",
+    "copyButton": "複製",
+    "applyToDescription": "套用到描述"
   },
   "MaterialEnhancement": {
     "moduleName": "材質增強",
@@ -1259,6 +1281,10 @@
     "loading": {
       "paramsAria": "材質增強參數載入中",
       "previewAria": "預覽區塊載入中"
+    },
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
     }
   },
   "ModelBackground": {
@@ -1417,6 +1443,10 @@
       "upload": "上傳背景",
       "text": "文生背景",
       "auto": "自動設計"
+    },
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
     }
   },
   "ProductRetouch": {
@@ -1544,6 +1574,14 @@
       "step2Desc": "統一設定精修模式、模型、比例和每件商品的輸出數量。",
       "step3Title": "查看批次結果",
       "step3Desc": "結果按商品分組，可預覽、單項重試，或按商品和整批下載。"
+    },
+    "empty": {
+      "title": "暫無商品結果",
+      "description": "上傳商品圖後會自動顯示每個商品的結果。"
+    },
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
     }
   },
   "ImageTranslation": {
@@ -1659,7 +1697,11 @@
     "lightboxAlt": "圖片翻譯預覽",
     "waitingUploadSummary": "等待上傳原圖 · {count} 張",
     "selectLanguageSummary": "已上傳 {count} 張原圖 · 請選擇目標語言",
-    "fullSummary": "{sources} 張原圖 × {langs} 種語言 × {gen} · {size}"
+    "fullSummary": "{sources} 張原圖 × {langs} 種語言 × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "服裝 3D",
@@ -1785,7 +1827,11 @@
     "refDown": "羽絨厚度",
     "refBack": "背面廓形",
     "refShortCoat": "短外套",
-    "hoverPreview": "Hover 預覽"
+    "hoverPreview": "Hover 預覽",
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
+    }
   },
   "FaceSwap": {
     "moduleLabel": "換臉",
@@ -1927,7 +1973,11 @@
     "textureOn": "開啟",
     "textureOff": "關閉",
     "modeFeature": "僅換五官",
-    "modeFeatureHairSkin": "換五官髮型膚色"
+    "modeFeatureHairSkin": "換五官髮型膚色",
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
+    }
   },
   "Model": {
     "title": "專屬模特",
@@ -2082,7 +2132,11 @@
     "guideStep3Desc": "得到統一人物形象，後續可繼續用於服裝上身和商品視覺。",
     "missingFailureLabel": "本張生成失敗",
     "missingFailureActionLabel": "重試本張",
-    "retryLabel": "重新生成"
+    "retryLabel": "重新生成",
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
+    }
   },
   "Grass": {
     "moduleLabel": "穿搭圖",
@@ -2234,6 +2288,10 @@
       "square": "1:1 方圖",
       "phone": "9:16 手機",
       "landscape": "4:3 橫圖"
+    },
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
     }
   },
   "History": {
@@ -2824,6 +2882,327 @@
     },
     "aspectRatio": {
       "auto": "智能"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "商品資訊摘要",
+        "productInfo": "商品資訊",
+        "namePlaceholder": "待補充商品名",
+        "descPlaceholder": "已填寫商品資訊，點擊編輯可繼續補充賣點、材質和適用人群。"
+      },
+      "summary": {
+        "ariaLabel": "商品分析方案",
+        "generated": "方案已生成",
+        "planCount": "計畫生成 {count} {unit}",
+        "imageQuality": "圖片品質",
+        "qualityPrepared": "已準備",
+        "collapse": "收起細節",
+        "expand": "查看細節",
+        "editInfo": "修改資訊",
+        "suggestSupplement": "建議補充："
+      },
+      "adjustStyle": "調整風格",
+      "profile": {
+        "ariaLabel": "商品檔案",
+        "sourceAi": "圖片資訊",
+        "sourceFallback": "基礎資訊",
+        "sourceRunning": "讀取中",
+        "sourceManual": "手動資訊",
+        "sourceConfirm": "待確認",
+        "suggestModel": "建議模特",
+        "noModel": "無需模特",
+        "modify": "修改"
+      },
+      "strategy": {
+        "ariaLabel": "視覺策略",
+        "title": "視覺策略",
+        "fallbackName": "視覺策略",
+        "pending": "待評估",
+        "imageQuality": "圖片品質",
+        "currentMode": "目前模式",
+        "modeMain": "商品主圖",
+        "modeDetails": "詳情頁",
+        "smartMatch": "智慧配對"
+      },
+      "notice": {
+        "reading": "正在讀取商品圖",
+        "needConfirm": "商品資訊需確認",
+        "incomplete": "商品讀取未完成"
+      },
+      "progress": {
+        "ariaLabel": "模組生成進度",
+        "failed": "失敗",
+        "done": "已完成",
+        "generating": "生成",
+        "queued": "排隊"
+      },
+      "modeTab": {
+        "ariaLabel": "商品套圖類型",
+        "mainTitle": "商品主圖",
+        "mainDesc": "先選張數，再分析",
+        "detailsTitle": "詳情頁",
+        "detailsDesc": "先選屏數，再分析"
+      },
+      "stepper": {
+        "ariaLabel": "商品套圖建立進度",
+        "step1Title": "商品圖",
+        "step1Desc": "上傳",
+        "step2Title": "資訊",
+        "step2Desc": "數量",
+        "step3Title": "分析",
+        "step3Desc": "方案",
+        "step4Title": "生成",
+        "step4Desc": "出圖"
+      },
+      "count": {
+        "unselected": "未選擇"
+      },
+      "template": {
+        "main": "主圖",
+        "details": "詳情",
+        "subjectConsistent": "主體一致",
+        "layoutIndependent": "版式獨立"
+      },
+      "upload": {
+        "uploadedReplace": "已上傳，可替換",
+        "dropHint": "上傳 / 拖曳圖片"
+      },
+      "customSource": {
+        "ariaLabel": "上傳參考圖",
+        "description": "上傳 1 張主參考圖即可，系統會自動理解版式和風格，再按{count}拆成方案。",
+        "library": "範本庫",
+        "selectedCountMain": "所選張數",
+        "selectedCountDetails": "所選屏數",
+        "added": "已新增參考",
+        "removeAria": "移除{name}",
+        "empty": "還沒有新增參考。上傳主參考圖後點新增，參考圖會隨商品圖一起傳送，只影響風格、版式、模特或氛圍。"
+      },
+      "referenceStyle": {
+        "title": "參考風格說明",
+        "description": "這裡只儲存風格方向，不會開始分析範本；點擊「幫我寫商品資訊」時會一起傳入智慧分析。",
+        "restoreExample": "恢復範例",
+        "save": "儲存參考風格",
+        "placeholder": "寫入參考風格、目標平台、視覺風格、統一場景、配色和使用者要求…",
+        "hint": "這段內容會作為風格參考傳入分析，不會直接當作範本生成。"
+      },
+      "profileEditor": {
+        "title": "修正商品識別",
+        "description": "識別結果會影響預設範本、是否使用模特和提示詞安全邊界。",
+        "productType": "商品類型",
+        "apparelSubtype": "服裝細分",
+        "modelStrategy": "模特策略",
+        "modelRequirement": "模特要求",
+        "modelBriefPlaceholder": "例如：成年女性模特，法式通勤場景，姿勢自然，突出板型和垂墜感，不要誇張擺拍…",
+        "kind": {
+          "apparel": "服裝",
+          "footwear": "鞋靴",
+          "bag": "箱包",
+          "accessory": "配件",
+          "beauty": "美妝",
+          "electronics": "數位電器",
+          "home": "家居",
+          "toy": "玩具",
+          "food": "食品",
+          "general": "通用商品"
+        },
+        "apparel": {
+          "womenswear": "女裝",
+          "menswear": "男裝",
+          "kidswear": "童裝",
+          "outerwear": "外套/戶外",
+          "sportswear": "運動服",
+          "intimate": "內衣",
+          "swimwear": "泳裝",
+          "general": "通用服裝"
+        },
+        "model": {
+          "none": "不用模特",
+          "optional": "可選模特",
+          "recommended": "建議模特",
+          "required": "必須模特"
+        }
+      },
+      "moduleEdit": {
+        "title": "編輯生成模組",
+        "description": "第 {index} 張 · {type}",
+        "modelTypeDetails": "詳情頁模組",
+        "modelTypeMain": "主圖/輔圖模組",
+        "remove": "移除此模組",
+        "save": "儲存",
+        "fieldName": "模組名稱",
+        "fieldRole": "模組職責",
+        "fieldContentScope": "內容範圍",
+        "contentScopePlaceholder": "例如：只講面料與版型，不重複整套賣點；或只展示模特上身與搭配氛圍。",
+        "fieldLayoutRules": "版式規則",
+        "fieldTextRules": "文字規則",
+        "fieldAvoidRules": "禁忌規則",
+        "fieldTypeDescription": "範本描述",
+        "aspectRatio": "生圖比例",
+        "subjectConsistency": "商品一致",
+        "modelConsistency": "模特一致",
+        "intelligentCopy": "智慧文案",
+        "copyDensity": "文案密度",
+        "copyDensityNone": "無文案",
+        "copyDensityLight": "輕文案",
+        "copyDensityStandard": "標準文案",
+        "copyDensityRich": "資訊豐富",
+        "modelAdviceOn": "該模組會優先使用模特/上身場景。若不希望出現模特，可把模組職責改為白底、細節、尺碼或關閉模特一致性。",
+        "modelAdviceOff": "該模組預設不使用模特，更適合白底、細節、尺寸、材質、包裝或參數說明。",
+        "fieldExtraDescription": "額外描述",
+        "extraDescriptionPlaceholder": "只寫這張圖的特殊要求，例如：女裝首屏海報不要底部縮圖；細節圖只展示連帽、袖口、口袋三個局部。"
+      },
+      "settings": {
+        "title": "更多設定",
+        "description": "用於控制目標市場、圖片文案和視覺風格；模型、比例與清晰度在左側單獨設定。",
+        "country": "目標銷售國家/地區",
+        "language": "圖片文案語言",
+        "platform": "目標平台",
+        "theme": "主題色",
+        "themeAuto": "智慧主題色",
+        "themeCustom": "自訂顏色",
+        "themeCustomLabel": "自訂主題色",
+        "themeColorPlaceholder": "例如：奶油白 + 牛仔藍 + 玫瑰粉…",
+        "fontStyle": "字體風格",
+        "extraDescription": "額外描述",
+        "extraDescriptionPlaceholder": "例如：女裝偏法式通勤、不要誇張姿勢、文案使用短句…"
+      },
+      "favorite": {
+        "ariaLabel": "我的收藏範本",
+        "description": "收藏目前視覺方案或自訂範本，下次換商品後直接套用。",
+        "setsCount": "{count} 套",
+        "nameLabel": "收藏方案名稱",
+        "saving": "收藏中…",
+        "save": "收藏",
+        "loading": "正在載入帳號收藏方案…",
+        "apply": "套用",
+        "deleteAria": "刪除收藏方案{name}",
+        "modelPrefix": "模特 · ",
+        "empty": "暫無帳號收藏方案。先調整好目前生成計畫，再點收藏。",
+        "planCustom": "自訂方案",
+        "planVisual": "視覺方案",
+        "typeDetails": "詳情頁",
+        "typeMain": "主圖",
+        "justNow": "剛剛"
+      },
+      "genSettings": {
+        "title": "生成設定",
+        "advQuality": "高級質檢",
+        "stdQuality": "標準質檢",
+        "adjust": "調整"
+      },
+      "modelConfig": {
+        "ariaLabel": "生成設定選項",
+        "model": "生成模型",
+        "resolution": "解析度",
+        "sizeCost": "{size} · {cost}靈點",
+        "detailsWarning": "詳情頁有標題、標籤和局部細節，1K 容易小字模糊；推薦 2K 起步，質檢和可讀性會明顯更好。",
+        "quality": "生成檔位",
+        "standardMode": "標準模式",
+        "advancedMode": "高級模式",
+        "aspectAutoNote": "比例按範本自動",
+        "aspectAutoDetail": "首屏海報、細節圖、白底主圖會分別使用各自範本比例，避免整套圖被一個比例誤導。"
+      },
+      "planList": {
+        "empty": "還沒有選擇範本，開啟範本庫新增。",
+        "ariaLabel": "生成模組順序",
+        "details": "詳情頁",
+        "main": "主圖/輔圖",
+        "model": "模特",
+        "editAria": "編輯模組{name}",
+        "removeAria": "移除模組{name}",
+        "collapsed": "已摺疊 {count} 個後續模組，點擊右上角查看全部。"
+      },
+      "recommendation": {
+        "ariaLabel": "視覺總監方案",
+        "safeTemplate": "安全範本",
+        "withModel": "含模特",
+        "lowRisk": "低風險",
+        "recommended": "推薦生成 {count} {unit}",
+        "modelPrefix": "模特 · "
+      },
+      "quickStart": {
+        "mainRef": "主參考圖",
+        "modelRef": "模特參考",
+        "styleHint": "風格 / 版式",
+        "optional": "可選",
+        "extraRef": "補充參考 {count}/3",
+        "focusLabel": "參考重點",
+        "advancedSettings": "高級設定",
+        "aspectRatio": "畫面比例",
+        "specialRequirement": "特殊要求",
+        "extraPlaceholder": "例如：不要文字、不要模特露臉、突出細節…",
+        "uploadRefFirst": "請先上傳主參考圖",
+        "selectCountFirst": "請先選擇{unit}",
+        "countUnitMain": "張數",
+        "countUnitDetails": "屏數",
+        "addRefAndGenerate": "新增參考圖並生成 {count} {unit}方案",
+        "intent": {
+          "autoDetect": "自動識別",
+          "wearing": "上身展示",
+          "poster": "賣點海報",
+          "scene": "場景氛圍",
+          "autoSplit": "自動拆屏",
+          "hero": "首屏海報",
+          "sellingPoints": "賣點說明",
+          "detailsTexture": "細節材質"
+        },
+        "defaultNameDetails": "參考圖詳情方案",
+        "defaultNameMain": "參考圖主圖方案"
+      },
+      "results": {
+        "exampleAlt": "商品套圖範例",
+        "guideTitle": "開始製作商品套圖",
+        "guideSubtitle": "先分析商品資訊，再按你選擇的數量生成主圖/詳情頁計畫。",
+        "guideStep1Title": "上傳商品圖",
+        "guideStep1Desc": "最多 3 張，建議包含正面、側面、背面或細節，方便系統判斷結構與賣點。",
+        "guideStep2Title": "分析商品資訊",
+        "guideStep2Desc": "系統會整理目標平台、風格、統一場景、賣點、痛點、人群、參數和配色。",
+        "guideStep3Title": "生成套圖計畫",
+        "guideStep3Desc": "按 {count} {unit}輸出本地化方案，再開始生成。",
+        "guideStep3CountFallback": "選擇的",
+        "loadingModule": "商品套圖",
+        "loadingRef": "商品參考 {index}",
+        "failedTitle": "商品套圖生成失敗",
+        "retry": "重試",
+        "resultAria": "商品套圖結果",
+        "generatingTitle": "商品套圖生成中",
+        "resultTitle": "商品套圖結果",
+        "generatedCount": "已出 {current}/{total}",
+        "progressCount": "{progress}% 繼續生成",
+        "completed": "已完成",
+        "progressAria": "商品套圖生成進度",
+        "cardFallback": "結果 {index}",
+        "previewAria": "預覽{name}",
+        "resultAlt": "商品套圖{index}",
+        "moduleFailed": "該模組生成失敗",
+        "regenerating": "重生中…",
+        "regenerate": "重生本張",
+        "waiting": "等待生成",
+        "waitingDesc": "該模組完成後會自動填入預覽區",
+        "statusGenerated": "已生成",
+        "statusFailed": "生成失敗",
+        "statusGenerating": "生成中",
+        "regenerateAria": "重新生成{name}",
+        "downloadAria": "下載{name}"
+      },
+      "library": {
+        "title": "參考範本庫",
+        "description": "範本只控制用途、版式和視覺方向，最終商品會以你上傳的圖片為準。",
+        "searchLabel": "搜尋範本",
+        "searchPlaceholder": "搜尋範本…",
+        "filterAria": "範本篩選",
+        "allDetails": "全部詳情頁範本",
+        "allMain": "全部主圖範本",
+        "womenswearScene": "女裝場景",
+        "selectedCount": "已選 {count}",
+        "empty": "沒有符合目前篩選條件的範本。",
+        "uploadReference": "上傳參考圖",
+        "customTitle": "上傳自己的參考",
+        "customDesc": "不需要寫複雜規則，上傳參考圖後選擇參考重點即可。",
+        "customStyles": "自訂樣式",
+        "removeAria": "移除{name}",
+        "customEmpty": "可上傳自己的參考範本圖，配合文字描述生成專屬套圖風格。"
+      }
     }
   },
   "Shared": {
@@ -3130,7 +3509,20 @@
     "dateStart": "開始日期",
     "dateEnd": "結束日期",
     "recentWeek": "最近一週",
-    "recentMonth": "最近一個月"
+    "recentMonth": "最近一個月",
+    "leaveConfirmTitle": "離開當前頁面？",
+    "leaveConfirmContent": "目前頁面有未儲存的輸入內容，離開後這些內容將遺失。",
+    "leaveConfirmOk": "離開",
+    "leaveConfirmCancel": "繼續編輯",
+    "selectAll": "全選",
+    "selectRow": "選取此列",
+    "selectDateRange": "選取日期範圍",
+    "clearDateRange": "清除日期範圍",
+    "previousMonth": "上個月",
+    "nextMonth": "下個月",
+    "searchQuery": "查詢",
+    "confirmNotInitialized": "確認彈窗未初始化，操作未執行",
+    "operationFailed": "操作失敗"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾幀",
@@ -3320,7 +3712,11 @@
     "motionStepGenerateTitle": "生成影片",
     "motionStepGenerateDesc": "輸出同款動作成片。",
     "motionStepGenerateAlt": "生成影片",
-    "badgeGenerateVideoMotion": "生成影片"
+    "badgeGenerateVideoMotion": "生成影片",
+    "runBar": {
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
+    }
   },
   "Pose": {
     "moduleName": "姿勢裂變",
@@ -3652,7 +4048,9 @@
       "continueGenerating": "繼續生成",
       "generateRefs": "生成 {count} 張獨立圖",
       "generatePoses": "生成 {count} 張姿勢圖",
-      "generateGrid": "生成 {count} 姿勢宮格"
+      "generateGrid": "生成 {count} 姿勢宮格",
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
     },
     "previewGuide": {
       "title": "一張原圖，裂變多姿勢",
@@ -3757,7 +4155,9 @@
       "roleExtra": "搭配單品",
       "modeMulti": "換上下裝",
       "modeSingle": "換連體",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "先上傳服裝主圖",
+      "uploadFirstDesc": "上傳後可以在對應服裝下補充領口、面料、logo、背面或側面細節。"
     },
     "favorite": {
       "loginRequired": "請先登入後收藏",
@@ -3812,7 +4212,26 @@
       "maxCount": "服裝細節圖最多 {count} 張",
       "remainingTruncated": "最多還能新增 {count} 張細節圖，已自動截取",
       "uploadingFiles": "正在上傳 {count} 張服裝細節圖…",
-      "added": "已為{owner}新增 {count} 張細節圖"
+      "added": "已為{owner}新增 {count} 張細節圖",
+      "switchLabel": "服裝細節參考",
+      "switchDescription": "用來補充服裝的局部細節，比如面料、領口、口袋、鈕扣，或者背面、側面。開啟後最多 5 張，不會改動人物、姿勢、背景和整體色調。",
+      "sectionTitle": "給每件服裝補細節",
+      "maxCountTitle": "最多 {count} 張細節圖",
+      "addForRole": "新增{role}細節圖",
+      "mainImageAlt": "{role}主圖",
+      "previewMainAria": "預覽{role}主圖",
+      "roleDetailTitle": "{role}細節",
+      "onlyItem": "只放這一件的材質、結構或局部特寫。",
+      "detailCount": "{count} 張",
+      "detailAlt": "{role}細節{index}",
+      "previewDetailAria": "預覽{role}細節{index}",
+      "removeDetailAria": "移除{role}細節{index}",
+      "unassignedTitle": "歷史未歸屬細節",
+      "unassignedCount": "{count} 張",
+      "unassignedAlt": "未歸屬細節{index}",
+      "previewUnassignedAria": "預覽未歸屬細節{index}",
+      "removeUnassignedAria": "移除未歸屬細節{index}",
+      "unassignedHint": "舊任務帶來的細節圖沒有服裝歸屬，生成時只會在明顯匹配時輕量使用。"
     },
     "model": {
       "pleaseUploadImage": "請上傳圖片檔案",
@@ -3894,7 +4313,11 @@
       "recognizingClothing": "識別服裝中",
       "recommending": "推薦場景中",
       "previewSelected": "預覽已選參考圖：{label}",
-      "addSystemScene": "新增系統參考圖"
+      "addSystemScene": "新增系統參考圖",
+      "footerSelected": "已選 {selected}/{max}",
+      "footerDeleteAll": "全部刪除",
+      "footerSaving": "收藏中",
+      "footerSaveAsTemplate": "收藏為範本"
     },
     "autoDesign": {
       "platform": "攝影方案",
@@ -4145,6 +4568,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "Hover 預覽",
+    "lightbox": {
+      "previewAlt": "試穿圖片預覽"
     }
   },
   "toast": {

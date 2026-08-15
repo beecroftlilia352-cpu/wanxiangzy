@@ -157,6 +157,7 @@ const fallbackAppApi: AppApi = {
     info: (message: ReactNode) => toast.info(textFromNode(message)),
   },
   modal: {
+    // 模块级 fallback（无 Provider 上下文），无法走 i18n hook
     confirm: async () => {
       toast.error("确认弹窗未初始化，操作未执行");
     },
@@ -188,7 +189,7 @@ export const App = Object.assign(function App({ children }: { children: ReactNod
       try {
         await current?.onCancel?.();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "操作失败");
+        toast.error(error instanceof Error ? error.message : t("operationFailed"));
       }
     }
   }
@@ -334,6 +335,7 @@ const BaseInput = forwardRef<HTMLInputElement, InputProps>(function BaseInput(
   { className, prefix, allowClear, value, defaultValue, onChange, disabled, ...props },
   forwardedRef,
 ) {
+  const t = useTranslations("Shared");
   const inputRef = useRef<HTMLInputElement>(null);
   const [uncontrolledValue, setUncontrolledValue] = useState(() => String(defaultValue ?? ""));
   const currentValue = value === undefined ? uncontrolledValue : String(value ?? "");
@@ -369,7 +371,7 @@ const BaseInput = forwardRef<HTMLInputElement, InputProps>(function BaseInput(
           <button
             type="button"
             className="-mr-1 grid size-6 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="清空输入"
+            aria-label={t("clearInput")}
             onClick={() => {
               const element = inputRef.current;
               if (!element) return;
@@ -410,6 +412,7 @@ function SearchInput({
   onSearch,
   ...props
 }: InputProps & { enterButton?: ReactNode; onSearch?: (value: string) => void }) {
+  const t = useTranslations("Shared");
   const [value, setValue] = useState(String(props.defaultValue ?? props.value ?? ""));
   return (
     <span className="flex gap-2">
@@ -425,7 +428,7 @@ function SearchInput({
           if (event.key === "Enter") onSearch?.((event.currentTarget as HTMLInputElement).value);
         }}
       />
-      {enterButton ? <Button htmlType="button" type="primary" onClick={() => onSearch?.(value)}>{enterButton === true ? "查询" : enterButton}</Button> : null}
+      {enterButton ? <Button htmlType="button" type="primary" onClick={() => onSearch?.(value)}>{enterButton === true ? t("searchQuery") : enterButton}</Button> : null}
     </span>
   );
 }
@@ -954,7 +957,7 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
                 <th className="w-10 border-b border-border px-3 py-2">
                   <input
                     type="checkbox"
-                    aria-label="全选"
+                    aria-label={t("selectAll")}
                     checked={dataSource.length > 0 && rowSelection.selectedRowKeys?.length === dataSource.length}
                     onChange={(event) => {
                       const keys = event.target.checked ? dataSource.map((row, index) => {
@@ -998,7 +1001,7 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
                     <td className="w-10 px-3 py-2 align-top">
                       <input
                         type="checkbox"
-                        aria-label="选择此行"
+                        aria-label={t("selectRow")}
                         checked={Boolean(rowSelection.selectedRowKeys?.includes(key))}
                         onChange={(event) => {
                           const current = new Set(rowSelection.selectedRowKeys || []);
@@ -1392,20 +1395,20 @@ export const DatePicker = {
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label="选择日期范围"
+              aria-label={t("selectDateRange")}
               className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-card px-3 pr-16 text-sm shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-                <span className={cn("truncate", !displayStart && "text-muted-foreground")}>{displayStart || placeholder?.[0] || "开始日期"}</span>
+                <span className={cn("truncate", !displayStart && "text-muted-foreground")}>{displayStart || placeholder?.[0] || t("dateStart")}</span>
                 <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className={cn("truncate", !displayEnd && "text-muted-foreground")}>{displayEnd || placeholder?.[1] || "结束日期"}</span>
+                <span className={cn("truncate", !displayEnd && "text-muted-foreground")}>{displayEnd || placeholder?.[1] || t("dateEnd")}</span>
               </span>
             </button>
           </PopoverTrigger>
           {selectedStart || selectedEnd || draftStart || draftEnd ? (
             <button
               type="button"
-              aria-label="清空日期范围"
+              aria-label={t("clearDateRange")}
               className="absolute right-9 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={clearRange}
             >
@@ -1418,21 +1421,21 @@ export const DatePicker = {
           <div className="grid md:grid-cols-[120px_1fr]">
             <div className="flex gap-1 border-b border-border p-2 md:block md:border-b-0 md:border-r">
               <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-muted md:w-full" onClick={() => applyQuickRange(7)}>
-                最近一周
+                {t("recentWeek")}
               </button>
               <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-muted md:w-full" onClick={() => applyQuickRange(30)}>
-                最近一月
+                {t("recentMonth")}
               </button>
             </div>
             <div className="min-w-0 p-3">
               <div className="mb-3 flex items-center justify-between">
-                <button type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setViewMonth((current) => addMonths(current, -1))} aria-label="上个月">
+                <button type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setViewMonth((current) => addMonths(current, -1))} aria-label={t("previousMonth")}>
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div className="text-sm font-semibold text-foreground">
                   {formatMonthTitle(viewMonth)} - {formatMonthTitle(addMonths(viewMonth, 1))}
                 </div>
-                <button type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setViewMonth((current) => addMonths(current, 1))} aria-label="下个月">
+                <button type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setViewMonth((current) => addMonths(current, 1))} aria-label={t("nextMonth")}>
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>

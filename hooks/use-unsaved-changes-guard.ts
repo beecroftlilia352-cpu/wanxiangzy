@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /**
@@ -18,6 +19,7 @@ export function useUnsavedChangesGuard(
   options: { exemptPaths?: string[] } = {},
 ) {
   const { confirm, confirmDialog } = useConfirm();
+  const t = useTranslations("Shared");
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
   // 用户已确认离开后放行本次卸载，避免浏览器再弹原生 beforeunload 提示
@@ -52,10 +54,10 @@ export function useUnsavedChangesGuard(
 
       event.preventDefault();
       confirm({
-        title: "离开当前页面？",
-        content: "当前页面有未保存的输入内容，离开后这些内容将丢失。",
-        okText: "离开",
-        cancelText: "继续编辑",
+        title: t("leaveConfirmTitle"),
+        content: t("leaveConfirmContent"),
+        okText: t("leaveConfirmOk"),
+        cancelText: t("leaveConfirmCancel"),
         onOk: () => {
           allowNavigationRef.current = true;
           window.location.href = href;
@@ -64,7 +66,7 @@ export function useUnsavedChangesGuard(
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [confirm]);
+  }, [confirm, t]);
 
   // 浏览器前进/后退：popstate 无法阻止，用 pushState 锚定当前 URL 并弹确认，
   // 确认离开后才放行历史导航
@@ -73,10 +75,10 @@ export function useUnsavedChangesGuard(
       if (!dirtyRef.current || allowNavigationRef.current) return;
       window.history.pushState(null, "", window.location.href);
       confirm({
-        title: "离开当前页面？",
-        content: "当前页面有未保存的输入内容，离开后这些内容将丢失。",
-        okText: "离开",
-        cancelText: "继续编辑",
+        title: t("leaveConfirmTitle"),
+        content: t("leaveConfirmContent"),
+        okText: t("leaveConfirmOk"),
+        cancelText: t("leaveConfirmCancel"),
         onOk: () => {
           allowNavigationRef.current = true;
           window.history.back();
@@ -85,7 +87,7 @@ export function useUnsavedChangesGuard(
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [confirm]);
+  }, [confirm, t]);
 
   return { unsavedDialog: confirmDialog };
 }

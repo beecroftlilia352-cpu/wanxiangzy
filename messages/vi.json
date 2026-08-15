@@ -666,7 +666,12 @@
     "saveBadge": "Tiết kiệm",
     "perMonth": "/tháng",
     "startSubscription": "Bắt đầu đăng ký",
-    "buyNow": "Mua ngay"
+    "buyNow": "Mua ngay",
+    "error": {
+      "title": "Không tải được trang mua hàng",
+      "fallback": "Đã xảy ra lỗi khi hiển thị trang này. Vui lòng thử lại.",
+      "retry": "Thử lại"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "Ảnh sản phẩm đa danh mục",
@@ -877,7 +882,9 @@
       "roleExtra": "Phụ kiện",
       "modeMulti": "Áo trên & dưới",
       "modeSingle": "Liền thân",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "Tải ảnh chính quần áo lên trước",
+      "uploadFirstDesc": "Sau khi tải lên, bạn có thể thêm chi tiết cổ áo, vải, logo, mặt sau hoặc hai bên dưới quần áo tương ứng."
     },
     "favorite": {
       "loginRequired": "Vui lòng đăng nhập để lưu yêu thích",
@@ -932,7 +939,26 @@
       "maxCount": "Ảnh chi tiết trang phục tối đa {count} ảnh",
       "remainingTruncated": "Tối đa còn thêm {count} ảnh chi tiết, đã tự động cắt bớt",
       "uploadingFiles": "Đang tải {count} ảnh chi tiết trang phục…",
-      "added": "Đã thêm {count} ảnh chi tiết cho {owner}"
+      "added": "Đã thêm {count} ảnh chi tiết cho {owner}",
+      "switchLabel": "Tham chiếu chi tiết quần áo",
+      "switchDescription": "Thêm chi tiết cục bộ như vải, cổ áo, túi hoặc nút, cũng như mặt sau và hai bên. Tối đa 5 ảnh, không thay đổi người, tư thế, nền hay tông tổng thể.",
+      "sectionTitle": "Thêm chi tiết cho từng món quần áo",
+      "maxCountTitle": "Tối đa {count} ảnh chi tiết",
+      "addForRole": "Thêm ảnh chi tiết {role}",
+      "mainImageAlt": "Ảnh chính {role}",
+      "previewMainAria": "Xem trước ảnh chính {role}",
+      "roleDetailTitle": "Chi tiết {role}",
+      "onlyItem": "Chỉ chất liệu, cấu trúc hoặc cận cảnh của món này.",
+      "detailCount": "{count} ảnh",
+      "detailAlt": "Chi tiết {role} {index}",
+      "previewDetailAria": "Xem trước chi tiết {role} {index}",
+      "removeDetailAria": "Xóa chi tiết {role} {index}",
+      "unassignedTitle": "Chi tiết lịch sử chưa gán",
+      "unassignedCount": "{count} ảnh",
+      "unassignedAlt": "Chi tiết chưa gán {index}",
+      "previewUnassignedAria": "Xem trước chi tiết chưa gán {index}",
+      "removeUnassignedAria": "Xóa chi tiết chưa gán {index}",
+      "unassignedHint": "Ảnh chi tiết từ tác vụ trước không có gán và chỉ dùng nhẹ khi khớp rõ ràng."
     },
     "model": {
       "pleaseUploadImage": "Vui lòng tải file ảnh lên",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "Đang nhận diện trang phục",
       "recommending": "Đang gợi ý bối cảnh",
       "previewSelected": "Xem trước ảnh tham chiếu đã chọn: {label}",
-      "addSystemScene": "Thêm ảnh tham chiếu hệ thống"
+      "addSystemScene": "Thêm ảnh tham chiếu hệ thống",
+      "footerSelected": "Đã chọn {selected}/{max}",
+      "footerDeleteAll": "Xóa tất cả",
+      "footerSaving": "Đang lưu",
+      "footerSaveAsTemplate": "Lưu làm mẫu"
     },
     "autoDesign": {
       "platform": "Phương án chụp ảnh",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "Xem trước khi di chuột",
+    "lightbox": {
+      "previewAlt": "Xem trước ảnh thử đồ"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "Bật",
     "textureOff": "Tắt",
     "modeFeature": "Chỉ đổi ngũ quan",
-    "modeFeatureHairSkin": "Đổi ngũ quan, kiểu tóc, màu da"
+    "modeFeatureHairSkin": "Đổi ngũ quan, kiểu tóc, màu da",
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "Trang phục 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "Độ dày áo lông vũ",
     "refBack": "Dáng phía sau",
     "refShortCoat": "Áo khoác ngắn",
-    "hoverPreview": "Xem trước khi rê chuột"
+    "hoverPreview": "Xem trước khi rê chuột",
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "Ảnh sang ảnh",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "Ảnh này tạo thất bại",
     "retryThis": "Thử lại ảnh này",
     "retryGenerate": "Tạo lại",
-    "retryToast": "Đang thử lại để bù ảnh thứ {index}, ảnh thất bại đã hoàn Credit, sẽ điền lại sau khi hoàn tất…"
+    "retryToast": "Đang thử lại để bù ảnh thứ {index}, ảnh thất bại đã hoàn Credit, sẽ điền lại sau khi hoàn tất…",
+    "imageToPromptDesc": "Tải ảnh lên để tự động suy ra mô tả nội dung nhằm tạo ảnh tương tự.",
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
+    },
+    "copyEmptyToast": "Chưa có nội dung để sao chép",
+    "copySuccessToast": "Đã sao chép",
+    "copyFailedToast": "Sao chép thất bại, vui lòng sao chép thủ công",
+    "uploadImageAria": "Tải ảnh lên để tạo prompt mô tả",
+    "changeImageAria": "Đổi ảnh dùng để tạo prompt",
+    "uploadingState": "Đang tải lên…",
+    "uploadImageButton": "Tải ảnh lên",
+    "generatingState": "Đang tạo…",
+    "promptTextareaAria": "Prompt tạo từ hình ảnh",
+    "promptTextareaPlaceholder": "Tải ảnh lên, hệ thống sẽ tạo mô tả dùng cho văn bản tạo ảnh tại đây.",
+    "copyButton": "Sao chép",
+    "applyToDescription": "Áp dụng vào mô tả"
   },
   "Grass": {
     "moduleLabel": "Ảnh gợi mua",
@@ -1818,6 +1877,10 @@
       "square": "1:1 vuông",
       "phone": "9:16 điện thoại",
       "landscape": "4:3 ngang"
+    },
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "Xem trước dịch ảnh",
     "waitingUploadSummary": "Chờ tải ảnh gốc · {count} ảnh",
     "selectLanguageSummary": "Đã tải {count} ảnh gốc · vui lòng chọn ngôn ngữ đích",
-    "fullSummary": "{sources} ảnh gốc × {langs} ngôn ngữ × {gen} · {size}"
+    "fullSummary": "{sources} ảnh gốc × {langs} ngôn ngữ × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "Đang tải tham số tăng cường chất liệu",
       "previewAria": "Đang tải vùng xem trước"
+    },
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "Có hình ảnh người thống nhất, tiếp tục dùng cho mặc thử và hình ảnh sản phẩm.",
     "missingFailureLabel": "Ảnh này tạo thất bại",
     "missingFailureActionLabel": "Thử lại ảnh này",
-    "retryLabel": "Tạo lại"
+    "retryLabel": "Tạo lại",
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
+    }
   },
   "ModelBackground": {
     "title": "Đổi nền",
@@ -2842,6 +2917,10 @@
       "upload": "Tải nền lên",
       "text": "Nền từ văn bản",
       "auto": "Thiết kế tự động"
+    },
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
     }
   },
   "Pose": {
@@ -3174,7 +3253,9 @@
       "continueGenerating": "Tiếp tục tạo",
       "generateRefs": "Tạo {count} ảnh độc lập",
       "generatePoses": "Tạo {count} ảnh tư thế",
-      "generateGrid": "Tạo {count} lưới tư thế"
+      "generateGrid": "Tạo {count} lưới tư thế",
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
     },
     "previewGuide": {
       "title": "Một ảnh gốc, biến hóa nhiều tư thế",
@@ -3332,6 +3413,14 @@
       "step2Desc": "Cài đồng nhất chế độ tinh chỉnh, mô hình, tỷ lệ và số lượng xuất mỗi sản phẩm.",
       "step3Title": "Xem kết quả lô",
       "step3Desc": "Kết quả nhóm theo sản phẩm, có thể xem trước, thử lại mục và tải theo sản phẩm hoặc cả lô."
+    },
+    "empty": {
+      "title": "Chưa có kết quả sản phẩm",
+      "description": "Kết quả của từng sản phẩm sẽ tự động hiển thị sau khi tải ảnh lên."
+    },
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
     }
   },
   "ProductSet": {
@@ -3649,6 +3738,327 @@
     },
     "aspectRatio": {
       "auto": "Tự động"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "Tóm tắt thông tin sản phẩm",
+        "productInfo": "Thông tin sản phẩm",
+        "namePlaceholder": "Chưa có tên sản phẩm",
+        "descPlaceholder": "Thông tin đã điền. Bấm sửa để thêm điểm bán, chất liệu và đối tượng."
+      },
+      "summary": {
+        "ariaLabel": "Kế hoạch phân tích sản phẩm",
+        "generated": "Kế hoạch sẵn sàng",
+        "planCount": "Dự kiến tạo {count} {unit}",
+        "imageQuality": "Chất lượng hình ảnh",
+        "qualityPrepared": "Đã chuẩn bị",
+        "collapse": "Thu gọn chi tiết",
+        "expand": "Xem chi tiết",
+        "editInfo": "Sửa thông tin",
+        "suggestSupplement": "Gợi ý bổ sung: "
+      },
+      "adjustStyle": "Điều chỉnh phong cách",
+      "profile": {
+        "ariaLabel": "Hồ sơ sản phẩm",
+        "sourceAi": "Thông tin hình ảnh",
+        "sourceFallback": "Thông tin cơ bản",
+        "sourceRunning": "Đang đọc",
+        "sourceManual": "Thông tin thủ công",
+        "sourceConfirm": "Cần xác nhận",
+        "suggestModel": "Nên dùng người mẫu",
+        "noModel": "Không cần người mẫu",
+        "modify": "Sửa"
+      },
+      "strategy": {
+        "ariaLabel": "Chiến lược hình ảnh",
+        "title": "Chiến lược hình ảnh",
+        "fallbackName": "Chiến lược hình ảnh",
+        "pending": "Cần đánh giá",
+        "imageQuality": "Chất lượng hình ảnh",
+        "currentMode": "Chế độ hiện tại",
+        "modeMain": "Ảnh chính",
+        "modeDetails": "Trang chi tiết",
+        "smartMatch": "Ghép đôi thông minh"
+      },
+      "notice": {
+        "reading": "Đang đọc ảnh sản phẩm",
+        "needConfirm": "Thông tin cần xác nhận",
+        "incomplete": "Chưa đọc xong sản phẩm"
+      },
+      "progress": {
+        "ariaLabel": "Tiến trình tạo mô-đun",
+        "failed": "Thất bại",
+        "done": "Xong",
+        "generating": "Đang tạo",
+        "queued": "Xếp hàng"
+      },
+      "modeTab": {
+        "ariaLabel": "Loại bộ ảnh sản phẩm",
+        "mainTitle": "Ảnh chính",
+        "mainDesc": "Chọn số lượng rồi phân tích",
+        "detailsTitle": "Trang chi tiết",
+        "detailsDesc": "Chọn số màn hình rồi phân tích"
+      },
+      "stepper": {
+        "ariaLabel": "Tiến trình tạo bộ ảnh",
+        "step1Title": "Ảnh",
+        "step1Desc": "Tải lên",
+        "step2Title": "Thông tin",
+        "step2Desc": "Số lượng",
+        "step3Title": "Phân tích",
+        "step3Desc": "Kế hoạch",
+        "step4Title": "Tạo",
+        "step4Desc": "Đầu ra"
+      },
+      "count": {
+        "unselected": "Chưa chọn"
+      },
+      "template": {
+        "main": "Chính",
+        "details": "Chi tiết",
+        "subjectConsistent": "Chủ thể nhất quán",
+        "layoutIndependent": "Bố cục độc lập"
+      },
+      "upload": {
+        "uploadedReplace": "Đã tải lên, có thể thay",
+        "dropHint": "Tải lên / kéo ảnh"
+      },
+      "customSource": {
+        "ariaLabel": "Tải ảnh tham chiếu lên",
+        "description": "Chỉ cần tải một ảnh tham chiếu chính, hệ thống sẽ tự hiểu bố cục và phong cách, rồi chia thành kế hoạch {count}.",
+        "library": "Thư viện mẫu",
+        "selectedCountMain": "Số lượng đã chọn",
+        "selectedCountDetails": "Số màn hình đã chọn",
+        "added": "Đã thêm tham chiếu",
+        "removeAria": "Xóa {name}",
+        "empty": "Chưa có tham chiếu. Tải ảnh chính lên rồi bấm Thêm — ảnh tham chiếu được gửi cùng ảnh sản phẩm và chỉ ảnh hưởng phong cách, bố cục, người mẫu hoặc không khí."
+      },
+      "referenceStyle": {
+        "title": "Ghi chú phong cách tham chiếu",
+        "description": "Chỉ lưu hướng phong cách, không phân tích mẫu; sẽ được truyền vào phân tích thông minh khi bấm \"Viết thông tin sản phẩm\".",
+        "restoreExample": "Khôi phục ví dụ",
+        "save": "Lưu phong cách tham chiếu",
+        "placeholder": "Viết phong cách tham chiếu, nền tảng mục tiêu, phong cách hình ảnh, bối cảnh thống nhất, bảng màu và yêu cầu…",
+        "hint": "Nội dung này được truyền vào phân tích dưới dạng tham chiếu phong cách, không dùng trực tiếp làm mẫu."
+      },
+      "profileEditor": {
+        "title": "Sửa nhận diện sản phẩm",
+        "description": "Kết quả ảnh hưởng mẫu mặc định, việc dùng người mẫu và ranh giới an toàn của prompt.",
+        "productType": "Loại sản phẩm",
+        "apparelSubtype": "Phân loại quần áo",
+        "modelStrategy": "Chiến lược người mẫu",
+        "modelRequirement": "Yêu cầu người mẫu",
+        "modelBriefPlaceholder": "VD: nữ người mẫu trưởng thành, bối cảnh công sở Pháp, tư thế tự nhiên, làm nổi bật dáng và độ rủ, không tạo dáng quá đà…",
+        "kind": {
+          "apparel": "Quần áo",
+          "footwear": "Giày dép",
+          "bag": "Túi",
+          "accessory": "Phụ kiện",
+          "beauty": "Làm đẹp",
+          "electronics": "Điện tử",
+          "home": "Nhà cửa",
+          "toy": "Đồ chơi",
+          "food": "Thực phẩm",
+          "general": "Chung"
+        },
+        "apparel": {
+          "womenswear": "Nữ",
+          "menswear": "Nam",
+          "kidswear": "Trẻ em",
+          "outerwear": "Áo khoác / Ngoài trời",
+          "sportswear": "Đồ thể thao",
+          "intimate": "Đồ lót",
+          "swimwear": "Đồ bơi",
+          "general": "Quần áo chung"
+        },
+        "model": {
+          "none": "Không cần người mẫu",
+          "optional": "Người mẫu tùy chọn",
+          "recommended": "Nên dùng người mẫu",
+          "required": "Bắt buộc người mẫu"
+        }
+      },
+      "moduleEdit": {
+        "title": "Sửa mô-đun tạo",
+        "description": "Ảnh {index} · {type}",
+        "modelTypeDetails": "Mô-đun trang chi tiết",
+        "modelTypeMain": "Mô-đun ảnh chính / phụ",
+        "remove": "Xóa mô-đun này",
+        "save": "Lưu",
+        "fieldName": "Tên mô-đun",
+        "fieldRole": "Vai trò mô-đun",
+        "fieldContentScope": "Phạm vi nội dung",
+        "contentScopePlaceholder": "VD: chỉ nói về vải và dáng, không lặp lại toàn bộ điểm bán; hoặc chỉ hiển thị người mẫu và không khí.",
+        "fieldLayoutRules": "Quy tắc bố cục",
+        "fieldTextRules": "Quy tắc chữ",
+        "fieldAvoidRules": "Quy tắc cấm",
+        "fieldTypeDescription": "Mô tả mẫu",
+        "aspectRatio": "Tỷ lệ khung hình",
+        "subjectConsistency": "Chủ thể nhất quán",
+        "modelConsistency": "Người mẫu nhất quán",
+        "intelligentCopy": "Văn bản thông minh",
+        "copyDensity": "Mật độ chữ",
+        "copyDensityNone": "Không chữ",
+        "copyDensityLight": "Chữ nhẹ",
+        "copyDensityStandard": "Chữ chuẩn",
+        "copyDensityRich": "Chữ phong phú",
+        "modelAdviceOn": "Mô-đun này ưu tiên người mẫu / cảnh mặc. Nếu không muốn người mẫu, đổi vai trò thành nền trắng, chi tiết, kích cỡ hoặc tắt tính nhất quán của người mẫu.",
+        "modelAdviceOff": "Mô-đun này mặc định không dùng người mẫu, phù hợp nền trắng, chi tiết, kích thước, chất liệu, bao bì hoặc thông số.",
+        "fieldExtraDescription": "Mô tả bổ sung",
+        "extraDescriptionPlaceholder": "Chỉ viết yêu cầu đặc biệt của ảnh này, VD: không có hình thu nhỏ ở cuối banner nữ; ảnh chi tiết chỉ hiện mũ trùm, cổ tay áo và túi."
+      },
+      "settings": {
+        "title": "Cài đặt thêm",
+        "description": "Kiểm soát thị trường mục tiêu, văn bản ảnh và phong cách hình ảnh; mẫu, tỷ lệ và độ phân giải được cấu hình riêng bên trái.",
+        "country": "Quốc gia / khu vực mục tiêu",
+        "language": "Ngôn ngữ văn bản ảnh",
+        "platform": "Nền tảng mục tiêu",
+        "theme": "Màu chủ đề",
+        "themeAuto": "Chủ đề thông minh",
+        "themeCustom": "Màu tùy chỉnh",
+        "themeCustomLabel": "Màu chủ đề tùy chỉnh",
+        "themeColorPlaceholder": "VD: trắng kem + xanh denim + hồng…",
+        "fontStyle": "Kiểu chữ",
+        "extraDescription": "Mô tả bổ sung",
+        "extraDescriptionPlaceholder": "VD: nữ phong cách công sở Pháp, không tạo dáng quá đà, văn bản ngắn…"
+      },
+      "favorite": {
+        "ariaLabel": "Mẫu đã lưu của tôi",
+        "description": "Lưu kế hoạch hình ảnh hoặc mẫu tùy chỉnh hiện tại và áp dụng ngay khi đổi sản phẩm.",
+        "setsCount": "{count} bộ",
+        "nameLabel": "Tên kế hoạch đã lưu",
+        "saving": "Đang lưu…",
+        "save": "Lưu",
+        "loading": "Đang tải kế hoạch đã lưu…",
+        "apply": "Áp dụng",
+        "deleteAria": "Xóa kế hoạch {name}",
+        "modelPrefix": "Người mẫu · ",
+        "empty": "Chưa có kế hoạch lưu. Điều chỉnh kế hoạch hiện tại rồi bấm Lưu.",
+        "planCustom": "Kế hoạch tùy chỉnh",
+        "planVisual": "Kế hoạch hình ảnh",
+        "typeDetails": "Trang chi tiết",
+        "typeMain": "Ảnh chính",
+        "justNow": "Vừa xong"
+      },
+      "genSettings": {
+        "title": "Cài đặt tạo",
+        "advQuality": "QA nâng cao",
+        "stdQuality": "QA chuẩn",
+        "adjust": "Điều chỉnh"
+      },
+      "modelConfig": {
+        "ariaLabel": "Tùy chọn cài đặt tạo",
+        "model": "Mô hình tạo",
+        "resolution": "Độ phân giải",
+        "sizeCost": "{size} · {cost} tín dụng",
+        "detailsWarning": "Trang chi tiết có tiêu đề, nhãn và chi tiết cục bộ — 1K dễ làm nhòe chữ nhỏ. Bắt đầu từ 2K để QA và độ rõ tốt hơn nhiều.",
+        "quality": "Mức tạo",
+        "standardMode": "Chế độ chuẩn",
+        "advancedMode": "Chế độ nâng cao",
+        "aspectAutoNote": "Tỷ lệ tự động theo mẫu",
+        "aspectAutoDetail": "Banner, ảnh chi tiết và ảnh chính nền trắng mỗi loại dùng tỷ lệ riêng, để một tỷ lệ không làm lệch cả bộ."
+      },
+      "planList": {
+        "empty": "Chưa chọn mẫu — mở thư viện để thêm.",
+        "ariaLabel": "Thứ tự mô-đun",
+        "details": "Trang chi tiết",
+        "main": "Ảnh chính / phụ",
+        "model": "Người mẫu",
+        "editAria": "Sửa mô-đun {name}",
+        "removeAria": "Xóa mô-đun {name}",
+        "collapsed": "Đã thu gọn {count} mô-đun tiếp theo. Bấm xem tất cả ở góc trên bên phải."
+      },
+      "recommendation": {
+        "ariaLabel": "Kế hoạch đạo diễn hình ảnh",
+        "safeTemplate": "Mẫu an toàn",
+        "withModel": "Có người mẫu",
+        "lowRisk": "Rủi ro thấp",
+        "recommended": "Khuyên dùng: tạo {count} {unit}",
+        "modelPrefix": "Người mẫu · "
+      },
+      "quickStart": {
+        "mainRef": "Tham chiếu chính",
+        "modelRef": "Tham chiếu người mẫu",
+        "styleHint": "Phong cách / bố cục",
+        "optional": "Tùy chọn",
+        "extraRef": "Tham chiếu bổ sung {count}/3",
+        "focusLabel": "Trọng tâm tham chiếu",
+        "advancedSettings": "Cài đặt nâng cao",
+        "aspectRatio": "Tỷ lệ khung hình",
+        "specialRequirement": "Yêu cầu đặc biệt",
+        "extraPlaceholder": "VD: không chữ, không lộ mặt người mẫu, làm nổi bật chi tiết…",
+        "uploadRefFirst": "Hãy tải ảnh tham chiếu chính lên trước",
+        "selectCountFirst": "Hãy chọn {unit} trước",
+        "countUnitMain": "số ảnh",
+        "countUnitDetails": "số màn hình",
+        "addRefAndGenerate": "Thêm tham chiếu và tạo kế hoạch {count} {unit}",
+        "intent": {
+          "autoDetect": "Nhận diện tự động",
+          "wearing": "Trình diễn trên người",
+          "poster": "Áp phích điểm bán",
+          "scene": "Không khí bối cảnh",
+          "autoSplit": "Tự chia",
+          "hero": "Banner chính",
+          "sellingPoints": "Điểm bán",
+          "detailsTexture": "Chi tiết và chất liệu"
+        },
+        "defaultNameDetails": "Phương án chi tiết tham chiếu",
+        "defaultNameMain": "Phương án ảnh chính tham chiếu"
+      },
+      "results": {
+        "exampleAlt": "Ví dụ bộ ảnh sản phẩm",
+        "guideTitle": "Bắt đầu tạo bộ ảnh",
+        "guideSubtitle": "Phân tích thông tin trước rồi tạo kế hoạch ảnh chính / trang chi tiết theo lựa chọn.",
+        "guideStep1Title": "Tải ảnh sản phẩm lên",
+        "guideStep1Desc": "Tối đa 3 ảnh; thêm mặt trước, bên, sau hoặc chi tiết để hệ thống đánh giá cấu trúc và điểm bán.",
+        "guideStep2Title": "Phân tích thông tin",
+        "guideStep2Desc": "Hệ thống sắp xếp nền tảng, phong cách, bối cảnh, điểm bán, điểm đau, đối tượng, thông số và bảng màu.",
+        "guideStep3Title": "Tạo kế hoạch bộ ảnh",
+        "guideStep3Desc": "Tạo kế hoạch bản địa hóa theo {count} {unit} rồi bắt đầu tạo.",
+        "guideStep3CountFallback": "đã chọn",
+        "loadingModule": "Bộ ảnh sản phẩm",
+        "loadingRef": "Tham chiếu sản phẩm {index}",
+        "failedTitle": "Tạo bộ ảnh thất bại",
+        "retry": "Thử lại",
+        "resultAria": "Kết quả bộ ảnh",
+        "generatingTitle": "Đang tạo bộ ảnh",
+        "resultTitle": "Kết quả bộ ảnh",
+        "generatedCount": "{current}/{total} xong",
+        "progressCount": "{progress}% đã tạo",
+        "completed": "Xong",
+        "progressAria": "Tiến trình tạo bộ ảnh",
+        "cardFallback": "Kết quả {index}",
+        "previewAria": "Xem trước {name}",
+        "resultAlt": "Bộ ảnh sản phẩm {index}",
+        "moduleFailed": "Mô-đun này thất bại",
+        "regenerating": "Đang tạo lại…",
+        "regenerate": "Tạo lại ảnh này",
+        "waiting": "Chờ tạo",
+        "waitingDesc": "Mô-đun này tự điền vào khung xem trước khi xong",
+        "statusGenerated": "Đã tạo",
+        "statusFailed": "Thất bại",
+        "statusGenerating": "Đang tạo",
+        "regenerateAria": "Tạo lại {name}",
+        "downloadAria": "Tải xuống {name}"
+      },
+      "library": {
+        "title": "Thư viện mẫu tham chiếu",
+        "description": "Mẫu chỉ kiểm soát mục đích, bố cục và hướng hình ảnh — sản phẩm cuối dùng ảnh bạn tải lên.",
+        "searchLabel": "Tìm mẫu",
+        "searchPlaceholder": "Tìm mẫu…",
+        "filterAria": "Bộ lọc mẫu",
+        "allDetails": "Tất cả mẫu trang chi tiết",
+        "allMain": "Tất cả mẫu ảnh chính",
+        "womenswearScene": "Bối cảnh nữ",
+        "selectedCount": "Đã chọn {count}",
+        "empty": "Không có mẫu phù hợp bộ lọc.",
+        "uploadReference": "Tải tham chiếu lên",
+        "customTitle": "Tải tham chiếu của bạn lên",
+        "customDesc": "Không cần quy tắc phức tạp: tải ảnh lên và chọn trọng tâm.",
+        "customStyles": "Phong cách tùy chỉnh",
+        "removeAria": "Xóa {name}",
+        "customEmpty": "Tải mẫu tham chiếu của riêng bạn lên để tạo phong cách bộ ảnh độc quyền với mô tả văn bản."
+      }
     }
   },
   "Shared": {
@@ -3955,7 +4365,20 @@
     "dateStart": "Ngày bắt đầu",
     "dateEnd": "Ngày kết thúc",
     "recentWeek": "Tuần qua",
-    "recentMonth": "Tháng qua"
+    "recentMonth": "Tháng qua",
+    "leaveConfirmTitle": "Rời khỏi trang này?",
+    "leaveConfirmContent": "Trang này có nội dung chưa lưu, sẽ bị mất nếu rời đi.",
+    "leaveConfirmOk": "Rời đi",
+    "leaveConfirmCancel": "Tiếp tục chỉnh sửa",
+    "selectAll": "Chọn tất cả",
+    "selectRow": "Chọn hàng này",
+    "selectDateRange": "Chọn khoảng ngày",
+    "clearDateRange": "Xóa khoảng ngày",
+    "previousMonth": "Tháng trước",
+    "nextMonth": "Tháng sau",
+    "searchQuery": "Tìm kiếm",
+    "confirmNotInitialized": "Hộp thoại xác nhận chưa khởi tạo — thao tác chưa được thực hiện",
+    "operationFailed": "Thao tác thất bại"
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "Tạo video",
     "motionStepGenerateDesc": "Xuất thành phẩm động tác tương tự.",
     "motionStepGenerateAlt": "Tạo video",
-    "badgeGenerateVideoMotion": "Tạo video"
+    "badgeGenerateVideoMotion": "Tạo video",
+    "runBar": {
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
+    }
   },
   "toast": {
     "selectImage": "Vui lòng chọn tệp ảnh",

@@ -104,13 +104,13 @@ export function ResultsCanvas({
           <div className="mx-auto flex min-h-[calc(100dvh-160px)] max-w-3xl items-center justify-center">
             <PreviewGuide
               imageSrc={getImageVariantUrl(productImages[0]?.url || fallbackImage, "card")}
-              imageAlt="商品套图示例"
-              title="开始制作商品套图"
-              subtitle="先分析商品信息，再按你选择的数量生成主图/详情页计划。"
+              imageAlt={t("create.results.exampleAlt")}
+              title={t("create.results.guideTitle")}
+              subtitle={t("create.results.guideSubtitle")}
               steps={[
-                { title: "上传商品图", desc: "最多 3 张，建议包含正面、侧面、背面或细节，方便系统判断结构与卖点。" },
-                { title: "分析商品信息", desc: "系统会整理目标平台、风格、统一场景、卖点、痛点、人群、参数和配色。" },
-                { title: "生成套图计划", desc: `按 ${genCount || "选择的"} ${imageType === "main" ? "张主图" : "屏详情页"}输出中文方案，再开始生成。` },
+                { title: t("create.results.guideStep1Title"), desc: t("create.results.guideStep1Desc") },
+                { title: t("create.results.guideStep2Title"), desc: t("create.results.guideStep2Desc") },
+                { title: t("create.results.guideStep3Title"), desc: t("create.results.guideStep3Desc", { count: genCount || t("create.results.guideStep3CountFallback"), unit: imageType === "main" ? t("units.mainImage") : t("units.detailPage") }) },
               ]}
             />
           </div>
@@ -121,12 +121,12 @@ export function ResultsCanvas({
             <LoadingStage
               genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, imageType === "details" ? 8 : 6) : Math.max(outputCount, 1)}
               progress={activeQueueTask?.progress || progress}
-              moduleName="商品套图"
+              moduleName={t("create.results.loadingModule")}
               referenceImages={(safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : productImages.map((item) => item.url)).map((url, index) => ({
-                label: `商品参考 ${index + 1}`,
+                label: t("create.results.loadingRef", { index: index + 1 }),
                 url,
               }))}
-              metaItems={[imageType === "main" ? "主图辅图" : "详情页", platform, imageSize]}
+              metaItems={[imageType === "main" ? t("meta.mainAux") : t("meta.detailsPage"), platform, imageSize]}
             />
             {displayedResultPlan.length > 0 ? (
               <ModuleProgressList templates={displayedResultPlan} moduleResults={moduleResults} resultUrls={resultUrls} isGenerating={isGenerating} />
@@ -140,38 +140,38 @@ export function ResultsCanvas({
               <div aria-hidden="true" className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
                 <X className="h-7 w-7 text-red-400" />
               </div>
-              <h2 className="text-base font-black text-slate-950 text-pretty dark:text-stone-100">商品套图生成失败</h2>
+              <h2 className="text-base font-black text-slate-950 text-pretty dark:text-stone-100">{t("create.results.failedTitle")}</h2>
               <p className="mt-2 text-sm leading-6 text-red-500">{summarizeGenerationError(error)}</p>
               <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
                 {FAILED_RETRY_NOTICE}
               </p>
               <div className="mt-5 flex justify-center gap-2">
-                <button type="button" onClick={onGenerate} className={`h-10 touch-manipulation rounded-full bg-slate-950 px-5 text-sm font-bold text-white transition-colors hover:bg-slate-800 ${focusRing}`}>重试</button>
-                <button type="button" onClick={onClearError} className={`h-10 touch-manipulation rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 ${focusRing}`}>清空</button>
+                <button type="button" onClick={onGenerate} className={`h-10 touch-manipulation rounded-full bg-slate-950 px-5 text-sm font-bold text-white transition-colors hover:bg-slate-800 ${focusRing}`}>{t("create.results.retry")}</button>
+                <button type="button" onClick={onClearError} className={`h-10 touch-manipulation rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 ${focusRing}`}>{t("common.clear")}</button>
               </div>
             </div>
           </div>
         ) : null}
 
         {hasResultStage && !error ? (
-          <section aria-label="商品套图结果" className="studio-result-stage animate-fade-in motion-reduce:animate-none">
+          <section aria-label={t("create.results.resultAria")} className="studio-result-stage animate-fade-in motion-reduce:animate-none">
             <div className="mb-5 rounded-[28px] border border-white/80 bg-white/82 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-black text-slate-950 text-pretty dark:text-stone-100">{isGenerating ? "商品套图生成中" : "商品套图结果"}</h2>
+                  <h2 className="text-xl font-black text-slate-950 text-pretty dark:text-stone-100">{isGenerating ? t("create.results.generatingTitle") : t("create.results.resultTitle")}</h2>
                   <p className="mt-1 text-xs text-slate-400">
                     {activeQueueTask?.time ? `${activeQueueTask.time} · ` : ""}
-                    {mode === "smart" ? "智能套图" : "自定义套图"} · {imageType === "main" ? "主图辅图" : "详情页"} · {platform} · 已出 {visibleResultCount}/{resultSlotCount}
+                    {mode === "smart" ? t("meta.smartSet") : t("meta.customSet")} · {imageType === "main" ? t("meta.mainAux") : t("meta.detailsPage")} · {platform} · {t("create.results.generatedCount", { current: visibleResultCount, total: resultSlotCount })}
                   </p>
                 </div>
                 <span aria-live="polite" className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)]">
-                  {isGenerating ? `${progress}% 继续生成` : "已完成"}
+                  {isGenerating ? t("create.results.progressCount", { progress }) : t("create.results.completed")}
                 </span>
               </div>
               {isGenerating ? (
                 <div
                   role="progressbar"
-                  aria-label="商品套图生成进度"
+                  aria-label={t("create.results.progressAria")}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={progress}
@@ -188,18 +188,18 @@ export function ResultsCanvas({
                 const slotFailureDetail = module?.error
                   ? buildPartialFailureDetail({ message: module.error, failedCount: 1 })
                   : partialFailureMessage;
-                const cardTitle = template?.name || `结果 ${index + 1}`;
+                const cardTitle = template?.name || t("create.results.cardFallback", { index: index + 1 });
 
                 return (
                   <article key={`${template?.source || "result"}-${template?.id || module?.moduleKey || index}`} className="flex h-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                     {url ? (
                       <button
                         type="button"
-                        aria-label={`预览${cardTitle}`}
+                        aria-label={t("create.results.previewAria", { name: cardTitle })}
                         onClick={() => onPreviewIndexChange(index)}
                         className={`group relative aspect-[3/4] w-full touch-manipulation overflow-hidden bg-slate-100 dark:bg-white/5 ${focusRing}`}
                       >
-                        <RawPreviewImage src={getImageVariantUrl(url, "card")} alt={template?.name || `商品套图${index + 1}`} className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02] motion-reduce:transition-none" />
+                        <RawPreviewImage src={getImageVariantUrl(url, "card")} alt={template?.name || t("create.results.resultAlt", { index: index + 1 })} className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02] motion-reduce:transition-none" />
                         <span aria-hidden="true" className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                           <ZoomIn className="h-4 w-4" />
                         </span>
@@ -207,25 +207,25 @@ export function ResultsCanvas({
                     ) : slotFailed ? (
                       <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-red-50 px-5 text-center">
                         <X aria-hidden="true" className="h-7 w-7 text-red-400" />
-                        <p className="mt-3 text-xs font-black text-red-500">该模块生成失败</p>
+                        <p className="mt-3 text-xs font-black text-red-500">{t("create.results.moduleFailed")}</p>
                         <p className="mt-1 max-w-56 text-[11px] leading-4 text-red-400">{slotFailureDetail}</p>
                         <button type="button" onClick={() => onRegenerate(index)} disabled={regeneratingIndex !== null || isGenerating} className={`mt-4 inline-flex h-9 touch-manipulation items-center gap-1.5 rounded-full bg-white px-3 text-xs font-black text-red-500 shadow-sm transition-colors hover:bg-red-100 disabled:opacity-50 ${focusRing}`}>
                           {regeneratingIndex === index ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
-                          {regeneratingIndex === index ? "重生中…" : "重生本张"}
+                          {regeneratingIndex === index ? t("create.results.regenerating") : t("create.results.regenerate")}
                         </button>
                       </div>
                     ) : (
                       <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-slate-50 text-center dark:bg-white/5" aria-live="polite">
                         <Loader2 aria-hidden="true" className="h-6 w-6 animate-spin text-[var(--codex-accent)] motion-reduce:animate-none" />
-                        <p className="mt-3 text-xs font-black text-slate-500 dark:text-stone-300">等待生成</p>
-                        <p className="mt-1 max-w-32 text-[11px] leading-4 text-slate-400 dark:text-stone-500">该模块完成后会自动填入预览区</p>
+                        <p className="mt-3 text-xs font-black text-slate-500 dark:text-stone-300">{t("create.results.waiting")}</p>
+                        <p className="mt-1 max-w-32 text-[11px] leading-4 text-slate-400 dark:text-stone-500">{t("create.results.waitingDesc")}</p>
                       </div>
                     )}
                     <div className="flex min-h-[94px] flex-1 p-3">
                       <div className="flex w-full items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-black text-slate-900 dark:text-stone-100">{cardTitle}</h3>
-                          <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : slotFailed ? "生成失败" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio, t)}</p>
+                          <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? t("create.results.statusGenerated") : slotFailed ? t("create.results.statusFailed") : t("create.results.statusGenerating")} · {template?.imageType === "details" ? t("create.moduleEdit.modelTypeDetails") : t("create.moduleEdit.modelTypeMain")} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio, t)}</p>
                           {module?.qualityScore !== undefined ? (
                             <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               <QualityBadge score={module.qualityScore} />
@@ -241,7 +241,7 @@ export function ResultsCanvas({
                           <div className="flex shrink-0 items-center gap-1">
                             <button
                               type="button"
-                              aria-label={`重新生成${cardTitle}`}
+                              aria-label={t("create.results.regenerateAria", { name: cardTitle })}
                               onClick={() => onRegenerate(index)}
                               disabled={regeneratingIndex !== null || isGenerating}
                               className={`flex h-9 w-9 touch-manipulation items-center justify-center rounded-full border border-[rgba(91,124,255,0.22)] text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)] disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
@@ -250,7 +250,7 @@ export function ResultsCanvas({
                             </button>
                             <button
                               type="button"
-                              aria-label={`下载${cardTitle}`}
+                              aria-label={t("create.results.downloadAria", { name: cardTitle })}
                               onClick={() => onDownload(url, index)}
                               className={`flex h-9 w-9 touch-manipulation items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5 ${focusRing}`}
                             >

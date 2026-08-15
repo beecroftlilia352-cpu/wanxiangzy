@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import { CheckCircle2, Loader2, Upload, X, XCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { ClientPortal } from "@/components/ClientPortal";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -10,7 +11,6 @@ import {
   type VisualAnalysisSummaryItem,
 } from "@/components/studio/VisualAnalysisStatus";
 import {
-  GARMENT_DETAIL_SWITCH_DESCRIPTION,
   GARMENT_DETAIL_UPLOAD_FOOTNOTE,
   MAX_GARMENT_DETAIL_IMAGES,
   type GarmentDetailReferenceGroup,
@@ -77,17 +77,18 @@ export function ReferenceSelectionFooter({
   onClear: () => void;
   onSave: () => void;
 }) {
+  const t = useTranslations("Create");
   if (selectedCount <= 0) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center justify-end gap-3 text-[11px] font-medium">
-      <span className="text-[var(--codex-accent)]">已选 {selectedCount}/{MAX_TRYON_REFERENCE_IMAGES}</span>
+      <span className="text-[var(--codex-accent)]">{t("reference.footerSelected", { selected: selectedCount, max: MAX_TRYON_REFERENCE_IMAGES })}</span>
       <button
         type="button"
         onClick={onClear}
         disabled={!selectedCount}
         className="text-red-500 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        全部删除
+        {t("reference.footerDeleteAll")}
       </button>
       <button
         type="button"
@@ -95,7 +96,7 @@ export function ReferenceSelectionFooter({
         disabled={!selectedCount || isSaving}
         className="text-[var(--codex-accent)] transition hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {isSaving ? "收藏中" : "收藏为模板"}
+        {isSaving ? t("reference.footerSaving") : t("reference.footerSaveAsTemplate")}
       </button>
     </div>
   );
@@ -138,6 +139,7 @@ export function GarmentDetailReferencePanel({
   onRemoveDetail: (url: string, clothingIndex?: number) => void;
   onSetDetailTarget: (clothingIndex: number) => void;
 }) {
+  const t = useTranslations("Create");
   return (
     <div className="mt-3 space-y-3">
       <button
@@ -150,9 +152,9 @@ export function GarmentDetailReferencePanel({
         }`}
       >
         <span className="min-w-0">
-          <span className="block text-sm font-black">服装细节参考</span>
+          <span className="block text-sm font-black">{t("garmentDetail.switchLabel")}</span>
           <span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-stone-400">
-            {GARMENT_DETAIL_SWITCH_DESCRIPTION}
+            {t("garmentDetail.switchDescription")}
           </span>
         </span>
         <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${enabled ? "bg-[var(--codex-accent)]" : "bg-neutral-200 dark:bg-white/10"}`}>
@@ -164,7 +166,7 @@ export function GarmentDetailReferencePanel({
         <StudioUploadSection
           title={(
             <span className="flex items-center gap-2">
-              给每件服装补细节
+              {t("garmentDetail.sectionTitle")}
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
                 {total}/{MAX_GARMENT_DETAIL_IMAGES}
               </span>
@@ -201,9 +203,9 @@ export function GarmentDetailReferencePanel({
                   >
                     <Upload className="h-5 w-5 shrink-0" />
                     <span className="min-w-0">
-                      <span className="block text-xs font-bold">先上传服装主图</span>
+                      <span className="block text-xs font-bold">{t("clothing.uploadFirstTitle")}</span>
                       <span className="mt-0.5 block text-[11px] leading-4 text-blue-700/75">
-                        上传后可以在对应服装下补充领口、面料、logo、背面或侧面细节。
+                        {t("clothing.uploadFirstDesc")}
                       </span>
                     </span>
                   </button>
@@ -221,11 +223,11 @@ export function GarmentDetailReferencePanel({
                           <div className="flex gap-3">
                             <button
                               type="button"
-                              onClick={() => onOpenLightbox(item.preview, `${roleLabel}主图`)}
+                              onClick={() => onOpenLightbox(item.preview, t("garmentDetail.mainImageAlt", { role: roleLabel }))}
                               className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                              aria-label={`预览${roleLabel}主图`}
+                              aria-label={t("garmentDetail.previewMainAria", { role: roleLabel })}
                             >
-                              <RawPreviewImage src={item.preview} alt={`${roleLabel}主图`} className="h-full w-full object-cover" />
+                              <RawPreviewImage src={item.preview} alt={t("garmentDetail.mainImageAlt", { role: roleLabel })} className="h-full w-full object-cover" />
                               <span className="absolute bottom-1 left-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
                                 {roleLabel}
                               </span>
@@ -234,13 +236,13 @@ export function GarmentDetailReferencePanel({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="truncate text-xs font-black text-slate-900">{roleLabel}细节</p>
+                                  <p className="truncate text-xs font-black text-slate-900">{t("garmentDetail.roleDetailTitle", { role: roleLabel })}</p>
                                   <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-                                    只放这一件的材质、结构或局部特写。
+                                    {t("garmentDetail.onlyItem")}
                                   </p>
                                 </div>
                                 <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                                  {details.length} 张
+                                  {t("garmentDetail.detailCount", { count: details.length })}
                                 </span>
                               </div>
 
@@ -249,11 +251,11 @@ export function GarmentDetailReferencePanel({
                                   <div key={url} className="group relative overflow-hidden rounded-lg border border-blue-200 bg-white">
                                     <button
                                       type="button"
-                                      onClick={() => onOpenLightbox(url, `${roleLabel}细节${index + 1}`)}
+                                      onClick={() => onOpenLightbox(url, t("garmentDetail.detailAlt", { role: roleLabel, index: index + 1 }))}
                                       className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                                      aria-label={`预览${roleLabel}细节${index + 1}`}
+                                      aria-label={t("garmentDetail.previewDetailAria", { role: roleLabel, index: index + 1 })}
                                     >
-                                      <RawPreviewImage src={url} alt={`${roleLabel}细节${index + 1}`} className="aspect-square w-full object-cover" />
+                                      <RawPreviewImage src={url} alt={t("garmentDetail.detailAlt", { role: roleLabel, index: index + 1 })} className="aspect-square w-full object-cover" />
                                       <span className="absolute bottom-1 left-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
                                         {index + 1}
                                       </span>
@@ -262,7 +264,7 @@ export function GarmentDetailReferencePanel({
                                       type="button"
                                       onClick={() => onRemoveDetail(url, clothingIndex)}
                                       className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:text-red-500"
-                                      aria-label={`移除${roleLabel}细节${index + 1}`}
+                                      aria-label={t("garmentDetail.removeDetailAria", { role: roleLabel, index: index + 1 })}
                                     >
                                       <X className="h-3 w-3" />
                                     </button>
@@ -273,11 +275,11 @@ export function GarmentDetailReferencePanel({
                                   onClick={() => openDetailDialog(clothingIndex)}
                                   disabled={!canAddDetail}
                                   className={`flex aspect-square flex-col items-center justify-center rounded-lg border border-dashed bg-white text-blue-500 transition hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 ${isDragging ? "border-blue-400 bg-blue-50" : "border-blue-200"}`}
-                                  aria-label={`添加${roleLabel}细节图`}
-                                  title={remainingDetailCount <= 0 ? `最多 ${MAX_GARMENT_DETAIL_IMAGES} 张细节图` : `添加${roleLabel}细节图`}
+                                  aria-label={t("garmentDetail.addForRole", { role: roleLabel })}
+                                  title={remainingDetailCount <= 0 ? t("garmentDetail.maxCountTitle", { count: MAX_GARMENT_DETAIL_IMAGES }) : t("garmentDetail.addForRole", { role: roleLabel })}
                                 >
                                   {isUploading ? <Loader2 className="mb-1 h-4 w-4 animate-spin" /> : <Upload className="mb-1 h-4 w-4" />}
-                                  <span className="text-[11px] font-semibold">添加</span>
+                                  <span className="text-[11px] font-semibold">{t("common.add")}</span>
                                 </button>
                               </div>
                             </div>
@@ -291,9 +293,9 @@ export function GarmentDetailReferencePanel({
                 {unassignedUrls.length > 0 && (
                   <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-2.5">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-amber-800">历史未归属细节</p>
+                      <p className="text-xs font-bold text-amber-800">{t("garmentDetail.unassignedTitle")}</p>
                       <span className="text-[10px] font-semibold text-amber-700">
-                        {unassignedUrls.length} 张
+                        {t("garmentDetail.unassignedCount", { count: unassignedUrls.length })}
                       </span>
                     </div>
                     <div className="grid grid-cols-5 gap-2">
@@ -301,17 +303,17 @@ export function GarmentDetailReferencePanel({
                         <div key={url} className="relative overflow-hidden rounded-lg border border-amber-200 bg-white">
                           <button
                             type="button"
-                            onClick={() => onOpenLightbox(url, `未归属细节${index + 1}`)}
+                            onClick={() => onOpenLightbox(url, t("garmentDetail.unassignedAlt", { index: index + 1 }))}
                             className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-                            aria-label={`预览未归属细节${index + 1}`}
+                            aria-label={t("garmentDetail.previewUnassignedAria", { index: index + 1 })}
                           >
-                            <RawPreviewImage src={url} alt={`未归属细节${index + 1}`} className="aspect-square w-full object-cover" />
+                            <RawPreviewImage src={url} alt={t("garmentDetail.unassignedAlt", { index: index + 1 })} className="aspect-square w-full object-cover" />
                           </button>
                           <button
                             type="button"
                             onClick={() => onRemoveDetail(url)}
                             className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:text-red-500"
-                            aria-label={`移除未归属细节${index + 1}`}
+                            aria-label={t("garmentDetail.removeUnassignedAria", { index: index + 1 })}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -319,7 +321,7 @@ export function GarmentDetailReferencePanel({
                       ))}
                     </div>
                     <p className="mt-2 text-[11px] leading-4 text-amber-700">
-                      旧任务带来的细节图没有服装归属，生成时只会在明显匹配时轻量使用。
+                      {t("garmentDetail.unassignedHint")}
                     </p>
                   </div>
                 )}
@@ -353,6 +355,7 @@ export function TryOnRulePopover({
   onMouseLeave: () => void;
   onApplyDemo: (demo: TryOnRuleDemo) => void;
 }) {
+  const t = useTranslations("Create");
   if (!open) return null;
   return (
     <ClientPortal>
@@ -368,7 +371,7 @@ export function TryOnRulePopover({
             <h3 className="mt-1 text-base font-bold text-slate-950">{rule.title}</h3>
             <p className="mt-1 text-xs text-slate-500">{rule.uploadSpecText}</p>
           </div>
-          <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-600">Hover 预览</span>
+          <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-600">{t("hoverPreview")}</span>
         </div>
 
         <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: style.maxHeight - 88 }}>
@@ -390,7 +393,7 @@ export function TryOnRulePopover({
                     onClick={() => onApplyDemo(demo)}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-200 hover:text-violet-600"
                   >
-                    试一试
+                    {t("clothing.tryIt")}
                   </button>
                 </div>
               </div>
@@ -424,10 +427,11 @@ export function TryOnLightbox({
   image: TryOnLightboxImage | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("Create");
   return (
     <StudioMediaLightbox
       src={image?.src || null}
-      alt={image?.alt || "试穿图片预览"}
+      alt={image?.alt || t("lightbox.previewAlt")}
       onClose={onClose}
     />
   );

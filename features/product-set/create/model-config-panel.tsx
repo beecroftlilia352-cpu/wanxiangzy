@@ -30,10 +30,10 @@ export function ModelConfigPanel({
 }: ModelConfigPanelProps) {
   const t = useTranslations("ProductSet");
   return (
-    <section id="product-set-generation-settings" aria-label="生成设置选项" className="space-y-3">
+    <section id="product-set-generation-settings" aria-label={t("create.modelConfig.ariaLabel")} className="space-y-3">
       <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
         <legend className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-stone-100">
-          <Activity aria-hidden="true" className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型
+          <Activity aria-hidden="true" className="h-4 w-4 text-[var(--codex-accent)]" /> {t("create.modelConfig.model")}
         </legend>
         <div role="radiogroup" className="grid grid-cols-2 items-stretch gap-2">
           {MODELS.map((model) => (
@@ -65,7 +65,7 @@ export function ModelConfigPanel({
       </fieldset>
 
       <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <legend className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">分辨率</legend>
+        <legend className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">{t("create.modelConfig.resolution")}</legend>
         <div role="radiogroup" className="grid grid-cols-3 gap-2">
           {supportedSizes.map((size) => (
             <button
@@ -80,19 +80,19 @@ export function ModelConfigPanel({
                   : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              {size} · {getCreditCost(aiModel, size, "3:4")}灵点
+              {t("create.modelConfig.sizeCost", { size, cost: getCreditCost(aiModel, size, "3:4") })}
             </button>
           ))}
         </div>
         {imageType === "details" && imageSize === "1K" ? (
           <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-4 text-amber-700">
-            详情页有标题、标签和局部细节，1K 容易小字模糊；推荐 2K 起步，质检和可读性会明显更好。
+            {t("create.modelConfig.detailsWarning")}
           </div>
         ) : null}
       </fieldset>
 
       <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <legend className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">生成档位</legend>
+        <legend className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">{t("create.modelConfig.quality")}</legend>
         <div role="radiogroup" className="grid grid-cols-2 gap-2">
           {(["standard", "advanced"] as const).map((value) => (
             <button
@@ -107,13 +107,13 @@ export function ModelConfigPanel({
                   : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              {value === "standard" ? "标准模式" : "高级模式"}
+              {value === "standard" ? t("create.modelConfig.standardMode") : t("create.modelConfig.advancedMode")}
             </button>
           ))}
         </div>
         <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-3">
-          <p className="text-xs font-black text-[var(--codex-accent)]">比例按模板自动</p>
-          <p className="mt-1 text-[11px] leading-4 text-[var(--codex-accent)]">首屏海报、细节图、白底主图会分别使用各自模板比例，避免整套图被一个比例误导。</p>
+          <p className="text-xs font-black text-[var(--codex-accent)]">{t("create.modelConfig.aspectAutoNote")}</p>
+          <p className="mt-1 text-[11px] leading-4 text-[var(--codex-accent)]">{t("create.modelConfig.aspectAutoDetail")}</p>
         </div>
       </fieldset>
     </section>

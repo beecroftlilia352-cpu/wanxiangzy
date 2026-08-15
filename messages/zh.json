@@ -666,7 +666,12 @@
     "saveBadge": "立省",
     "perMonth": "/连续包月",
     "startSubscription": "开通订阅",
-    "buyNow": "立即购买"
+    "buyNow": "立即购买",
+    "error": {
+      "title": "购买页加载失败",
+      "fallback": "页面运行时出现异常，请重试。",
+      "retry": "重试"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "全品类商品图",
@@ -877,7 +882,9 @@
       "roleExtra": "搭配单品",
       "modeMulti": "换上下装",
       "modeSingle": "换连体",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "先上传服装主图",
+      "uploadFirstDesc": "上传后可以在对应服装下补充领口、面料、logo、背面或侧面细节。"
     },
     "favorite": {
       "loginRequired": "请先登录后收藏",
@@ -932,7 +939,26 @@
       "maxCount": "服装细节图最多 {count} 张",
       "remainingTruncated": "最多还能添加 {count} 张细节图，已自动截取",
       "uploadingFiles": "正在上传 {count} 张服装细节图…",
-      "added": "已为{owner}添加 {count} 张细节图"
+      "added": "已为{owner}添加 {count} 张细节图",
+      "switchLabel": "服装细节参考",
+      "switchDescription": "用来补充服装的局部细节，比如面料、领口、口袋、纽扣，或者背面、侧面。开启后最多 5 张，不会改动人物、姿势、背景和整体色调。",
+      "sectionTitle": "给每件服装补细节",
+      "maxCountTitle": "最多 {count} 张细节图",
+      "addForRole": "添加{role}细节图",
+      "mainImageAlt": "{role}主图",
+      "previewMainAria": "预览{role}主图",
+      "roleDetailTitle": "{role}细节",
+      "onlyItem": "只放这一件的材质、结构或局部特写。",
+      "detailCount": "{count} 张",
+      "detailAlt": "{role}细节{index}",
+      "previewDetailAria": "预览{role}细节{index}",
+      "removeDetailAria": "移除{role}细节{index}",
+      "unassignedTitle": "历史未归属细节",
+      "unassignedCount": "{count} 张",
+      "unassignedAlt": "未归属细节{index}",
+      "previewUnassignedAria": "预览未归属细节{index}",
+      "removeUnassignedAria": "移除未归属细节{index}",
+      "unassignedHint": "旧任务带来的细节图没有服装归属，生成时只会在明显匹配时轻量使用。"
     },
     "model": {
       "pleaseUploadImage": "请上传图片文件",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "识别服装中",
       "recommending": "推荐场景中",
       "previewSelected": "预览已选参考图：{label}",
-      "addSystemScene": "添加系统参考图"
+      "addSystemScene": "添加系统参考图",
+      "footerSelected": "已选 {selected}/{max}",
+      "footerDeleteAll": "全部删除",
+      "footerSaving": "收藏中",
+      "footerSaveAsTemplate": "收藏为模板"
     },
     "autoDesign": {
       "platform": "摄影方案",
@@ -1265,6 +1295,10 @@
         "yellow": "黄色",
         "purple": "紫色"
       }
+    },
+    "hoverPreview": "Hover 预览",
+    "lightbox": {
+      "previewAlt": "试穿图片预览"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "开启",
     "textureOff": "关闭",
     "modeFeature": "仅换五官",
-    "modeFeatureHairSkin": "换五官发型肤色"
+    "modeFeatureHairSkin": "换五官发型肤色",
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "服装 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "羽绒厚度",
     "refBack": "背面廓形",
     "refShortCoat": "短外套",
-    "hoverPreview": "Hover 预览"
+    "hoverPreview": "Hover 预览",
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "图生图",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "本张生成失败",
     "retryThis": "重试本张",
     "retryGenerate": "重新生成",
-    "retryToast": "正在补位重试第 {index} 张，失败图已退款，完成后会回填到当前结果中…"
+    "retryToast": "正在补位重试第 {index} 张，失败图已退款，完成后会回填到当前结果中…",
+    "imageToPromptDesc": "上传图片，自动反推图片内容描述，用于生成相似内容图片。",
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
+    },
+    "copyEmptyToast": "暂无可复制内容",
+    "copySuccessToast": "已复制",
+    "copyFailedToast": "复制失败，请手动复制",
+    "uploadImageAria": "上传用于反推提示词的图片",
+    "changeImageAria": "更换用于反推提示词的图片",
+    "uploadingState": "上传中…",
+    "uploadImageButton": "上传图片",
+    "generatingState": "生成中…",
+    "promptTextareaAria": "图片反推提示词",
+    "promptTextareaPlaceholder": "上传图片后，系统会在这里生成可用于文生图的内容描述。",
+    "copyButton": "复制",
+    "applyToDescription": "应用到描述"
   },
   "Grass": {
     "moduleLabel": "种草图",
@@ -1818,6 +1877,10 @@
       "square": "1:1 方图",
       "phone": "9:16 手机",
       "landscape": "4:3 横图"
+    },
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "图片翻译预览",
     "waitingUploadSummary": "等待上传原图 · {count} 张",
     "selectLanguageSummary": "已上传 {count} 张原图 · 请选择目标语言",
-    "fullSummary": "{sources} 张原图 × {langs} 种语言 × {gen} · {size}"
+    "fullSummary": "{sources} 张原图 × {langs} 种语言 × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "材质增强参数加载中",
       "previewAria": "预览区域加载中"
+    },
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "得到统一人物形象，后续可继续用于服装上身和商品视觉。",
     "missingFailureLabel": "本张生成失败",
     "missingFailureActionLabel": "重试本张",
-    "retryLabel": "重新生成"
+    "retryLabel": "重新生成",
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
+    }
   },
   "ModelBackground": {
     "title": "换背景",
@@ -2842,6 +2917,10 @@
       "upload": "上传背景",
       "text": "文生背景",
       "auto": "自动设计"
+    },
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
     }
   },
   "Pose": {
@@ -3174,7 +3253,9 @@
       "continueGenerating": "继续生成",
       "generateRefs": "生成 {count} 张独立图",
       "generatePoses": "生成 {count} 张姿势图",
-      "generateGrid": "生成 {count} 姿势宫格"
+      "generateGrid": "生成 {count} 姿势宫格",
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
     },
     "previewGuide": {
       "title": "一张原图，裂变多姿势",
@@ -3332,6 +3413,14 @@
       "step2Desc": "统一设置精修模式、模型、比例和每件商品的输出数量。",
       "step3Title": "查看批次结果",
       "step3Desc": "结果按商品分组，可预览、单项重试，或按商品和整批下载。"
+    },
+    "empty": {
+      "title": "暂无商品结果",
+      "description": "上传商品图后会自动显示每个商品的结果。"
+    },
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
     }
   },
   "ProductSet": {
@@ -3649,6 +3738,327 @@
     },
     "aspectRatio": {
       "auto": "智能"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "商品信息摘要",
+        "productInfo": "商品信息",
+        "namePlaceholder": "待补充商品名",
+        "descPlaceholder": "已填写商品信息，点击编辑可继续补充卖点、材质和适用人群。"
+      },
+      "summary": {
+        "ariaLabel": "商品分析方案",
+        "generated": "方案已生成",
+        "planCount": "计划生成 {count} {unit}",
+        "imageQuality": "图片质量",
+        "qualityPrepared": "已准备",
+        "collapse": "收起细节",
+        "expand": "查看细节",
+        "editInfo": "修改信息",
+        "suggestSupplement": "建议补充："
+      },
+      "adjustStyle": "调整风格",
+      "profile": {
+        "ariaLabel": "商品档案",
+        "sourceAi": "图片信息",
+        "sourceFallback": "基础信息",
+        "sourceRunning": "读取中",
+        "sourceManual": "手动信息",
+        "sourceConfirm": "待确认",
+        "suggestModel": "建议模特",
+        "noModel": "无需模特",
+        "modify": "修改"
+      },
+      "strategy": {
+        "ariaLabel": "视觉策略",
+        "title": "视觉策略",
+        "fallbackName": "视觉策略",
+        "pending": "待评估",
+        "imageQuality": "图片质量",
+        "currentMode": "当前模式",
+        "modeMain": "商品主图",
+        "modeDetails": "详情页",
+        "smartMatch": "智能匹配"
+      },
+      "notice": {
+        "reading": "正在读取商品图",
+        "needConfirm": "商品信息需确认",
+        "incomplete": "商品读取未完成"
+      },
+      "progress": {
+        "ariaLabel": "模块生成进度",
+        "failed": "失败",
+        "done": "已完成",
+        "generating": "生成",
+        "queued": "排队"
+      },
+      "modeTab": {
+        "ariaLabel": "商品套图类型",
+        "mainTitle": "商品主图",
+        "mainDesc": "先选张数，再分析",
+        "detailsTitle": "详情页",
+        "detailsDesc": "先选屏数，再分析"
+      },
+      "stepper": {
+        "ariaLabel": "商品套图创建进度",
+        "step1Title": "商品图",
+        "step1Desc": "上传",
+        "step2Title": "信息",
+        "step2Desc": "数量",
+        "step3Title": "分析",
+        "step3Desc": "方案",
+        "step4Title": "生成",
+        "step4Desc": "出图"
+      },
+      "count": {
+        "unselected": "未选择"
+      },
+      "template": {
+        "main": "主图",
+        "details": "详情",
+        "subjectConsistent": "主体一致",
+        "layoutIndependent": "版式独立"
+      },
+      "upload": {
+        "uploadedReplace": "已上传，可替换",
+        "dropHint": "上传 / 拖拽图片"
+      },
+      "customSource": {
+        "ariaLabel": "上传参考图",
+        "description": "上传 1 张主参考图即可，系统会自动理解版式和风格，再按{count}拆成方案。",
+        "library": "模板库",
+        "selectedCountMain": "所选张数",
+        "selectedCountDetails": "所选屏数",
+        "added": "已添加参考",
+        "removeAria": "移除{name}",
+        "empty": "还没有添加参考。上传主参考图后点添加，参考图会随商品图一起发送，只影响风格、版式、模特或氛围。"
+      },
+      "referenceStyle": {
+        "title": "参考风格说明",
+        "description": "这里只保存风格方向，不会开始分析模板；点击“帮我写商品信息”时会一起传入智能分析。",
+        "restoreExample": "恢复示例",
+        "save": "保存参考风格",
+        "placeholder": "写入参考风格、目标平台、视觉风格、统一场景、配色和用户要求…",
+        "hint": "这段内容会作为风格参考传入分析，不会直接当作模板生成。"
+      },
+      "profileEditor": {
+        "title": "修正商品识别",
+        "description": "识别结果会影响默认模板、是否使用模特和提示词安全边界。",
+        "productType": "商品类型",
+        "apparelSubtype": "服装细分",
+        "modelStrategy": "模特策略",
+        "modelRequirement": "模特要求",
+        "modelBriefPlaceholder": "例如：成年女性模特，法式通勤场景，姿势自然，突出版型和垂感，不要夸张摆拍…",
+        "kind": {
+          "apparel": "服装",
+          "footwear": "鞋靴",
+          "bag": "箱包",
+          "accessory": "配饰",
+          "beauty": "美妆",
+          "electronics": "数码电器",
+          "home": "家居",
+          "toy": "玩具",
+          "food": "食品",
+          "general": "通用商品"
+        },
+        "apparel": {
+          "womenswear": "女装",
+          "menswear": "男装",
+          "kidswear": "童装",
+          "outerwear": "外套/户外",
+          "sportswear": "运动服",
+          "intimate": "内衣",
+          "swimwear": "泳装",
+          "general": "通用服装"
+        },
+        "model": {
+          "none": "不用模特",
+          "optional": "可选模特",
+          "recommended": "建议模特",
+          "required": "必须模特"
+        }
+      },
+      "moduleEdit": {
+        "title": "编辑生成模块",
+        "description": "第 {index} 张 · {type}",
+        "modelTypeDetails": "详情页模块",
+        "modelTypeMain": "主图/辅图模块",
+        "remove": "移除本模块",
+        "save": "保存",
+        "fieldName": "模块名称",
+        "fieldRole": "模块职责",
+        "fieldContentScope": "内容范围",
+        "contentScopePlaceholder": "例如：只讲面料与版型，不重复整套卖点；或只展示模特上身与搭配氛围。",
+        "fieldLayoutRules": "版式规则",
+        "fieldTextRules": "文字规则",
+        "fieldAvoidRules": "禁忌规则",
+        "fieldTypeDescription": "模板描述",
+        "aspectRatio": "生图比例",
+        "subjectConsistency": "商品一致",
+        "modelConsistency": "模特一致",
+        "intelligentCopy": "智能文案",
+        "copyDensity": "文案密度",
+        "copyDensityNone": "无文案",
+        "copyDensityLight": "轻文案",
+        "copyDensityStandard": "标准文案",
+        "copyDensityRich": "信息丰富",
+        "modelAdviceOn": "该模块会优先使用模特/上身场景。若不希望出现模特，可把模块职责改为白底、细节、尺码或关闭模特一致性。",
+        "modelAdviceOff": "该模块默认不使用模特，更适合白底、细节、尺寸、材质、包装或参数说明。",
+        "fieldExtraDescription": "额外描述",
+        "extraDescriptionPlaceholder": "只写这张图的特殊要求，例如：女装首屏海报不要底部缩略图；细节图只展示连帽、袖口、口袋三个局部。"
+      },
+      "settings": {
+        "title": "更多设置",
+        "description": "用于控制目标市场、图片文案和视觉风格；模型、比例与清晰度在左侧单独配置。",
+        "country": "目标销售国家/地区",
+        "language": "图片文案语言",
+        "platform": "目标平台",
+        "theme": "主题色",
+        "themeAuto": "智能主题色",
+        "themeCustom": "自定义颜色",
+        "themeCustomLabel": "自定义主题色",
+        "themeColorPlaceholder": "例如：奶油白 + 牛仔蓝 + 玫瑰粉…",
+        "fontStyle": "字体风格",
+        "extraDescription": "额外描述",
+        "extraDescriptionPlaceholder": "例如：女装偏法式通勤、不要夸张姿势、文案使用短句…"
+      },
+      "favorite": {
+        "ariaLabel": "我的收藏模板",
+        "description": "收藏当前视觉方案或自定义模板，下次换商品后直接套用。",
+        "setsCount": "{count} 套",
+        "nameLabel": "收藏方案名称",
+        "saving": "收藏中…",
+        "save": "收藏",
+        "loading": "正在加载账号收藏方案…",
+        "apply": "套用",
+        "deleteAria": "删除收藏方案{name}",
+        "modelPrefix": "模特 · ",
+        "empty": "暂无账号收藏方案。先调整好当前生成计划，再点收藏。",
+        "planCustom": "自定义方案",
+        "planVisual": "视觉方案",
+        "typeDetails": "详情页",
+        "typeMain": "主图",
+        "justNow": "刚刚"
+      },
+      "genSettings": {
+        "title": "生成设置",
+        "advQuality": "高级质检",
+        "stdQuality": "标准质检",
+        "adjust": "调整"
+      },
+      "modelConfig": {
+        "ariaLabel": "生成设置选项",
+        "model": "生成模型",
+        "resolution": "分辨率",
+        "sizeCost": "{size} · {cost}灵点",
+        "detailsWarning": "详情页有标题、标签和局部细节，1K 容易小字模糊；推荐 2K 起步，质检和可读性会明显更好。",
+        "quality": "生成档位",
+        "standardMode": "标准模式",
+        "advancedMode": "高级模式",
+        "aspectAutoNote": "比例按模板自动",
+        "aspectAutoDetail": "首屏海报、细节图、白底主图会分别使用各自模板比例，避免整套图被一个比例误导。"
+      },
+      "planList": {
+        "empty": "还没有选择模板，打开模板库添加。",
+        "ariaLabel": "生成模块顺序",
+        "details": "详情页",
+        "main": "主图/辅图",
+        "model": "模特",
+        "editAria": "编辑模块{name}",
+        "removeAria": "移除模块{name}",
+        "collapsed": "已折叠 {count} 个后续模块，点击右上角查看全部。"
+      },
+      "recommendation": {
+        "ariaLabel": "视觉总监方案",
+        "safeTemplate": "安全模板",
+        "withModel": "含模特",
+        "lowRisk": "低风险",
+        "recommended": "推荐生成 {count} {unit}",
+        "modelPrefix": "模特 · "
+      },
+      "quickStart": {
+        "mainRef": "主参考图",
+        "modelRef": "模特参考",
+        "styleHint": "风格 / 版式",
+        "optional": "可选",
+        "extraRef": "补充参考 {count}/3",
+        "focusLabel": "参考重点",
+        "advancedSettings": "高级设置",
+        "aspectRatio": "画面比例",
+        "specialRequirement": "特殊要求",
+        "extraPlaceholder": "例如：不要文字、不要模特露脸、突出细节…",
+        "uploadRefFirst": "请先上传主参考图",
+        "selectCountFirst": "请先选择{unit}",
+        "countUnitMain": "张数",
+        "countUnitDetails": "屏数",
+        "addRefAndGenerate": "添加参考图并生成 {count} {unit}方案",
+        "intent": {
+          "autoDetect": "自动识别",
+          "wearing": "上身展示",
+          "poster": "卖点海报",
+          "scene": "场景氛围",
+          "autoSplit": "自动拆屏",
+          "hero": "首屏海报",
+          "sellingPoints": "卖点说明",
+          "detailsTexture": "细节材质"
+        },
+        "defaultNameDetails": "参考图详情方案",
+        "defaultNameMain": "参考图主图方案"
+      },
+      "results": {
+        "exampleAlt": "商品套图示例",
+        "guideTitle": "开始制作商品套图",
+        "guideSubtitle": "先分析商品信息，再按你选择的数量生成主图/详情页计划。",
+        "guideStep1Title": "上传商品图",
+        "guideStep1Desc": "最多 3 张，建议包含正面、侧面、背面或细节，方便系统判断结构与卖点。",
+        "guideStep2Title": "分析商品信息",
+        "guideStep2Desc": "系统会整理目标平台、风格、统一场景、卖点、痛点、人群、参数和配色。",
+        "guideStep3Title": "生成套图计划",
+        "guideStep3Desc": "按 {count} {unit}输出本地化方案，再开始生成。",
+        "guideStep3CountFallback": "选择的",
+        "loadingModule": "商品套图",
+        "loadingRef": "商品参考 {index}",
+        "failedTitle": "商品套图生成失败",
+        "retry": "重试",
+        "resultAria": "商品套图结果",
+        "generatingTitle": "商品套图生成中",
+        "resultTitle": "商品套图结果",
+        "generatedCount": "已出 {current}/{total}",
+        "progressCount": "{progress}% 继续生成",
+        "completed": "已完成",
+        "progressAria": "商品套图生成进度",
+        "cardFallback": "结果 {index}",
+        "previewAria": "预览{name}",
+        "resultAlt": "商品套图{index}",
+        "moduleFailed": "该模块生成失败",
+        "regenerating": "重生中…",
+        "regenerate": "重生本张",
+        "waiting": "等待生成",
+        "waitingDesc": "该模块完成后会自动填入预览区",
+        "statusGenerated": "已生成",
+        "statusFailed": "生成失败",
+        "statusGenerating": "生成中",
+        "regenerateAria": "重新生成{name}",
+        "downloadAria": "下载{name}"
+      },
+      "library": {
+        "title": "参考模板库",
+        "description": "模板只控制用途、版式和视觉方向，最终商品会以你上传的图片为准。",
+        "searchLabel": "搜索模板",
+        "searchPlaceholder": "搜索模板…",
+        "filterAria": "模板筛选",
+        "allDetails": "全部详情页模板",
+        "allMain": "全部主图模板",
+        "womenswearScene": "女装场景",
+        "selectedCount": "已选 {count}",
+        "empty": "没有符合当前筛选条件的模板。",
+        "uploadReference": "上传参考图",
+        "customTitle": "上传自己的参考",
+        "customDesc": "不需要写复杂规则，上传参考图后选择参考重点即可。",
+        "customStyles": "自定义样式",
+        "removeAria": "移除{name}",
+        "customEmpty": "可上传自己的参考模板图，配合文字描述生成专属套图风格。"
+      }
     }
   },
   "Shared": {
@@ -3955,7 +4365,20 @@
     "dateStart": "开始日期",
     "dateEnd": "结束日期",
     "recentWeek": "最近一周",
-    "recentMonth": "最近一月"
+    "recentMonth": "最近一月",
+    "leaveConfirmTitle": "离开当前页面？",
+    "leaveConfirmContent": "当前页面有未保存的输入内容，离开后这些内容将丢失。",
+    "leaveConfirmOk": "离开",
+    "leaveConfirmCancel": "继续编辑",
+    "selectAll": "全选",
+    "selectRow": "选择此行",
+    "selectDateRange": "选择日期范围",
+    "clearDateRange": "清空日期范围",
+    "previousMonth": "上个月",
+    "nextMonth": "下个月",
+    "searchQuery": "查询",
+    "confirmNotInitialized": "确认弹窗未初始化，操作未执行",
+    "operationFailed": "操作失败"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾帧",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "生成视频",
     "motionStepGenerateDesc": "输出同款动作成片。",
     "motionStepGenerateAlt": "生成视频",
-    "badgeGenerateVideoMotion": "生成视频"
+    "badgeGenerateVideoMotion": "生成视频",
+    "runBar": {
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
+    }
   },
   "toast": {
     "selectImage": "请选择图片文件",

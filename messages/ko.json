@@ -666,7 +666,12 @@
     "saveBadge": "할인",
     "perMonth": "/연속 월간",
     "startSubscription": "구독 시작",
-    "buyNow": "바로 구매"
+    "buyNow": "바로 구매",
+    "error": {
+      "title": "구매 페이지를 불러오지 못했습니다",
+      "fallback": "페이지를 렌더링하는 중 오류가 발생했습니다. 다시 시도해 주세요.",
+      "retry": "재시도"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "전 카테고리 상품 이미지",
@@ -877,7 +882,9 @@
       "roleExtra": "코디 아이템",
       "modeMulti": "상하의 교체",
       "modeSingle": "원피스",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "의류 메인 이미지를 먼저 업로드",
+      "uploadFirstDesc": "업로드 후 해당 의류 아래에 네크라인, 원단, 로고, 뒤·옆면 디테일을 추가할 수 있습니다."
     },
     "favorite": {
       "loginRequired": "즐겨찾기하려면 먼저 로그인하세요",
@@ -932,7 +939,26 @@
       "maxCount": "의류 디테일 이미지는 최대 {count}장",
       "remainingTruncated": "디테일 이미지는 최대 {count}장까지 더 추가 가능하며 자동으로 잘렸습니다",
       "uploadingFiles": "{count}장의 의류 디테일 이미지 업로드 중…",
-      "added": "{owner}에 {count}장의 디테일 이미지를 추가했습니다"
+      "added": "{owner}에 {count}장의 디테일 이미지를 추가했습니다",
+      "switchLabel": "의류 디테일 참고",
+      "switchDescription": "원단, 네크라인, 주머니, 단추, 뒤·옆면 등 의류의 국소 디테일을 추가합니다. 켜면 최대 5장이며 인물, 포즈, 배경, 전체 톤은 변경하지 않습니다.",
+      "sectionTitle": "각 의류에 디테일 추가",
+      "maxCountTitle": "최대 {count}장의 디테일 이미지",
+      "addForRole": "{role} 디테일 이미지 추가",
+      "mainImageAlt": "{role} 메인 이미지",
+      "previewMainAria": "{role} 메인 이미지 미리보기",
+      "roleDetailTitle": "{role} 디테일",
+      "onlyItem": "이 의류의 소재, 구조, 국소 클로즈업만.",
+      "detailCount": "{count}장",
+      "detailAlt": "{role} 디테일{index}",
+      "previewDetailAria": "{role} 디테일{index} 미리보기",
+      "removeDetailAria": "{role} 디테일{index} 제거",
+      "unassignedTitle": "기록의 미할당 디테일",
+      "unassignedCount": "{count}장",
+      "unassignedAlt": "미할당 디테일{index}",
+      "previewUnassignedAria": "미할당 디테일{index} 미리보기",
+      "removeUnassignedAria": "미할당 디테일{index} 제거",
+      "unassignedHint": "이전 작업에서 남은 디테일 이미지에는 의류 할당이 없어 명확히 일치할 때만 가볍게 사용됩니다."
     },
     "model": {
       "pleaseUploadImage": "이미지 파일을 업로드해 주세요",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "의류 인식 중",
       "recommending": "씬 추천 중",
       "previewSelected": "선택한 레퍼런스 미리보기: {label}",
-      "addSystemScene": "시스템 레퍼런스 추가"
+      "addSystemScene": "시스템 레퍼런스 추가",
+      "footerSelected": "{selected}/{max} 선택됨",
+      "footerDeleteAll": "모두 삭제",
+      "footerSaving": "저장 중",
+      "footerSaveAsTemplate": "템플릿으로 저장"
     },
     "autoDesign": {
       "platform": "촬영 안",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "호버 미리보기",
+    "lightbox": {
+      "previewAlt": "시착 이미지 미리보기"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "켜짐",
     "textureOff": "꺼짐",
     "modeFeature": "얼굴 특징만",
-    "modeFeatureHairSkin": "특징 + 헤어·피부"
+    "modeFeatureHairSkin": "특징 + 헤어·피부",
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "의류 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "패딩 볼륨",
     "refBack": "뒤 실루엣",
     "refShortCoat": "숏 코트",
-    "hoverPreview": "호버 미리보기"
+    "hoverPreview": "호버 미리보기",
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "이미지 투 이미지",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "이 이미지 생성 실패",
     "retryThis": "이 이미지 재시도",
     "retryGenerate": "다시 생성",
-    "retryToast": "{index}번 슬롯 재시도 중… 실패 이미지는 환불되고 완료 시 결과에 채워집니다…"
+    "retryToast": "{index}번 슬롯 재시도 중… 실패 이미지는 환불되고 완료 시 결과에 채워집니다…",
+    "imageToPromptDesc": "이미지를 업로드하면 유사 콘텐츠 이미지를 생성하기 위한 내용 설명을 자동으로 역추론합니다.",
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
+    },
+    "copyEmptyToast": "복사할 내용이 없습니다",
+    "copySuccessToast": "복사됨",
+    "copyFailedToast": "복사 실패, 수동으로 복사해 주세요",
+    "uploadImageAria": "프롬프트 역생성용 이미지 업로드",
+    "changeImageAria": "프롬프트 생성에 사용할 이미지 변경",
+    "uploadingState": "업로드 중…",
+    "uploadImageButton": "이미지 업로드",
+    "generatingState": "생성 중…",
+    "promptTextareaAria": "이미지에서 생성된 프롬프트",
+    "promptTextareaPlaceholder": "이미지를 업로드하면 텍스트 생성에 사용할 설명이 여기에 생성됩니다.",
+    "copyButton": "복사",
+    "applyToDescription": "설명에 적용"
   },
   "Grass": {
     "moduleLabel": "룩북 이미지",
@@ -1818,6 +1877,10 @@
       "square": "1:1 정사각형",
       "phone": "9:16 모바일",
       "landscape": "4:3 가로"
+    },
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "이미지 번역 미리보기",
     "waitingUploadSummary": "원본 업로드 대기 · {count}장",
     "selectLanguageSummary": "원본 {count}장 업로드 · 목표 언어를 선택하세요",
-    "fullSummary": "원본 {sources}장 × 언어 {langs}개 × {gen} · {size}"
+    "fullSummary": "원본 {sources}장 × 언어 {langs}개 × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "소재 강화 파라미터 로드 중",
       "previewAria": "미리보기 영역 로드 중"
+    },
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "통일된 인물 이미지를 얻어 이후 가상 착용과 상품 비주얼에 재사용합니다.",
     "missingFailureLabel": "이 이미지 생성 실패",
     "missingFailureActionLabel": "이 이미지 재시도",
-    "retryLabel": "다시 생성"
+    "retryLabel": "다시 생성",
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
+    }
   },
   "ModelBackground": {
     "title": "배경 변경",
@@ -2842,6 +2917,10 @@
       "upload": "배경 업로드",
       "text": "텍스트 배경",
       "auto": "자동 디자인"
+    },
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
     }
   },
   "Pose": {
@@ -3174,7 +3253,9 @@
       "continueGenerating": "계속 생성",
       "generateRefs": "독립 이미지 {count}장 생성",
       "generatePoses": "포즈 이미지 {count}장 생성",
-      "generateGrid": "포즈 그리드 {count}개 생성"
+      "generateGrid": "포즈 그리드 {count}개 생성",
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
     },
     "previewGuide": {
       "title": "한 장의 원본, 여러 포즈로",
@@ -3332,6 +3413,14 @@
       "step2Desc": "리터칭 모드·모델·비율·상품당 출력 수량을 통일 설정합니다.",
       "step3Title": "배치 결과 확인",
       "step3Desc": "결과가 상품별로 그룹화되어 미리보기, 개별 재시도, 상품별·전체 배치 다운로드가 가능합니다."
+    },
+    "empty": {
+      "title": "아직 상품 결과가 없습니다",
+      "description": "상품 이미지를 업로드하면 각 상품의 결과가 자동으로 표시됩니다."
+    },
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
     }
   },
   "ProductSet": {
@@ -3649,6 +3738,327 @@
     },
     "aspectRatio": {
       "auto": "자동"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "상품 정보 요약",
+        "productInfo": "상품 정보",
+        "namePlaceholder": "상품명 미입력",
+        "descPlaceholder": "상품 정보가 입력되었습니다. 편집을 눌러 판매 포인트, 소재, 대상 고객을 추가할 수 있습니다."
+      },
+      "summary": {
+        "ariaLabel": "상품 분석 플랜",
+        "generated": "플랜 준비 완료",
+        "planCount": "{count} {unit} 생성 예정",
+        "imageQuality": "화질",
+        "qualityPrepared": "준비됨",
+        "collapse": "세부 정보 접기",
+        "expand": "세부 정보 보기",
+        "editInfo": "정보 편집",
+        "suggestSupplement": "추가 권장: "
+      },
+      "adjustStyle": "스타일 조정",
+      "profile": {
+        "ariaLabel": "상품 프로필",
+        "sourceAi": "이미지 정보",
+        "sourceFallback": "기본 정보",
+        "sourceRunning": "읽는 중",
+        "sourceManual": "수동 정보",
+        "sourceConfirm": "확인 필요",
+        "suggestModel": "모델 권장",
+        "noModel": "모델 불필요",
+        "modify": "편집"
+      },
+      "strategy": {
+        "ariaLabel": "비주얼 전략",
+        "title": "비주얼 전략",
+        "fallbackName": "비주얼 전략",
+        "pending": "평가 예정",
+        "imageQuality": "화질",
+        "currentMode": "현재 모드",
+        "modeMain": "상품 메인 이미지",
+        "modeDetails": "상세 페이지",
+        "smartMatch": "스마트 매칭"
+      },
+      "notice": {
+        "reading": "상품 이미지 읽는 중",
+        "needConfirm": "상품 정보 확인 필요",
+        "incomplete": "상품 읽기 미완료"
+      },
+      "progress": {
+        "ariaLabel": "모듈 생성 진행률",
+        "failed": "실패",
+        "done": "완료",
+        "generating": "생성",
+        "queued": "대기 중"
+      },
+      "modeTab": {
+        "ariaLabel": "상품 세트 유형",
+        "mainTitle": "상품 메인 이미지",
+        "mainDesc": "수량을 먼저 선택하고 분석",
+        "detailsTitle": "상세 페이지",
+        "detailsDesc": "화면 수를 먼저 선택하고 분석"
+      },
+      "stepper": {
+        "ariaLabel": "상품 세트 생성 진행률",
+        "step1Title": "상품 이미지",
+        "step1Desc": "업로드",
+        "step2Title": "정보",
+        "step2Desc": "수량",
+        "step3Title": "분석",
+        "step3Desc": "플랜",
+        "step4Title": "생성",
+        "step4Desc": "출력"
+      },
+      "count": {
+        "unselected": "선택 안 함"
+      },
+      "template": {
+        "main": "메인",
+        "details": "상세",
+        "subjectConsistent": "피사체 일치",
+        "layoutIndependent": "레이아웃 독립"
+      },
+      "upload": {
+        "uploadedReplace": "업로드됨, 교체 가능",
+        "dropHint": "이미지 업로드 / 드래그"
+      },
+      "customSource": {
+        "ariaLabel": "참고 이미지 업로드",
+        "description": "메인 참고 이미지를 1장 업로드하면 시스템이 레이아웃과 스타일을 자동으로 이해하고 {count} 플랜으로 나눕니다.",
+        "library": "템플릿 라이브러리",
+        "selectedCountMain": "선택한 장수",
+        "selectedCountDetails": "선택한 화면 수",
+        "added": "참고 추가됨",
+        "removeAria": "{name} 제거",
+        "empty": "아직 참고가 없습니다. 메인 참고 이미지를 업로드하고 추가를 누르세요. 참고 이미지는 상품 이미지와 함께 전송되며 스타일, 레이아웃, 모델, 분위기에만 영향을 줍니다."
+      },
+      "referenceStyle": {
+        "title": "참고 스타일 안내",
+        "description": "스타일 방향만 저장하며 템플릿 분석을 시작하지 않습니다. \"상품 정보 작성\"을 누르면 스마트 분석에 전달됩니다.",
+        "restoreExample": "예시 복원",
+        "save": "참고 스타일 저장",
+        "placeholder": "참고 스타일, 대상 플랫폼, 비주얼 스타일, 통일된 장면, 색상, 요구사항 입력…",
+        "hint": "이 내용은 스타일 참고로 분석에 전달되며 템플릿으로 직접 생성되지 않습니다."
+      },
+      "profileEditor": {
+        "title": "상품 인식 수정",
+        "description": "인식 결과는 기본 템플릿, 모델 사용 여부, 프롬프트 안전 경계에 영향을 줍니다.",
+        "productType": "상품 유형",
+        "apparelSubtype": "의류 세분화",
+        "modelStrategy": "모델 전략",
+        "modelRequirement": "모델 요구사항",
+        "modelBriefPlaceholder": "예: 성인 여성 모델, 프랑스 출퇴근 장면, 자연스러운 포즈로 실루엣과 드레이프 강조, 과장된 포즈 금지…",
+        "kind": {
+          "apparel": "의류",
+          "footwear": "신발",
+          "bag": "가방",
+          "accessory": "액세서리",
+          "beauty": "뷰티",
+          "electronics": "전자제품",
+          "home": "홈",
+          "toy": "장난감",
+          "food": "식품",
+          "general": "일반 상품"
+        },
+        "apparel": {
+          "womenswear": "여성복",
+          "menswear": "남성복",
+          "kidswear": "아동복",
+          "outerwear": "아우터 / 아웃도어",
+          "sportswear": "스포츠웨어",
+          "intimate": "이너웨어",
+          "swimwear": "수영복",
+          "general": "일반 의류"
+        },
+        "model": {
+          "none": "모델 없음",
+          "optional": "모델 선택",
+          "recommended": "모델 권장",
+          "required": "모델 필수"
+        }
+      },
+      "moduleEdit": {
+        "title": "생성 모듈 편집",
+        "description": "{index}번째 · {type}",
+        "modelTypeDetails": "상세 페이지 모듈",
+        "modelTypeMain": "메인 / 보조 이미지 모듈",
+        "remove": "이 모듈 제거",
+        "save": "저장",
+        "fieldName": "모듈명",
+        "fieldRole": "모듈 역할",
+        "fieldContentScope": "내용 범위",
+        "contentScopePlaceholder": "예: 원단과 실루엣만 다루고 전체 판매 포인트를 반복하지 않거나, 모델 착용과 스타일링 분위기만 표시.",
+        "fieldLayoutRules": "레이아웃 규칙",
+        "fieldTextRules": "텍스트 규칙",
+        "fieldAvoidRules": "금지 규칙",
+        "fieldTypeDescription": "템플릿 설명",
+        "aspectRatio": "화면 비율",
+        "subjectConsistency": "피사체 일치",
+        "modelConsistency": "모델 일치",
+        "intelligentCopy": "스마트 카피",
+        "copyDensity": "카피 밀도",
+        "copyDensityNone": "카피 없음",
+        "copyDensityLight": "가벼운 카피",
+        "copyDensityStandard": "표준 카피",
+        "copyDensityRich": "풍부한 카피",
+        "modelAdviceOn": "이 모듈은 모델/착용 장면을 우선합니다. 모델을 원하지 않으면 역할을 흰 배경, 디테일, 사이즈로 바꾸거나 모델 일치를 끄세요.",
+        "modelAdviceOff": "이 모듈은 기본적으로 모델을 사용하지 않으며 흰 배경, 디테일, 치수, 소재, 패키지, 사양 설명에 적합합니다.",
+        "fieldExtraDescription": "추가 설명",
+        "extraDescriptionPlaceholder": "이 이미지의 특수 요구사항만 작성하세요. 예: 여성 첫 화면 배너에 하단 썸네일 없음, 디테일 이미지는 후드, 소매, 주머니만 표시."
+      },
+      "settings": {
+        "title": "고급 설정",
+        "description": "대상 시장, 이미지 카피, 비주얼 스타일을 제어합니다. 모델, 비율, 해상도는 왼쪽에서 별도로 설정합니다.",
+        "country": "대상 국가 / 지역",
+        "language": "이미지 카피 언어",
+        "platform": "대상 플랫폼",
+        "theme": "테마 색상",
+        "themeAuto": "스마트 테마",
+        "themeCustom": "사용자 지정 색상",
+        "themeCustomLabel": "사용자 지정 테마 색상",
+        "themeColorPlaceholder": "예: 크림 화이트 + 데님 블루 + 로즈 핑크…",
+        "fontStyle": "글꼴 스타일",
+        "extraDescription": "추가 설명",
+        "extraDescriptionPlaceholder": "예: 여성 프랑스 출퇴근, 과장된 포즈 금지, 짧은 카피…"
+      },
+      "favorite": {
+        "ariaLabel": "내 저장 템플릿",
+        "description": "현재 비주얼 플랜이나 사용자 지정 템플릿을 저장하고 다음에 상품을 바꿀 때 바로 적용합니다.",
+        "setsCount": "{count} 세트",
+        "nameLabel": "저장 플랜 이름",
+        "saving": "저장 중…",
+        "save": "저장",
+        "loading": "계정 저장 플랜 불러오는 중…",
+        "apply": "적용",
+        "deleteAria": "저장 플랜 {name} 삭제",
+        "modelPrefix": "모델 · ",
+        "empty": "저장 플랜이 없습니다. 현재 생성 플랜을 조정한 후 저장을 누르세요.",
+        "planCustom": "사용자 지정 플랜",
+        "planVisual": "비주얼 플랜",
+        "typeDetails": "상세 페이지",
+        "typeMain": "메인 이미지",
+        "justNow": "방금"
+      },
+      "genSettings": {
+        "title": "생성 설정",
+        "advQuality": "고급 QA",
+        "stdQuality": "표준 QA",
+        "adjust": "조정"
+      },
+      "modelConfig": {
+        "ariaLabel": "생성 설정 옵션",
+        "model": "생성 모델",
+        "resolution": "해상도",
+        "sizeCost": "{size} · {cost}크레딧",
+        "detailsWarning": "상세 페이지에는 제목, 레이블, 국소 디테일이 있어 1K는 작은 글자가 흐려집니다. 2K부터 시작하면 QA와 가독성이 확실히 좋아집니다.",
+        "quality": "생성 단계",
+        "standardMode": "표준 모드",
+        "advancedMode": "고급 모드",
+        "aspectAutoNote": "비율은 템플릿 자동",
+        "aspectAutoDetail": "첫 화면 포스터, 디테일 이미지, 흰 배경 메인 이미지는 각각의 템플릿 비율을 사용하므로 하나의 비율이 세트 전체를 오도하지 않습니다."
+      },
+      "planList": {
+        "empty": "아직 템플릿이 선택되지 않았습니다. 템플릿 라이브러리를 열어 추가하세요.",
+        "ariaLabel": "생성 모듈 순서",
+        "details": "상세 페이지",
+        "main": "메인 / 보조 이미지",
+        "model": "모델",
+        "editAria": "모듈 {name} 편집",
+        "removeAria": "모듈 {name} 제거",
+        "collapsed": "후속 모듈 {count}개를 접었습니다. 우측 상단의 전체 보기를 누르세요."
+      },
+      "recommendation": {
+        "ariaLabel": "비주얼 디렉터 플랜",
+        "safeTemplate": "안전 템플릿",
+        "withModel": "모델 포함",
+        "lowRisk": "저위험",
+        "recommended": "{count} {unit} 생성 권장",
+        "modelPrefix": "모델 · "
+      },
+      "quickStart": {
+        "mainRef": "메인 참고",
+        "modelRef": "모델 참고",
+        "styleHint": "스타일 / 레이아웃",
+        "optional": "선택",
+        "extraRef": "추가 참고 {count}/3",
+        "focusLabel": "참고 중점",
+        "advancedSettings": "고급 설정",
+        "aspectRatio": "화면 비율",
+        "specialRequirement": "특수 요구사항",
+        "extraPlaceholder": "예: 텍스트 없음, 모델 얼굴 없음, 디테일 강조…",
+        "uploadRefFirst": "메인 참고 이미지를 먼저 업로드하세요",
+        "selectCountFirst": "{unit}을(를) 먼저 선택하세요",
+        "countUnitMain": "장수",
+        "countUnitDetails": "화면 수",
+        "addRefAndGenerate": "참고 추가 및 {count} {unit} 플랜 생성",
+        "intent": {
+          "autoDetect": "자동 인식",
+          "wearing": "착용 전시",
+          "poster": "판매 포인트 포스터",
+          "scene": "장면 분위기",
+          "autoSplit": "자동 분할",
+          "hero": "첫 화면 포스터",
+          "sellingPoints": "판매 포인트 설명",
+          "detailsTexture": "디테일 소재"
+        },
+        "defaultNameDetails": "참조 이미지 상세 플랜",
+        "defaultNameMain": "참조 이미지 메인 플랜"
+      },
+      "results": {
+        "exampleAlt": "상품 세트 예시",
+        "guideTitle": "상품 세트 제작 시작",
+        "guideSubtitle": "상품 정보를 먼저 분석하고 선택한 수량에 따라 메인 이미지/상세 페이지 플랜을 생성합니다.",
+        "guideStep1Title": "상품 이미지 업로드",
+        "guideStep1Desc": "최대 3장. 정면, 측면, 후면, 디테일을 포함하면 시스템이 구조와 판매 포인트를 판단하기 쉽습니다.",
+        "guideStep2Title": "상품 정보 분석",
+        "guideStep2Desc": "시스템이 대상 플랫폼, 스타일, 통일 장면, 판매 포인트, 페인 포인트, 대상 고객, 매개변수, 색상을 정리합니다.",
+        "guideStep3Title": "세트 플랜 생성",
+        "guideStep3Desc": "{count} {unit}에 따라 현지화된 플랜을 출력하고 생성을 시작합니다.",
+        "guideStep3CountFallback": "선택됨",
+        "loadingModule": "상품 세트",
+        "loadingRef": "상품 참고 {index}",
+        "failedTitle": "상품 세트 생성 실패",
+        "retry": "재시도",
+        "resultAria": "상품 세트 결과",
+        "generatingTitle": "상품 세트 생성 중",
+        "resultTitle": "상품 세트 결과",
+        "generatedCount": "{current}/{total} 완료",
+        "progressCount": "{progress}% 생성됨",
+        "completed": "완료",
+        "progressAria": "상품 세트 생성 진행률",
+        "cardFallback": "결과 {index}",
+        "previewAria": "{name} 미리보기",
+        "resultAlt": "상품 세트 {index}",
+        "moduleFailed": "이 모듈 실패",
+        "regenerating": "재생성 중…",
+        "regenerate": "이것 재생성",
+        "waiting": "생성 대기 중",
+        "waitingDesc": "이 모듈은 완료되면 자동으로 미리보기에 반영",
+        "statusGenerated": "생성됨",
+        "statusFailed": "실패",
+        "statusGenerating": "생성 중",
+        "regenerateAria": "{name} 재생성",
+        "downloadAria": "{name} 다운로드"
+      },
+      "library": {
+        "title": "참고 템플릿 라이브러리",
+        "description": "템플릿은 용도, 레이아웃, 비주얼 방향만 제어하며 최종 상품은 업로드한 이미지를 기준으로 합니다.",
+        "searchLabel": "템플릿 검색",
+        "searchPlaceholder": "템플릿 검색…",
+        "filterAria": "템플릿 필터",
+        "allDetails": "모든 상세 페이지 템플릿",
+        "allMain": "모든 메인 이미지 템플릿",
+        "womenswearScene": "여성 장면",
+        "selectedCount": "{count}개 선택",
+        "empty": "현재 필터와 일치하는 템플릿이 없습니다.",
+        "uploadReference": "참고 업로드",
+        "customTitle": "내 참고 업로드",
+        "customDesc": "복잡한 규칙 불필요. 참고 이미지를 업로드하고 중점을 선택하세요.",
+        "customStyles": "사용자 지정 스타일",
+        "removeAria": "{name} 제거",
+        "customEmpty": "내 참고 템플릿 이미지를 업로드하고 텍스트 설명과 결합해 전용 세트 스타일을 생성할 수 있습니다."
+      }
     }
   },
   "Shared": {
@@ -3955,7 +4365,20 @@
     "dateStart": "시작일",
     "dateEnd": "종료일",
     "recentWeek": "최근 1주",
-    "recentMonth": "최근 1개월"
+    "recentMonth": "최근 1개월",
+    "leaveConfirmTitle": "이 페이지를 나가시겠어요?",
+    "leaveConfirmContent": "이 페이지에 저장되지 않은 입력 내용이 있습니다. 나가면 사라집니다.",
+    "leaveConfirmOk": "나가기",
+    "leaveConfirmCancel": "계속 편집",
+    "selectAll": "전체 선택",
+    "selectRow": "이 행 선택",
+    "selectDateRange": "날짜 범위 선택",
+    "clearDateRange": "날짜 범위 지우기",
+    "previousMonth": "지난달",
+    "nextMonth": "다음 달",
+    "searchQuery": "검색",
+    "confirmNotInitialized": "확인 대화상자가 초기화되지 않아 작업이 실행되지 않았습니다",
+    "operationFailed": "작업 실패"
   },
   "Video": {
     "moduleFirstLastFrame": "첫/끝 프레임",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "영상 생성",
     "motionStepGenerateDesc": "동일한 동작 영상을 출력합니다.",
     "motionStepGenerateAlt": "생성 영상",
-    "badgeGenerateVideoMotion": "영상 생성"
+    "badgeGenerateVideoMotion": "영상 생성",
+    "runBar": {
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
+    }
   },
   "toast": {
     "selectImage": "이미지 파일을 선택하세요",

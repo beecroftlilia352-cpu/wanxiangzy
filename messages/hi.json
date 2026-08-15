@@ -666,7 +666,12 @@
     "saveBadge": "बचत",
     "perMonth": "/महीना",
     "startSubscription": "सब्सक्रिप्शन शुरू करें",
-    "buyNow": "अभी खरीदें"
+    "buyNow": "अभी खरीदें",
+    "error": {
+      "title": "मूल्य पृष्ठ लोड करना विफल",
+      "fallback": "इस पृष्ठ को प्रस्तुत करते समय त्रुटि हुई। कृपया पुनः प्रयास करें।",
+      "retry": "पुनः प्रयास"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "ऑल-कैटेगरी प्रोडक्ट इमेज",
@@ -877,7 +882,9 @@
       "roleExtra": "एक्सेसरी",
       "modeMulti": "ऊपर और नीचे",
       "modeSingle": "एक पीस",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "पहले परिधान की मुख्य छवि अपलोड करें",
+      "uploadFirstDesc": "अपलोड के बाद संबंधित परिधान के नीचे गला, कपड़ा, लोगो, पीछे या बगल के विवरण जोड़ सकते हैं।"
     },
     "favorite": {
       "loginRequired": "फ़ेवरेट सेव करने के लिए कृपया साइन इन करें",
@@ -932,7 +939,26 @@
       "maxCount": "अधिकतम {count} गारमेंट डिटेल इमेज",
       "remainingTruncated": "अधिकतम {count} और डिटेल इमेज जोड़ी जाएँगी; अतिरिक्त ट्रंकेट की गईं",
       "uploadingFiles": "{count} गारमेंट डिटेल इमेज अपलोड हो रही हैं…",
-      "added": "{owner} के लिए {count} डिटेल इमेज जोड़ी गईं"
+      "added": "{owner} के लिए {count} डिटेल इमेज जोड़ी गईं",
+      "switchLabel": "परिधान विवरण संदर्भ",
+      "switchDescription": "कपड़ा, गला, जेब या बटन जैसे स्थानीय विवरण और पीछे व बगल जोड़ें। चालू होने पर अधिकतम 5 छवियाँ; व्यक्ति, मुद्रा, पृष्ठभूमि या समग्र टोन नहीं बदलता।",
+      "sectionTitle": "प्रत्येक परिधान में विवरण जोड़ें",
+      "maxCountTitle": "अधिकतम {count} विवरण छवियाँ",
+      "addForRole": "{role} विवरण छवि जोड़ें",
+      "mainImageAlt": "{role} मुख्य छवि",
+      "previewMainAria": "{role} मुख्य छवि पूर्वावलोकन",
+      "roleDetailTitle": "{role} विवरण",
+      "onlyItem": "केवल इस वस्तु की सामग्री, संरचना या नज़दीकी दृश्य।",
+      "detailCount": "{count} छवियाँ",
+      "detailAlt": "{role} विवरण {index}",
+      "previewDetailAria": "{role} विवरण {index} पूर्वावलोकन",
+      "removeDetailAria": "{role} विवरण {index} हटाएँ",
+      "unassignedTitle": "अनिर्धारित ऐतिहासिक विवरण",
+      "unassignedCount": "{count} छवियाँ",
+      "unassignedAlt": "अनिर्धारित विवरण {index}",
+      "previewUnassignedAria": "अनिर्धारित विवरण {index} पूर्वावलोकन",
+      "removeUnassignedAria": "अनिर्धारित विवरण {index} हटाएँ",
+      "unassignedHint": "पिछले कार्यों की विवरण छवियों का कोई निर्धारण नहीं है और केवल स्पष्ट मिलान पर हल्के से उपयोग होता है।"
     },
     "model": {
       "pleaseUploadImage": "कृपया एक इमेज फ़ाइल अपलोड करें",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "गारमेंट पहचाना जा रहा है",
       "recommending": "सीन सुझाया जा रहा है",
       "previewSelected": "चुना गया रेफ़रेंस प्रीव्यू: {label}",
-      "addSystemScene": "सिस्टम रेफ़रेंस जोड़ें"
+      "addSystemScene": "सिस्टम रेफ़रेंस जोड़ें",
+      "footerSelected": "{selected}/{max} चयनित",
+      "footerDeleteAll": "सभी हटाएँ",
+      "footerSaving": "सहेज रहा है",
+      "footerSaveAsTemplate": "टेम्पलेट के रूप में सहेजें"
     },
     "autoDesign": {
       "platform": "फ़ोटोग्राफ़ी प्लान",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "होवर पूर्वावलोकन",
+    "lightbox": {
+      "previewAlt": "ट्राय-ऑन छवि पूर्वावलोकन"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "चालू",
     "textureOff": "बंद",
     "modeFeature": "केवल फ़ीचर्स",
-    "modeFeatureHairSkin": "फ़ीचर्स + बाल और स्किन"
+    "modeFeatureHairSkin": "फ़ीचर्स + बाल और स्किन",
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "गारमेंट 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "डाउन पफ़र",
     "refBack": "बैक सिल्हूट",
     "refShortCoat": "शॉर्ट कोट",
-    "hoverPreview": "होवर प्रीव्यू"
+    "hoverPreview": "होवर प्रीव्यू",
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "इमेज से इमेज",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "यह इमेज जेनरेट होने में विफल",
     "retryThis": "इस इमेज को रीट्राई करें",
     "retryGenerate": "फिर बनाएँ",
-    "retryToast": "स्लॉट {index} रीट्राई हो रहा है… विफल इमेज रिफ़ंड होती हैं और पूरा होने पर रिज़ल्ट में वापस भर दी जाती हैं…"
+    "retryToast": "स्लॉट {index} रीट्राई हो रहा है… विफल इमेज रिफ़ंड होती हैं और पूरा होने पर रिज़ल्ट में वापस भर दी जाती हैं…",
+    "imageToPromptDesc": "समान छवियाँ बनाने के लिए सामग्री विवरण स्वतः निकालने हेतु एक छवि अपलोड करें।",
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
+    },
+    "copyEmptyToast": "कॉपी करने के लिए अभी कुछ नहीं",
+    "copySuccessToast": "कॉपी हो गया",
+    "copyFailedToast": "कॉपी विफल, कृपया मैन्युअल रूप से कॉपी करें",
+    "uploadImageAria": "प्रॉम्प्ट बनाने के लिए चित्र अपलोड करें",
+    "changeImageAria": "प्रॉम्प्ट के लिए चित्र बदलें",
+    "uploadingState": "अपलोड हो रहा है…",
+    "uploadImageButton": "चित्र अपलोड करें",
+    "generatingState": "बन रहा है…",
+    "promptTextareaAria": "चित्र से बना प्रॉम्प्ट",
+    "promptTextareaPlaceholder": "चित्र अपलोड करने पर टेक्स्ट-टू-इमेज के लिए विवरण यहाँ बनेगा।",
+    "copyButton": "कॉपी करें",
+    "applyToDescription": "विवरण में लागू करें"
   },
   "Grass": {
     "moduleLabel": "ग्रास प्लांटिंग",
@@ -1818,6 +1877,10 @@
       "square": "1:1 स्क्वायर",
       "phone": "9:16 मोबाइल",
       "landscape": "4:3 लैंडस्केप"
+    },
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "इमेज ट्रांसलेशन प्रीव्यू",
     "waitingUploadSummary": "अपलोड की प्रतीक्षा · {count} इमेज",
     "selectLanguageSummary": "{count} सोर्स इमेज अपलोड हुईं · टारगेट भाषा चुनें",
-    "fullSummary": "{sources} सोर्स × {langs} भाषाएँ × {gen} · {size}"
+    "fullSummary": "{sources} सोर्स × {langs} भाषाएँ × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "मटेरियल एन्हांसमेंट पैरामीटर लोड हो रहे हैं",
       "previewAria": "प्रीव्यू एरिया लोड हो रहा है"
+    },
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "एक सुसंगत कैरेक्टर पाएँ जो ट्राई-ऑन और प्रोडक्ट विज़ुअल के लिए reusable है।",
     "missingFailureLabel": "यह इमेज विफल",
     "missingFailureActionLabel": "इसे रीट्राई करें",
-    "retryLabel": "फिर बनाएँ"
+    "retryLabel": "फिर बनाएँ",
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
+    }
   },
   "ModelBackground": {
     "title": "बैकग्राउंड बदलें",
@@ -2842,6 +2917,10 @@
       "upload": "बैकग्राउंड अपलोड करें",
       "text": "टेक्स्ट से बैकग्राउंड",
       "auto": "ऑटो डिज़ाइन"
+    },
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
     }
   },
   "Pose": {
@@ -3174,7 +3253,9 @@
       "continueGenerating": "जेनरेट करना जारी रखें",
       "generateRefs": "{count} अलग इमेज जेनरेट करें",
       "generatePoses": "{count} पोज़ इमेज जेनरेट करें",
-      "generateGrid": "{count} पोज़ ग्रिड जेनरेट करें"
+      "generateGrid": "{count} पोज़ ग्रिड जेनरेट करें",
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
     },
     "previewGuide": {
       "title": "एक इमेज, कई पोज़",
@@ -3332,6 +3413,14 @@
       "step2Desc": "रीटच मोड, मॉडल, रेशियो और प्रति प्रोडक्ट आउटपुट संख्या सेट करें।",
       "step3Title": "बैच रिज़ल्ट रिव्यू करें",
       "step3Desc": "रिज़ल्ट प्रोडक्ट से समूहित होते हैं; प्रीव्यू करें, अलग-अलग रीट्राई करें, या प्रोडक्ट या पूरे बैच से डाउनलोड करें।"
+    },
+    "empty": {
+      "title": "अभी कोई उत्पाद परिणाम नहीं",
+      "description": "उत्पाद चित्र अपलोड करने पर हर उत्पाद का परिणाम अपने आप दिखेगा।"
+    },
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
     }
   },
   "ProductSet": {
@@ -3649,6 +3738,327 @@
     },
     "aspectRatio": {
       "auto": "स्वतः"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "उत्पाद जानकारी सारांश",
+        "productInfo": "उत्पाद जानकारी",
+        "namePlaceholder": "उत्पाद का नाम लंबित",
+        "descPlaceholder": "जानकारी भर दी गई है। विक्रय बिंदु, सामग्री और दर्शक जोड़ने के लिए संपादन पर टैप करें।"
+      },
+      "summary": {
+        "ariaLabel": "उत्पाद विश्लेषण योजना",
+        "generated": "योजना तैयार",
+        "planCount": "{count} {unit} बनाने की योजना",
+        "imageQuality": "छवि गुणवत्ता",
+        "qualityPrepared": "तैयार",
+        "collapse": "विवरण छिपाएँ",
+        "expand": "विवरण देखें",
+        "editInfo": "जानकारी संपादित करें",
+        "suggestSupplement": "जोड़ने का सुझाव: "
+      },
+      "adjustStyle": "शैली समायोजित करें",
+      "profile": {
+        "ariaLabel": "उत्पाद प्रोफ़ाइल",
+        "sourceAi": "छवि जानकारी",
+        "sourceFallback": "मूल जानकारी",
+        "sourceRunning": "पढ़ रहा है",
+        "sourceManual": "मैनुअल जानकारी",
+        "sourceConfirm": "पुष्टि करनी है",
+        "suggestModel": "मॉडल सुझाया",
+        "noModel": "कोई मॉडल नहीं",
+        "modify": "संपादित करें"
+      },
+      "strategy": {
+        "ariaLabel": "विज़ुअल रणनीति",
+        "title": "विज़ुअल रणनीति",
+        "fallbackName": "विज़ुअल रणनीति",
+        "pending": "मूल्यांकन करना है",
+        "imageQuality": "छवि गुणवत्ता",
+        "currentMode": "वर्तमान मोड",
+        "modeMain": "मुख्य छवियाँ",
+        "modeDetails": "विवरण पृष्ठ",
+        "smartMatch": "स्मार्ट मिलान"
+      },
+      "notice": {
+        "reading": "उत्पाद छवियाँ पढ़ रहा है",
+        "needConfirm": "जानकारी की पुष्टि आवश्यक",
+        "incomplete": "उत्पाद पढ़ना अधूरा"
+      },
+      "progress": {
+        "ariaLabel": "मॉड्यूल निर्माण प्रगति",
+        "failed": "विफल",
+        "done": "पूर्ण",
+        "generating": "बना रहा है",
+        "queued": "कतार में"
+      },
+      "modeTab": {
+        "ariaLabel": "उत्पाद सेट प्रकार",
+        "mainTitle": "मुख्य छवियाँ",
+        "mainDesc": "पहले संख्या चुनें, फिर विश्लेषण",
+        "detailsTitle": "विवरण पृष्ठ",
+        "detailsDesc": "पहले स्क्रीन चुनें, फिर विश्लेषण"
+      },
+      "stepper": {
+        "ariaLabel": "उत्पाद सेट निर्माण प्रगति",
+        "step1Title": "छवियाँ",
+        "step1Desc": "अपलोड",
+        "step2Title": "जानकारी",
+        "step2Desc": "संख्या",
+        "step3Title": "विश्लेषण",
+        "step3Desc": "योजना",
+        "step4Title": "बनाएँ",
+        "step4Desc": "आउटपुट"
+      },
+      "count": {
+        "unselected": "चयनित नहीं"
+      },
+      "template": {
+        "main": "मुख्य",
+        "details": "विवरण",
+        "subjectConsistent": "सुसंगत विषय",
+        "layoutIndependent": "स्वतंत्र लेआउट"
+      },
+      "upload": {
+        "uploadedReplace": "अपलोड किया गया, बदला जा सकता है",
+        "dropHint": "छवि अपलोड / खींचें"
+      },
+      "customSource": {
+        "ariaLabel": "संदर्भ अपलोड करें",
+        "description": "एक मुख्य संदर्भ छवि अपलोड करें—सिस्टम लेआउट और शैली समझकर उसे {count} की योजना में बाँटेगा।",
+        "library": "टेम्पलेट लाइब्रेरी",
+        "selectedCountMain": "चयनित संख्या",
+        "selectedCountDetails": "चयनित स्क्रीन",
+        "added": "संदर्भ जोड़े गए",
+        "removeAria": "{name} हटाएँ",
+        "empty": "अभी कोई संदर्भ नहीं। मुख्य छवि अपलोड कर जोड़ें पर टैप करें—संदर्भ उत्पाद छवियों के साथ भेजा जाता है और केवल शैली, लेआउट, मॉडल या माहौल को प्रभावित करता है।"
+      },
+      "referenceStyle": {
+        "title": "संदर्भ शैली नोट्स",
+        "description": "यह केवल शैली दिशा सहेजता है, टेम्पलेट का विश्लेषण नहीं करता; \"उत्पाद जानकारी लिखें\" पर टैप करने पर स्मार्ट विश्लेषण में भेजा जाएगा।",
+        "restoreExample": "उदाहरण पुनर्स्थापित करें",
+        "save": "संदर्भ शैली सहेजें",
+        "placeholder": "संदर्भ शैली, लक्ष्य प्लेटफ़ॉर्म, विज़ुअल शैली, एकीकृत दृश्य, पैलेट और आवश्यकताएँ लिखें…",
+        "hint": "यह सामग्री शैली संदर्भ के रूप में विश्लेषण में जाती है, सीधे टेम्पलेट के रूप में नहीं।"
+      },
+      "profileEditor": {
+        "title": "उत्पाद पहचान सुधारें",
+        "description": "परिणाम डिफ़ॉल्ट टेम्पलेट, मॉडल उपयोग और प्रॉम्प्ट सुरक्षा सीमा को प्रभावित करते हैं।",
+        "productType": "उत्पाद प्रकार",
+        "apparelSubtype": "परिधान उपश्रेणी",
+        "modelStrategy": "मॉडल रणनीति",
+        "modelRequirement": "मॉडल आवश्यकताएँ",
+        "modelBriefPlaceholder": "जैसे: वयस्क महिला मॉडल, फ्रेंच कार्य दृश्य, स्वाभाविक मुद्राएँ, सिल्हूट और ड्रेप उभारें, अतिरंजित मुद्रा नहीं…",
+        "kind": {
+          "apparel": "परिधान",
+          "footwear": "जूते",
+          "bag": "बैग",
+          "accessory": "सहायक उपकरण",
+          "beauty": "सौंदर्य",
+          "electronics": "इलेक्ट्रॉनिक्स",
+          "home": "घर",
+          "toy": "खिलौने",
+          "food": "खाद्य",
+          "general": "सामान्य"
+        },
+        "apparel": {
+          "womenswear": "महिला",
+          "menswear": "पुरुष",
+          "kidswear": "बच्चे",
+          "outerwear": "बाहरी / आउटडोर",
+          "sportswear": "स्पोर्ट्सवियर",
+          "intimate": "अंतर्वस्त्र",
+          "swimwear": "स्विमवियर",
+          "general": "सामान्य परिधान"
+        },
+        "model": {
+          "none": "कोई मॉडल नहीं",
+          "optional": "वैकल्पिक मॉडल",
+          "recommended": "मॉडल सुझाया",
+          "required": "मॉडल आवश्यक"
+        }
+      },
+      "moduleEdit": {
+        "title": "निर्माण मॉड्यूल संपादित करें",
+        "description": "छवि {index} · {type}",
+        "modelTypeDetails": "विवरण पृष्ठ मॉड्यूल",
+        "modelTypeMain": "मुख्य / सहायक छवि मॉड्यूल",
+        "remove": "यह मॉड्यूल हटाएँ",
+        "save": "सहेजें",
+        "fieldName": "मॉड्यूल नाम",
+        "fieldRole": "मॉड्यूल भूमिका",
+        "fieldContentScope": "सामग्री का दायरा",
+        "contentScopePlaceholder": "जैसे: केवल कपड़ा और सिल्हूट, पूरा तर्क दोहराए बिना; या केवल मॉडल और माहौल दिखाएँ।",
+        "fieldLayoutRules": "लेआउट नियम",
+        "fieldTextRules": "पाठ नियम",
+        "fieldAvoidRules": "परिहार नियम",
+        "fieldTypeDescription": "टेम्पलेट विवरण",
+        "aspectRatio": "पहलू अनुपात",
+        "subjectConsistency": "सुसंगत विषय",
+        "modelConsistency": "सुसंगत मॉडल",
+        "intelligentCopy": "स्मार्ट कॉपी",
+        "copyDensity": "कॉपी घनत्व",
+        "copyDensityNone": "कोई कॉपी नहीं",
+        "copyDensityLight": "हल्की कॉपी",
+        "copyDensityStandard": "मानक कॉपी",
+        "copyDensityRich": "समृद्ध कॉपी",
+        "modelAdviceOn": "यह मॉड्यूल मॉडल / पहने दृश्य को प्राथमिकता देता है। मॉडल नहीं चाहिए तो भूमिका को सफ़ेद पृष्ठभूमि, विवरण, आकार में बदलें या मॉडल सुसंगति बंद करें।",
+        "modelAdviceOff": "यह मॉड्यूल डिफ़ॉल्ट रूप से मॉडल का उपयोग नहीं करता और सफ़ेद पृष्ठभूमि, विवरण, आयाम, सामग्री, पैकेजिंग या विनिर्देश के लिए उपयुक्त है।",
+        "fieldExtraDescription": "अतिरिक्त विवरण",
+        "extraDescriptionPlaceholder": "केवल इस छवि की विशेष आवश्यकताएँ लिखें, जैसे: महिला बैनर में नीचे थंबनेल नहीं; विवरण छवि केवल हुड, कफ और जेब दिखाए।"
+      },
+      "settings": {
+        "title": "अधिक सेटिंग",
+        "description": "लक्ष्य बाज़ार, छवि कॉपी और विज़ुअल शैली को नियंत्रित करता है; मॉडल, अनुपात और रिज़ॉल्यूशन बाईं ओर अलग से कॉन्फ़िगर होते हैं।",
+        "country": "लक्ष्य देश / क्षेत्र",
+        "language": "छवि कॉपी भाषा",
+        "platform": "लक्ष्य प्लेटफ़ॉर्म",
+        "theme": "थीम रंग",
+        "themeAuto": "स्मार्ट थीम",
+        "themeCustom": "कस्टम रंग",
+        "themeCustomLabel": "कस्टम थीम रंग",
+        "themeColorPlaceholder": "जैसे: क्रीम सफ़ेद + डेनिम नीला + गुलाब…",
+        "fontStyle": "फ़ॉन्ट शैली",
+        "extraDescription": "अतिरिक्त विवरण",
+        "extraDescriptionPlaceholder": "जैसे: महिला फ्रेंच कार्य शैली, अतिरंजित मुद्रा नहीं, छोटी कॉपी…"
+      },
+      "favorite": {
+        "ariaLabel": "मेरे सहेजे टेम्पलेट",
+        "description": "वर्तमान विज़ुअल योजना या कस्टम टेम्पलेट सहेजें और अगली बार उत्पाद बदलने पर सीधे लागू करें।",
+        "setsCount": "{count} सेट",
+        "nameLabel": "सहेजी योजना का नाम",
+        "saving": "सहेज रहा…",
+        "save": "सहेजें",
+        "loading": "आपकी सहेजी योजनाएँ लोड हो रही…",
+        "apply": "लागू करें",
+        "deleteAria": "सहेजी योजना {name} हटाएँ",
+        "modelPrefix": "मॉडल · ",
+        "empty": "अभी कोई सहेजी योजना नहीं। वर्तमान योजना समायोजित कर सहेजें पर टैप करें।",
+        "planCustom": "कस्टम योजना",
+        "planVisual": "विज़ुअल योजना",
+        "typeDetails": "विवरण पृष्ठ",
+        "typeMain": "मुख्य छवियाँ",
+        "justNow": "अभी-अभी"
+      },
+      "genSettings": {
+        "title": "निर्माण सेटिंग",
+        "advQuality": "उन्नत QA",
+        "stdQuality": "मानक QA",
+        "adjust": "समायोजित करें"
+      },
+      "modelConfig": {
+        "ariaLabel": "निर्माण सेटिंग विकल्प",
+        "model": "निर्माण मॉडल",
+        "resolution": "रिज़ॉल्यूशन",
+        "sizeCost": "{size} · {cost} क्रेडिट",
+        "detailsWarning": "विवरण पृष्ठों में शीर्षक, लेबल और स्थानीय विवरण होते हैं—1K छोटे पाठ को धुंधला कर देता है। बेहतर QA और पठनीयता के लिए 2K से शुरू करें।",
+        "quality": "निर्माण स्तर",
+        "standardMode": "मानक मोड",
+        "advancedMode": "उन्नत मोड",
+        "aspectAutoNote": "अनुपात टेम्पलेट से स्वतः",
+        "aspectAutoDetail": "बैनर, विवरण छवियाँ और सफ़ेद पृष्ठभूमि वाली मुख्य छवियाँ प्रत्येक अपना टेम्पलेट अनुपात उपयोग करती हैं, ताकि एक अनुपात पूरे सेट को गुमराह न करे।"
+      },
+      "planList": {
+        "empty": "अभी कोई टेम्पलेट नहीं चुना—लाइब्रेरी खोलकर जोड़ें।",
+        "ariaLabel": "निर्माण मॉड्यूल क्रम",
+        "details": "विवरण पृष्ठ",
+        "main": "मुख्य / सहायक छवि",
+        "model": "मॉडल",
+        "editAria": "मॉड्यूल {name} संपादित करें",
+        "removeAria": "मॉड्यूल {name} हटाएँ",
+        "collapsed": "अगले {count} मॉड्यूल छिपाए गए। ऊपर दाईं ओर सभी देखें पर टैप करें।"
+      },
+      "recommendation": {
+        "ariaLabel": "विज़ुअल डायरेक्टर योजना",
+        "safeTemplate": "सुरक्षित टेम्पलेट",
+        "withModel": "मॉडल के साथ",
+        "lowRisk": "कम जोखिम",
+        "recommended": "सुझाया: {count} {unit} बनाएँ",
+        "modelPrefix": "मॉडल · "
+      },
+      "quickStart": {
+        "mainRef": "मुख्य संदर्भ",
+        "modelRef": "मॉडल संदर्भ",
+        "styleHint": "शैली / लेआउट",
+        "optional": "वैकल्पिक",
+        "extraRef": "अतिरिक्त संदर्भ {count}/3",
+        "focusLabel": "संदर्भ फ़ोकस",
+        "advancedSettings": "उन्नत सेटिंग",
+        "aspectRatio": "पहलू अनुपात",
+        "specialRequirement": "विशेष आवश्यकताएँ",
+        "extraPlaceholder": "जैसे: कोई पाठ नहीं, मॉडल चेहरा नहीं, विवरण उभारें…",
+        "uploadRefFirst": "पहले एक मुख्य संदर्भ छवि अपलोड करें",
+        "selectCountFirst": "पहले {unit} चुनें",
+        "countUnitMain": "छवि संख्या",
+        "countUnitDetails": "स्क्रीन संख्या",
+        "addRefAndGenerate": "संदर्भ जोड़ें और {count} {unit} योजना बनाएँ",
+        "intent": {
+          "autoDetect": "स्वतः पहचान",
+          "wearing": "पहनावा प्रदर्शन",
+          "poster": "विक्रय-बिंदु पोस्टर",
+          "scene": "दृश्य माहौल",
+          "autoSplit": "स्वतः विभाजन",
+          "hero": "मुख्य बैनर",
+          "sellingPoints": "विक्रय बिंदु",
+          "detailsTexture": "विवरण और बनावट"
+        },
+        "defaultNameDetails": "संदर्भ विवरण प्लान",
+        "defaultNameMain": "संदर्भ मुख्य-चित्र प्लान"
+      },
+      "results": {
+        "exampleAlt": "उत्पाद सेट उदाहरण",
+        "guideTitle": "उत्पाद सेट बनाना शुरू करें",
+        "guideSubtitle": "पहले जानकारी विश्लेषण करें, फिर चयन के अनुसार मुख्य छवि / विवरण पृष्ठ योजना बनाएँ।",
+        "guideStep1Title": "उत्पाद छवियाँ अपलोड करें",
+        "guideStep1Desc": "अधिकतम 3 छवियाँ; सामने, बगल, पीछे या विवरण जोड़ें ताकि सिस्टम संरचना और विक्रय बिंदु का आकलन करे।",
+        "guideStep2Title": "जानकारी विश्लेषण करें",
+        "guideStep2Desc": "सिस्टम प्लेटफ़ॉर्म, शैली, दृश्य, विक्रय बिंदु, पीड़ा, दर्शक, पैरामीटर और पैलेट व्यवस्थित करता है।",
+        "guideStep3Title": "सेट योजना बनाएँ",
+        "guideStep3Desc": "{count} {unit} के अनुसार स्थानीयकृत योजना बनाता है और निर्माण शुरू करता है।",
+        "guideStep3CountFallback": "चयनित",
+        "loadingModule": "उत्पाद सेट",
+        "loadingRef": "उत्पाद संदर्भ {index}",
+        "failedTitle": "उत्पाद सेट निर्माण विफल",
+        "retry": "पुनः प्रयास",
+        "resultAria": "उत्पाद सेट परिणाम",
+        "generatingTitle": "उत्पाद सेट बन रहा है",
+        "resultTitle": "उत्पाद सेट परिणाम",
+        "generatedCount": "{current}/{total} पूर्ण",
+        "progressCount": "{progress}% बना",
+        "completed": "पूर्ण",
+        "progressAria": "उत्पाद सेट निर्माण प्रगति",
+        "cardFallback": "परिणाम {index}",
+        "previewAria": "{name} पूर्वावलोकन",
+        "resultAlt": "उत्पाद सेट {index}",
+        "moduleFailed": "यह मॉड्यूल विफल",
+        "regenerating": "पुनः बना रहा…",
+        "regenerate": "इसे पुनः बनाएँ",
+        "waiting": "निर्माण की प्रतीक्षा",
+        "waitingDesc": "यह मॉड्यूल पूर्ण होते ही पूर्वावलोकन अपने आप भरता है",
+        "statusGenerated": "बन गया",
+        "statusFailed": "विफल",
+        "statusGenerating": "बन रहा है",
+        "regenerateAria": "{name} पुनः बनाएँ",
+        "downloadAria": "{name} डाउनलोड करें"
+      },
+      "library": {
+        "title": "संदर्भ टेम्पलेट लाइब्रेरी",
+        "description": "टेम्पलेट केवल उद्देश्य, लेआउट और विज़ुअल दिशा नियंत्रित करते हैं—अंतिम उत्पाद आपकी अपलोड छवियों का उपयोग करता है।",
+        "searchLabel": "टेम्पलेट खोजें",
+        "searchPlaceholder": "टेम्पलेट खोजें…",
+        "filterAria": "टेम्पलेट फ़िल्टर",
+        "allDetails": "सभी विवरण-पृष्ठ टेम्पलेट",
+        "allMain": "सभी मुख्य-छवि टेम्पलेट",
+        "womenswearScene": "महिला दृश्य",
+        "selectedCount": "{count} चयनित",
+        "empty": "फ़िल्टर से मेल खाता कोई टेम्पलेट नहीं।",
+        "uploadReference": "संदर्भ अपलोड करें",
+        "customTitle": "अपना संदर्भ अपलोड करें",
+        "customDesc": "कोई जटिल नियम नहीं—छवि अपलोड कर फ़ोकस चुनें।",
+        "customStyles": "कस्टम शैलियाँ",
+        "removeAria": "{name} हटाएँ",
+        "customEmpty": "पाठ विवरण के साथ विशेष सेट शैली बनाने के लिए अपना संदर्भ टेम्पलेट अपलोड करें।"
+      }
     }
   },
   "Shared": {
@@ -3955,7 +4365,20 @@
     "dateStart": "शुरुआत की तारीख",
     "dateEnd": "समाप्ति की तारीख",
     "recentWeek": "पिछला सप्ताह",
-    "recentMonth": "पिछला महीना"
+    "recentMonth": "पिछला महीना",
+    "leaveConfirmTitle": "इस पेज से बाहर जाएं?",
+    "leaveConfirmContent": "इस पेज पर सेव न की गई सामग्री है, छोड़ने पर खो जाएगी।",
+    "leaveConfirmOk": "बाहर जाएं",
+    "leaveConfirmCancel": "संपादन जारी रखें",
+    "selectAll": "सभी चुनें",
+    "selectRow": "यह पंक्ति चुनें",
+    "selectDateRange": "दिनांक सीमा चुनें",
+    "clearDateRange": "दिनांक सीमा हटाएँ",
+    "previousMonth": "पिछला महीना",
+    "nextMonth": "अगला महीना",
+    "searchQuery": "खोजें",
+    "confirmNotInitialized": "कन्फर्म डायलॉग प्रारंभ नहीं हुआ — कार्रवाई निष्पादित नहीं हुई",
+    "operationFailed": "कार्रवाई विफल"
   },
   "Video": {
     "moduleFirstLastFrame": "फर्स्ट और लास्ट फ्रेम",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "वीडियो जेनरेट करें",
     "motionStepGenerateDesc": "मेल खाता मोशन वीडियो आउटपुट करें।",
     "motionStepGenerateAlt": "जेनरेटेड वीडियो",
-    "badgeGenerateVideoMotion": "वीडियो जेनरेट करें"
+    "badgeGenerateVideoMotion": "वीडियो जेनरेट करें",
+    "runBar": {
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
+    }
   },
   "toast": {
     "selectImage": "कृपया कोई इमेज फ़ाइल चुनें",

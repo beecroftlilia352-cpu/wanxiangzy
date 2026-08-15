@@ -666,7 +666,12 @@
     "saveBadge": "Tasarruf",
     "perMonth": "/ay",
     "startSubscription": "Aboneliği başlat",
-    "buyNow": "Hemen Satın Al"
+    "buyNow": "Hemen Satın Al",
+    "error": {
+      "title": "Fiyatlandırma sayfası yüklenemedi",
+      "fallback": "Bu sayfa görüntülenirken bir hata oluştu. Lütfen tekrar deneyin.",
+      "retry": "Yeniden dene"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "Tüm Kategoriler Ürün Görselleri",
@@ -877,7 +882,9 @@
       "roleExtra": "Aksesuar",
       "modeMulti": "Üst ve alt",
       "modeSingle": "Tek parça",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "Önce giysinin ana görselini yükleyin",
+      "uploadFirstDesc": "Yükledikten sonra ilgili giysinin altına yaka, kumaş, logo, arka veya yan detayları ekleyebilirsiniz."
     },
     "favorite": {
       "loginRequired": "Favorileri kaydetmek için lütfen giriş yapın",
@@ -932,7 +939,26 @@
       "maxCount": "En fazla {count} giysi detay görseli",
       "remainingTruncated": "En fazla {count} detay görsel daha eklenecek; fazlalıklar kırpıldı",
       "uploadingFiles": "{count} giysi detay görseli yükleniyor…",
-      "added": "{owner} için {count} detay görsel eklendi"
+      "added": "{owner} için {count} detay görsel eklendi",
+      "switchLabel": "Giyim detay referansı",
+      "switchDescription": "Kumaş, yaka, cep veya düğme gibi yerel detayları ve arka ile yanları ekleyin. Açıkken 5 görsele kadar; kişi, poz, arka plan veya genel ton değişmez.",
+      "sectionTitle": "Her giysiye detay ekle",
+      "maxCountTitle": "{count} detay görseline kadar",
+      "addForRole": "{role} detay görseli ekle",
+      "mainImageAlt": "{role} ana görseli",
+      "previewMainAria": "{role} ana görselini önizle",
+      "roleDetailTitle": "{role} detayları",
+      "onlyItem": "Yalnızca bu parçanın malzemesi, yapısı veya yakın çekimleri.",
+      "detailCount": "{count} görsel",
+      "detailAlt": "{role} detayı {index}",
+      "previewDetailAria": "{role} detayı {index} önizle",
+      "removeDetailAria": "{role} detayı {index} kaldır",
+      "unassignedTitle": "Atanmamış geçmiş detaylar",
+      "unassignedCount": "{count} görsel",
+      "unassignedAlt": "Atanmamış detay {index}",
+      "previewUnassignedAria": "Atanmamış detay {index} önizle",
+      "removeUnassignedAria": "Atanmamış detay {index} kaldır",
+      "unassignedHint": "Önceki görevlerden gelen detay görsellerinin ataması yoktur ve yalnızca belirgin eşleşmede hafifçe kullanılır."
     },
     "model": {
       "pleaseUploadImage": "Lütfen bir görsel dosyası yükleyin",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "Giysi tanınıyor",
       "recommending": "Sahne öneriliyor",
       "previewSelected": "Seçilen referansı önizle: {label}",
-      "addSystemScene": "Sistem referansı ekle"
+      "addSystemScene": "Sistem referansı ekle",
+      "footerSelected": "{selected}/{max} seçildi",
+      "footerDeleteAll": "Tümünü sil",
+      "footerSaving": "Kaydediliyor",
+      "footerSaveAsTemplate": "Şablon olarak kaydet"
     },
     "autoDesign": {
       "platform": "Fotoğraf planı",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "Fareyle önizle",
+    "lightbox": {
+      "previewAlt": "Deneme görsel önizlemesi"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "Açık",
     "textureOff": "Kapalı",
     "modeFeature": "Yalnızca özellikler",
-    "modeFeatureHairSkin": "Özellikler + saç ve cilt"
+    "modeFeatureHairSkin": "Özellikler + saç ve cilt",
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "Giyim 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "Şişme mont",
     "refBack": "Sırt silüeti",
     "refShortCoat": "Kısa palto",
-    "hoverPreview": "Üzerine gelince önizle"
+    "hoverPreview": "Üzerine gelince önizle",
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "Görselden Görsele",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "Bu görsel üretilemedi",
     "retryThis": "Bu görseli yeniden dene",
     "retryGenerate": "Yeniden üret",
-    "retryToast": "Yuva {index} yeniden deneniyor… başarısız görseller iade edilir ve bitince sonuçlara geri doldurulur…"
+    "retryToast": "Yuva {index} yeniden deneniyor… başarısız görseller iade edilir ve bitince sonuçlara geri doldurulur…",
+    "imageToPromptDesc": "Benzer görseller oluşturmak için içerik açıklamasını otomatik çıkarmak üzere bir görsel yükleyin.",
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
+    },
+    "copyEmptyToast": "Henüz kopyalanacak içerik yok",
+    "copySuccessToast": "Kopyalandı",
+    "copyFailedToast": "Kopyalama başarısız, lütfen manuel kopyalayın",
+    "uploadImageAria": "Prompt çıkarmak için görsel yükle",
+    "changeImageAria": "Prompt için görseli değiştir",
+    "uploadingState": "Yükleniyor…",
+    "uploadImageButton": "Görsel yükle",
+    "generatingState": "Oluşturuluyor…",
+    "promptTextareaAria": "Görselden çıkarılan prompt",
+    "promptTextareaPlaceholder": "Görsel yüklendikten sonra metinden görsele açıklaması burada oluşturulur.",
+    "copyButton": "Kopyala",
+    "applyToDescription": "Açıklamaya uygula"
   },
   "Grass": {
     "moduleLabel": "Grass İçeriği",
@@ -1818,6 +1877,10 @@
       "square": "1:1 Kare",
       "phone": "9:16 Mobil",
       "landscape": "4:3 Yatay"
+    },
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "Görsel çevirisi önizlemesi",
     "waitingUploadSummary": "Yükleme bekleniyor · {count} görsel",
     "selectLanguageSummary": "{count} kaynak görsel yüklendi · bir hedef dil seçin",
-    "fullSummary": "{sources} kaynak × {langs} dil × {gen} · {size}"
+    "fullSummary": "{sources} kaynak × {langs} dil × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "Materyal iyileştirme parametreleri yükleniyor",
       "previewAria": "Önizleme alanı yükleniyor"
+    },
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "Prova ve ürün görselleri için yeniden kullanılabilir tutarlı bir karakter elde edin.",
     "missingFailureLabel": "Bu görsel başarısız",
     "missingFailureActionLabel": "Bunu yeniden dene",
-    "retryLabel": "Yeniden üret"
+    "retryLabel": "Yeniden üret",
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
+    }
   },
   "ModelBackground": {
     "title": "Arka Planı Değiştir",
@@ -2842,6 +2917,10 @@
       "upload": "Arka plan yükle",
       "text": "Metinden arka plan",
       "auto": "Otomatik tasarım"
+    },
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
     }
   },
   "Pose": {
@@ -3174,7 +3253,9 @@
       "continueGenerating": "Üretmeye devam et",
       "generateRefs": "{count} ayrı görsel üret",
       "generatePoses": "{count} poz görseli üret",
-      "generateGrid": "{count} poz ızgarası üret"
+      "generateGrid": "{count} poz ızgarası üret",
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
     },
     "previewGuide": {
       "title": "Bir görsel, birçok poz",
@@ -3332,6 +3413,14 @@
       "step2Desc": "Rötuş modunu, modeli, oranı ve ürün başına çıktı adedini ayarlayın.",
       "step3Title": "Parti sonuçlarını incele",
       "step3Desc": "Sonuçlar ürüne göre gruplanır; önizleyin, tek tek yeniden deneyin veya ürüne ya da tüm partiye göre indirin."
+    },
+    "empty": {
+      "title": "Henüz ürün sonucu yok",
+      "description": "Ürün görselleri yüklendikten sonra sonuçlar otomatik görünür."
+    },
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
     }
   },
   "ProductSet": {
@@ -3649,6 +3738,327 @@
     },
     "aspectRatio": {
       "auto": "Otomatik"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "Ürün bilgisi özeti",
+        "productInfo": "Ürün bilgisi",
+        "namePlaceholder": "Ürün adı girilmedi",
+        "descPlaceholder": "Ürün bilgisi dolduruldu. Satış noktaları, malzeme ve kitle eklemek için düzenle'ye dokunun."
+      },
+      "summary": {
+        "ariaLabel": "Ürün analiz planı",
+        "generated": "Plan hazır",
+        "planCount": "{count} {unit} oluşturulması planlanıyor",
+        "imageQuality": "Görüntü kalitesi",
+        "qualityPrepared": "Hazırlandı",
+        "collapse": "Detayları gizle",
+        "expand": "Detayları gör",
+        "editInfo": "Bilgileri düzenle",
+        "suggestSupplement": "Eklenmesi önerilir: "
+      },
+      "adjustStyle": "Stili ayarla",
+      "profile": {
+        "ariaLabel": "Ürün profili",
+        "sourceAi": "Görsel bilgisi",
+        "sourceFallback": "Temel bilgi",
+        "sourceRunning": "Okunuyor",
+        "sourceManual": "Manuel bilgi",
+        "sourceConfirm": "Onay bekliyor",
+        "suggestModel": "Model önerilir",
+        "noModel": "Model yok",
+        "modify": "Düzenle"
+      },
+      "strategy": {
+        "ariaLabel": "Görsel strateji",
+        "title": "Görsel strateji",
+        "fallbackName": "Görsel strateji",
+        "pending": "Değerlendirilecek",
+        "imageQuality": "Görüntü kalitesi",
+        "currentMode": "Geçerli mod",
+        "modeMain": "Ana görseller",
+        "modeDetails": "Detay sayfası",
+        "smartMatch": "Akıllı eşleştirme"
+      },
+      "notice": {
+        "reading": "Ürün görselleri okunuyor",
+        "needConfirm": "Ürün bilgisi onay gerektiriyor",
+        "incomplete": "Ürün okuma tamamlanmadı"
+      },
+      "progress": {
+        "ariaLabel": "Modül oluşturma ilerlemesi",
+        "failed": "Başarısız",
+        "done": "Tamamlandı",
+        "generating": "Oluşturuluyor",
+        "queued": "Sırada"
+      },
+      "modeTab": {
+        "ariaLabel": "Ürün seti türü",
+        "mainTitle": "Ana görseller",
+        "mainDesc": "Önce sayı seçip analiz edin",
+        "detailsTitle": "Detay sayfası",
+        "detailsDesc": "Önce ekranları seçip analiz edin"
+      },
+      "stepper": {
+        "ariaLabel": "Ürün seti oluşturma ilerlemesi",
+        "step1Title": "Görseller",
+        "step1Desc": "Yükle",
+        "step2Title": "Bilgi",
+        "step2Desc": "Adet",
+        "step3Title": "Analiz et",
+        "step3Desc": "Plan",
+        "step4Title": "Oluştur",
+        "step4Desc": "Çıktı"
+      },
+      "count": {
+        "unselected": "Seçilmedi"
+      },
+      "template": {
+        "main": "Ana",
+        "details": "Detaylar",
+        "subjectConsistent": "Konu tutarlı",
+        "layoutIndependent": "Düzen bağımsız"
+      },
+      "upload": {
+        "uploadedReplace": "Yüklendi, değiştirilebilir",
+        "dropHint": "Görsel yükle / sürükle"
+      },
+      "customSource": {
+        "ariaLabel": "Referans yükle",
+        "description": "Bir ana referans görseli yükleyin; sistem düzeni ve stili anlayıp bunu {count} planına böler.",
+        "library": "Şablon kitaplığı",
+        "selectedCountMain": "Seçilen adet",
+        "selectedCountDetails": "Seçilen ekranlar",
+        "added": "Referanslar eklendi",
+        "removeAria": "{name} kaldır",
+        "empty": "Henüz referans yok. Ana görseli yükleyip Ekle'ye dokunun — referans ürün görselleriyle birlikte gönderilir ve yalnızca stil, düzen, model veya havayı etkiler."
+      },
+      "referenceStyle": {
+        "title": "Referans stili notları",
+        "description": "Yalnızca stil yönü saklanır, şablon analiz edilmez; \"Ürün bilgisi yaz\" özelliğine dokununca akıllı analize aktarılır.",
+        "restoreExample": "Örneği geri yükle",
+        "save": "Referans stilini kaydet",
+        "placeholder": "Referans stili, hedef platform, görsel stil, birleşik sahne, palet ve gereksinimleri yazın…",
+        "hint": "Bu içerik analize stil referansı olarak aktarılır ve doğrudan şablon olarak kullanılmaz."
+      },
+      "profileEditor": {
+        "title": "Ürün tanımayı düzelt",
+        "description": "Sonuçlar varsayılan şablonu, model kullanımını ve istem güvenlik sınırlarını etkiler.",
+        "productType": "Ürün türü",
+        "apparelSubtype": "Giyim alt kategorisi",
+        "modelStrategy": "Model stratejisi",
+        "modelRequirement": "Model gereksinimleri",
+        "modelBriefPlaceholder": "Örn. yetişkin kadın model, Fransız iş sahnesi, doğal pozlar, silueti ve dökümü vurgula, abartılı poz yok…",
+        "kind": {
+          "apparel": "Giyim",
+          "footwear": "Ayakkabı",
+          "bag": "Çanta",
+          "accessory": "Aksesuar",
+          "beauty": "Güzellik",
+          "electronics": "Elektronik",
+          "home": "Ev",
+          "toy": "Oyuncak",
+          "food": "Gıda",
+          "general": "Genel"
+        },
+        "apparel": {
+          "womenswear": "Kadın",
+          "menswear": "Erkek",
+          "kidswear": "Çocuk",
+          "outerwear": "Dış giyim / Outdoor",
+          "sportswear": "Spor giyim",
+          "intimate": "İç giyim",
+          "swimwear": "Mayo",
+          "general": "Genel giyim"
+        },
+        "model": {
+          "none": "Model yok",
+          "optional": "Model opsiyonel",
+          "recommended": "Model önerilir",
+          "required": "Model zorunlu"
+        }
+      },
+      "moduleEdit": {
+        "title": "Oluşturma modülünü düzenle",
+        "description": "Görsel {index} · {type}",
+        "modelTypeDetails": "Detay sayfası modülü",
+        "modelTypeMain": "Ana / yardımcı görsel modülü",
+        "remove": "Bu modülü kaldır",
+        "save": "Kaydet",
+        "fieldName": "Modül adı",
+        "fieldRole": "Modül rolü",
+        "fieldContentScope": "İçerik kapsamı",
+        "contentScopePlaceholder": "Örn. yalnızca kumaş ve silueti ele alıp tüm satış argümanını tekrarlamadan; veya yalnızca modeli ve havayı göster.",
+        "fieldLayoutRules": "Düzen kuralları",
+        "fieldTextRules": "Metin kuralları",
+        "fieldAvoidRules": "Kaçınılacak kurallar",
+        "fieldTypeDescription": "Şablon açıklaması",
+        "aspectRatio": "En boy oranı",
+        "subjectConsistency": "Konu tutarlı",
+        "modelConsistency": "Model tutarlı",
+        "intelligentCopy": "Akıllı metin",
+        "copyDensity": "Metin yoğunluğu",
+        "copyDensityNone": "Metin yok",
+        "copyDensityLight": "Hafif metin",
+        "copyDensityStandard": "Standart metin",
+        "copyDensityRich": "Zengin metin",
+        "modelAdviceOn": "Bu modül modeli / giyilen sahneyi tercih eder. Model istemiyorsanız rolü beyaz arka plan, detay, beden olarak değiştirin veya model tutarlılığını kapatın.",
+        "modelAdviceOff": "Bu modül varsayılan olarak model kullanmaz ve beyaz arka plan, detay, ölçü, malzeme, ambalaj veya teknik özellik için uygundur.",
+        "fieldExtraDescription": "Ek açıklama",
+        "extraDescriptionPlaceholder": "Yalnızca bu görselin özel gereksinimlerini yazın, örn. kadın bannerında alt küçük resim olmasın; detay görseli yalnız kapüşon, manşet ve cepleri göstersin."
+      },
+      "settings": {
+        "title": "Diğer ayarlar",
+        "description": "Hedef pazarı, görsel metnini ve görsel stili kontrol eder; model, oran ve çözünürlük solda ayrıca yapılandırılır.",
+        "country": "Hedef ülke / bölge",
+        "language": "Görsel metni dili",
+        "platform": "Hedef platform",
+        "theme": "Tema rengi",
+        "themeAuto": "Akıllı tema",
+        "themeCustom": "Özel renk",
+        "themeCustomLabel": "Özel tema rengi",
+        "themeColorPlaceholder": "Örn. krem beyazı + denim mavisi + gül pembesi…",
+        "fontStyle": "Yazı tipi stili",
+        "extraDescription": "Ek açıklama",
+        "extraDescriptionPlaceholder": "Örn. kadın Fransız iş stili, abartılı poz yok, kısa metin…"
+      },
+      "favorite": {
+        "ariaLabel": "Kayıtlı şablonlarım",
+        "description": "Mevcut görsel planı veya özel şablonu kaydedin ve bir sonraki ürün değişiminde doğrudan uygulayın.",
+        "setsCount": "{count} set",
+        "nameLabel": "Kayıtlı plan adı",
+        "saving": "Kaydediliyor…",
+        "save": "Kaydet",
+        "loading": "Kayıtlı planlarınız yükleniyor…",
+        "apply": "Uygula",
+        "deleteAria": "Kayıtlı planı sil {name}",
+        "modelPrefix": "Model · ",
+        "empty": "Henüz kayıtlı plan yok. Mevcut planı ayarlayıp Kaydet'e dokunun.",
+        "planCustom": "Özel plan",
+        "planVisual": "Görsel plan",
+        "typeDetails": "Detay sayfası",
+        "typeMain": "Ana görseller",
+        "justNow": "Az önce"
+      },
+      "genSettings": {
+        "title": "Oluşturma ayarları",
+        "advQuality": "Gelişmiş QA",
+        "stdQuality": "Standart QA",
+        "adjust": "Ayarla"
+      },
+      "modelConfig": {
+        "ariaLabel": "Oluşturma ayarları seçenekleri",
+        "model": "Oluşturma modeli",
+        "resolution": "Çözünürlük",
+        "sizeCost": "{size} · {cost} kredi",
+        "detailsWarning": "Detay sayfalarında başlık, etiket ve yerel detaylar bulunur — 1K küçük metni bulanıklaştırabilir. Belirgin şekilde daha iyi QA ve okunabilirlik için 2K'dan başlayın.",
+        "quality": "Oluşturma kademesi",
+        "standardMode": "Standart mod",
+        "advancedMode": "Gelişmiş mod",
+        "aspectAutoNote": "Oran şablona göre otomatik",
+        "aspectAutoDetail": "Banner, detay görselleri ve beyaz arka planlı ana görsellerin her biri kendi şablon oranını kullanır, böylece tek bir oran tüm seti yanıltmaz."
+      },
+      "planList": {
+        "empty": "Henüz şablon seçilmedi — kitaplığı açıp ekleyin.",
+        "ariaLabel": "Oluşturma modülü sırası",
+        "details": "Detay sayfası",
+        "main": "Ana / yardımcı görsel",
+        "model": "Model",
+        "editAria": "Modülü düzenle {name}",
+        "removeAria": "Modülü kaldır {name}",
+        "collapsed": "Sonraki {count} modül gizlendi. Sağ üstteki tümünü gör'e dokunun."
+      },
+      "recommendation": {
+        "ariaLabel": "Görsel yönetmen planı",
+        "safeTemplate": "Güvenli şablon",
+        "withModel": "Modelle",
+        "lowRisk": "Düşük risk",
+        "recommended": "Önerilen: {count} {unit} oluştur",
+        "modelPrefix": "Model · "
+      },
+      "quickStart": {
+        "mainRef": "Ana referans",
+        "modelRef": "Model referansı",
+        "styleHint": "Stil / düzen",
+        "optional": "Opsiyonel",
+        "extraRef": "Ek referans {count}/3",
+        "focusLabel": "Referans odağı",
+        "advancedSettings": "Gelişmiş ayarlar",
+        "aspectRatio": "En boy oranı",
+        "specialRequirement": "Özel gereksinimler",
+        "extraPlaceholder": "Örn. metin yok, model yüzü yok, detayları vurgula…",
+        "uploadRefFirst": "Önce bir ana referans görseli yükleyin",
+        "selectCountFirst": "Önce {unit} seçin",
+        "countUnitMain": "görsel sayısı",
+        "countUnitDetails": "ekran sayısı",
+        "addRefAndGenerate": "Referans ekle ve {count} {unit} planı oluştur",
+        "intent": {
+          "autoDetect": "Otomatik tanı",
+          "wearing": "Giyim gösterimi",
+          "poster": "Satış noktası afişi",
+          "scene": "Sahne havası",
+          "autoSplit": "Otomatik bölme",
+          "hero": "Ana banner",
+          "sellingPoints": "Satış noktaları",
+          "detailsTexture": "Detay ve doku"
+        },
+        "defaultNameDetails": "Referans detay planı",
+        "defaultNameMain": "Referans ana görsel planı"
+      },
+      "results": {
+        "exampleAlt": "Ürün seti örneği",
+        "guideTitle": "Ürün seti oluşturmaya başla",
+        "guideSubtitle": "Önce bilgileri analiz edip seçiminize göre ana görsel / detay sayfası planı oluşturun.",
+        "guideStep1Title": "Ürün görsellerini yükle",
+        "guideStep1Desc": "3 görsele kadar; ön, yan, arka veya detayları ekleyin ki sistem yapı ve satış noktalarını değerlendirsin.",
+        "guideStep2Title": "Bilgileri analiz et",
+        "guideStep2Desc": "Sistem platform, stil, sahne, satış noktası, acı noktası, kitle, parametre ve paleti düzenler.",
+        "guideStep3Title": "Set planını oluştur",
+        "guideStep3Desc": "{count} {unit} bazında yerelleştirilmiş plan üretir ve oluşturmayı başlatır.",
+        "guideStep3CountFallback": "seçilen",
+        "loadingModule": "Ürün seti",
+        "loadingRef": "Ürün referansı {index}",
+        "failedTitle": "Ürün seti oluşturma başarısız",
+        "retry": "Yeniden dene",
+        "resultAria": "Ürün seti sonuçları",
+        "generatingTitle": "Ürün seti oluşturuluyor",
+        "resultTitle": "Ürün seti sonuçları",
+        "generatedCount": "{current}/{total} tamamlandı",
+        "progressCount": "%{progress} oluşturuldu",
+        "completed": "Tamamlandı",
+        "progressAria": "Ürün seti oluşturma ilerlemesi",
+        "cardFallback": "Sonuç {index}",
+        "previewAria": "{name} önizle",
+        "resultAlt": "Ürün seti {index}",
+        "moduleFailed": "Bu modül başarısız",
+        "regenerating": "Yeniden oluşturuluyor…",
+        "regenerate": "Bunu yeniden oluştur",
+        "waiting": "Oluşturulmayı bekliyor",
+        "waitingDesc": "Bu modül tamamlanınca önizlemeyi otomatik doldurur",
+        "statusGenerated": "Oluşturuldu",
+        "statusFailed": "Başarısız",
+        "statusGenerating": "Oluşturuluyor",
+        "regenerateAria": "{name} yeniden oluştur",
+        "downloadAria": "{name} indir"
+      },
+      "library": {
+        "title": "Referans şablon kitaplığı",
+        "description": "Şablonlar yalnızca amaç, düzen ve görsel yönü kontrol eder; nihai ürün yüklediğiniz görselleri kullanır.",
+        "searchLabel": "Şablon ara",
+        "searchPlaceholder": "Şablon ara…",
+        "filterAria": "Şablon filtresi",
+        "allDetails": "Tüm detay sayfası şablonları",
+        "allMain": "Tüm ana görsel şablonları",
+        "womenswearScene": "Kadın sahneleri",
+        "selectedCount": "{count} seçildi",
+        "empty": "Filtreye uyan şablon yok.",
+        "uploadReference": "Referans yükle",
+        "customTitle": "Kendi referansını yükle",
+        "customDesc": "Karmaşık kural gerekmez: bir görsel yükleyip odak seçin.",
+        "customStyles": "Özel stiller",
+        "removeAria": "{name} kaldır",
+        "customEmpty": "Kendi referans şablon görselinizi yükleyip metin açıklamasıyla özel bir set stili oluşturun."
+      }
     }
   },
   "Shared": {
@@ -3955,7 +4365,20 @@
     "dateStart": "Başlangıç tarihi",
     "dateEnd": "Bitiş tarihi",
     "recentWeek": "Geçen hafta",
-    "recentMonth": "Geçen ay"
+    "recentMonth": "Geçen ay",
+    "leaveConfirmTitle": "Bu sayfadan ayrıl?",
+    "leaveConfirmContent": "Bu sayfada kaydedilmemiş içerik var, ayrılırsanız kaybolur.",
+    "leaveConfirmOk": "Ayrıl",
+    "leaveConfirmCancel": "Düzenlemeye devam et",
+    "selectAll": "Tümünü seç",
+    "selectRow": "Bu satırı seç",
+    "selectDateRange": "Tarih aralığı seç",
+    "clearDateRange": "Tarih aralığını temizle",
+    "previousMonth": "Önceki ay",
+    "nextMonth": "Sonraki ay",
+    "searchQuery": "Ara",
+    "confirmNotInitialized": "Onay penceresi başlatılmadı — işlem gerçekleştirilmedi",
+    "operationFailed": "İşlem başarısız"
   },
   "Video": {
     "moduleFirstLastFrame": "İlk ve Son Kare",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "Video üret",
     "motionStepGenerateDesc": "Eşleşen hareket videosu üret.",
     "motionStepGenerateAlt": "Üretilen video",
-    "badgeGenerateVideoMotion": "Video üret"
+    "badgeGenerateVideoMotion": "Video üret",
+    "runBar": {
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
+    }
   },
   "toast": {
     "selectImage": "Lütfen bir görsel dosyası seçin",

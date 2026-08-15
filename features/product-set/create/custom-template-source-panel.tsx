@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { ChevronRight, Upload, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { ReferenceQuickStart } from "@/features/product-set/create/reference-quick-start";
 import type { CustomDraft } from "@/features/product-set/create/types";
 import type { ProductSetCustomTemplate, ProductSetImageType } from "@/lib/product-set";
@@ -37,23 +38,24 @@ export function CustomTemplateSourcePanel({
   onRemoveCustomTemplate,
   onOpenLibrary,
 }: CustomTemplateSourcePanelProps) {
+  const t = useTranslations("ProductSet");
   const countLabel = genCount > 0
-    ? `${genCount} ${imageType === "main" ? "张主图" : "屏详情页"}`
-    : imageType === "main" ? "所选张数" : "所选屏数";
+    ? `${genCount} ${imageType === "main" ? t("units.mainImage") : t("units.detailPage")}`
+    : imageType === "main" ? t("create.customSource.selectedCountMain") : t("create.customSource.selectedCountDetails");
 
   return (
-    <section aria-label="上传参考图" className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+    <section aria-label={t("create.customSource.ariaLabel")} className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
-            <Upload aria-hidden="true" className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> 上传参考图
+            <Upload aria-hidden="true" className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> {t("create.customSource.ariaLabel")}
           </h3>
           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
-            上传 1 张主参考图即可，系统会自动理解版式和风格，再按{countLabel}拆成方案。
+            {t("create.customSource.description", { count: countLabel })}
           </p>
         </div>
         <button type="button" onClick={onOpenLibrary} className={`inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)] ${focusRing}`}>
-          模板库
+          {t("create.customSource.library")}
           <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -72,7 +74,7 @@ export function CustomTemplateSourcePanel({
       />
 
       <div>
-        <h4 className="text-xs font-black text-slate-700">已添加参考</h4>
+        <h4 className="text-xs font-black text-slate-700">{t("create.customSource.added")}</h4>
         {activeCustomTemplates.length ? (
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {activeCustomTemplates.map((template) => (
@@ -83,7 +85,7 @@ export function CustomTemplateSourcePanel({
                 </div>
                 <button
                   type="button"
-                  aria-label={`移除${template.name}`}
+                  aria-label={t("create.customSource.removeAria", { name: template.name })}
                   onClick={() => onRemoveCustomTemplate(template.id)}
                   className={`flex h-7 w-7 shrink-0 touch-manipulation items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 ${focusRing}`}
                 >
@@ -94,7 +96,7 @@ export function CustomTemplateSourcePanel({
           </div>
         ) : (
           <p className="mt-2 rounded-2xl bg-white px-3 py-4 text-xs leading-5 text-slate-400">
-            还没有添加参考。上传主参考图后点添加，参考图会随商品图一起发送，只影响风格、版式、模特或氛围。
+            {t("create.customSource.empty")}
           </p>
         )}
       </div>

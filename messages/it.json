@@ -666,7 +666,12 @@
     "saveBadge": "Risparmia",
     "perMonth": "/mese",
     "startSubscription": "Attiva abbonamento",
-    "buyNow": "Acquista ora"
+    "buyNow": "Acquista ora",
+    "error": {
+      "title": "Errore nel caricamento della pagina prezzi",
+      "fallback": "Si è verificato un errore durante la visualizzazione della pagina. Riprova.",
+      "retry": "Riprova"
+    }
   },
   "AllCategoryProduct": {
     "moduleLabel": "Immagini prodotto di tutte le categorie",
@@ -877,7 +882,9 @@
       "roleExtra": "Accessorio",
       "modeMulti": "Sopra e sotto",
       "modeSingle": "Pezzo unico",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "Carica prima l'immagine principale del capo",
+      "uploadFirstDesc": "Dopo il caricamento puoi aggiungere dettagli di scollo, tessuto, logo, retro o lati sotto il capo corrispondente."
     },
     "favorite": {
       "loginRequired": "Accedi per salvare i preferiti",
@@ -932,7 +939,26 @@
       "maxCount": "Fino a {count} immagini dettaglio capo",
       "remainingTruncated": "Al massimo {count} altre immagini di dettaglio; le eccedenze sono state troncate",
       "uploadingFiles": "Caricamento di {count} immagini dettaglio capo…",
-      "added": "Aggiunte {count} immagini di dettaglio per {owner}"
+      "added": "Aggiunte {count} immagini di dettaglio per {owner}",
+      "switchLabel": "Riferimento dettagli capo",
+      "switchDescription": "Aggiungi dettagli locali come tessuto, scollo, tasche o bottoni, oltre a retro e lati. Fino a 5 immagini, senza cambiare persona, posa, sfondo o tono generale.",
+      "sectionTitle": "Aggiungi dettagli a ogni capo",
+      "maxCountTitle": "Fino a {count} immagini di dettaglio",
+      "addForRole": "Aggiungi immagine di dettaglio {role}",
+      "mainImageAlt": "Immagine principale {role}",
+      "previewMainAria": "Anteprima immagine principale {role}",
+      "roleDetailTitle": "Dettagli {role}",
+      "onlyItem": "Solo materiale, struttura o primi piani di questo capo.",
+      "detailCount": "{count} immagini",
+      "detailAlt": "Dettaglio {role} {index}",
+      "previewDetailAria": "Anteprima dettaglio {role} {index}",
+      "removeDetailAria": "Rimuovi dettaglio {role} {index}",
+      "unassignedTitle": "Dettagli storici non assegnati",
+      "unassignedCount": "{count} immagini",
+      "unassignedAlt": "Dettaglio non assegnato {index}",
+      "previewUnassignedAria": "Anteprima dettaglio non assegnato {index}",
+      "removeUnassignedAria": "Rimuovi dettaglio non assegnato {index}",
+      "unassignedHint": "Le immagini di dettaglio di compiti precedenti non hanno assegnazione e vengono usate solo leggermente in caso di corrispondenza chiara."
     },
     "model": {
       "pleaseUploadImage": "Carica un file immagine",
@@ -1014,7 +1040,11 @@
       "recognizingClothing": "Riconoscimento del capo",
       "recommending": "Raccomandazione della scena",
       "previewSelected": "Anteprima riferimento selezionato: {label}",
-      "addSystemScene": "Aggiungi riferimento di sistema"
+      "addSystemScene": "Aggiungi riferimento di sistema",
+      "footerSelected": "Selezionati {selected}/{max}",
+      "footerDeleteAll": "Elimina tutto",
+      "footerSaving": "Salvataggio",
+      "footerSaveAsTemplate": "Salva come modello"
     },
     "autoDesign": {
       "platform": "Piano fotografico",
@@ -1265,6 +1295,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "Anteprima al passaggio",
+    "lightbox": {
+      "previewAlt": "Anteprima immagine prova"
     }
   },
   "FaceSwap": {
@@ -1407,7 +1441,11 @@
     "textureOn": "Attivo",
     "textureOff": "Disattivo",
     "modeFeature": "Solo tratti",
-    "modeFeatureHairSkin": "Tratti + capelli e pelle"
+    "modeFeatureHairSkin": "Tratti + capelli e pelle",
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "Capo 3D",
@@ -1533,7 +1571,11 @@
     "refDown": "Piumino",
     "refBack": "Silhouette posteriore",
     "refShortCoat": "Cappotto corto",
-    "hoverPreview": "Anteprima al passaggio"
+    "hoverPreview": "Anteprima al passaggio",
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
+    }
   },
   "GeneralImage": {
     "modeImageToImage": "Da immagine a immagine",
@@ -1666,7 +1708,24 @@
     "missingFailLabel": "Questa immagine non è riuscita",
     "retryThis": "Riprova questa immagine",
     "retryGenerate": "Rigenera",
-    "retryToast": "Riprovo lo slot {index}… le immagini non riuscite vengono rimborsate e reinserite nei risultati…"
+    "retryToast": "Riprovo lo slot {index}… le immagini non riuscite vengono rimborsate e reinserite nei risultati…",
+    "imageToPromptDesc": "Carica un'immagine per dedurre automaticamente una descrizione del contenuto per generare immagini simili.",
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
+    },
+    "copyEmptyToast": "Niente da copiare",
+    "copySuccessToast": "Copiato",
+    "copyFailedToast": "Copia non riuscita, copia manualmente",
+    "uploadImageAria": "Carica un'immagine per ricavarne il prompt",
+    "changeImageAria": "Cambia l'immagine per il prompt",
+    "uploadingState": "Caricamento…",
+    "uploadImageButton": "Carica immagine",
+    "generatingState": "Generazione in corso…",
+    "promptTextareaAria": "Prompt ricavato dall'immagine",
+    "promptTextareaPlaceholder": "Carica un'immagine: qui verrà generata la descrizione per il text-to-image.",
+    "copyButton": "Copia",
+    "applyToDescription": "Applica alla descrizione"
   },
   "Grass": {
     "moduleLabel": "Immagini promozionali",
@@ -1818,6 +1877,10 @@
       "square": "1:1 Quadrato",
       "phone": "9:16 Mobile",
       "landscape": "4:3 Orizzontale"
+    },
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
     }
   },
   "History": {
@@ -2206,7 +2269,11 @@
     "lightboxAlt": "Anteprima traduzione immagini",
     "waitingUploadSummary": "In attesa di caricamento · {count} immagine/i",
     "selectLanguageSummary": "Caricata/e {count} immagine/i sorgente · seleziona una lingua target",
-    "fullSummary": "{sources} sorgenti × {langs} lingue × {gen} · {size}"
+    "fullSummary": "{sources} sorgenti × {langs} lingue × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
+    }
   },
   "LibShared": {
     "history": {
@@ -2529,6 +2596,10 @@
     "loading": {
       "paramsAria": "Caricamento dei parametri di miglioramento materiali",
       "previewAria": "Caricamento dell'area di anteprima"
+    },
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
     }
   },
   "Model": {
@@ -2684,7 +2755,11 @@
     "guideStep3Desc": "Ottieni un personaggio coerente che può essere riusato per la prova e i visual prodotto.",
     "missingFailureLabel": "Questa immagine non è riuscita",
     "missingFailureActionLabel": "Riprova questa",
-    "retryLabel": "Rigenera"
+    "retryLabel": "Rigenera",
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
+    }
   },
   "ModelBackground": {
     "title": "Cambia sfondo",
@@ -2842,6 +2917,10 @@
       "upload": "Carica sfondo",
       "text": "Sfondo da testo",
       "auto": "Design automatico"
+    },
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
     }
   },
   "ProductRetouch": {
@@ -2969,6 +3048,14 @@
       "step2Desc": "Imposta in modo unificato modalità di ritocco, modello, proporzioni e quantità di output per ogni prodotto.",
       "step3Title": "Vedi i risultati del batch",
       "step3Desc": "I risultati sono raggruppati per prodotto; puoi visualizzarli in anteprima, riprovare singoli elementi, o scaricare per prodotto e per intero batch."
+    },
+    "empty": {
+      "title": "Nessun risultato prodotto ancora",
+      "description": "I risultati di ogni prodotto vengono mostrati automaticamente dopo il caricamento delle immagini."
+    },
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
     }
   },
   "ProductSet": {
@@ -3286,6 +3373,327 @@
     },
     "aspectRatio": {
       "auto": "Auto"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "Riepilogo informazioni prodotto",
+        "productInfo": "Informazioni prodotto",
+        "namePlaceholder": "Nome prodotto mancante",
+        "descPlaceholder": "Informazioni compilate. Tocca Modifica per aggiungere punti di vendita, materiali e pubblico."
+      },
+      "summary": {
+        "ariaLabel": "Piano di analisi prodotto",
+        "generated": "Piano pronto",
+        "planCount": "Generazione di {count} {unit} pianificata",
+        "imageQuality": "Qualità immagine",
+        "qualityPrepared": "Preparata",
+        "collapse": "Nascondi dettagli",
+        "expand": "Mostra dettagli",
+        "editInfo": "Modifica info",
+        "suggestSupplement": "Suggerito aggiungere: "
+      },
+      "adjustStyle": "Adatta stile",
+      "profile": {
+        "ariaLabel": "Profilo prodotto",
+        "sourceAi": "Info immagine",
+        "sourceFallback": "Info base",
+        "sourceRunning": "Lettura",
+        "sourceManual": "Info manuale",
+        "sourceConfirm": "Da confermare",
+        "suggestModel": "Modello consigliato",
+        "noModel": "Nessun modello",
+        "modify": "Modifica"
+      },
+      "strategy": {
+        "ariaLabel": "Strategia visiva",
+        "title": "Strategia visiva",
+        "fallbackName": "Strategia visiva",
+        "pending": "Da valutare",
+        "imageQuality": "Qualità immagine",
+        "currentMode": "Modalità attuale",
+        "modeMain": "Immagini principali",
+        "modeDetails": "Pagina dettaglio",
+        "smartMatch": "Corrispondenza intelligente"
+      },
+      "notice": {
+        "reading": "Lettura immagini prodotto",
+        "needConfirm": "Informazioni da confermare",
+        "incomplete": "Lettura incompleta"
+      },
+      "progress": {
+        "ariaLabel": "Avanzamento moduli",
+        "failed": "Non riuscito",
+        "done": "Fatto",
+        "generating": "Generazione",
+        "queued": "In coda"
+      },
+      "modeTab": {
+        "ariaLabel": "Tipo di set prodotto",
+        "mainTitle": "Immagini principali",
+        "mainDesc": "Scegli il numero e analizza",
+        "detailsTitle": "Pagina dettaglio",
+        "detailsDesc": "Scegli le schermate e analizza"
+      },
+      "stepper": {
+        "ariaLabel": "Avanzamento di creazione del set",
+        "step1Title": "Immagini",
+        "step1Desc": "Carica",
+        "step2Title": "Info",
+        "step2Desc": "Quantità",
+        "step3Title": "Analizza",
+        "step3Desc": "Piano",
+        "step4Title": "Genera",
+        "step4Desc": "Output"
+      },
+      "count": {
+        "unselected": "Non selezionato"
+      },
+      "template": {
+        "main": "Principale",
+        "details": "Dettagli",
+        "subjectConsistent": "Soggetto coerente",
+        "layoutIndependent": "Layout indipendente"
+      },
+      "upload": {
+        "uploadedReplace": "Caricata, sostituibile",
+        "dropHint": "Carica / trascina immagine"
+      },
+      "customSource": {
+        "ariaLabel": "Carica riferimento",
+        "description": "Carica un'immagine di riferimento principale e il sistema capirà layout e stile, per poi dividerla in un piano di {count}.",
+        "library": "Libreria modelli",
+        "selectedCountMain": "Numero scelto",
+        "selectedCountDetails": "Schermate scelte",
+        "added": "Riferimenti aggiunti",
+        "removeAria": "Rimuovi {name}",
+        "empty": "Nessun riferimento ancora. Carica un'immagine principale e tocca Aggiungi; il riferimento viene inviato con le immagini prodotto e influenza solo stile, layout, modello o atmosfera."
+      },
+      "referenceStyle": {
+        "title": "Note di stile di riferimento",
+        "description": "Salva solo la direzione di stile senza analizzare i modelli; viene passata all'analisi intelligente toccando «Scrivi info prodotto».",
+        "restoreExample": "Ripristina esempio",
+        "save": "Salva stile di riferimento",
+        "placeholder": "Scrivi stile di riferimento, piattaforma target, stile visivo, scena unificata, palette e requisiti…",
+        "hint": "Questo contenuto viene passato all'analisi come riferimento di stile e non è usato direttamente come modello."
+      },
+      "profileEditor": {
+        "title": "Correggi riconoscimento prodotto",
+        "description": "I risultati influenzano il modello predefinito, l'uso del modello e i limiti di sicurezza del prompt.",
+        "productType": "Tipo di prodotto",
+        "apparelSubtype": "Sottocategoria di abbigliamento",
+        "modelStrategy": "Strategia di modello",
+        "modelRequirement": "Requisiti del modello",
+        "modelBriefPlaceholder": "Es. modella adulta, scena da ufficio francese, pose naturali, valorizzare caduta e taglio, senza pose esagerate…",
+        "kind": {
+          "apparel": "Abbigliamento",
+          "footwear": "Calzature",
+          "bag": "Borse",
+          "accessory": "Accessori",
+          "beauty": "Bellezza",
+          "electronics": "Elettronica",
+          "home": "Casa",
+          "toy": "Giocattoli",
+          "food": "Alimentari",
+          "general": "Generale"
+        },
+        "apparel": {
+          "womenswear": "Donna",
+          "menswear": "Uomo",
+          "kidswear": "Bambini",
+          "outerwear": "Outerwear / Outdoor",
+          "sportswear": "Abbigliamento sportivo",
+          "intimate": "Intimo",
+          "swimwear": "Costume da bagno",
+          "general": "Abbigliamento generico"
+        },
+        "model": {
+          "none": "Nessun modello",
+          "optional": "Modello opzionale",
+          "recommended": "Modello consigliato",
+          "required": "Modello obbligatorio"
+        }
+      },
+      "moduleEdit": {
+        "title": "Modifica modulo di generazione",
+        "description": "Immagine {index} · {type}",
+        "modelTypeDetails": "Modulo pagina dettaglio",
+        "modelTypeMain": "Modulo immagine principale / ausiliaria",
+        "remove": "Rimuovi questo modulo",
+        "save": "Salva",
+        "fieldName": "Nome modulo",
+        "fieldRole": "Ruolo modulo",
+        "fieldContentScope": "Ambito del contenuto",
+        "contentScopePlaceholder": "Es. solo tessuto e taglio senza ripetere l'intero argomento; o solo il modello indossato e l'atmosfera.",
+        "fieldLayoutRules": "Regole di layout",
+        "fieldTextRules": "Regole di testo",
+        "fieldAvoidRules": "Regole da evitare",
+        "fieldTypeDescription": "Descrizione modello",
+        "aspectRatio": "Proporzioni",
+        "subjectConsistency": "Soggetto coerente",
+        "modelConsistency": "Modello coerente",
+        "intelligentCopy": "Copy intelligente",
+        "copyDensity": "Densità del copy",
+        "copyDensityNone": "Senza copy",
+        "copyDensityLight": "Copy leggera",
+        "copyDensityStandard": "Copy standard",
+        "copyDensityRich": "Copy ricca",
+        "modelAdviceOn": "Questo modulo preferisce un modello / scena indossata. Se non vuoi modello, cambia il ruolo in sfondo bianco, dettagli, taglie o disattiva la coerenza del modello.",
+        "modelAdviceOff": "Questo modulo non usa modello di default e si adatta a sfondo bianco, dettagli, dimensioni, materiale, confezione o note specifiche.",
+        "fieldExtraDescription": "Descrizione extra",
+        "extraDescriptionPlaceholder": "Scrivi solo i requisiti di questa immagine, es. nessuna miniatura in basso nel banner donna; l'immagine di dettaglio mostra solo cappuccio, polsini e tasche."
+      },
+      "settings": {
+        "title": "Altre impostazioni",
+        "description": "Controlla mercato target, copy e stile visivo; modello, proporzioni e risoluzione si configurano a sinistra.",
+        "country": "Paese / regione target",
+        "language": "Lingua del copy",
+        "platform": "Piattaforma target",
+        "theme": "Colore tema",
+        "themeAuto": "Tema intelligente",
+        "themeCustom": "Colore personalizzato",
+        "themeCustomLabel": "Colore tema personalizzato",
+        "themeColorPlaceholder": "Es. bianco crema + blu denim + rosa…",
+        "fontStyle": "Stile carattere",
+        "extraDescription": "Descrizione extra",
+        "extraDescriptionPlaceholder": "Es. donna stile ufficio francese, senza pose esagerate, copy breve…"
+      },
+      "favorite": {
+        "ariaLabel": "I miei modelli salvati",
+        "description": "Salva il piano visivo o il modello personalizzato e applicalo al prossimo cambio prodotto.",
+        "setsCount": "{count} set",
+        "nameLabel": "Nome piano salvato",
+        "saving": "Salvataggio…",
+        "save": "Salva",
+        "loading": "Caricamento dei tuoi piani…",
+        "apply": "Applica",
+        "deleteAria": "Elimina piano salvato {name}",
+        "modelPrefix": "Modello · ",
+        "empty": "Nessun piano salvato. Regola il piano attuale e tocca Salva.",
+        "planCustom": "Piano personalizzato",
+        "planVisual": "Piano visivo",
+        "typeDetails": "Pagina dettaglio",
+        "typeMain": "Immagini principali",
+        "justNow": "Proprio ora"
+      },
+      "genSettings": {
+        "title": "Impostazioni di generazione",
+        "advQuality": "QA avanzata",
+        "stdQuality": "QA standard",
+        "adjust": "Regola"
+      },
+      "modelConfig": {
+        "ariaLabel": "Opzioni di generazione",
+        "model": "Modello di generazione",
+        "resolution": "Risoluzione",
+        "sizeCost": "{size} · {cost} crediti",
+        "detailsWarning": "Le pagine dettaglio hanno titoli, etichette e dettagli locali: 1K sfoca il testo piccolo. Parti da 2K per QA e leggibilità migliori.",
+        "quality": "Livello di generazione",
+        "standardMode": "Modalità standard",
+        "advancedMode": "Modalità avanzata",
+        "aspectAutoNote": "Proporzioni automatiche per modello",
+        "aspectAutoDetail": "Banner, immagini di dettaglio e immagini principali su sfondo bianco usano ognuna la propria proporzione, così una sola proporzione non falsa il set."
+      },
+      "planList": {
+        "empty": "Nessun modello selezionato — apri la libreria.",
+        "ariaLabel": "Ordine dei moduli",
+        "details": "Pagina dettaglio",
+        "main": "Immagine principale / ausiliaria",
+        "model": "Modello",
+        "editAria": "Modifica modulo {name}",
+        "removeAria": "Rimuovi modulo {name}",
+        "collapsed": "{count} moduli nascosti. Tocca Mostra tutto in alto a destra."
+      },
+      "recommendation": {
+        "ariaLabel": "Piano del direttore visivo",
+        "safeTemplate": "Modello sicuro",
+        "withModel": "Con modello",
+        "lowRisk": "Rischio basso",
+        "recommended": "Consigliato: generare {count} {unit}",
+        "modelPrefix": "Modello · "
+      },
+      "quickStart": {
+        "mainRef": "Riferimento principale",
+        "modelRef": "Riferimento modello",
+        "styleHint": "Stile / layout",
+        "optional": "Opzionale",
+        "extraRef": "Riferimento extra {count}/3",
+        "focusLabel": "Focus di riferimento",
+        "advancedSettings": "Impostazioni avanzate",
+        "aspectRatio": "Proporzioni",
+        "specialRequirement": "Requisiti speciali",
+        "extraPlaceholder": "Es. senza testo, senza volto del modello, dettagli in evidenza…",
+        "uploadRefFirst": "Carica prima un'immagine di riferimento principale",
+        "selectCountFirst": "Seleziona prima {unit}",
+        "countUnitMain": "numero immagini",
+        "countUnitDetails": "numero schermate",
+        "addRefAndGenerate": "Aggiungi riferimento e genera un piano di {count} {unit}",
+        "intent": {
+          "autoDetect": "Rilevamento automatico",
+          "wearing": "Indossato",
+          "poster": "Poster di vendita",
+          "scene": "Atmosfera di scena",
+          "autoSplit": "Divisione automatica",
+          "hero": "Banner principale",
+          "sellingPoints": "Punti di vendita",
+          "detailsTexture": "Dettagli e texture"
+        },
+        "defaultNameDetails": "Piano dettagli riferimento",
+        "defaultNameMain": "Piano immagine principale riferimento"
+      },
+      "results": {
+        "exampleAlt": "Esempio di set prodotto",
+        "guideTitle": "Inizia a creare un set",
+        "guideSubtitle": "Analizza prima le informazioni e genera un piano immagine principale / pagina dettaglio secondo la selezione.",
+        "guideStep1Title": "Carica immagini prodotto",
+        "guideStep1Desc": "Fino a 3 immagini; includi fronte, lato, retro o dettagli per aiutare il sistema a valutare struttura e punti di vendita.",
+        "guideStep2Title": "Analizza informazioni",
+        "guideStep2Desc": "Il sistema organizza piattaforma, stile, scena, punti di vendita, dolore, pubblico, parametri e palette.",
+        "guideStep3Title": "Genera il piano",
+        "guideStep3Desc": "Produce un piano localizzato secondo {count} {unit} e avvia la generazione.",
+        "guideStep3CountFallback": "selezionato",
+        "loadingModule": "Set prodotto",
+        "loadingRef": "Riferimento prodotto {index}",
+        "failedTitle": "Generazione del set non riuscita",
+        "retry": "Riprova",
+        "resultAria": "Risultati del set",
+        "generatingTitle": "Generazione del set",
+        "resultTitle": "Risultati del set",
+        "generatedCount": "{current}/{total} fatto",
+        "progressCount": "{progress}% generato",
+        "completed": "Fatto",
+        "progressAria": "Avanzamento di generazione del set",
+        "cardFallback": "Risultato {index}",
+        "previewAria": "Anteprima di {name}",
+        "resultAlt": "Set prodotto {index}",
+        "moduleFailed": "Questo modulo non è riuscito",
+        "regenerating": "Rigenerazione…",
+        "regenerate": "Rigenera questo",
+        "waiting": "In attesa di generazione",
+        "waitingDesc": "Questo modulo riempie l'anteprima automaticamente al termine",
+        "statusGenerated": "Generato",
+        "statusFailed": "Non riuscito",
+        "statusGenerating": "Generazione",
+        "regenerateAria": "Rigenera {name}",
+        "downloadAria": "Scarica {name}"
+      },
+      "library": {
+        "title": "Libreria modelli di riferimento",
+        "description": "I modelli controllano solo scopo, layout e direzione visiva; il prodotto finale usa le tue immagini.",
+        "searchLabel": "Cerca modelli",
+        "searchPlaceholder": "Cerca modelli…",
+        "filterAria": "Filtro modelli",
+        "allDetails": "Tutti i modelli di pagina dettaglio",
+        "allMain": "Tutti i modelli di immagine principale",
+        "womenswearScene": "Scene donna",
+        "selectedCount": "Selezionati {count}",
+        "empty": "Nessun modello corrisponde al filtro.",
+        "uploadReference": "Carica riferimento",
+        "customTitle": "Carica il tuo riferimento",
+        "customDesc": "Nessuna regola complessa: carica un'immagine e scegli un focus.",
+        "customStyles": "Stili personalizzati",
+        "removeAria": "Rimuovi {name}",
+        "customEmpty": "Carica il tuo modello di riferimento per creare uno stile esclusivo con una descrizione."
+      }
     }
   },
   "Pose": {
@@ -3618,7 +4026,9 @@
       "continueGenerating": "Continua a generare",
       "generateRefs": "Genera {count} immagini separate",
       "generatePoses": "Genera {count} immagini posa",
-      "generateGrid": "Genera {count} griglia pose"
+      "generateGrid": "Genera {count} griglia pose",
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
     },
     "previewGuide": {
       "title": "Un'immagine, molte pose",
@@ -3955,7 +4365,20 @@
     "dateStart": "Data inizio",
     "dateEnd": "Data fine",
     "recentWeek": "Ultima settimana",
-    "recentMonth": "Ultimo mese"
+    "recentMonth": "Ultimo mese",
+    "leaveConfirmTitle": "Uscire da questa pagina?",
+    "leaveConfirmContent": "Questa pagina contiene modifiche non salvate che andranno perse.",
+    "leaveConfirmOk": "Esci",
+    "leaveConfirmCancel": "Continua a modificare",
+    "selectAll": "Seleziona tutto",
+    "selectRow": "Seleziona questa riga",
+    "selectDateRange": "Seleziona intervallo date",
+    "clearDateRange": "Cancella intervallo date",
+    "previousMonth": "Mese precedente",
+    "nextMonth": "Mese successivo",
+    "searchQuery": "Cerca",
+    "confirmNotInitialized": "Finestra di conferma non inizializzata — azione non eseguita",
+    "operationFailed": "Operazione non riuscita"
   },
   "Video": {
     "moduleFirstLastFrame": "Primo/ultimo fotogramma",
@@ -4145,7 +4568,11 @@
     "motionStepGenerateTitle": "Genera video",
     "motionStepGenerateDesc": "Produce un risultato con la stessa azione.",
     "motionStepGenerateAlt": "Genera video",
-    "badgeGenerateVideoMotion": "Genera video"
+    "badgeGenerateVideoMotion": "Genera video",
+    "runBar": {
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
+    }
   },
   "toast": {
     "selectImage": "Seleziona un file immagine",

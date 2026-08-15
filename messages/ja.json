@@ -666,7 +666,12 @@
     "saveBadge": "お得",
     "perMonth": "/月額",
     "startSubscription": "サブスクリプションを開始",
-    "buyNow": "今すぐ購入"
+    "buyNow": "今すぐ購入",
+    "error": {
+      "title": "購入ページを読み込めませんでした",
+      "fallback": "ページの描画中にエラーが発生しました。もう一度お試しください。",
+      "retry": "再試行"
+    }
   },
   "LibShared": {
     "history": {
@@ -1108,7 +1113,24 @@
     "missingFailLabel": "この画像の生成に失敗しました",
     "retryThis": "この画像を再試行",
     "retryGenerate": "再生成",
-    "retryToast": "スロット {index} を再試行中… 失敗した画像は返金され、完了後に現在の結果へ反映されます…"
+    "retryToast": "スロット {index} を再試行中… 失敗した画像は返金され、完了後に現在の結果へ反映されます…",
+    "imageToPromptDesc": "画像をアップロードすると、類似コンテンツの画像を生成するための内容説明を自動で逆推定します。",
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
+    },
+    "copyEmptyToast": "コピーできる内容がありません",
+    "copySuccessToast": "コピーしました",
+    "copyFailedToast": "コピーに失敗しました。手動でコピーしてください",
+    "uploadImageAria": "プロンプトを逆生成する画像をアップロード",
+    "changeImageAria": "プロンプト生成に使う画像を変更",
+    "uploadingState": "アップロード中…",
+    "uploadImageButton": "画像をアップロード",
+    "generatingState": "生成中…",
+    "promptTextareaAria": "画像から生成されたプロンプト",
+    "promptTextareaPlaceholder": "画像をアップロードすると、テキスト生成に使える説明がここに生成されます。",
+    "copyButton": "コピー",
+    "applyToDescription": "説明に適用"
   },
   "MaterialEnhancement": {
     "moduleName": "素材強調",
@@ -1259,6 +1281,10 @@
     "loading": {
       "paramsAria": "素材強調パラメーターを読み込み中",
       "previewAria": "プレビュー領域を読み込み中"
+    },
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
     }
   },
   "ModelBackground": {
@@ -1417,6 +1443,10 @@
       "upload": "アップロード背景",
       "text": "テキスト生成背景",
       "auto": "自動デザイン"
+    },
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
     }
   },
   "ProductRetouch": {
@@ -1544,6 +1574,14 @@
       "step2Desc": "レタッチモード・モデル・比率・各商品の出力数をまとめて設定します。",
       "step3Title": "バッチ結果を確認",
       "step3Desc": "結果は商品ごとにまとめられ、プレビュー・個別再試行・商品別またはバッチ全体のダウンロードが可能です。"
+    },
+    "empty": {
+      "title": "商品の結果はまだありません",
+      "description": "商品画像をアップロードすると、各商品の結果が自動で表示されます。"
+    },
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
     }
   },
   "ImageTranslation": {
@@ -1659,7 +1697,11 @@
     "lightboxAlt": "画像翻訳プレビュー",
     "waitingUploadSummary": "原版のアップロード待ち · {count} 枚",
     "selectLanguageSummary": "{count} 枚の原版をアップロード済み · 対象言語を選択してください",
-    "fullSummary": "{sources} 枚の原版 × {langs} 言語 × {gen} · {size}"
+    "fullSummary": "{sources} 枚の原版 × {langs} 言語 × {gen} · {size}",
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
+    }
   },
   "Garment3d": {
     "moduleLabel": "衣類3D",
@@ -1785,7 +1827,11 @@
     "refDown": "ダウンの厚み",
     "refBack": "背面シルエット",
     "refShortCoat": "ショートコート",
-    "hoverPreview": "ホバープレビュー"
+    "hoverPreview": "ホバープレビュー",
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
+    }
   },
   "FaceSwap": {
     "moduleLabel": "顔交換",
@@ -1927,7 +1973,11 @@
     "textureOn": "オン",
     "textureOff": "オフ",
     "modeFeature": "顔のパーツのみ",
-    "modeFeatureHairSkin": "顔のパーツ＋髪型・肌色"
+    "modeFeatureHairSkin": "顔のパーツ＋髪型・肌色",
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
+    }
   },
   "Model": {
     "title": "専用モデル",
@@ -2082,7 +2132,11 @@
     "guideStep3Desc": "統一した人物キャラクターを得て、以降の試着や商品ビジュアルに再利用できます。",
     "missingFailureLabel": "この画像は生成に失敗しました",
     "missingFailureActionLabel": "この画像を再試行",
-    "retryLabel": "再生成"
+    "retryLabel": "再生成",
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
+    }
   },
   "Grass": {
     "moduleLabel": "PR画像",
@@ -2234,6 +2288,10 @@
       "square": "1:1 正方形",
       "phone": "9:16 モバイル",
       "landscape": "4:3 横向き"
+    },
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
     }
   },
   "History": {
@@ -2824,6 +2882,327 @@
     },
     "aspectRatio": {
       "auto": "自動"
+    },
+    "create": {
+      "brief": {
+        "summaryLabel": "商品情報サマリー",
+        "productInfo": "商品情報",
+        "namePlaceholder": "商品名は未入力",
+        "descPlaceholder": "商品情報は入力済みです。編集をタップしてセールスポイント・素材・対象層を追記できます。"
+      },
+      "summary": {
+        "ariaLabel": "商品分析プラン",
+        "generated": "プラン準備完了",
+        "planCount": "{count} {unit} を生成予定",
+        "imageQuality": "画質",
+        "qualityPrepared": "準備済み",
+        "collapse": "詳細を閉じる",
+        "expand": "詳細を見る",
+        "editInfo": "情報を編集",
+        "suggestSupplement": "補足のおすすめ："
+      },
+      "adjustStyle": "スタイルを調整",
+      "profile": {
+        "ariaLabel": "商品プロフィール",
+        "sourceAi": "画像情報",
+        "sourceFallback": "基本情報",
+        "sourceRunning": "読み取り中",
+        "sourceManual": "手動情報",
+        "sourceConfirm": "要確認",
+        "suggestModel": "モデル推奨",
+        "noModel": "モデル不要",
+        "modify": "編集"
+      },
+      "strategy": {
+        "ariaLabel": "ビジュアル戦略",
+        "title": "ビジュアル戦略",
+        "fallbackName": "ビジュアル戦略",
+        "pending": "要評価",
+        "imageQuality": "画質",
+        "currentMode": "現在のモード",
+        "modeMain": "商品メイン画像",
+        "modeDetails": "詳細ページ",
+        "smartMatch": "スマートマッチ"
+      },
+      "notice": {
+        "reading": "商品画像を読み取り中",
+        "needConfirm": "商品情報の確認が必要",
+        "incomplete": "商品読み取り未完了"
+      },
+      "progress": {
+        "ariaLabel": "モジュール生成進捗",
+        "failed": "失敗",
+        "done": "完了",
+        "generating": "生成",
+        "queued": "待機中"
+      },
+      "modeTab": {
+        "ariaLabel": "商品セット種別",
+        "mainTitle": "商品メイン画像",
+        "mainDesc": "枚数を選んでから分析",
+        "detailsTitle": "詳細ページ",
+        "detailsDesc": "画面数を選んでから分析"
+      },
+      "stepper": {
+        "ariaLabel": "商品セット作成進捗",
+        "step1Title": "商品画像",
+        "step1Desc": "アップロード",
+        "step2Title": "情報",
+        "step2Desc": "数量",
+        "step3Title": "分析",
+        "step3Desc": "プラン",
+        "step4Title": "生成",
+        "step4Desc": "出力"
+      },
+      "count": {
+        "unselected": "未選択"
+      },
+      "template": {
+        "main": "メイン",
+        "details": "詳細",
+        "subjectConsistent": "被写体を統一",
+        "layoutIndependent": "レイアウト独立"
+      },
+      "upload": {
+        "uploadedReplace": "アップロード済み・差し替え可",
+        "dropHint": "画像をアップロード / ドラッグ"
+      },
+      "customSource": {
+        "ariaLabel": "参考画像をアップロード",
+        "description": "メイン参考画像を1枚アップロードするだけで、レイアウトとスタイルを自動理解し、{count}のプランに分割します。",
+        "library": "テンプレートライブラリ",
+        "selectedCountMain": "選択した枚数",
+        "selectedCountDetails": "選択した画面数",
+        "added": "参考を追加済み",
+        "removeAria": "{name}を削除",
+        "empty": "参考はまだありません。メイン参考画像をアップロードして追加をタップしてください。参考画像は商品画像と一緒に送信され、スタイル・レイアウト・モデル・雰囲気にのみ影響します。"
+      },
+      "referenceStyle": {
+        "title": "参考スタイルの説明",
+        "description": "スタイルの方向だけを保存し、テンプレート解析は開始しません。「商品情報を書く」をタップするとスマート解析に渡されます。",
+        "restoreExample": "見本を復元",
+        "save": "参考スタイルを保存",
+        "placeholder": "参考スタイル・対象プラットフォーム・ビジュアルスタイル・統一シーン・配色・要望を入力…",
+        "hint": "この内容はスタイル参考として解析に渡され、直接テンプレートとして生成はされません。"
+      },
+      "profileEditor": {
+        "title": "商品認識を修正",
+        "description": "認識結果はデフォルトテンプレート、モデル使用の有無、プロンプトの安全境界に影響します。",
+        "productType": "商品タイプ",
+        "apparelSubtype": "アパレル細分",
+        "modelStrategy": "モデル戦略",
+        "modelRequirement": "モデル要件",
+        "modelBriefPlaceholder": "例：成人女性モデル、フレンチ通勤シーン、自然なポーズでシルエットとドレープを強調、誇張ポーズは避ける…",
+        "kind": {
+          "apparel": "衣類",
+          "footwear": "シューズ",
+          "bag": "バッグ",
+          "accessory": "アクセサリー",
+          "beauty": "ビューティー",
+          "electronics": "家電",
+          "home": "ホーム",
+          "toy": "おもちゃ",
+          "food": "食品",
+          "general": "一般商品"
+        },
+        "apparel": {
+          "womenswear": "レディース",
+          "menswear": "メンズ",
+          "kidswear": "キッズ",
+          "outerwear": "アウター / アウトドア",
+          "sportswear": "スポーツウェア",
+          "intimate": "ランジェリー",
+          "swimwear": "水着",
+          "general": "一般アパレル"
+        },
+        "model": {
+          "none": "モデルなし",
+          "optional": "モデル任意",
+          "recommended": "モデル推奨",
+          "required": "モデル必須"
+        }
+      },
+      "moduleEdit": {
+        "title": "生成モジュールを編集",
+        "description": "{index}枚目 · {type}",
+        "modelTypeDetails": "詳細ページモジュール",
+        "modelTypeMain": "メイン / 補助画像モジュール",
+        "remove": "このモジュールを削除",
+        "save": "保存",
+        "fieldName": "モジュール名",
+        "fieldRole": "モジュールの役割",
+        "fieldContentScope": "内容範囲",
+        "contentScopePlaceholder": "例：生地とシルエットだけを扱い、全体の売り文句を繰り返さない。またはモデルの着用とスタイリングの雰囲気のみ表示。",
+        "fieldLayoutRules": "レイアウト規則",
+        "fieldTextRules": "テキスト規則",
+        "fieldAvoidRules": "禁止規則",
+        "fieldTypeDescription": "テンプレート説明",
+        "aspectRatio": "アスペクト比",
+        "subjectConsistency": "被写体を統一",
+        "modelConsistency": "モデルを統一",
+        "intelligentCopy": "スマートコピー",
+        "copyDensity": "コピー密度",
+        "copyDensityNone": "コピーなし",
+        "copyDensityLight": "軽いコピー",
+        "copyDensityStandard": "標準コピー",
+        "copyDensityRich": "リッチなコピー",
+        "modelAdviceOn": "このモジュールはモデル / 着用シーンを優先します。モデルを出したくない場合は、役割を白背景・ディテール・サイズに変更するか、モデル統一をオフにしてください。",
+        "modelAdviceOff": "このモジュールはデフォルトでモデルを使用せず、白背景・ディテール・寸法・素材・パッケージ・仕様説明に適しています。",
+        "fieldExtraDescription": "追加説明",
+        "extraDescriptionPlaceholder": "この画像の特別な要件のみ記入します。例：レディースのファーストビューに下部サムネイルを入れない、ディテール画像はフード・袖口・ポケットの3箇所のみ表示。"
+      },
+      "settings": {
+        "title": "その他の設定",
+        "description": "対象市場・画像コピー・ビジュアルスタイルを制御します。モデル・比率・解像度は左側で個別に設定します。",
+        "country": "対象国 / 地域",
+        "language": "画像コピー言語",
+        "platform": "対象プラットフォーム",
+        "theme": "テーマカラー",
+        "themeAuto": "スマートテーマ",
+        "themeCustom": "カスタムカラー",
+        "themeCustomLabel": "カスタムテーマカラー",
+        "themeColorPlaceholder": "例：クリームホワイト + デニムブルー + ローズピンク…",
+        "fontStyle": "フォントスタイル",
+        "extraDescription": "追加説明",
+        "extraDescriptionPlaceholder": "例：レディースはフレンチ通勤、誇張ポーズなし、短いコピー…"
+      },
+      "favorite": {
+        "ariaLabel": "マイ保存テンプレート",
+        "description": "現在のビジュアルプランまたはカスタムテンプレートを保存し、次に商品を切り替えたときに直接適用します。",
+        "setsCount": "{count} セット",
+        "nameLabel": "保存プラン名",
+        "saving": "保存中…",
+        "save": "保存",
+        "loading": "アカウントの保存プランを読み込み中…",
+        "apply": "適用",
+        "deleteAria": "保存プラン {name} を削除",
+        "modelPrefix": "モデル · ",
+        "empty": "保存プランはまだありません。現在の生成プランを調整してから保存をタップしてください。",
+        "planCustom": "カスタムプラン",
+        "planVisual": "ビジュアルプラン",
+        "typeDetails": "詳細ページ",
+        "typeMain": "メイン画像",
+        "justNow": "たった今"
+      },
+      "genSettings": {
+        "title": "生成設定",
+        "advQuality": "高品質QA",
+        "stdQuality": "標準QA",
+        "adjust": "調整"
+      },
+      "modelConfig": {
+        "ariaLabel": "生成設定オプション",
+        "model": "生成モデル",
+        "resolution": "解像度",
+        "sizeCost": "{size} · {cost}クレジット",
+        "detailsWarning": "詳細ページにはタイトル・ラベル・局所ディテールがあり、1Kは小さな文字がにじみやすいです。2Kから始めるとQAと可読性が明らかに向上します。",
+        "quality": "生成ティア",
+        "standardMode": "標準モード",
+        "advancedMode": "高級モード",
+        "aspectAutoNote": "比率はテンプレートで自動",
+        "aspectAutoDetail": "ファーストビューポスター・ディテール画像・白背景メイン画像はそれぞれのテンプレート比率を使うため、1つの比率でセット全体が誤解されません。"
+      },
+      "planList": {
+        "empty": "まだテンプレートが選択されていません。テンプレートライブラリを開いて追加してください。",
+        "ariaLabel": "生成モジュール順序",
+        "details": "詳細ページ",
+        "main": "メイン / 補助画像",
+        "model": "モデル",
+        "editAria": "モジュール {name} を編集",
+        "removeAria": "モジュール {name} を削除",
+        "collapsed": "後続の{count}個のモジュールを折りたたみました。右上の「すべて表示」をタップしてください。"
+      },
+      "recommendation": {
+        "ariaLabel": "ビジュアルディレクタープラン",
+        "safeTemplate": "安全テンプレート",
+        "withModel": "モデルあり",
+        "lowRisk": "低リスク",
+        "recommended": "{count} {unit} の生成を推奨",
+        "modelPrefix": "モデル · "
+      },
+      "quickStart": {
+        "mainRef": "メイン参考",
+        "modelRef": "モデル参考",
+        "styleHint": "スタイル / レイアウト",
+        "optional": "任意",
+        "extraRef": "追加参考 {count}/3",
+        "focusLabel": "参考の重点",
+        "advancedSettings": "詳細設定",
+        "aspectRatio": "アスペクト比",
+        "specialRequirement": "特別要件",
+        "extraPlaceholder": "例：テキストなし、モデルの顔を出さない、ディテールを強調…",
+        "uploadRefFirst": "メイン参考画像を先にアップロードしてください",
+        "selectCountFirst": "{unit} を先に選択してください",
+        "countUnitMain": "枚数",
+        "countUnitDetails": "画面数",
+        "addRefAndGenerate": "参考を追加して {count} {unit}プランを生成",
+        "intent": {
+          "autoDetect": "自動認識",
+          "wearing": "着用展示",
+          "poster": "売り文句ポスター",
+          "scene": "シーンの雰囲気",
+          "autoSplit": "自動分割",
+          "hero": "ファーストビューポスター",
+          "sellingPoints": "売り文句の説明",
+          "detailsTexture": "ディテール素材"
+        },
+        "defaultNameDetails": "参考画像の詳細プラン",
+        "defaultNameMain": "参考画像のメイン画像プラン"
+      },
+      "results": {
+        "exampleAlt": "商品セットの例",
+        "guideTitle": "商品セットの作成を開始",
+        "guideSubtitle": "商品情報を分析してから、選択した数量に基づいてメイン画像 / 詳細ページのプランを生成します。",
+        "guideStep1Title": "商品画像をアップロード",
+        "guideStep1Desc": "最大3枚。正面・側面・背面・ディテールを含めると、システムが構造と売り文句を判断しやすくなります。",
+        "guideStep2Title": "商品情報を分析",
+        "guideStep2Desc": "システムが対象プラットフォーム・スタイル・統一シーン・売り文句・ペインポイント・対象層・パラメータ・配色を整理します。",
+        "guideStep3Title": "セットプランを生成",
+        "guideStep3Desc": "{count} {unit}に基づいてローカライズされたプランを出力し、生成を開始します。",
+        "guideStep3CountFallback": "選択済み",
+        "loadingModule": "商品セット",
+        "loadingRef": "商品参考 {index}",
+        "failedTitle": "商品セットの生成に失敗",
+        "retry": "再試行",
+        "resultAria": "商品セットの結果",
+        "generatingTitle": "商品セットを生成中",
+        "resultTitle": "商品セットの結果",
+        "generatedCount": "{current}/{total} 完了",
+        "progressCount": "{progress}% 生成済み",
+        "completed": "完了",
+        "progressAria": "商品セット生成進捗",
+        "cardFallback": "結果 {index}",
+        "previewAria": "{name} をプレビュー",
+        "resultAlt": "商品セット {index}",
+        "moduleFailed": "このモジュールは失敗",
+        "regenerating": "再生成中…",
+        "regenerate": "これを再生成",
+        "waiting": "生成待ち",
+        "waitingDesc": "このモジュールは完了すると自動でプレビューに反映",
+        "statusGenerated": "生成済み",
+        "statusFailed": "失敗",
+        "statusGenerating": "生成中",
+        "regenerateAria": "{name} を再生成",
+        "downloadAria": "{name} をダウンロード"
+      },
+      "library": {
+        "title": "参考テンプレートライブラリ",
+        "description": "テンプレートは用途・レイアウト・ビジュアル方向のみを制御し、最終商品はアップロードした画像に基づきます。",
+        "searchLabel": "テンプレートを検索",
+        "searchPlaceholder": "テンプレートを検索…",
+        "filterAria": "テンプレートフィルター",
+        "allDetails": "すべての詳細ページテンプレート",
+        "allMain": "すべてのメイン画像テンプレート",
+        "womenswearScene": "レディースシーン",
+        "selectedCount": "{count} 選択",
+        "empty": "現在のフィルターに一致するテンプレートはありません。",
+        "uploadReference": "参考をアップロード",
+        "customTitle": "自分の参考をアップロード",
+        "customDesc": "複雑なルールは不要。参考画像をアップロードして重点を選ぶだけです。",
+        "customStyles": "カスタムスタイル",
+        "removeAria": "{name} を削除",
+        "customEmpty": "自分の参考テンプレート画像をアップロードして、テキスト説明と組み合わせて専用のセットスタイルを生成できます。"
+      }
     }
   },
   "Shared": {
@@ -3130,7 +3509,20 @@
     "dateStart": "開始日",
     "dateEnd": "終了日",
     "recentWeek": "直近1週間",
-    "recentMonth": "直近1か月"
+    "recentMonth": "直近1か月",
+    "leaveConfirmTitle": "このページを離れますか？",
+    "leaveConfirmContent": "このページには保存されていない入力内容があります。離れると失われます。",
+    "leaveConfirmOk": "離れる",
+    "leaveConfirmCancel": "編集を続ける",
+    "selectAll": "すべて選択",
+    "selectRow": "この行を選択",
+    "selectDateRange": "日付範囲を選択",
+    "clearDateRange": "日付範囲をクリア",
+    "previousMonth": "前の月",
+    "nextMonth": "次の月",
+    "searchQuery": "検索",
+    "confirmNotInitialized": "確認ダイアログが初期化されていないため、操作は実行されませんでした",
+    "operationFailed": "操作に失敗しました"
   },
   "Video": {
     "moduleFirstLastFrame": "始点終点フレーム",
@@ -3320,7 +3712,11 @@
     "motionStepGenerateTitle": "動画を生成",
     "motionStepGenerateDesc": "同じ動きの成片を出力します。",
     "motionStepGenerateAlt": "生成動画",
-    "badgeGenerateVideoMotion": "動画を生成"
+    "badgeGenerateVideoMotion": "動画を生成",
+    "runBar": {
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
+    }
   },
   "Pose": {
     "moduleName": "ポーズ展開",
@@ -3652,7 +4048,9 @@
       "continueGenerating": "生成を続ける",
       "generateRefs": "{count} 枚の独立画像を生成",
       "generatePoses": "{count} 枚のポーズ画像を生成",
-      "generateGrid": "{count} ポーズのグリッドを生成"
+      "generateGrid": "{count} ポーズのグリッドを生成",
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
     },
     "previewGuide": {
       "title": "1枚の画像から複数ポーズへ",
@@ -3757,7 +4155,9 @@
       "roleExtra": "合わせるアイテム",
       "modeMulti": "上下セット",
       "modeSingle": "ワンピース",
-      "modeLabel": "{mode}"
+      "modeLabel": "{mode}",
+      "uploadFirstTitle": "先に衣類のメイン画像をアップロード",
+      "uploadFirstDesc": "アップロード後、対応する衣類の下に襟ぐり・生地・ロゴ・背面・側面のディテールを追加できます。"
     },
     "favorite": {
       "loginRequired": "まずログインして保存してください",
@@ -3812,7 +4212,26 @@
       "maxCount": "衣類ディテール画像は最大 {count} 枚です",
       "remainingTruncated": "ディテール画像はあと {count} 枚のみ追加できます。自動的に切り詰めました",
       "uploadingFiles": "{count} 枚の衣類ディテール画像をアップロード中…",
-      "added": "{owner}に {count} 枚のディテール画像を追加しました"
+      "added": "{owner}に {count} 枚のディテール画像を追加しました",
+      "switchLabel": "衣類ディテール参考",
+      "switchDescription": "生地・襟ぐり・ポケット・ボタン、背面・側面などの衣類の局所ディテールを追加します。オンにすると最大5枚までで、人物・ポーズ・背景・全体トーンは変更しません。",
+      "sectionTitle": "各衣類にディテールを追加",
+      "maxCountTitle": "最大 {count} 枚のディテール画像",
+      "addForRole": "{role}のディテール画像を追加",
+      "mainImageAlt": "{role}のメイン画像",
+      "previewMainAria": "{role}のメイン画像をプレビュー",
+      "roleDetailTitle": "{role}のディテール",
+      "onlyItem": "この衣類の素材・構造・局所クローズアップのみ。",
+      "detailCount": "{count} 枚",
+      "detailAlt": "{role}ディテール{index}",
+      "previewDetailAria": "{role}ディテール{index}をプレビュー",
+      "removeDetailAria": "{role}ディテール{index}を削除",
+      "unassignedTitle": "履歴の未割り当てディテール",
+      "unassignedCount": "{count} 枚",
+      "unassignedAlt": "未割り当てディテール{index}",
+      "previewUnassignedAria": "未割り当てディテール{index}をプレビュー",
+      "removeUnassignedAria": "未割り当てディテール{index}を削除",
+      "unassignedHint": "過去タスク由来のディテール画像には衣類の割り当てがなく、明らかに一致する場合にのみ軽く使用されます。"
     },
     "model": {
       "pleaseUploadImage": "画像ファイルをアップロードしてください",
@@ -3894,7 +4313,11 @@
       "recognizingClothing": "衣類を認識中",
       "recommending": "シーンを推奨中",
       "previewSelected": "選択済み参照をプレビュー：{label}",
-      "addSystemScene": "システム参照を追加"
+      "addSystemScene": "システム参照を追加",
+      "footerSelected": "{selected}/{max} 選択済み",
+      "footerDeleteAll": "すべて削除",
+      "footerSaving": "保存中",
+      "footerSaveAsTemplate": "テンプレートとして保存"
     },
     "autoDesign": {
       "platform": "撮影プラン",
@@ -4145,6 +4568,10 @@
         "yellow": "Yellow",
         "purple": "Purple"
       }
+    },
+    "hoverPreview": "ホバーでプレビュー",
+    "lightbox": {
+      "previewAlt": "試着画像プレビュー"
     }
   },
   "toast": {

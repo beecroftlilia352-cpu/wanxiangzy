@@ -1,4 +1,5 @@
 import { Activity, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { MODELS } from "@/features/product-set/create/config";
 import type { ImageSize, LingyaModel } from "@/lib/api/lingya";
 
@@ -17,6 +18,7 @@ export function GenerationSettingsSummary({
   expanded,
   onToggle,
 }: GenerationSettingsSummaryProps) {
+  const t = useTranslations("ProductSet");
   const model = MODELS.find((item) => item.value === aiModel);
 
   return (
@@ -32,14 +34,14 @@ export function GenerationSettingsSummary({
           <Activity className="h-4 w-4" />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-black text-slate-950 dark:text-stone-100">生成设置</span>
+          <span className="block text-sm font-black text-slate-950 dark:text-stone-100">{t("create.genSettings.title")}</span>
           <span className="mt-1 block truncate text-xs font-bold text-slate-400">
-            {model?.label || aiModel} · {imageSize} · {qualityMode === "advanced" ? "高级质检" : "标准质检"}
+            {model?.label || aiModel} · {imageSize} · {qualityMode === "advanced" ? t("create.genSettings.advQuality") : t("create.genSettings.stdQuality")}
           </span>
         </span>
       </span>
       <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-slate-50 px-2.5 text-[11px] font-black text-slate-500">
-        {expanded ? "收起" : "调整"}
+        {expanded ? t("common.collapse") : t("create.genSettings.adjust")}
         <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`} />
       </span>
     </button>
