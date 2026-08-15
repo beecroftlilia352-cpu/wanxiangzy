@@ -12,6 +12,9 @@ describe("environment contract", () => {
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV, NODE_ENV: "test" };
     delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.NEXT_PUBLIC_SITE_URL;
     delete process.env.PUBLIC_SITE_URL;
     delete process.env.SITE_URL;
