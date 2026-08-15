@@ -567,7 +567,7 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4" key={`${moduleFilter}-${statusFilter}`} style={{ animation: "motion-rise-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both" }}>
         {filteredRows.map((g: HistoryRow) => {
           const payload = getPayload(g);
           const resultUrls = g.result_urls || [];
