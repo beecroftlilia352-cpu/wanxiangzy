@@ -2674,7 +2674,7 @@ export default function CreatePage() {
               />
               <span>
                 <span className="font-semibold">{t("clothing.intimateLabel")}</span>
-                <span className="mt-0.5 block text-[11px] leading-4 text-slate-400">
+                <span className="mt-0.5 block text-[12px] leading-4 text-slate-400">
                   {t("clothing.intimateHint")}
                 </span>
               </span>
@@ -2708,13 +2708,13 @@ export default function CreatePage() {
             <div className="mb-2.5 flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-[13px] font-bold text-slate-900 dark:text-stone-100">
-                  {t("audience.title")} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
+                  {t("audience.title")} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
                 </h3>
-                <p className="mt-1 truncate text-[11px] text-slate-400 dark:text-stone-500">
+                <p className="mt-1 truncate text-[12px] text-slate-400 dark:text-stone-500">
                   {t("audience.description")}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-medium text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
+              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[11px] font-medium text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
                 {t("audience.badge")}
               </span>
             </div>
@@ -2726,7 +2726,7 @@ export default function CreatePage() {
                   type="button"
                   onClick={() => updateGarmentAudience(value)}
                   aria-pressed={garmentAudience === value}
-                  className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
+                  className={`rounded-lg border px-2 py-1.5 text-[12px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
                     garmentAudience === value
                       ? "border-violet-400 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
                       : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
@@ -2745,7 +2745,7 @@ export default function CreatePage() {
                     type="button"
                     onClick={() => updateAgeGroup(value)}
                     aria-pressed={ageGroup === value}
-                    className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
+                    className={`rounded-lg border px-1.5 py-1.5 text-[12px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
                       ageGroup === value
                         ? "border-violet-400 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
                         : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
@@ -2776,10 +2776,10 @@ export default function CreatePage() {
                 <h3 className="font-bold text-sm flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-[var(--codex-accent)]" /> {t("reference.title")}
                 </h3>
-                <p className="mt-1 text-[11px] text-gray-400">{t("reference.description")}</p>
+                <p className="mt-1 text-[12px] text-gray-400">{t("reference.description")}</p>
               </div>
               {sceneMode !== "auto_design" && (
-                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)]">
+                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[11px] font-semibold text-[var(--codex-accent)]">
                   {t("common.maxCount", { count: MAX_TRYON_REFERENCE_IMAGES })}
                 </span>
               )}
@@ -2819,14 +2819,14 @@ export default function CreatePage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-900">{t("reference.select")} <span className="font-medium text-slate-400">{t("reference.multiSelect")}</span></p>
-                      <p className="mt-2 inline-flex max-w-full rounded-lg bg-orange-50 px-2 py-1 text-[11px] font-medium text-orange-600">
+                      <p className="mt-2 inline-flex max-w-full rounded-lg bg-orange-50 px-2 py-1 text-[12px] font-medium text-orange-600">
                         {t("reference.selectTip")}
                       </p>
                       {clothingAnalysisLabel && (
-                        <p className="mt-2 truncate text-[10px] font-semibold text-[var(--codex-accent)]">{t("reference.recognized")}: {clothingAnalysisLabel}</p>
+                        <p className="mt-2 truncate text-[11px] font-semibold text-[var(--codex-accent)]">{t("reference.recognized")}: {clothingAnalysisLabel}</p>
                       )}
                       {(isAnalyzingClothing || isLoadingSystemReferences) && (
-                        <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-[var(--codex-accent)]">
+                        <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--codex-accent)]">
                           <Loader2 className="h-3 w-3 animate-spin" />
                           {isAnalyzingClothing ? t("reference.recognizingClothing") : t("reference.recommending")}
                         </p>
@@ -2933,7 +2933,7 @@ export default function CreatePage() {
                     {visibleCustomRefUploads.map((item) => (
                       <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-white dark:border-white/10 dark:bg-white/5">
                         <RawPreviewImage eager src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
-                        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
+                        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[11px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
                           {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
                           {item.status === "uploading" ? t("common.uploading") : t("common.failed")}
                         </span>
@@ -3035,7 +3035,7 @@ export default function CreatePage() {
                   <div className="space-y-3">
                     {referenceTemplates.length > 0 && (
                       <div>
-                        <p className="mb-2 text-[11px] font-bold text-slate-600">{t("favorite.templates")}</p>
+                        <p className="mb-2 text-[12px] font-bold text-slate-600">{t("favorite.templates")}</p>
                         <div className="grid grid-cols-2 gap-2">
                           {referenceTemplates.map((template) => (
                             <button
@@ -3047,12 +3047,12 @@ export default function CreatePage() {
                             >
                               <div className="relative aspect-[4/3] overflow-hidden">
                                 <RawPreviewImage eager src={template.coverUrl} alt={template.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" />
-                                <span className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-[var(--codex-accent)]">
+                                <span className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-[var(--codex-accent)]">
                                   {t("common.countImages", { count: template.references.length })}
                                 </span>
                               </div>
                               <div className="px-2 py-1">
-                                <p className="truncate text-[10px] font-bold text-slate-700">{template.name}</p>
+                                <p className="truncate text-[11px] font-bold text-slate-700">{template.name}</p>
                               </div>
                             </button>
                           ))}
@@ -3061,7 +3061,7 @@ export default function CreatePage() {
                     )}
                     {favoriteReferences.length > 0 && (
                       <div>
-                        <p className="mb-2 text-[11px] font-bold text-slate-600">{t("favorite.single")}</p>
+                        <p className="mb-2 text-[12px] font-bold text-slate-600">{t("favorite.single")}</p>
                         <div className="grid grid-cols-3 gap-2">
                     {favoriteReferences.map((ref) => {
                       const selected = isReferenceSelected(ref.url);
@@ -3105,7 +3105,7 @@ export default function CreatePage() {
                         >
                           <X className="w-3 h-3 text-gray-500" />
                         </button>
-                        <div className="p-1 text-center"><span className="text-[10px] font-medium">{ref.label}</span></div>
+                        <div className="p-1 text-center"><span className="text-[11px] font-medium">{ref.label}</span></div>
                       </div>
                     );})}
                         </div>
@@ -3136,11 +3136,11 @@ export default function CreatePage() {
                 <h3 className="flex items-center gap-2 text-[13px] font-bold text-slate-900 dark:text-stone-100">
                   <UserRound className="h-4 w-4 text-[var(--codex-accent)]" />
                   {t("model.title")}
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
                 </h3>
-                <p className="mt-1 text-[11px] text-gray-400 dark:text-stone-500">{t("model.description")}</p>
+                <p className="mt-1 text-[12px] text-gray-400 dark:text-stone-500">{t("model.description")}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
+              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[11px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
                 {t("model.dragBadge")}
               </span>
             </div>
@@ -3171,7 +3171,7 @@ export default function CreatePage() {
                     </span>
                   </span>
                 </span>
-                <span className={`block border-t px-2 py-2 text-[11px] font-semibold ${!store.selectedModel ? "border-[rgba(91,124,255,0.12)] text-[var(--codex-accent)]" : "border-slate-100 dark:border-white/10 text-slate-500 dark:text-stone-400"}`}>
+                <span className={`block border-t px-2 py-2 text-[12px] font-semibold ${!store.selectedModel ? "border-[rgba(91,124,255,0.12)] text-[var(--codex-accent)]" : "border-slate-100 dark:border-white/10 text-slate-500 dark:text-stone-400"}`}>
                   {t("model.noReplace")}
                 </span>
               </button>
@@ -3225,7 +3225,7 @@ export default function CreatePage() {
                     </button>
                   </div>
                   <div className={`border-t px-2 py-2 text-center ${store.selectedModel?.id === m.id ? "border-[rgba(91,124,255,0.12)] bg-blue-50 dark:bg-[rgba(91,140,255,0.18)] dark:border-[rgba(91,140,255,0.32)]" : "border-slate-100 dark:border-white/10"}`}>
-                    <span className="block truncate text-[11px] font-bold text-slate-800 dark:text-stone-200">{m.name}</span>
+                    <span className="block truncate text-[12px] font-bold text-slate-800 dark:text-stone-200">{m.name}</span>
                   </div>
                 </div>
               ))}
@@ -3250,8 +3250,8 @@ export default function CreatePage() {
                       <span className="flex flex-col items-center gap-2 px-3 text-slate-400 dark:text-stone-500">
                         <Camera className="h-7 w-7" />
                         <span className="text-[13px] font-bold text-slate-500 dark:text-stone-300">{t("model.uploadFace")}</span>
-                        <span className="text-[10px] leading-4 text-slate-400 dark:text-stone-500">{t("model.faceOnly")}</span>
-                        <span className="text-[10px] text-slate-300 dark:text-stone-600">≤{MAX_FILE_SIZE_MB}MB</span>
+                        <span className="text-[11px] leading-4 text-slate-400 dark:text-stone-500">{t("model.faceOnly")}</span>
+                        <span className="text-[11px] text-slate-300 dark:text-stone-600">≤{MAX_FILE_SIZE_MB}MB</span>
                       </span>
                     )
                   }
@@ -3278,13 +3278,13 @@ export default function CreatePage() {
                     </button>
                   </div>
                 )}
-                <span className={`block truncate border-t px-2 py-2 text-[11px] font-bold ${
+                <span className={`block truncate border-t px-2 py-2 text-[12px] font-bold ${
                   isCustomModelSelected ? "border-[rgba(91,124,255,0.12)] bg-blue-50 dark:bg-[rgba(91,140,255,0.18)] dark:border-[rgba(91,140,255,0.32)] text-slate-800 dark:text-stone-200" : "border-slate-100 dark:border-white/10 text-slate-500 dark:text-stone-400"
                 }`}>
                   {customModelImageUrl ? t("common.uploaded") : t("common.upload")}
                 </span>
                 {isModelUploadBusy && (
-                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-white/78 text-[11px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px] dark:bg-[rgba(28,28,30,0.82)]">
+                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-white/78 text-[12px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px] dark:bg-[rgba(28,28,30,0.82)]">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     {t("common.uploading")}
                   </span>
@@ -3316,7 +3316,7 @@ export default function CreatePage() {
               )}
             />
             {hasModelFace && (
-              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-800">
                 {t("model.bananaWarning")}
                 <a href="/face-swap" className="mx-1 font-bold text-amber-900 underline decoration-amber-400 underline-offset-2">{t("model.swapModule")}</a>
                 {t("model.swapFace")}
@@ -3369,7 +3369,7 @@ export default function CreatePage() {
               {STYLE_PRESETS.map((s, i) => (
                 <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); store.setPromptUsed(""); }}
                   aria-pressed={customStyle === s}
-                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300">{t(`stylePreset.${i}`)}</button>
+                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[11px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300">{t(`stylePreset.${i}`)}</button>
               ))}
             </div>
 

@@ -91,7 +91,7 @@ export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | 
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface)] px-3 text-xs font-bold text-[var(--codex-muted)] transition hover:text-[var(--codex-ink)]"
+        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface)] px-3 text-xs font-bold text-[var(--codex-muted)] transition hover:text-[var(--codex-ink)]"
         aria-label={t("language")}
         aria-haspopup="menu"
         aria-expanded={open}

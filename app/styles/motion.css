@@ -39,7 +39,7 @@ a:active {
 .studio-button,
 .gradient-brand,
 button {
-  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease, box-shadow 0.2s ease;
+  transition: transform var(--codex-motion-fast) var(--codex-ease-out), opacity var(--codex-motion-fast) ease, box-shadow var(--codex-motion-base) ease;
 }
 
 /* ---- 3. 首页 hero 入场：标题与 CTA 错峰上浮淡入 ---- */
@@ -49,7 +49,7 @@ button {
 }
 
 .home-landing-hero .home-hero-frame > * {
-  animation: motion-rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: motion-rise-in var(--codex-motion-slow) var(--codex-ease-out) both;
 }
 
 .home-landing-hero .home-hero-frame > *:nth-child(1) { animation-delay: 0.05s; }
@@ -78,7 +78,7 @@ button {
 
 .studio-result-card,
 .studio-result-grid > * {
-  animation: motion-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: motion-card-in var(--codex-motion-slow) var(--codex-ease-out) both;
 }
 
 .studio-result-grid > *:nth-child(2) { animation-delay: 0.05s; }
@@ -88,6 +88,21 @@ button {
 .studio-result-grid > *:nth-child(6) { animation-delay: 0.25s; }
 .studio-result-grid > *:nth-child(7) { animation-delay: 0.3s; }
 .studio-result-grid > *:nth-child(8) { animation-delay: 0.35s; }
+
+/* ---- 5.5 卡片 hover 微浮起（仅 hover 设备；入场动画 fill 需先移除才能过渡） ---- */
+@media (hover: hover) {
+  .home-scene-card,
+  .studio-result-card {
+    transition: transform var(--codex-motion-base) var(--codex-ease-out), box-shadow var(--codex-motion-base) var(--codex-ease-out);
+  }
+
+  .home-scene-card:hover,
+  .studio-result-card:hover {
+    animation: none;
+    transform: translateY(-4px);
+    box-shadow: 0 24px 60px rgba(14, 18, 38, 0.16);
+  }
+}
 
 /* ---- 6. Reduced motion：全部关闭 ---- */
 @media (prefers-reduced-motion: reduce) {

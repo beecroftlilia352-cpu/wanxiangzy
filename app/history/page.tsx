@@ -598,11 +598,11 @@ export default function HistoryPage() {
                     <span className="text-xs text-gray-400 dark:text-stone-500">{t("noResult")}</span>
                   </div>
                 )}
-                <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur ${getStatusClasses(g.status)}`}>
+                <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-bold backdrop-blur ${getStatusClasses(g.status)}`}>
                   {status}
                 </span>
                 {resultUrls.length > 1 && (
-                  <span className="absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+                  <span className="absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur">
                     {t("imagesCount", { count: resultUrls.length })}
                   </span>
                 )}
@@ -612,7 +612,7 @@ export default function HistoryPage() {
                     role="button"
                     tabIndex={-1}
                     onClick={(event) => { event.stopPropagation(); openDetail(g); }}
-                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
+                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     {t("viewDetail")}
@@ -621,7 +621,7 @@ export default function HistoryPage() {
                     role="button"
                     tabIndex={-1}
                     onClick={(event) => { event.stopPropagation(); applyHistoryRow(g); }}
-                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
+                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     {reuseLabel}
@@ -637,7 +637,7 @@ export default function HistoryPage() {
                         downloadHistoryResult(g, coverUrl, 0);
                       }
                     }}
-                    className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
+                    className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
                   >
                     <Download className="h-3.5 w-3.5" />
                     {resultUrls.length > 1 ? t("downloadZip") : t("download")}
@@ -647,9 +647,9 @@ export default function HistoryPage() {
               <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-bold text-[var(--codex-ink)]">{moduleLabel}</p>
-                  <p className="mt-0.5 truncate text-[11px] text-[var(--codex-faint)]">{fmt(g.created_at)} · {g.ai_model || payload?.aiModel || ""}</p>
+                  <p className="mt-0.5 truncate text-[12px] text-[var(--codex-faint)]">{fmt(g.created_at)} · {g.ai_model || payload?.aiModel || ""}</p>
                 </div>
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                   <Coins className="h-3 w-3" />
                   {credits}
                 </span>
@@ -657,7 +657,7 @@ export default function HistoryPage() {
 
               {(failureCopy || g.error_message) && (
                 <p
-                  className="mx-3 mb-2.5 truncate rounded-md bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-300"
+                  className="mx-3 mb-2.5 truncate rounded-md bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-300"
                   title={failureCopy ? `${failureCopy.title}：${failureCopy.reason}` : g.error_message || undefined}
                 >
                   {failureCopy ? failureCopy.title : g.error_message}
@@ -721,9 +721,9 @@ export default function HistoryPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <DialogTitle className="text-sm font-bold leading-5">{formatKind(t, detailPayload?.kind)}</DialogTitle>
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:text-stone-400">{formatStatus(t, detailRow.status)}</span>
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:text-stone-400">{formatStatus(t, detailRow.status)}</span>
                 </div>
-                <p className="text-[11px] text-gray-400 dark:text-stone-500 mt-0.5">{fmt(detailRow.created_at)}</p>
+                <p className="text-[12px] text-gray-400 dark:text-stone-500 mt-0.5">{fmt(detailRow.created_at)}</p>
                 <DialogDescription className="sr-only">
                   {t("detailDesc")}
                 </DialogDescription>
@@ -773,7 +773,7 @@ export default function HistoryPage() {
                         alt={t("resultAlt", { index: selectedResultIndex + 1 })}
                         controls
                       />
-                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[12px] text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                         <Maximize2 className="w-3 h-3" />
                         {t("enlarge")}
                       </span>
@@ -789,7 +789,7 @@ export default function HistoryPage() {
                     </div>
                   )}
                   {detailResults.length > 0 && (
-                    <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:text-stone-300 shadow-sm backdrop-blur">
+                    <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[12px] font-medium text-gray-700 dark:text-stone-300 shadow-sm backdrop-blur">
                       {selectedResultIndex + 1} / {detailResults.length}
                     </div>
                   )}
@@ -843,7 +843,7 @@ export default function HistoryPage() {
 
               <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
                 <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{t("reuseParams")}</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{t("reuseParams")}</p>
                   <h4 className="mt-1 text-sm font-black text-slate-950 dark:text-stone-100">{t("reuseThisWork")}</h4>
                   <p className="mt-1 text-xs leading-5 text-slate-500">{t("reuseDesc")}</p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
@@ -885,7 +885,7 @@ export default function HistoryPage() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     {getParameterItems(t, detailRow).map((item) => (
                       <div key={item.label} className="min-w-0 border-b border-gray-100 pb-2">
-                        <p className="text-[10px] text-gray-400 dark:text-stone-500">{item.label}</p>
+                        <p className="text-[11px] text-gray-400 dark:text-stone-500">{item.label}</p>
                         <p className="mt-0.5 break-words text-xs font-medium text-gray-800">{item.value}</p>
                       </div>
                     ))}
@@ -922,7 +922,7 @@ export default function HistoryPage() {
                               </span>
                             </div>
                           </div>
-                          <p className="mt-1 truncate text-[10px] text-gray-500 dark:text-stone-400">{image.label}</p>
+                          <p className="mt-1 truncate text-[11px] text-gray-500 dark:text-stone-400">{image.label}</p>
                         </button>
                       ))}
                     </div>
@@ -1063,17 +1063,17 @@ function HistoryFailureNotice({ copy }: { copy: HistoryFailureRecoveryCopy }) {
     <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs leading-5 text-red-700">
       <div className="flex flex-wrap items-center gap-2">
         <p className="font-bold">{copy.titleKey ? tAny(copy.titleKey) : copy.title}</p>
-        <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-red-500">
+        <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-bold text-red-500">
           {copy.applyLabelKey ? tAny(copy.applyLabelKey) : copy.applyLabel}
         </span>
       </div>
       <dl className="mt-2 space-y-1.5">
         <div>
-          <dt className="text-[10px] font-black uppercase text-red-400">{copy.reasonLabelKey ? tAny(copy.reasonLabelKey) : copy.reasonLabel}</dt>
+          <dt className="text-[11px] font-black uppercase text-red-400">{copy.reasonLabelKey ? tAny(copy.reasonLabelKey) : copy.reasonLabel}</dt>
           <dd className="mt-0.5 font-medium text-red-700">{copy.reasonKey ? tAny(copy.reasonKey) : copy.reason}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-black uppercase text-red-400">{copy.recoveryLabelKey ? tAny(copy.recoveryLabelKey) : copy.recoveryLabel}</dt>
+          <dt className="text-[11px] font-black uppercase text-red-400">{copy.recoveryLabelKey ? tAny(copy.recoveryLabelKey) : copy.recoveryLabel}</dt>
           <dd className="mt-0.5 text-red-600">{copy.recoveryHintKey ? tAny(copy.recoveryHintKey, copy.recoveryHintParams) : copy.recoveryHint}</dd>
         </div>
       </dl>

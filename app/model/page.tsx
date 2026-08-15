@@ -810,7 +810,7 @@ export default function ModelPage() {
               columns={2}
               ariaLabel={t("modelStyle")}
             />
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-stone-500">
+            <p className="mt-2 text-[12px] leading-relaxed text-gray-400 dark:text-stone-500">
               {t("modelStyleHint")}
             </p>
           </section>
@@ -852,7 +852,7 @@ export default function ModelPage() {
                 }`}
               >
                 <UserRound className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">{t("noDefault")}</span>
+                <span className="text-[11px] font-medium">{t("noDefault")}</span>
               </button>
               {HAIR_STYLES[gender].map((item) => (
                 <button key={item.value} onClick={() => { setHairStyle(item.value); setHairReferenceUrl(null); }}
@@ -860,7 +860,7 @@ export default function ModelPage() {
                     hairStyle === item.value && !hairReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
                   }`}>
                   <RawPreviewImage src={item.image} alt={item.labelKey ? t(item.labelKey) : item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
-                  <div className="px-1 py-1 text-[10px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
+                  <div className="px-1 py-1 text-[11px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
                 </button>
               ))}
               <button
@@ -879,18 +879,18 @@ export default function ModelPage() {
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                     <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
-                      <span className="block text-[10px] font-bold text-purple-700">{t("uploadedHairRef")}</span>
-                      <span className="block truncate text-[11px] text-slate-400 dark:text-stone-500">{t("hairOutlineOnly")}</span>
+                      <span className="block text-[11px] font-bold text-purple-700">{t("uploadedHairRef")}</span>
+                      <span className="block truncate text-[12px] text-slate-400 dark:text-stone-500">{t("hairOutlineOnly")}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5 mb-1.5" />
-                    <span className="text-[10px] font-bold">{t("uploadHairRef")}</span>
-                    <span className="mt-1 max-w-[78px] text-[11px] leading-snug text-slate-400 dark:text-stone-500">
+                    <span className="text-[11px] font-bold">{t("uploadHairRef")}</span>
+                    <span className="mt-1 max-w-[78px] text-[12px] leading-snug text-slate-400 dark:text-stone-500">
                       {t("hairOnlyNoFace")}
                     </span>
-                    <span className="mt-1 text-[10px] text-slate-400">≤15MB</span>
+                    <span className="mt-1 text-[11px] text-slate-400">≤15MB</span>
                   </>
                 )}
               </button>
@@ -928,7 +928,7 @@ export default function ModelPage() {
                 }`}
               >
                 <UserRound className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">{t("noDefault")}</span>
+                <span className="text-[11px] font-medium">{t("noDefault")}</span>
               </button>
               {HAIR_COLORS.map((item) => (
                 <button key={item.value} onClick={() => { setHairColor(item.value); setHairColorReferenceUrl(null); }}
@@ -936,7 +936,7 @@ export default function ModelPage() {
                     hairColor === item.value && !hairColorReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
                   }`}>
                   <RawPreviewImage src={item.image} alt={item.labelKey ? t(item.labelKey) : item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
-                  <div className="px-1 py-1 text-[10px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
+                  <div className="px-1 py-1 text-[11px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
                 </button>
               ))}
               <button
@@ -955,18 +955,18 @@ export default function ModelPage() {
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                     <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
-                      <span className="block text-[10px] font-bold text-purple-700">{t("uploadedHairColorRef")}</span>
-                      <span className="block truncate text-[11px] text-slate-400 dark:text-stone-500">{t("hairColorToneOnly")}</span>
+                      <span className="block text-[11px] font-bold text-purple-700">{t("uploadedHairColorRef")}</span>
+                      <span className="block truncate text-[12px] text-slate-400 dark:text-stone-500">{t("hairColorToneOnly")}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5 mb-1.5" />
-                    <span className="text-[10px] font-bold">{t("uploadHairColorRef")}</span>
-                    <span className="mt-1 max-w-[78px] text-[11px] leading-snug text-slate-400 dark:text-stone-500">
+                    <span className="text-[11px] font-bold">{t("uploadHairColorRef")}</span>
+                    <span className="mt-1 max-w-[78px] text-[12px] leading-snug text-slate-400 dark:text-stone-500">
                       {t("hairColorNoIdentity")}
                     </span>
-                    <span className="mt-1 text-[10px] text-slate-400">≤15MB</span>
+                    <span className="mt-1 text-[11px] text-slate-400">≤15MB</span>
                   </>
                 )}
               </button>

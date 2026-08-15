@@ -138,7 +138,7 @@ const footerGroups = [
 export default async function HomePage() {
   const t = await getTranslations("Home");
   return (
-    <div className="min-h-screen bg-white text-[#050505] dark:bg-stone-950 dark:text-stone-100">
+    <div className="home-marketing-page min-h-screen bg-white text-[#050505] dark:bg-stone-950 dark:text-stone-100">
       <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505] dark:bg-stone-950 dark:text-stone-100">
         {/* P2.1 hero video: preload=metadata saves bandwidth, hidden on mobile,
             poster fallback so reduced-motion / mobile users see a still frame. */}

@@ -681,7 +681,7 @@ export default function ImageTranslationPage() {
             title={t("title")}
             tooltip={t("tooltip")}
             actions={(
-              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-black text-[var(--codex-accent)]">
+              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[11px] font-black text-[var(--codex-accent)]">
                 NEW
               </span>
             )}
@@ -764,7 +764,7 @@ export default function ImageTranslationPage() {
                   return (
                     <span
                       key={code}
-                      className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-semibold text-violet-700"
+                      className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700"
                     >
                       {label}
                       <button
@@ -800,7 +800,7 @@ export default function ImageTranslationPage() {
               rows={3}
               placeholder={t("extraPlaceholder")}
             />
-            <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+            <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
               {t("extraHint")}
             </p>
           </section>
@@ -822,7 +822,7 @@ export default function ImageTranslationPage() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900">{t("ratioSectionTitle")}</h3>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
                 {t("ratioDefaultLabel")}
               </span>
             </div>
@@ -852,14 +852,14 @@ export default function ImageTranslationPage() {
           <section>
             <h3 className="mb-3 text-sm font-bold text-slate-900">{t("genCountSectionTitle")}</h3>
             <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel={t("genCountAriaLabel")} />
-            <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+            <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
               {t("genTotalHint", { count: sourceUrls.length * Math.max(languages.length, 1) * genCount })}
             </p>
           </section>
 
           {!isGenerating && !resultUrls.length && !error && primarySourceUrl ? (
             <section className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-              <p className="mb-2 text-[11px] font-semibold text-slate-500">{t("previewNote")}</p>
+              <p className="mb-2 text-[12px] font-semibold text-slate-500">{t("previewNote")}</p>
               <div className="relative overflow-hidden rounded-xl bg-white">
                 <RawPreviewImage src={primarySourceUrl} alt={t("previewImageAlt")} className="aspect-[3/4] w-full object-contain" />
                 <button

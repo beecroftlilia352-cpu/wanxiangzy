@@ -333,7 +333,7 @@ function getSelectedExpressionPresetId(slot: PosePlanSlot | null | undefined) {
 }
 
 function getPoseAngleBadgeClass(angle?: PosePlanAngle) {
-  const base = "rounded-full px-1.5 py-0.5 text-[10px] font-black ring-1";
+  const base = "rounded-full px-1.5 py-0.5 text-[11px] font-black ring-1";
   if (angle === "front") return `${base} bg-blue-50 text-blue-700 ring-blue-100`;
   if (angle === "side") return `${base} bg-indigo-50 text-indigo-700 ring-indigo-100`;
   if (angle === "back") return `${base} bg-amber-50 text-amber-700 ring-amber-100`;
@@ -1757,7 +1757,7 @@ export default function PosePage() {
                     <button
                       type="button"
                       onClick={retryPoseAnalysis}
-                      className="rounded-full border border-current/15 bg-white/75 dark:bg-white/5 px-2.5 py-1 text-[10px] font-semibold transition hover:bg-white dark:bg-white/5"
+                      className="rounded-full border border-current/15 bg-white/75 dark:bg-white/5 px-2.5 py-1 text-[11px] font-semibold transition hover:bg-white dark:bg-white/5"
                     >
                       {t("retry")}
                     </button>
@@ -1769,7 +1769,7 @@ export default function PosePage() {
           <section className="space-y-3">
             <div>
               <h3 className="flex items-center gap-2 font-bold text-sm"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> {t("mode.title")}</h3>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
+              <p className="mt-1 text-[12px] leading-relaxed text-slate-400 dark:text-stone-500">
                 {t("mode.desc")}
               </p>
             </div>
@@ -1792,7 +1792,7 @@ export default function PosePage() {
                     }`}
                   >
                     <span className="block text-xs font-black">{item.label}</span>
-                    <span className="mt-0.5 block text-[10px] font-bold opacity-70">{item.desc}</span>
+                    <span className="mt-0.5 block text-[11px] font-bold opacity-70">{item.desc}</span>
                   </button>
                 );
               })}
@@ -1804,7 +1804,7 @@ export default function PosePage() {
                 title={(
                   <span className="flex items-center gap-2">
                     {t("reference.sectionTitle")}
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
                       {poseReferenceUrls.length}/{MAX_POSE_REFERENCE_IMAGES}
                     </span>
                   </span>
@@ -1857,7 +1857,7 @@ export default function PosePage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-black text-slate-950 dark:text-stone-100">{t("reference.countTitle")}</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
+                      <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-stone-400">
                         {t("reference.countFormula", { ref: activePoseReferenceUrls.length, per: activePoseReferenceCopies, total: poseReferenceOutputCount })}
                       </p>
                     </div>
@@ -1898,7 +1898,7 @@ export default function PosePage() {
                     <p className="text-xs font-black text-slate-900 dark:text-stone-100">
                       {activePoseReferenceUrls.length ? t("reference.willGenerate", { count: poseReferenceOutputCount }) : t("reference.uploadToGenerate")}
                     </p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
+                    <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-stone-400">
                       {t("reference.modeNote")}
                     </p>
                   </div>
@@ -1923,7 +1923,7 @@ export default function PosePage() {
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-2 text-sm font-black">
                   {t("garment.toggleTitle")}
-                  <span className="rounded-full bg-white/80 dark:bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:text-stone-400">{t("garment.optional")}</span>
+                  <span className="rounded-full bg-white/80 dark:bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("garment.optional")}</span>
                 </span>
                 <span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-stone-400">
                   {shouldSuggestBackReference
@@ -1941,7 +1941,7 @@ export default function PosePage() {
                 title={(
                   <span className="flex items-center gap-2">
                     {t("garment.uploadTitle")}
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
                       {activeGarmentAngleReferences.length}/{MAX_GARMENT_ANGLE_IMAGES}
                     </span>
                   </span>
@@ -1958,20 +1958,20 @@ export default function PosePage() {
                     <div className="rounded-xl border border-blue-100 dark:border-blue-400/30 bg-white/92 dark:bg-white/5 p-2.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-blue-700">{t("garment.belongsTo")}</p>
+                          <p className="text-[12px] font-bold text-blue-700">{t("garment.belongsTo")}</p>
                           <p className="mt-0.5 truncate text-sm font-black text-slate-900 dark:text-stone-100">{activeGarmentAngleMark}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-stone-400" title={activeGarmentAngleTargetOption.description}>
+                          <p className="mt-0.5 truncate text-[12px] text-slate-500 dark:text-stone-400" title={activeGarmentAngleTargetOption.description}>
                             {activeGarmentAngleTargetOption.description}
                           </p>
                         </div>
-                        <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
+                        <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700">
                           {t("garment.canUploadMore", { count: MAX_GARMENT_ANGLE_IMAGES - activeGarmentAngleReferences.length })}
                         </span>
                       </div>
 
                       <div className="mt-3 space-y-2">
                         <div className="flex items-start gap-2">
-                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("garment.clothes")}</span>
+                          <span className="mt-1 w-8 shrink-0 text-[12px] font-bold text-slate-500 dark:text-stone-400">{t("garment.clothes")}</span>
                           <div className="flex flex-wrap gap-1.5">
                             {GARMENT_ANGLE_TARGET_OPTIONS.map((item) => {
                               const selected = item.value === garmentAngleTarget;
@@ -1981,7 +1981,7 @@ export default function PosePage() {
                                   type="button"
                                   onClick={() => setGarmentAngleTarget(item.value)}
                                   title={item.description}
-                                  className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+                                  className={`rounded-full border px-2.5 py-1 text-[12px] font-bold transition ${
                                     selected
                                       ? "border-blue-400 bg-blue-50 text-blue-700 shadow-sm"
                                       : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-stone-300 hover:border-blue-200 dark:hover:border-blue-400/40 hover:text-blue-700"
@@ -1995,7 +1995,7 @@ export default function PosePage() {
                         </div>
 
                         <div className="flex items-start gap-2">
-                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("garment.angle")}</span>
+                          <span className="mt-1 w-8 shrink-0 text-[12px] font-bold text-slate-500 dark:text-stone-400">{t("garment.angle")}</span>
                           <div className="flex flex-wrap gap-1.5">
                             {GARMENT_ANGLE_VIEW_OPTIONS.map((item) => {
                               const selected = item.value === garmentAngleView;
@@ -2004,7 +2004,7 @@ export default function PosePage() {
                                   key={item.value}
                                   type="button"
                                   onClick={() => setGarmentAngleView(item.value)}
-                                  className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+                                  className={`rounded-full border px-2.5 py-1 text-[12px] font-bold transition ${
                                     selected
                                       ? "border-blue-400 bg-blue-50 text-blue-700 shadow-sm"
                                       : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-stone-300 hover:border-blue-200 dark:hover:border-blue-400/40 hover:text-blue-700"
@@ -2035,11 +2035,11 @@ export default function PosePage() {
                         <span className="block text-sm font-black text-slate-900 dark:text-stone-100">
                           {t("garment.uploadAs", { mark: activeGarmentAngleMark })}
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-slate-500 dark:text-stone-400">
+                        <span className="mt-0.5 block truncate text-[12px] text-slate-500 dark:text-stone-400">
                           {t("garment.uploadHint")}
                         </span>
                       </span>
-                      <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 shadow-sm">
+                      <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 shadow-sm">
                         {t("garment.maxCount", { count: MAX_GARMENT_ANGLE_IMAGES })}
                       </span>
                     </button>
@@ -2058,7 +2058,7 @@ export default function PosePage() {
                                   aria-label={t("garment.previewAria", { label })}
                                 >
                                   <RawPreviewImage src={ref.url} alt={label} className="aspect-[3/4] w-full object-cover" />
-                                  <span className="absolute bottom-1 left-1 max-w-[calc(100%-8px)] truncate rounded-full bg-white/90 dark:bg-white/5 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                                  <span className="absolute bottom-1 left-1 max-w-[calc(100%-8px)] truncate rounded-full bg-white/90 dark:bg-white/5 px-1.5 py-0.5 text-[11px] font-bold text-blue-700">
                                     {label}
                                   </span>
                                 </button>
@@ -2077,7 +2077,7 @@ export default function PosePage() {
                       </div>
                     )}
 
-                    <p className="rounded-lg bg-blue-50/70 px-2.5 py-2 text-[11px] leading-relaxed text-blue-800 dark:bg-[rgba(91,140,255,0.16)] dark:text-[#cfd8ff]">
+                    <p className="rounded-lg bg-blue-50/70 px-2.5 py-2 text-[12px] leading-relaxed text-blue-800 dark:bg-[rgba(91,140,255,0.16)] dark:text-[#cfd8ff]">
                       {GARMENT_ANGLE_UPLOAD_FOOTNOTE}
                     </p>
                   </div>
@@ -2104,11 +2104,11 @@ export default function PosePage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="flex items-center gap-2 font-bold text-sm"><PersonStanding className="h-4 w-4 text-[var(--codex-accent)]" /> {t("angles.title")}</h3>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
+                <p className="mt-1 text-[12px] leading-relaxed text-slate-400 dark:text-stone-500">
                   {t("angles.desc")}
                 </p>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${
                 activePoseAnglePreset ? "bg-blue-50 text-blue-700" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-stone-300"
               }`}>
                 {poseAnglePlanLabel} · {t("angles.unitCount", { count: posePlanTargetCount })}
@@ -2134,13 +2134,13 @@ export default function PosePage() {
                       <span className={`min-w-0 truncate text-xs font-black ${selected ? "text-blue-800 dark:text-[#cfd8ff]" : "text-slate-800 dark:text-stone-200"}`}>
                         {t(preset.labelKey)}
                       </span>
-                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-black ${
                         selected ? "bg-white dark:bg-white/5 text-blue-700" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400"
                       }`}>
                         {t(preset.countLabelKey)}
                       </span>
                     </span>
-                    <span className={`mt-0.5 block truncate text-[10px] font-semibold ${selected ? "text-blue-600" : "text-slate-500 dark:text-stone-400"}`}>
+                    <span className={`mt-0.5 block truncate text-[11px] font-semibold ${selected ? "text-blue-600" : "text-slate-500 dark:text-stone-400"}`}>
                       {selected ? t("angles.currentPlan") : t(preset.descKey)}
                     </span>
                   </button>
@@ -2148,7 +2148,7 @@ export default function PosePage() {
               })}
             </div>
             {!activePoseAnglePreset ? (
-              <p className="rounded-xl bg-slate-50 dark:bg-white/4 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
+              <p className="rounded-xl bg-slate-50 dark:bg-white/4 px-3 py-2 text-[12px] leading-relaxed text-slate-500 dark:text-stone-400">
                 {t("angles.customHint")}
               </p>
             ) : null}
@@ -2167,17 +2167,17 @@ export default function PosePage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-black text-slate-950 dark:text-stone-100">{t(item.labelKey)}</p>
                           {isDetail ? (
-                            <span className="rounded-full bg-slate-100 dark:bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:text-stone-400">{t("angles.detailBadge")}</span>
+                            <span className="rounded-full bg-slate-100 dark:bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("angles.detailBadge")}</span>
                           ) : null}
                           {isGarment ? (
-                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">{t("angles.garmentBadge")}</span>
+                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">{t("angles.garmentBadge")}</span>
                           ) : null}
                           {isBack && count > 0 ? (
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">{t("angles.backBadge")}</span>
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">{t("angles.backBadge")}</span>
                           ) : null}
                         </div>
-                        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">{t(item.descKey)}</p>
-                        <p className="mt-0.5 text-[10px] leading-relaxed text-slate-400 dark:text-stone-500">{t(item.hintKey)}</p>
+                        <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-stone-400">{t(item.descKey)}</p>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">{t(item.hintKey)}</p>
                       </div>
                       <div className="grid h-9 shrink-0 grid-cols-[34px_34px_34px] overflow-hidden rounded-full border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/4">
                         <button
@@ -2222,7 +2222,7 @@ export default function PosePage() {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-xs font-black text-amber-900">{t("angles.backSuggestTitle")}</span>
-                  <span className="mt-0.5 block text-[11px] leading-relaxed text-amber-700">
+                  <span className="mt-0.5 block text-[12px] leading-relaxed text-amber-700">
                     {t("angles.backSuggestBody")}
                   </span>
                 </span>
@@ -2253,7 +2253,7 @@ export default function PosePage() {
               columns={3}
               ariaLabel={t("aspect.title")}
             />
-            <div className="mt-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
+            <div className="mt-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-[12px] leading-relaxed text-slate-500 dark:text-stone-400">
               {t("aspect.note")}
             </div>
           </section>
@@ -2281,7 +2281,7 @@ export default function PosePage() {
                   <h3 className="font-bold text-sm flex items-center gap-2">
                     <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> {t("plan.title")}
                   </h3>
-                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
+                  <p className="mt-1 text-[12px] leading-relaxed text-slate-400 dark:text-stone-500">
                     {t("plan.freeDesc")}
                   </p>
                 </div>
@@ -2294,7 +2294,7 @@ export default function PosePage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-black text-emerald-900 dark:text-emerald-300">{t("plan.autoPlanTitle")}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-slate-600 dark:text-stone-300">
+                    <p className="mt-1 text-[12px] leading-relaxed text-slate-600 dark:text-stone-300">
                       {t("plan.autoPlanBody")}
                     </p>
                   </div>
@@ -2310,7 +2310,7 @@ export default function PosePage() {
                   <h3 className="font-bold text-sm flex items-center gap-2">
                     <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> {t("plan.title")}
                   </h3>
-                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
+                  <p className="mt-1 text-[12px] leading-relaxed text-slate-400 dark:text-stone-500">
                     {t("plan.defaultDesc")}
                   </p>
                 </div>
@@ -2318,7 +2318,7 @@ export default function PosePage() {
                   <button
                     type="button"
                     onClick={() => setShowPosePlanEditor(false)}
-                    className="shrink-0 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-stone-300 transition-colors hover:border-blue-200 dark:hover:border-blue-400/40 hover:text-blue-700"
+                    className="shrink-0 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[12px] font-semibold text-slate-600 dark:text-stone-300 transition-colors hover:border-blue-200 dark:hover:border-blue-400/40 hover:text-blue-700"
                   >
                     {t("plan.collapseEdit")}
                   </button>
@@ -2331,7 +2331,7 @@ export default function PosePage() {
                     <button
                       type="button"
                       onClick={usePresetPosePlan}
-                      className={`rounded-full px-3.5 py-1.5 text-[11px] font-black transition ${
+                      className={`rounded-full px-3.5 py-1.5 text-[12px] font-black transition ${
                         posePlanMode === "preset"
                           ? "bg-white dark:bg-white/5 text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
                           : "text-slate-500 dark:text-stone-400 hover:text-slate-900 dark:text-stone-100"
@@ -2343,7 +2343,7 @@ export default function PosePage() {
                       type="button"
                       onClick={retryPosePlan}
                       disabled={isPlanningPose || !mainImage}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
                         posePlanMode === "ai"
                           ? "bg-white dark:bg-white/5 text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
                           : "text-slate-500 dark:text-stone-400 hover:text-slate-900 dark:text-stone-100"
@@ -2353,7 +2353,7 @@ export default function PosePage() {
                       {t("plan.smartOptimize")}
                     </button>
                   </div>
-                  <span className="rounded-full bg-white/85 dark:bg-white/5 px-2.5 py-1 text-[11px] font-black text-slate-500 dark:text-stone-400 ring-1 ring-slate-200/80">
+                  <span className="rounded-full bg-white/85 dark:bg-white/5 px-2.5 py-1 text-[12px] font-black text-slate-500 dark:text-stone-400 ring-1 ring-slate-200/80">
                     {activePosePlan ? t("plan.countPoses", { count: activePosePlan.slots.length }) : t("plan.pending")}
                   </span>
                 </div>
@@ -2377,7 +2377,7 @@ export default function PosePage() {
                           }`}
                         >
                           <div className="flex items-start gap-3 px-3.5 py-3.5">
-                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-black ${
                               editing
                                 ? "bg-blue-600 text-white shadow-[0_8px_16px_rgba(37,99,235,0.18)]"
                                 : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400 ring-1 ring-slate-200/70 group-hover:bg-white dark:bg-white/5 group-hover:text-slate-700 dark:text-stone-300"
@@ -2386,7 +2386,7 @@ export default function PosePage() {
                             </span>
                             <div className="min-w-0 flex-1">
                               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                                <span className="text-[11px] font-black text-slate-500 dark:text-stone-400">
+                                <span className="text-[12px] font-black text-slate-500 dark:text-stone-400">
                                   {t("plan.poseIndex", { index: index + 1 })}
                                 </span>
                                 {slot?.angle ? (
@@ -2398,11 +2398,11 @@ export default function PosePage() {
                                   {slot?.poseName || item.title}
                                 </span>
                               </div>
-                              <p className="mt-1 line-clamp-2 text-[11px] leading-[1.65] text-slate-500 dark:text-stone-400" title={item.detail}>
+                              <p className="mt-1 line-clamp-2 text-[12px] leading-[1.65] text-slate-500 dark:text-stone-400" title={item.detail}>
                                 {item.detail || slot?.bodyAction || t("plan.planReady")}
                               </p>
                               {slot?.headDirection && !suppressPoseFaceControls ? (
-                                <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500" title={slot.headDirection}>
+                                <p className="mt-1 line-clamp-1 text-[12px] leading-relaxed text-slate-400 dark:text-stone-500" title={slot.headDirection}>
                                   {t("plan.expressionGaze", { text: slot.headDirection })}
                                 </p>
                               ) : null}
@@ -2413,7 +2413,7 @@ export default function PosePage() {
                                 setSelectedPosePlanSlotIndex(index);
                                 setShowPosePlanEditor((current) => !(current && index === selectedPosePlanSlotIndex));
                               }}
-                              className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-black transition ${
+                              className={`shrink-0 rounded-full border px-3 py-1 text-[12px] font-black transition ${
                                 editing
                                   ? "border-blue-600 bg-blue-600 text-white shadow-[0_8px_16px_rgba(37,99,235,0.16)]"
                                   : "border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 text-slate-600 dark:text-stone-300 hover:border-blue-200 dark:hover:border-blue-400/40 hover:bg-blue-50 hover:text-blue-700"
@@ -2427,7 +2427,7 @@ export default function PosePage() {
                             <div className="border-t border-blue-100 dark:border-blue-400/30/80 px-3.5 pb-3.5 pt-3">
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="block">
-                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700 dark:text-stone-300">
+                                  <span className="mb-1.5 block text-[12px] font-black text-slate-700 dark:text-stone-300">
                                     {selectedPosePlanSlot.angle ? t("plan.actionTemplateFor", { angle: t(`planAngle.${selectedPosePlanSlot.angle}`) }) : t("plan.actionTemplate")}
                                   </span>
                                   <select
@@ -2443,7 +2443,7 @@ export default function PosePage() {
                                 </label>
 
                                 <label className="block">
-                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700 dark:text-stone-300">{t("plan.expressionGazeLabel")}</span>
+                                  <span className="mb-1.5 block text-[12px] font-black text-slate-700 dark:text-stone-300">{t("plan.expressionGazeLabel")}</span>
                                   <select
                                     value={selectedExpressionPresetId}
                                     onChange={(event) => applyPoseExpressionPreset(selectedPosePlanSlotIndex, event.target.value)}
@@ -2460,14 +2460,14 @@ export default function PosePage() {
 
                               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                                 <div className="rounded-xl bg-white dark:bg-white/5 px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
-                                  <p className="text-[10px] font-black text-slate-400 dark:text-stone-500">{t("plan.actionDesc")}</p>
-                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600 dark:text-stone-300">
+                                  <p className="text-[11px] font-black text-slate-400 dark:text-stone-500">{t("plan.actionDesc")}</p>
+                                  <p className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-slate-600 dark:text-stone-300">
                                     {selectedActionPreset?.bodyAction || selectedPosePlanSlot.bodyAction || selectedPosePlanSlot.poseName}
                                   </p>
                                 </div>
                                 <div className="rounded-xl bg-white dark:bg-white/5 px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
-                                  <p className="text-[10px] font-black text-slate-400 dark:text-stone-500">{t("plan.expressionDesc")}</p>
-                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600 dark:text-stone-300">
+                                  <p className="text-[11px] font-black text-slate-400 dark:text-stone-500">{t("plan.expressionDesc")}</p>
+                                  <p className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-slate-600 dark:text-stone-300">
                                     {suppressPoseFaceControls
                                       ? t("plan.faceAutoDisabled")
                                       : selectedExpressionPreset?.text || selectedPosePlanSlot.headDirection || t("plan.naturalExpression")}
@@ -2476,10 +2476,10 @@ export default function PosePage() {
                               </div>
 
                               <details className="mt-3 rounded-xl border border-slate-200 dark:border-white/10/90 bg-white dark:bg-white/5 px-3 py-2 shadow-sm">
-                                <summary className="cursor-pointer text-[11px] font-bold text-slate-500 dark:text-stone-400 transition-colors hover:text-blue-700">{t("plan.advancedTuning")}</summary>
+                                <summary className="cursor-pointer text-[12px] font-bold text-slate-500 dark:text-stone-400 transition-colors hover:text-blue-700">{t("plan.advancedTuning")}</summary>
                                 <div className="mt-3 grid gap-3">
                                   <div>
-                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">{t("plan.actionDetail")}</label>
+                                    <label className="mb-1 block text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("plan.actionDetail")}</label>
                                     <StudioPromptTextarea
                                       value={selectedPosePlanSlot.bodyAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "bodyAction", event.target.value)}
@@ -2489,7 +2489,7 @@ export default function PosePage() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">{t("plan.handAction")}</label>
+                                    <label className="mb-1 block text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("plan.handAction")}</label>
                                     <StudioPromptTextarea
                                       value={selectedPosePlanSlot.handAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "handAction", event.target.value)}
@@ -2500,7 +2500,7 @@ export default function PosePage() {
                                   </div>
                                   {!suppressPoseFaceControls && (
                                     <div>
-                                      <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">{t("plan.expressionDetail")}</label>
+                                      <label className="mb-1 block text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("plan.expressionDetail")}</label>
                                       <StudioPromptTextarea
                                         value={selectedPosePlanSlot.headDirection || ""}
                                         onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "headDirection", event.target.value)}
@@ -2511,7 +2511,7 @@ export default function PosePage() {
                                     </div>
                                   )}
                                   <div>
-                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">{t("plan.cameraFraming")}</label>
+                                    <label className="mb-1 block text-[11px] font-bold text-slate-500 dark:text-stone-400">{t("plan.cameraFraming")}</label>
                                     <StudioPromptTextarea
                                       value={selectedPosePlanSlot.cameraFraming || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "cameraFraming", event.target.value)}

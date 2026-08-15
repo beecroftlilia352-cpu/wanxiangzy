@@ -259,7 +259,7 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
 
         <div className="home-marketing-actions flex shrink-0 items-center gap-3 text-[14px] font-semibold leading-none">
           <LanguageSwitcher />
-          <ThemeToggle className="h-9 w-9" />
+          <ThemeToggle className="h-10 w-10" />
           <MarketingAccountActions {...account} />
           <Link href="/create" className="home-trial-pill hidden h-10 items-center gap-1.5 rounded-full px-5 transition sm:inline-flex">
             {t("accountMenu.workspace")}
@@ -409,7 +409,7 @@ function AppHeader({ pathname }: { pathname: string }) {
             <MobileModuleMenu activeModule={activeModule} />
           </div>
           <LanguageSwitcher />
-          <ThemeToggle className="h-9 w-9" />
+          <ThemeToggle className="h-10 w-10" />
           <UserCreditActions
             authReady={authReady}
             creditsReady={creditsReady}

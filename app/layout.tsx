@@ -116,9 +116,11 @@ export default async function RootLayout({
 
   const htmlLang = locale === "zh" ? "zh-CN" : locale === "zh-TW" ? "zh-TW" : locale;
   const dir = locale === "ar" ? "rtl" : "ltr";
+  // 拉丁字母语种：板块标题启用 Syne 展示字体（CJK/阿拉伯/西里尔等保持系统字体，避免混排违和）
+  const latinScript = /^(en|fr|de|es|pt|it|id|vi|tr)$/.test(locale);
 
   return (
-    <html lang={htmlLang} dir={dir} className={cn("font-sans", geist.variable, syne.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
+    <html lang={htmlLang} dir={dir} className={cn("font-sans", latinScript && "font-display-latin", geist.variable, syne.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
       <head>
         {/* P1.1 dark-mode bootstrap — runs before paint to avoid FOUC. */}
         <script

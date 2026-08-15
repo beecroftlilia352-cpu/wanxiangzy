@@ -85,7 +85,7 @@ export function StudioRulesPopover({
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
           <div>
             {shortTitle ? (
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">{shortTitle}</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">{shortTitle}</p>
             ) : null}
             <h3 className={`${shortTitle ? "mt-1 " : ""}text-base font-bold text-slate-950 dark:text-stone-100`}>{title}</h3>
             {specText ? <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{specText}</p> : null}
@@ -100,7 +100,7 @@ export function StudioRulesPopover({
               <X className="h-4 w-4" />
             </button>
           ) : hoverPreviewLabel ? (
-            <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">{hoverPreviewLabel}</span>
+            <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[12px] font-medium text-[var(--codex-accent)]">{hoverPreviewLabel}</span>
           ) : null}
         </div>
 
@@ -122,12 +122,12 @@ export function StudioRulesPopover({
                 </div>
                 <p className="mt-2 line-clamp-1 text-xs font-medium text-slate-700 dark:text-stone-300">{demo.title}</p>
                 {demo.description ? (
-                  <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-400 dark:text-stone-500">{demo.description}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-400 dark:text-stone-500">{demo.description}</p>
                 ) : null}
                 <button
                   type="button"
                   onClick={demo.onApply}
-                  className="mt-auto w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)]"
+                  className="mt-auto w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[12px] font-medium text-slate-600 dark:text-stone-300 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)]"
                 >
                   {tryItLabel}
                 </button>

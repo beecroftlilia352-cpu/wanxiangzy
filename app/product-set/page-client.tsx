@@ -1490,7 +1490,7 @@ export default function ProductSetPage() {
                 <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("productImages.title")}</h3>
                 <p className="mt-1 text-xs text-slate-400">{t("productImages.help")}</p>
               </div>
-              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-[10px] font-bold text-[var(--codex-accent)]">{productImages.length}/3</span>
+              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-[11px] font-bold text-[var(--codex-accent)]">{productImages.length}/3</span>
             </div>
             <input
               ref={productInputRef}
@@ -1536,7 +1536,7 @@ export default function ProductSetPage() {
                 {productImages.map((item, index) => (
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
                     <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
-                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">{t("productImages.imageLabel", { index: index + 1 })}</span>
+                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">{t("productImages.imageLabel", { index: index + 1 })}</span>
                     <button type="button" aria-label={`${t("productImages.remove")}${item.name}`} onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 touch-manipulation items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2">
                       <X aria-hidden="true" className="h-3 w-3" />
                     </button>
@@ -1589,7 +1589,7 @@ export default function ProductSetPage() {
                   placeholder={t("analysisSection.placeholder")}
                   className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 transition-colors focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:focus-visible:bg-white/10"
                 />
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                <div className="mt-2 flex items-center justify-between text-[12px] text-slate-400">
                   <span>{productInfo ? t("analysisSection.keepTemplateHint") : t("analysisSection.optionalHint")}</span>
                   <span>{productInfo.length} / 2000</span>
                 </div>
@@ -1675,7 +1675,7 @@ export default function ProductSetPage() {
                     }`}
                   >
                     <span className="block truncate text-xs font-black">{tab.labelKey ? t(tab.labelKey) : tab.label}</span>
-                    <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{tab.descKey ? t(tab.descKey) : tab.desc}</span>
+                    <span className="mt-0.5 block truncate text-[11px] font-bold opacity-70">{tab.descKey ? t(tab.descKey) : tab.desc}</span>
                   </button>
                 );
               })}
@@ -1705,7 +1705,7 @@ export default function ProductSetPage() {
                         }`}
                       >
                         <span className="block truncate text-xs font-black">{tab.value === "preset" ? t("planSource.presetRef") : tab.value === "upload" ? t("planSource.uploadRef") : t("planSource.favorites")}</span>
-                        <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{t(tab.descriptionKey)}</span>
+                        <span className="mt-0.5 block truncate text-[11px] font-bold opacity-70">{t(tab.descriptionKey)}</span>
                       </button>
                     );
                   })}
@@ -1727,9 +1727,9 @@ export default function ProductSetPage() {
                       >
                         <span className="flex min-h-5 items-center justify-between gap-2">
                           <span className="min-w-0 truncate text-xs font-black">{plan.name}</span>
-                          {plan.scenario === "womenswear" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600 dark:bg-white/10 dark:text-stone-300">{t("preset.womenswear")}</span>}
+                          {plan.scenario === "womenswear" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-black text-slate-600 dark:bg-white/10 dark:text-stone-300">{t("preset.womenswear")}</span>}
                         </span>
-                        <span className="mt-1 block line-clamp-2 text-[11px] leading-4 opacity-75">{plan.description}</span>
+                        <span className="mt-1 block line-clamp-2 text-[12px] leading-4 opacity-75">{plan.description}</span>
                       </button>
                     ))}
                     {referenceStyleBrief && (
@@ -1737,7 +1737,7 @@ export default function ProductSetPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-xs font-black text-[var(--codex-accent)]">{t("preset.selectedStyle")}</p>
-                            <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--codex-accent)]">{referenceStyleBrief.replace(/[#*_`\[\]-]/g, " ").replace(/\s+/g, " ").trim()}</p>
+                            <p className="mt-1 line-clamp-2 text-[12px] leading-4 text-[var(--codex-accent)]">{referenceStyleBrief.replace(/[#*_`\[\]-]/g, " ").replace(/\s+/g, " ").trim()}</p>
                           </div>
                           <button
                             type="button"
@@ -1745,12 +1745,12 @@ export default function ProductSetPage() {
                               setReferenceStyleDraft(referenceStyleBrief);
                               setShowReferenceStyleModal(true);
                             }}
-                            className="h-8 shrink-0 touch-manipulation rounded-full bg-white px-3 text-[11px] font-black text-[var(--codex-accent)] shadow-sm transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-white/10"
+                            className="h-8 shrink-0 touch-manipulation rounded-full bg-white px-3 text-[12px] font-black text-[var(--codex-accent)] shadow-sm transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-white/10"
                           >
                             {t("common.edit")}
                           </button>
                         </div>
-                        <p className="mt-2 text-[11px] leading-4 text-[var(--codex-accent)]">{t("preset.styleNote")}</p>
+                        <p className="mt-2 text-[12px] leading-4 text-[var(--codex-accent)]">{t("preset.styleNote")}</p>
                       </div>
                     )}
                   </div>
@@ -1878,17 +1878,17 @@ export default function ProductSetPage() {
             {outputCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{cost} {t("common.lingpoints")}</span>}
           </button>
           {requiresProductConfirmation && (
-            <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
+            <p className="mt-2 text-center text-[12px] font-bold text-amber-600">
               {t("run.requiresConfirmation")}
             </p>
           )}
           {mode === "custom" && outputCount <= 0 && (
-            <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
+            <p className="mt-2 text-center text-[12px] font-bold text-amber-600">
               {t("run.selectReferenceInMode")}
             </p>
           )}
           {detailsResolutionWarning && !requiresProductConfirmation && (
-            <p className="mt-2 text-center text-[11px] font-bold text-[var(--codex-accent)]">
+            <p className="mt-2 text-center text-[12px] font-bold text-[var(--codex-accent)]">
               {t("run.detailsResolutionWarning")}
             </p>
           )}

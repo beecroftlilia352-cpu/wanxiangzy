@@ -742,9 +742,9 @@ export default function ModelBackgroundPage() {
             <section>
               <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
                 <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> {t("modelReference")} <span className="text-purple-400 font-normal text-xs">· {t("required")}</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[10px]">{t("pleaseSelect")}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[11px]">{t("pleaseSelect")}</span>
               </h3>
-              <p className="text-[11px] text-gray-400 mb-3">
+              <p className="text-[12px] text-gray-400 mb-3">
                 {mode === "model_only" ? t("modelOnlyDesc") : t("modelBackgroundDesc")}
               </p>
               <input
@@ -776,7 +776,7 @@ export default function ModelBackgroundPage() {
                       className="block w-full"
                     >
                       <RawPreviewImage src={model.imageUrl} alt={model.name} className="aspect-square w-full object-cover" />
-                      <div className="p-1 text-center"><span className="text-[10px] font-medium">{model.name}</span></div>
+                      <div className="p-1 text-center"><span className="text-[11px] font-medium">{model.name}</span></div>
                     </button>
                     <button
                       type="button"
@@ -793,7 +793,7 @@ export default function ModelBackgroundPage() {
                   <button type="button" onClick={() => modelInputRef.current?.click()} className="flex aspect-square w-full flex-col items-center justify-center">
                     {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl)
                       ? <RawPreviewImage src={modelReferenceUrl} alt={modelReferenceName || t("customModel")} className="h-full w-full rounded-lg object-contain p-1" />
-                      : <><Camera className="w-5 h-5 text-gray-300" /><span className="mt-1 text-[10px] text-gray-400">{t("clickToUpload")}</span></>
+                      : <><Camera className="w-5 h-5 text-gray-300" /><span className="mt-1 text-[11px] text-gray-400">{t("clickToUpload")}</span></>
                     }
                   </button>
                   {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? (
@@ -816,7 +816,7 @@ export default function ModelBackgroundPage() {
               <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100">
                 <Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("referenceScene")}
               </h3>
-              <p className="mb-3 text-[11px] text-slate-400">{t("referenceSceneHint")}</p>
+              <p className="mb-3 text-[12px] text-slate-400">{t("referenceSceneHint")}</p>
               <div className="mb-3">
                 <StudioOptionGrid
                   options={BACKGROUND_SOURCE_OPTIONS.map((item) => ({
@@ -853,7 +853,7 @@ export default function ModelBackgroundPage() {
               />
               {backgroundSource === "preset" ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-white/55 p-3">
-                  <p className="mb-3 text-[11px] text-slate-500">{t("presetSelectHint")}</p>
+                  <p className="mb-3 text-[12px] text-slate-500">{t("presetSelectHint")}</p>
                   <div className="grid grid-cols-3 gap-2">
                     {BACKGROUND_PRESETS.map((item) => (
                       <div key={item.id} className={`group relative overflow-hidden rounded-xl border bg-white text-center shadow-sm transition-shadow ${backgroundPresetId === item.id ? "border-purple-500 ring-2 ring-purple-100" : "border-slate-100 hover:shadow-md"}`}>
@@ -869,7 +869,7 @@ export default function ModelBackgroundPage() {
                           <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
                             <RawPreviewImage src={item.imageUrl} alt={item.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                           </div>
-                          <p className="truncate px-1.5 py-1.5 text-[11px] font-bold text-slate-800">{item.name}</p>
+                          <p className="truncate px-1.5 py-1.5 text-[12px] font-bold text-slate-800">{item.name}</p>
                         </button>
                         <button
                           type="button"
@@ -912,7 +912,7 @@ export default function ModelBackgroundPage() {
                 <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder={t("backgroundTextPlaceholder")} />
                   <div className="flex flex-wrap gap-2">
                     {BACKGROUND_TEXT_PRESETS.map((preset) => (
-                      <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="inline-flex min-h-9 items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-600 transition-colors duration-150 hover:border-[rgba(91,124,255,0.45)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300">
+                      <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="inline-flex min-h-9 items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] text-slate-600 transition-colors duration-150 hover:border-[rgba(91,124,255,0.45)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300">
                         {preset}
                       </button>
                     ))}

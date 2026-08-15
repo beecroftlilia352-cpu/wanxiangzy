@@ -23,6 +23,13 @@
   font-weight: 700;
 }
 
+/* 拉丁语种：板块展示标题（h2）也走 Syne，强化品牌记忆点 */
+.font-display-latin .home-marketing-page h2 {
+  font-family: var(--codex-font-display);
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
 /* ---- 2. Iridescent 光效（hero 玻璃光斑） ---- */
 .artistry-hero-glow {
   pointer-events: none;

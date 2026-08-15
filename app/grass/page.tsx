@@ -644,7 +644,7 @@ export default function GrassPage() {
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="font-bold text-sm">{t("referenceSceneSection")}</h3>
-              <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-600">
+              <span className="rounded-full bg-purple-50 px-2 py-1 text-[11px] font-bold text-purple-600">
                 {sceneMode === "custom_prompt" ? t("promptPriority") : effectiveReferenceName}
               </span>
             </div>
@@ -677,7 +677,7 @@ export default function GrassPage() {
                         <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
                           <RawPreviewImage src={tpl.imageUrl} alt={tpl.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                         </div>
-                        <p className="truncate px-1.5 py-1.5 text-[11px] font-bold text-slate-800">{tpl.name}</p>
+                        <p className="truncate px-1.5 py-1.5 text-[12px] font-bold text-slate-800">{tpl.name}</p>
                       </button>
                       <button
                         type="button"
@@ -717,7 +717,7 @@ export default function GrassPage() {
                   <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
                     <RawPreviewImage src={uploadedReferenceUrl} alt={t("uploadedReferenceAlt")} className="h-full w-full object-contain p-2" />
                     <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
-                      <span className="truncate rounded-full bg-white dark:bg-white/10/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || t("uploadedReferenceBadge")}</span>
+                      <span className="truncate rounded-full bg-white dark:bg-white/10/90 px-2.5 py-1 text-[12px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || t("uploadedReferenceBadge")}</span>
                       <span className="flex gap-1">
                         <button
                           type="button"
@@ -751,7 +751,7 @@ export default function GrassPage() {
                       <Upload className="mb-3 h-7 w-7 text-violet-400" />
                     )}
                     <span className="text-sm font-semibold text-slate-800">{isUploadingReference ? t("uploadingDots") : t("uploadReferenceHint")}</span>
-                    <span className="mt-1 text-[11px] text-slate-400">{t("uploadReferenceSub")}</span>
+                    <span className="mt-1 text-[12px] text-slate-400">{t("uploadReferenceSub")}</span>
                   </button>
                 )}
               </div>
@@ -766,7 +766,7 @@ export default function GrassPage() {
                   className="studio-prompt-textarea-compact"
                 />
                 <div>
-                  <p className="mb-2 text-[11px] font-bold text-slate-500">{t("referencePromptsLabel")}</p>
+                  <p className="mb-2 text-[12px] font-bold text-slate-500">{t("referencePromptsLabel")}</p>
                   <div className="space-y-2">
                     {GRASS_PROMPT_REFERENCES.map((item) => (
                       <button
@@ -776,7 +776,7 @@ export default function GrassPage() {
                         className="w-full rounded-xl border border-slate-100 bg-white/80 px-3 py-2 text-left transition hover:bg-purple-50/40 hover:text-purple-700"
                       >
                         <p className="text-xs font-bold text-slate-800">{item.title}</p>
-                        <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.text}</p>
+                        <p className="mt-1 text-[12px] leading-4 text-slate-500">{item.text}</p>
                       </button>
                     ))}
                   </div>
@@ -801,9 +801,9 @@ export default function GrassPage() {
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold">{t("personControlTitle")}</h3>
-                <span className="text-[11px] text-slate-400">{t("personControlSub")}</span>
+                <span className="text-[12px] text-slate-400">{t("personControlSub")}</span>
               </div>
-              <p className="mb-3 text-[11px] leading-5 text-slate-500">
+              <p className="mb-3 text-[12px] leading-5 text-slate-500">
                 {t("personControlDesc")}
               </p>
               <StudioOptionGrid
@@ -823,9 +823,9 @@ export default function GrassPage() {
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold">{t("sceneControlTitle")}</h3>
-                <span className="text-[11px] text-slate-400">{t("sceneControlSub")}</span>
+                <span className="text-[12px] text-slate-400">{t("sceneControlSub")}</span>
               </div>
-              <p className="mb-3 text-[11px] leading-5 text-slate-500">
+              <p className="mb-3 text-[12px] leading-5 text-slate-500">
                 {t("sceneControlDesc")}
               </p>
               <StudioOptionGrid
