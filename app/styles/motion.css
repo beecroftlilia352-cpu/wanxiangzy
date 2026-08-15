@@ -91,9 +91,20 @@ button {
 
 /* ---- 6. Reduced motion：全部关闭 ---- */
 @media (prefers-reduced-motion: reduce) {
+  /* 全局兜底：所有动画/过渡瞬时完成（覆盖 studio.css/artistry.css 等
+     未逐一声明 reduce 分支的动画，元素保持最终可见状态，仅去掉运动过程） */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   ::view-transition-old(root),
   ::view-transition-new(root) {
-    animation: none;
+    animation: none !important;
   }
 
   .home-landing-hero .home-hero-frame > *,

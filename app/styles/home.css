@@ -90,11 +90,6 @@
   z-index: 6;
 }
 
-.home-landing-hero .home-hero-gradient {
-  z-index: 0;
-  opacity: 0.22;
-}
-
 .home-hero-video-bg {
   position: absolute;
   inset: 0;
@@ -132,152 +127,6 @@
   filter: blur(18px) saturate(1.08);
   mix-blend-mode: screen;
   animation: home-hero-video-light 8.5s ease-in-out infinite alternate;
-}
-
-.home-hero-gradient {
-  position: absolute;
-  inset: 0;
-  isolation: isolate;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 46% 28%, rgba(255, 255, 255, 0.96) 0 10%, transparent 35%),
-    linear-gradient(114deg, #f4f8ff 0%, #dce5ff 22%, #c2d5ff 44%, #b3b6ff 70%, #8b9cff 100%);
-  background-position: 50% 48%, 0% 50%;
-  background-size: 130% 130%, 230% 230%;
-  animation: home-mesh-flow 7.5s ease-in-out infinite alternate;
-}
-
-.home-hero-gradient-compact {
-  background:
-    radial-gradient(circle at 45% 34%, rgba(205, 225, 255, 0.48) 0 12%, transparent 42%),
-    linear-gradient(112deg, #0d45c8 0%, #6f8dff 42%, #4651bb 70%, #7e89ff 100%);
-}
-
-.home-hero-gradient::before {
-  content: "";
-  position: absolute;
-  inset: -28% -22%;
-  background:
-    linear-gradient(108deg, transparent 3%, rgba(255, 255, 255, 0.58) 24%, rgba(117, 174, 255, 0.26) 39%, transparent 58%),
-    linear-gradient(72deg, transparent 18%, rgba(95, 123, 255, 0.18) 42%, rgba(248, 252, 255, 0.52) 57%, transparent 79%),
-    conic-gradient(from 232deg at 45% 50%, rgba(42, 102, 255, 0.12), rgba(255, 255, 255, 0.34), rgba(94, 83, 255, 0.22), rgba(42, 102, 255, 0.12));
-  filter: blur(36px) saturate(1.1);
-  opacity: 0.82;
-  mix-blend-mode: soft-light;
-  transform: translate3d(-4%, -2%, 0) rotate(-7deg) scale(1.06);
-  animation: home-sheen-sweep 17s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-
-.home-hero-gradient::after {
-  content: none;
-}
-
-.home-hero-aurora,
-.home-hero-tide,
-.home-hero-sheen,
-.home-hero-current {
-  position: absolute;
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-
-.home-hero-aurora {
-  z-index: 1;
-  border-radius: 42% 58% 64% 36% / 34% 42% 58% 66%;
-  filter: blur(48px) saturate(1.16);
-  transform: translate3d(0, 0, 0);
-}
-
-.home-hero-aurora-blue {
-  left: -34%;
-  top: -18%;
-  width: 104vw;
-  height: 56%;
-  opacity: 0.42;
-  background:
-    radial-gradient(ellipse at 26% 54%, rgba(2, 54, 181, 0.86) 0 20%, transparent 54%),
-    radial-gradient(ellipse at 66% 42%, rgba(142, 205, 255, 0.58) 0 24%, transparent 58%),
-    linear-gradient(100deg, rgba(22, 103, 255, 0.78), rgba(222, 241, 255, 0.42) 52%, rgba(43, 78, 245, 0.26));
-  mix-blend-mode: soft-light;
-}
-
-.home-hero-aurora-violet {
-  right: -32%;
-  top: -10%;
-  width: 96vw;
-  height: 58%;
-  opacity: 0.54;
-  background:
-    radial-gradient(ellipse at 34% 44%, rgba(247, 251, 255, 0.46) 0 18%, transparent 52%),
-    radial-gradient(ellipse at 70% 50%, rgba(91, 72, 255, 0.84) 0 26%, transparent 62%),
-    linear-gradient(118deg, rgba(164, 211, 255, 0.28), rgba(101, 83, 255, 0.74), rgba(55, 104, 255, 0.32));
-  mix-blend-mode: soft-light;
-}
-
-.home-hero-aurora-ice {
-  left: 6%;
-  top: 4%;
-  width: 74vw;
-  height: 46%;
-  opacity: 0.62;
-  background:
-    radial-gradient(ellipse at 52% 46%, rgba(239, 248, 255, 0.94) 0 16%, rgba(169, 213, 255, 0.44) 32%, transparent 64%),
-    linear-gradient(94deg, transparent, rgba(255, 255, 255, 0.34), transparent);
-  mix-blend-mode: screen;
-}
-
-.home-hero-tide {
-  z-index: 2;
-  left: -26%;
-  right: -16%;
-  top: 40%;
-  bottom: -28%;
-  opacity: 0.62;
-  background:
-    radial-gradient(ellipse at 16% 64%, rgba(2, 40, 139, 0.96) 0 28%, rgba(12, 56, 153, 0.54) 46%, transparent 70%),
-    radial-gradient(ellipse at 80% 70%, rgba(61, 48, 177, 0.82) 0 26%, transparent 66%),
-    radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.18) 0 18%, transparent 55%),
-    linear-gradient(98deg, rgba(4, 28, 95, 0.92), rgba(37, 79, 176, 0.42), rgba(42, 38, 134, 0.72));
-  filter: blur(52px) saturate(1.08);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.08) 10%, rgba(0, 0, 0, 0.55) 30%, #000 52%, #000 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.08) 10%, rgba(0, 0, 0, 0.55) 30%, #000 52%, #000 100%);
-  mix-blend-mode: soft-light;
-}
-
-.home-hero-sheen {
-  z-index: 3;
-  inset: -22% -34%;
-  opacity: 0.68;
-  background:
-    linear-gradient(104deg, transparent 10%, rgba(255, 255, 255, 0.58) 29%, rgba(112, 181, 255, 0.3) 43%, transparent 66%),
-    linear-gradient(72deg, transparent 22%, rgba(41, 98, 255, 0.22) 46%, rgba(255, 255, 255, 0.36) 60%, transparent 78%);
-  filter: blur(30px);
-  mix-blend-mode: soft-light;
-}
-
-.home-hero-current {
-  z-index: 3;
-  inset: -14% -34%;
-  opacity: 0.68;
-  background:
-    linear-gradient(102deg, transparent 15%, rgba(62, 139, 255, 0.28) 33%, rgba(244, 250, 255, 0.48) 48%, rgba(89, 84, 255, 0.26) 62%, transparent 78%),
-    conic-gradient(from 190deg at 50% 54%, transparent 0deg, rgba(255, 255, 255, 0.36) 34deg, rgba(81, 156, 255, 0.26) 66deg, transparent 116deg, transparent 360deg);
-  filter: blur(32px) saturate(1.14);
-  mix-blend-mode: normal;
-}
-
-.home-hero-noise {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  opacity: 0.22;
-  background-image:
-    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 6px),
-    repeating-linear-gradient(14deg, rgba(4, 16, 42, 0.08) 0 1px, transparent 1px 9px);
-  background-size: 180px 180px, 220px 220px;
-  mix-blend-mode: soft-light;
-  animation: home-noise-drift 22s linear infinite;
 }
 
 .home-hero-cloud {
@@ -1163,51 +1012,12 @@
   }
 }
 
-@keyframes home-mesh-flow {
-  0% {
-    background-position: 0% 42%, 46% 44%;
-    filter: hue-rotate(0deg) saturate(1.04);
-  }
-  50% {
-    background-position: 72% 28%, 58% 54%;
-    filter: hue-rotate(-6deg) saturate(1.12);
-  }
-  100% {
-    background-position: 100% 64%, 38% 46%;
-    filter: hue-rotate(5deg) saturate(1.08);
-  }
-}
-
-@keyframes home-sheen-sweep {
-  0% {
-    transform: translate3d(-8%, -3%, 0) rotate(-8deg) scale(1.04);
-    opacity: 0.48;
-  }
-  48% {
-    transform: translate3d(4%, 2%, 0) rotate(3deg) scale(1.1);
-    opacity: 0.86;
-  }
-  100% {
-    transform: translate3d(10%, 4%, 0) rotate(8deg) scale(1.06);
-    opacity: 0.58;
-  }
-}
-
 @keyframes home-bottom-tide {
   from {
     background-position: 0 0, 0% 50%;
   }
   to {
     background-position: 0 0, 100% 50%;
-  }
-}
-
-@keyframes home-noise-drift {
-  from {
-    background-position: 0 0, 0 0;
-  }
-  to {
-    background-position: 180px 120px, -220px 180px;
   }
 }
 
@@ -1692,15 +1502,6 @@
   background: linear-gradient(180deg, transparent 0%, rgba(12, 12, 16, 0.8) 100%) !important;
 }
 
-/* 深色模式：soft-light 在暗底上几乎不可见，改 screen 提亮并保证动效可见 */
-.dark .home-hero-aurora,
-.dark .home-hero-tide,
-.dark .home-hero-sheen,
-.dark .home-hero-current {
-  mix-blend-mode: screen !important;
-  opacity: 0.75;
-}
-
 .dark .home-hero-video-scrim {
   background: linear-gradient(180deg, rgba(12, 12, 16, 0.18) 0%, rgba(12, 12, 16, 0.55) 100%) !important;
 }
@@ -1728,10 +1529,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dark .home-landing-hero::before { animation: none; }
-}
-
-.dark .home-hero-gradient {
-  background: linear-gradient(180deg, #1f2a44 0%, #11162a 54%, #0a0c14 78%, #050608 100%) !important;
 }
 
 .dark .home-shot-body {
