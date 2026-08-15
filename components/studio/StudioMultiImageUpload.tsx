@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CirclePlus, FolderOpen, Images, Loader2, Trash2, Upload, X, ZoomIn } from "lucide-react";
+import { ArrowLeft, ArrowRight, CirclePlus, FolderOpen, Images, Loader2, Trash2, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
@@ -158,11 +158,6 @@ export function StudioMultiImageUpload({
                         title={t("moveBackward")}
                       >
                         <ArrowRight className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {onPreview && (
-                      <button type="button" onClick={() => onPreview(url, index)} className="studio-icon-button" aria-label={t("previewItem", { prefix: resolvedItemLabelPrefix, index: index + 1 })} title={t("preview")}>
-                        <ZoomIn className="h-3.5 w-3.5" />
                       </button>
                     )}
                     <button type="button" onClick={() => onRemove(url, index)} disabled={disabled || loading} className="studio-icon-button studio-icon-button-danger" aria-label={t("removeItem", { label: `${resolvedItemLabelPrefix}${index + 1}` })} title={t("remove")}>
