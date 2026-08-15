@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "Perpustakaan Prompt",
     "promptSearchPlaceholder": "Cari berdasarkan judul",
     "promptCategory": "Kategori",
-    "promptTags": "Tag"
+    "promptTags": "Tag",
+    "modelBadge": {
+      "recommended": "Direkomendasikan",
+      "latest": "Terbaru",
+      "highQuality": "Poles kualitas tinggi",
+      "creditSaving": "Hemat poin",
+      "stable": "Default stabil"
+    },
+    "modelDesc": {
+      "max4k": "Hingga 4K"
+    },
+    "aspect": {
+      "auto": "Otomatis",
+      "portrait": "Potret",
+      "square": "Persegi",
+      "landscape": "Lanskap",
+      "phone": "Potret ponsel",
+      "wide": "Lebar"
+    },
+    "countLabel": "Jumlah generasi"
   },
   "Video": {
     "moduleFirstLastFrame": "Frame Awal-Akhir",

@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "Библиотека промптов",
     "promptSearchPlaceholder": "Поиск по названию",
     "promptCategory": "Категория",
-    "promptTags": "Теги"
+    "promptTags": "Теги",
+    "modelBadge": {
+      "recommended": "Рекомендуется",
+      "latest": "Новинка",
+      "highQuality": "Высококачественная ретушь",
+      "creditSaving": "Экономия кредитов",
+      "stable": "Стабильно по умолчанию"
+    },
+    "modelDesc": {
+      "max4k": "До 4K"
+    },
+    "aspect": {
+      "auto": "Авто",
+      "portrait": "Вертикальный",
+      "square": "Квадрат",
+      "landscape": "Горизонтальный",
+      "phone": "Мобильный портрет",
+      "wide": "Широкий экран"
+    },
+    "countLabel": "Количество генераций"
   },
   "Video": {
     "moduleFirstLastFrame": "Первый и последний кадр",

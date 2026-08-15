@@ -38,7 +38,9 @@ export async function downloadImagesAsZip(options: {
     const folder = zip.folder(filename) || zip;
     await Promise.all(
       validUrls.map(async (url, index) => {
-        const res = await fetch(url, { mode: "cors" });
+        // 走同源代理下载：绕开 OSS 跨域 CORS 限制，保证批量打包可靠
+        const proxyUrl = `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(`${index + 1}`)}&proxy=1`;
+        const res = await fetch(proxyUrl);
         if (!res.ok) throw new Error(`${ZIP_DOWNLOAD_SINGLE_FAILED_PREFIX} ${index + 1} ${ZIP_DOWNLOAD_SINGLE_FAILED_SUFFIX}`);
         const blob = await res.blob();
         const ext = inferImageExtension(url, blob.type);

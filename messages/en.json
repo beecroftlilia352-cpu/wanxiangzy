@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "Prompt Library",
     "promptSearchPlaceholder": "Search by title",
     "promptCategory": "Category",
-    "promptTags": "Tags"
+    "promptTags": "Tags",
+    "modelBadge": {
+      "recommended": "Recommended",
+      "latest": "Newest",
+      "highQuality": "High-quality polish",
+      "creditSaving": "Credit saver",
+      "stable": "Stable default"
+    },
+    "modelDesc": {
+      "max4k": "Up to 4K"
+    },
+    "aspect": {
+      "auto": "Auto",
+      "portrait": "Portrait",
+      "square": "Square",
+      "landscape": "Landscape",
+      "phone": "Mobile portrait",
+      "wide": "Widescreen"
+    },
+    "countLabel": "Generation count"
   },
   "Video": {
     "moduleFirstLastFrame": "First & Last Frame",

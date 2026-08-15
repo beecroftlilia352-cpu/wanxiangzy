@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "Thư viện prompt",
     "promptSearchPlaceholder": "Tìm theo tiêu đề",
     "promptCategory": "Danh mục",
-    "promptTags": "Thẻ"
+    "promptTags": "Thẻ",
+    "modelBadge": {
+      "recommended": "Được đề xuất",
+      "latest": "Mới nhất",
+      "highQuality": "Tinh chỉnh chất lượng cao",
+      "creditSaving": "Tiết kiệm điểm",
+      "stable": "Mặc định ổn định"
+    },
+    "modelDesc": {
+      "max4k": "Tối đa 4K"
+    },
+    "aspect": {
+      "auto": "Tự động",
+      "portrait": "Dọc",
+      "square": "Vuông",
+      "landscape": "Ngang",
+      "phone": "Dọc điện thoại",
+      "wide": "Màn hình rộng"
+    },
+    "countLabel": "Số lượng tạo"
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",

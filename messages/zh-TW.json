@@ -2967,7 +2967,26 @@
     "promptLibraryTitle": "提示詞庫",
     "promptSearchPlaceholder": "按標題查詢",
     "promptCategory": "分類",
-    "promptTags": "標籤"
+    "promptTags": "標籤",
+    "modelBadge": {
+      "recommended": "推薦",
+      "latest": "最新",
+      "highQuality": "高質精修",
+      "creditSaving": "省靈點",
+      "stable": "預設穩圖"
+    },
+    "modelDesc": {
+      "max4k": "最高4K"
+    },
+    "aspect": {
+      "auto": "智能",
+      "portrait": "直式",
+      "square": "方形",
+      "landscape": "橫式",
+      "phone": "手機直屏",
+      "wide": "寬屏"
+    },
+    "countLabel": "生成張數"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾幀",

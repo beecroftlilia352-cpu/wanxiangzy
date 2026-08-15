@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "İstem Kütüphanesi",
     "promptSearchPlaceholder": "Başlığa göre ara",
     "promptCategory": "Kategori",
-    "promptTags": "Etiketler"
+    "promptTags": "Etiketler",
+    "modelBadge": {
+      "recommended": "Önerilen",
+      "latest": "En yeni",
+      "highQuality": "Yüksek kalite rötuş",
+      "creditSaving": "Puan tasarrufu",
+      "stable": "Kararlı varsayılan"
+    },
+    "modelDesc": {
+      "max4k": "4K’ya kadar"
+    },
+    "aspect": {
+      "auto": "Otomatik",
+      "portrait": "Dikey",
+      "square": "Kare",
+      "landscape": "Yatay",
+      "phone": "Mobil dikey",
+      "wide": "Geniş ekran"
+    },
+    "countLabel": "Üretim sayısı"
   },
   "Video": {
     "moduleFirstLastFrame": "İlk ve Son Kare",

@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "Libreria prompt",
     "promptSearchPlaceholder": "Cerca per titolo",
     "promptCategory": "Categoria",
-    "promptTags": "Tag"
+    "promptTags": "Tag",
+    "modelBadge": {
+      "recommended": "Consigliato",
+      "latest": "Novità",
+      "highQuality": "Ritocco di alta qualità",
+      "creditSaving": "Risparmia crediti",
+      "stable": "Predefinito stabile"
+    },
+    "modelDesc": {
+      "max4k": "Fino a 4K"
+    },
+    "aspect": {
+      "auto": "Auto",
+      "portrait": "Verticale",
+      "square": "Quadrato",
+      "landscape": "Orizzontale",
+      "phone": "Verticale mobile",
+      "wide": "Widescreen"
+    },
+    "countLabel": "Numero di generazioni"
   },
   "Video": {
     "moduleFirstLastFrame": "Primo/ultimo fotogramma",

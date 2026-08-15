@@ -1106,7 +1106,26 @@
     "promptLibraryTitle": "Библиотека с промптове",
     "promptSearchPlaceholder": "Търсене по заглавие",
     "promptCategory": "Категория",
-    "promptTags": "Тагове"
+    "promptTags": "Тагове",
+    "modelBadge": {
+      "recommended": "Препоръчано",
+      "latest": "Най-ново",
+      "highQuality": "Висококачествена ретуш",
+      "creditSaving": "Икономия на кредити",
+      "stable": "Стабилно по подразбиране"
+    },
+    "modelDesc": {
+      "max4k": "До 4K"
+    },
+    "aspect": {
+      "auto": "Авто",
+      "portrait": "Портрет",
+      "square": "Квадрат",
+      "landscape": "Пейзаж",
+      "phone": "Мобилен портрет",
+      "wide": "Широк екран"
+    },
+    "countLabel": "Брой генерирания"
   },
   "ModelBackground": {
     "title": "Смяна на фон",

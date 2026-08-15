@@ -73,9 +73,9 @@ import {
 } from "@/lib/model-background";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "ModelBackground.models.desc.4k", badge: "推荐", badgeKey: "ModelBackground.models.badge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "ModelBackground.models.desc.4k", badge: "最新", badgeKey: "ModelBackground.models.badge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "ModelBackground.models.desc.4k", badge: "高质精修", badgeKey: "ModelBackground.models.badge.premium", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "推荐", badgeKey: "Shared.modelBadge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "最新", badgeKey: "Shared.modelBadge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "高质精修", badgeKey: "Shared.modelBadge.highQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type ModelBackgroundHistoryPayload = Extract<HistoryJobPayload, { kind: "modelBackground" }>;
@@ -88,12 +88,12 @@ type ModelBackgroundGenerateOptions = {
 };
 
 const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
-  { value: "auto", label: "智能", labelKey: "ModelBackground.aspects.auto" },
-  { value: "3:4", label: "3:4 竖版", labelKey: "ModelBackground.aspects.portrait34" },
+  { value: "auto", label: "智能", labelKey: "Shared.aspect.auto" },
+  { value: "3:4", label: "3:4 竖版", labelKey: "Shared.aspect.portrait" },
   { value: "4:5", label: "4:5 种草", labelKey: "ModelBackground.aspects.social45" },
-  { value: "1:1", label: "1:1 方图", labelKey: "ModelBackground.aspects.square11" },
-  { value: "9:16", label: "9:16 手机", labelKey: "ModelBackground.aspects.phone916" },
-  { value: "4:3", label: "4:3 横图", labelKey: "ModelBackground.aspects.landscape43" },
+  { value: "1:1", label: "1:1 方图", labelKey: "Shared.aspect.square" },
+  { value: "9:16", label: "9:16 手机", labelKey: "Shared.aspect.phone" },
+  { value: "4:3", label: "4:3 横图", labelKey: "Shared.aspect.landscape" },
 ];
 
 const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string; descKey?: string }[] = [

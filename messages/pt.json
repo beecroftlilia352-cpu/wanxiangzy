@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "Biblioteca de prompts",
     "promptSearchPlaceholder": "Pesquisar por título",
     "promptCategory": "Categoria",
-    "promptTags": "Tags"
+    "promptTags": "Tags",
+    "modelBadge": {
+      "recommended": "Recomendado",
+      "latest": "Mais recente",
+      "highQuality": "Retoque de alta qualidade",
+      "creditSaving": "Economiza créditos",
+      "stable": "Padrão estável"
+    },
+    "modelDesc": {
+      "max4k": "Até 4K"
+    },
+    "aspect": {
+      "auto": "Automático",
+      "portrait": "Retrato",
+      "square": "Quadrado",
+      "landscape": "Paisagem",
+      "phone": "Retrato móvel",
+      "wide": "Widescreen"
+    },
+    "countLabel": "Quantidade de gerações"
   },
   "Video": {
     "moduleFirstLastFrame": "Primeiro e último frame",

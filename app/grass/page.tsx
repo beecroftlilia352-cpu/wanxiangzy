@@ -54,9 +54,9 @@ import {
 } from "@/lib/result-slot-retry";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Grass.models.desc", badge: "推荐", badgeKey: "Grass.models.badgeRecommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Grass.models.desc", badge: "最新", badgeKey: "Grass.models.badgeLatest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Grass.models.desc", badge: "高质精修", badgeKey: "Grass.models.badgeHighQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "推荐", badgeKey: "Shared.modelBadge.recommended", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "最新", badgeKey: "Shared.modelBadge.latest", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "高质精修", badgeKey: "Shared.modelBadge.highQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type GrassHistoryPayload = Extract<HistoryJobPayload, { kind: "grass" }>;
@@ -68,12 +68,12 @@ type GrassGenerateOptions = {
 };
 
 const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
-  { value: "auto", label: "智能", labelKey: "Grass.aspects.auto" },
+  { value: "auto", label: "智能", labelKey: "Shared.aspect.auto" },
   { value: "4:5", label: "4:5 种草", labelKey: "Grass.aspects.plant" },
-  { value: "3:4", label: "3:4 竖版", labelKey: "Grass.aspects.portrait" },
-  { value: "1:1", label: "1:1 方图", labelKey: "Grass.aspects.square" },
-  { value: "9:16", label: "9:16 手机", labelKey: "Grass.aspects.phone" },
-  { value: "4:3", label: "4:3 横图", labelKey: "Grass.aspects.landscape" },
+  { value: "3:4", label: "3:4 竖版", labelKey: "Shared.aspect.portrait" },
+  { value: "1:1", label: "1:1 方图", labelKey: "Shared.aspect.square" },
+  { value: "9:16", label: "9:16 手机", labelKey: "Shared.aspect.phone" },
+  { value: "4:3", label: "4:3 横图", labelKey: "Shared.aspect.landscape" },
 ];
 
 const GRASS_PREVIEW_ACTIONS: ImagePreviewAction[] = [

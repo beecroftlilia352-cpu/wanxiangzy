@@ -108,7 +108,7 @@ function inferExt(url: string): string {
 
 export async function downloadMedia(url: string, filename: string) {
   const downloadUrl = url.startsWith("http")
-    ? `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+    ? `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}&proxy=1`
     : url;
 
   try {

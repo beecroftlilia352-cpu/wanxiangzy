@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "프롬프트 라이브러리",
     "promptSearchPlaceholder": "제목으로 검색",
     "promptCategory": "카테고리",
-    "promptTags": "태그"
+    "promptTags": "태그",
+    "modelBadge": {
+      "recommended": "추천",
+      "latest": "최신",
+      "highQuality": "고품질 보정",
+      "creditSaving": "포인트 절약",
+      "stable": "안정 기본값"
+    },
+    "modelDesc": {
+      "max4k": "최대 4K"
+    },
+    "aspect": {
+      "auto": "자동",
+      "portrait": "세로형",
+      "square": "정사각형",
+      "landscape": "가로형",
+      "phone": "모바일 세로",
+      "wide": "와이드"
+    },
+    "countLabel": "생성 매수"
   },
   "Video": {
     "moduleFirstLastFrame": "첫/끝 프레임",

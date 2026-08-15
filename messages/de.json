@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "Prompt-Bibliothek",
     "promptSearchPlaceholder": "Nach Titel suchen",
     "promptCategory": "Kategorie",
-    "promptTags": "Tags"
+    "promptTags": "Tags",
+    "modelBadge": {
+      "recommended": "Empfohlen",
+      "latest": "Neueste",
+      "highQuality": "Hochwertige Politur",
+      "creditSaving": "Credits sparen",
+      "stable": "Stabile Voreinstellung"
+    },
+    "modelDesc": {
+      "max4k": "Bis zu 4K"
+    },
+    "aspect": {
+      "auto": "Auto",
+      "portrait": "Hochformat",
+      "square": "Quadrat",
+      "landscape": "Querformat",
+      "phone": "Mobiles Hochformat",
+      "wide": "Breitbild"
+    },
+    "countLabel": "Anzahl Generierungen"
   },
   "Video": {
     "actionTemplateSection": "Bewegungsvorlage",

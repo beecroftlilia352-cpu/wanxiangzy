@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "مكتبة التلميحات",
     "promptSearchPlaceholder": "البحث حسب العنوان",
     "promptCategory": "التصنيف",
-    "promptTags": "الوسوم"
+    "promptTags": "الوسوم",
+    "modelBadge": {
+      "recommended": "موصى به",
+      "latest": "الأحدث",
+      "highQuality": "تحسين عالي الجودة",
+      "creditSaving": "توفير النقاط",
+      "stable": "افتراضي مستقر"
+    },
+    "modelDesc": {
+      "max4k": "حتى 4K"
+    },
+    "aspect": {
+      "auto": "تلقائي",
+      "portrait": "عمودي",
+      "square": "مربع",
+      "landscape": "أفقي",
+      "phone": "عمودي للجوال",
+      "wide": "شاشة عريضة"
+    },
+    "countLabel": "عدد الأجيال"
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",

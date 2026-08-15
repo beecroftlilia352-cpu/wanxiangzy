@@ -1106,7 +1106,26 @@
     "promptLibraryTitle": "คลังพรอมต์",
     "promptSearchPlaceholder": "ค้นหาตามชื่อ",
     "promptCategory": "หมวดหมู่",
-    "promptTags": "แท็ก"
+    "promptTags": "แท็ก",
+    "modelBadge": {
+      "recommended": "แนะนำ",
+      "latest": "ใหม่ล่าสุด",
+      "highQuality": "ขัดเกลาคุณภาพสูง",
+      "creditSaving": "ประหยัดแต้ม",
+      "stable": "ค่าเริ่มต้นเสถียร"
+    },
+    "modelDesc": {
+      "max4k": "สูงสุด 4K"
+    },
+    "aspect": {
+      "auto": "อัตโนมัติ",
+      "portrait": "แนวตั้ง",
+      "square": "สี่เหลี่ยม",
+      "landscape": "แนวนอน",
+      "phone": "แนวตั้งมือถือ",
+      "wide": "จอกว้าง"
+    },
+    "countLabel": "จำนวนการสร้าง"
   },
   "ModelBackground": {
     "title": "เปลี่ยนพื้นหลัง",

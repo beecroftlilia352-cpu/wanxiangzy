@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "提示词库",
     "promptSearchPlaceholder": "按标题查询",
     "promptCategory": "分类",
-    "promptTags": "标签"
+    "promptTags": "标签",
+    "modelBadge": {
+      "recommended": "推荐",
+      "latest": "最新",
+      "highQuality": "高质精修",
+      "creditSaving": "省灵点",
+      "stable": "默认稳图"
+    },
+    "modelDesc": {
+      "max4k": "最高4K"
+    },
+    "aspect": {
+      "auto": "智能",
+      "portrait": "竖版",
+      "square": "方形",
+      "landscape": "横版",
+      "phone": "手机竖屏",
+      "wide": "宽屏"
+    },
+    "countLabel": "生成张数"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾帧",

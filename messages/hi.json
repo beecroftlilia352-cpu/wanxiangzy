@@ -3662,7 +3662,26 @@
     "promptLibraryTitle": "प्रॉम्प्ट लाइब्रेरी",
     "promptSearchPlaceholder": "टाइटल से खोजें",
     "promptCategory": "कैटेगरी",
-    "promptTags": "टैग"
+    "promptTags": "टैग",
+    "modelBadge": {
+      "recommended": "अनुशंसित",
+      "latest": "नवीनतम",
+      "highQuality": "उच्च गुणवत्ता परिष्करण",
+      "creditSaving": "क्रेडिट की बचत",
+      "stable": "स्थिर डिफ़ॉल्ट"
+    },
+    "modelDesc": {
+      "max4k": "4K तक"
+    },
+    "aspect": {
+      "auto": "स्वचालित",
+      "portrait": "पोर्ट्रेट",
+      "square": "वर्गाकार",
+      "landscape": "लैंडस्केप",
+      "phone": "मोबाइल पोर्ट्रेट",
+      "wide": "वाइडस्क्रीन"
+    },
+    "countLabel": "जनरेशन संख्या"
   },
   "Video": {
     "moduleFirstLastFrame": "फर्स्ट और लास्ट फ्रेम",
