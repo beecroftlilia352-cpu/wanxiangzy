@@ -43,7 +43,11 @@ start_app() {
 
   # 应用 engines 要求 node >=22 <23；pm2 在 22 的 shell 中启动进程，
   # 否则 node 23 下 Web Streams 内部 API 不兼容导致运行时崩溃。
+  # pm2 默认解释器是它自身安装时的 node（可能仍是 23），必须显式指定 22。
   ensure_node_version
+  local node_bin
+  node_bin="$(command -v node)"
+  echo "pm2 interpreter: $node_bin ($(node -v))"
 
   for proc in "$APP_NAME" "${APP_NAME}-worker"; do
     if pm2 describe "$proc" >/dev/null 2>&1; then
@@ -52,7 +56,7 @@ start_app() {
   done
 
   cd "$app_dir"
-  pm2 start npm --name "$APP_NAME" -- start
+  pm2 start npm --name "$APP_NAME" --interpreter "$node_bin" -- start
 
   # 异步任务 worker (PM2 托管, 调用 npm run worker -> tsx scripts/worker.ts).
   # 通过 WORKER_ENABLED 开关；默认开启。HTTP 路由 /api/jobs/process-generations
@@ -64,6 +68,7 @@ start_app() {
     pm2 start npm \
       --name "${APP_NAME}-worker" \
       --cwd "$app_dir" \
+      --interpreter "$node_bin" \
       --max-memory-restart 1500M \
       --time \
       -- run worker
