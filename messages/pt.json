@@ -1041,7 +1041,9 @@
       "submitting": "Enviando…",
       "generateCount": "Gerar {count}",
       "refCount": "{count} referências",
-      "detailCount": "{count} detalhes"
+      "detailCount": "{count} detalhes",
+      "estimateReady": "Aprox. 1-2 min para {count} imagens",
+      "estimateGenerating": "Gerando, aguarde…"
     },
     "guide": {
       "title": "Apenas uma imagem de peça para gerar fotos com modelo",

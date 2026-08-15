@@ -3558,7 +3558,9 @@
       "submitting": "กำลังส่ง…",
       "generateCount": "สร้าง {count} ภาพ",
       "refCount": "{count} ภาพอ้างอิง",
-      "detailCount": "{count} ภาพรายละเอียด"
+      "detailCount": "{count} ภาพรายละเอียด",
+      "estimateReady": "ประมาณ 1-2 นาที สำหรับ {count} ภาพ",
+      "estimateGenerating": "กำลังสร้าง กรุณารอสักครู่…"
     },
     "guide": {
       "title": "มีแค่ภาพเสื้อผ้า ก็สร้างภาพถ่ายเชิงพาณิชย์ของโมเดลได้",

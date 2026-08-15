@@ -1041,7 +1041,9 @@
       "submitting": "Submitting…",
       "generateCount": "Generate {count}",
       "refCount": "{count} references",
-      "detailCount": "{count} details"
+      "detailCount": "{count} details",
+      "estimateReady": "About 1-2 min for {count} images",
+      "estimateGenerating": "Generating, please wait…"
     },
     "guide": {
       "title": "Only a garment image to generate model shots",

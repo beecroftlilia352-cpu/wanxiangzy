@@ -1041,7 +1041,9 @@
       "submitting": "Enviando…",
       "generateCount": "Generar {count}",
       "refCount": "{count} referencias",
-      "detailCount": "{count} detalles"
+      "detailCount": "{count} detalles",
+      "estimateReady": "Aprox. 1-2 min para {count} imágenes",
+      "estimateGenerating": "Generando, espera…"
     },
     "guide": {
       "title": "Solo una imagen de prenda para generar sesiones con modelo",

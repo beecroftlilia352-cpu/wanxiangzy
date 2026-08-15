@@ -3,6 +3,8 @@ import { useId, type ReactNode } from "react";
 
 export type StudioRunBarProps = {
   summary: ReactNode;
+  /** 耗时预估提示（如 "预计 1-2 分钟"），显示在 summary 右侧 */
+  estimateLabel?: ReactNode;
   costLabel?: ReactNode;
   disabled?: boolean;
   disabledReason?: string;
@@ -14,6 +16,7 @@ export type StudioRunBarProps = {
 
 export function StudioRunBar({
   summary,
+  estimateLabel,
   costLabel,
   disabled,
   disabledReason,
@@ -28,7 +31,10 @@ export function StudioRunBar({
   return (
     <div className="studio-runbar studio-runbar-v2" aria-busy={isLoading || undefined}>
       <div className="flex min-w-0 items-start justify-between gap-3 text-xs">
-        <div className="min-w-0 text-slate-500">{summary}</div>
+        <div className="min-w-0 space-y-0.5">
+          <div className="text-slate-500">{summary}</div>
+          {estimateLabel && <div className="text-slate-400">{estimateLabel}</div>}
+        </div>
         {costLabel && <div className="shrink-0 text-right font-black text-amber-600">{costLabel}</div>}
       </div>
       {showDisabledReason && (

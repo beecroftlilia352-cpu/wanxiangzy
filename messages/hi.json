@@ -1041,7 +1041,9 @@
       "submitting": "सबमिट हो रहा है…",
       "generateCount": "{count} जेनरेट करें",
       "refCount": "{count} रेफ़रेंस",
-      "detailCount": "{count} डिटेल"
+      "detailCount": "{count} डिटेल",
+      "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
+      "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
     },
     "guide": {
       "title": "मॉडल शॉट बनाने के लिए केवल एक गारमेंट इमेज",

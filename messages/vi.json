@@ -1041,7 +1041,9 @@
       "submitting": "Đang gửi…",
       "generateCount": "Tạo {count} ảnh",
       "refCount": "{count} ảnh tham chiếu",
-      "detailCount": "{count} ảnh chi tiết"
+      "detailCount": "{count} ảnh chi tiết",
+      "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
+      "estimateGenerating": "Đang tạo, vui lòng chờ…"
     },
     "guide": {
       "title": "Chỉ cần ảnh trang phục, tạo ảnh chụp thương mại người mẫu",

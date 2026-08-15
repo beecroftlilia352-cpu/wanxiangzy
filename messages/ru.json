@@ -1041,7 +1041,9 @@
       "submitting": "Отправка…",
       "generateCount": "Генерировать {count}",
       "refCount": "{count} референсов",
-      "detailCount": "{count} деталей"
+      "detailCount": "{count} деталей",
+      "estimateReady": "Около 1–2 мин на {count} изображений",
+      "estimateGenerating": "Идёт генерация, подождите…"
     },
     "guide": {
       "title": "Только фото одежды — для генерации коммерческих кадров с моделью",

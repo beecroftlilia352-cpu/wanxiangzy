@@ -3558,7 +3558,9 @@
       "submitting": "Изпращане…",
       "generateCount": "Генериране на {count} изображения",
       "refCount": "{count} референции",
-      "detailCount": "{count} детайлни"
+      "detailCount": "{count} детайлни",
+      "estimateReady": "Около 1–2 мин за {count} изображения",
+      "estimateGenerating": "Генерира се, моля изчакайте…"
     },
     "guide": {
       "title": "Само с изображение на дреха генерирайте търговска моделна снимка",

@@ -1041,7 +1041,9 @@
       "submitting": "提交中…",
       "generateCount": "生成 {count} 张",
       "refCount": "{count} 张参考",
-      "detailCount": "{count} 张细节"
+      "detailCount": "{count} 张细节",
+      "estimateReady": "预计 {count} 张图 1-2 分钟",
+      "estimateGenerating": "正在生成，请稍候…"
     },
     "guide": {
       "title": "仅需服装图，生成模特商拍图",

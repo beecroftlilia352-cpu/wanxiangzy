@@ -1041,7 +1041,9 @@
       "submitting": "جارٍ الإرسال…",
       "generateCount": "توليد {count}",
       "refCount": "{count} مرجع",
-      "detailCount": "{count} تفاصيل"
+      "detailCount": "{count} تفاصيل",
+      "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
+      "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
     },
     "guide": {
       "title": "صورة ملابس واحدة فقط لتوليد لقطات للموديل",

@@ -3394,6 +3394,7 @@ export default function CreatePage() {
               costPerImage,
               expectedCount: expectedOutputCount,
             })}
+            estimateLabel={isSubmitting ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: expectedOutputCount })}
             costLabel={authIsAnonymous ? t("runBar.loginToViewCredits") : t("runBar.costBalance", { total: totalCost, balance: credits ?? "—" })}
             disabled={runDisabled}
             disabledReason={runDisabledReason}

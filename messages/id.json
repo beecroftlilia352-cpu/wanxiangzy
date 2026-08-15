@@ -1041,7 +1041,9 @@
       "submitting": "Mengirim…",
       "generateCount": "Generate {count} gambar",
       "refCount": "{count} gambar referensi",
-      "detailCount": "{count} gambar detail"
+      "detailCount": "{count} gambar detail",
+      "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
+      "estimateGenerating": "Sedang membuat, mohon tunggu…"
     },
     "guide": {
       "title": "Cukup gambar pakaian, hasilkan foto komersial model",

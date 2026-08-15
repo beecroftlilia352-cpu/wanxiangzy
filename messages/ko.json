@@ -1041,7 +1041,9 @@
       "submitting": "제출 중…",
       "generateCount": "{count}장 생성",
       "refCount": "레퍼런스 {count}장",
-      "detailCount": "디테일 {count}장"
+      "detailCount": "디테일 {count}장",
+      "estimateReady": "{count}장 이미지 약 1-2분",
+      "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
     },
     "guide": {
       "title": "의류 이미지 한 장으로 모델 상업 촬영 생성",

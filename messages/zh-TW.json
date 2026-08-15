@@ -3921,7 +3921,9 @@
       "submitting": "提交中…",
       "generateCount": "生成 {count} 張",
       "refCount": "{count} 張參考",
-      "detailCount": "{count} 張細節"
+      "detailCount": "{count} 張細節",
+      "estimateReady": "預計 {count} 張圖 1-2 分鐘",
+      "estimateGenerating": "正在生成，請稍候…"
     },
     "guide": {
       "title": "僅需服裝圖，生成模特商拍圖",

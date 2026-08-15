@@ -1041,7 +1041,9 @@
       "submitting": "Gönderiliyor…",
       "generateCount": "{count} üret",
       "refCount": "{count} referans",
-      "detailCount": "{count} detay"
+      "detailCount": "{count} detay",
+      "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
+      "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
     },
     "guide": {
       "title": "Model çekimleri üretmek için yalnızca bir giysi görseli",

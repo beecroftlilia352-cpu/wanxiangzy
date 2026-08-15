@@ -1110,7 +1110,9 @@
       "loginToViewCredits": "Melde dich an, um Credits zu sehen",
       "refCount": "{count} Referenzen",
       "submitting": "Wird übermittelt…",
-      "summary": "{mode} · {clothingCount} Eingaben{detailCount, plural, =0 {} other { · # Details}} · {scene} · {costPerImage} × {expectedCount}"
+      "summary": "{mode} · {clothingCount} Eingaben{detailCount, plural, =0 {} other { · # Details}} · {scene} · {costPerImage} × {expectedCount}",
+      "estimateReady": "Ca. 1–2 Min. für {count} Bilder",
+      "estimateGenerating": "Wird generiert, bitte warten…"
     },
     "sceneTab": {
       "all": "Alle Szenen",

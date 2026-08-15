@@ -3921,7 +3921,9 @@
       "submitting": "送信中…",
       "generateCount": "{count} 枚を生成",
       "refCount": "{count} 枚の参照",
-      "detailCount": "{count} 枚のディテール"
+      "detailCount": "{count} 枚のディテール",
+      "estimateReady": "{count}枚の画像で約1〜2分",
+      "estimateGenerating": "生成中です。お待ちください…"
     },
     "guide": {
       "title": "衣類画像だけでモデル商用画像を生成",

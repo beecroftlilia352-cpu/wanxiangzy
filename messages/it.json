@@ -1041,7 +1041,9 @@
       "submitting": "Invio…",
       "generateCount": "Genera {count}",
       "refCount": "{count} riferimenti",
-      "detailCount": "{count} dettagli"
+      "detailCount": "{count} dettagli",
+      "estimateReady": "Circa 1-2 min per {count} immagini",
+      "estimateGenerating": "Generazione in corso, attendi…"
     },
     "guide": {
       "title": "Solo un'immagine del capo per generare scatti della modella",
