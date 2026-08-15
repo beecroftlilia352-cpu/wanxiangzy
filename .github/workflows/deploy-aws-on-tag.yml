@@ -232,6 +232,27 @@ jobs:
           echo "Updated product-retouch rollout flag in $ENV_FILE"
           REMOTE
 
+      - name: Ensure build tools on EC2
+        run: |
+          set -euo pipefail
+          echo "Ensuring make/gcc are available on EC2 (idempotent)..."
+          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=60 \
+            "$AWS_USER_NORM@$AWS_HOST_NORM" \
+            'set -e
+             if command -v make >/dev/null 2>&1 && command -v gcc >/dev/null 2>&1 && command -v g++ >/dev/null 2>&1; then
+               echo "build tools already present"
+             else
+               echo "installing build tools (make/gcc/g++)..."
+               (sudo yum install -y make gcc gcc-c++ >/dev/null 2>&1 && echo "installed via yum") \
+                 || (sudo apt-get update -qq >/dev/null 2>&1 && sudo apt-get install -y build-essential >/dev/null 2>&1 && echo "installed via apt")
+             fi
+             make --version | head -1
+             gcc --version | head -1
+             echo "build tools ready"'
+
       - name: Deploy on EC2
         env:
           AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
