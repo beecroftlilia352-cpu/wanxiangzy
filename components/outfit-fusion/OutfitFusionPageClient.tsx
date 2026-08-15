@@ -1273,22 +1273,16 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
 function LoadableResultImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
 
+  // RawPreviewImage 自带 complete 检查、失败重试与淡入；
+  // 外层再叠一层 loaded/onLoad 会覆盖其内部状态，导致缓存命中时
+  // onLoad 丢失、骨架常驻（图片白屏，点开才可见）。
   return (
-    <>
-      {!loaded ? (
-        <StudioHomeHeroLoadingBackdrop />
-      ) : null}
-      <RawPreviewImage
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        className={cn(
-          "h-full w-full object-contain transition duration-300 group-hover/slot:scale-[1.012]",
-          loaded ? "opacity-100" : "opacity-0"
-        )}
-      />
-    </>
+    <RawPreviewImage
+      eager
+      src={src}
+      alt={alt}
+      className="h-full w-full object-contain transition duration-300 group-hover/slot:scale-[1.012]"
+    />
   );
 }
 
