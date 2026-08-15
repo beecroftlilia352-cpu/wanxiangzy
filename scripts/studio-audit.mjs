@@ -79,6 +79,9 @@ async function auditPage(page, { path, name }, viewport) {
       }
       const broken = [];
       for (const img of document.querySelectorAll("img")) {
+        // 仅检查视口内图片：懒加载的视口外图片 complete 且 naturalWidth=0 是正常状态
+        const r = img.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) continue;
         if (img.complete && img.naturalWidth === 0) {
           broken.push(img.src.slice(0, 50));
           if (broken.length >= 3) break;
