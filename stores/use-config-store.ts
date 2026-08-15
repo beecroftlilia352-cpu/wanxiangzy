@@ -252,7 +252,7 @@ export const useConfigStore = create<ConfigStore>()(
                         vquality: config.vquality || "720",
                         videoGenerateAudio: config.videoGenerateAudio || "true",
                         videoWatermark: config.videoWatermark || "false",
-                        imageModels: Array.isArray(persistedConfig.imageModels) ? normalizeModelList(config.imageModels, channels) : filterModelsByCapability(models, "image"),
+                        imageModels: unionLatestImageModels(Array.isArray(persistedConfig.imageModels) ? normalizeModelList(config.imageModels, channels) : filterModelsByCapability(models, "image"), channels),
                         videoModels: Array.isArray(persistedConfig.videoModels) ? normalizeModelList(config.videoModels, channels) : filterModelsByCapability(models, "video"),
                         // For text capability we always union in the latest default text models
                         // (MiniMax-M3 / gpt-5.5 / gpt-5.4-mini) so existing users see newly
@@ -286,6 +286,15 @@ function unionLatestTextModels(storedTextModels: string[], channels: ModelChanne
     const seen = new Set(storedTextModels);
     const additions = defaults.filter((entry) => !seen.has(entry) && platformChannel.models.includes(modelOptionName(entry)));
     return Array.from(new Set([...storedTextModels, ...additions]));
+}
+
+function unionLatestImageModels(storedImageModels: string[], channels: ModelChannel[]) {
+    const platformChannel = channels.find((channel) => channel.id === PLATFORM_CHANNEL_ID);
+    if (!platformChannel) return storedImageModels;
+    const defaults = (defaultConfig.imageModels || []).filter((entry) => entry.startsWith(`${PLATFORM_CHANNEL_ID}${CHANNEL_MODEL_SEPARATOR}`));
+    const seen = new Set(storedImageModels);
+    const additions = defaults.filter((entry) => !seen.has(entry) && platformChannel.models.includes(modelOptionName(entry)));
+    return Array.from(new Set([...storedImageModels, ...additions]));
 }
 
 export function useEffectiveConfig() {
@@ -366,12 +375,20 @@ export function resolveModelRequestConfig(config: AiConfig, value: string) {
 
 function normalizeChannels(config: AiConfig) {
     const persistedChannels = Array.isArray(config.channels) ? config.channels : [];
+    // 平台聚合渠道：把最新默认模型并入旧持久化列表，避免老用户的 channels
+    // 缺少后来发布的模型（曾导致 imageModels 交集后只剩 gpt-image-2）
+    const platformDefaultModels = uniqueRawModels(
+        (defaultConfig.channels.find((channel) => channel.id === PLATFORM_CHANNEL_ID)?.models) || [],
+    );
     const channels = persistedChannels.map((channel, index) =>
         createModelChannel({
             ...channel,
             id: channel.id || (index === 0 ? "default" : `channel-${index + 1}`),
             name: channel.name || (index === 0 ? "默认渠道" : `渠道 ${index + 1}`),
-            models: uniqueRawModels(channel.models || []),
+            models: uniqueRawModels([
+                ...(channel.models || []),
+                ...(channel.id === PLATFORM_CHANNEL_ID ? platformDefaultModels : []),
+            ]),
         }),
     );
     if (!channels.length) {
