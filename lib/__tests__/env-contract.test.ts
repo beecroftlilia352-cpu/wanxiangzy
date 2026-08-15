@@ -130,65 +130,41 @@ describe("environment contract", () => {
     );
   });
 
-  it("validates the selected analysis provider instead of always requiring Xiaomi", () => {
+  // 供应商密钥（Lingya/CatRouter/Xiaomi/MiniMax/Yunwu/Laozhang 等）已改为
+  // 后台加密配置（lib/api/model-provider-secrets.ts），env 仅作开发回退，
+  // validateEnv 不再对它们发出启动告警。
+  it("does not warn about provider keys now managed in admin config", () => {
     process.env.ANALYZE_LLM_PROVIDER = "yunwu";
-
-    const missingYunwu = validateEnv({ nodeEnv: "development" });
-    expect(missingYunwu).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY" }),
-    ]));
-    expect(missingYunwu).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: "XIAOMI_MIMO_API_KEY" }),
-    ]));
-
-    process.env.YUNWU_API_KEY = "yunwu-key";
-    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY" }),
-    ]));
-  });
-
-  it("checks the selected Nano Banana native provider key", () => {
-    expect(validateEnv({ nodeEnv: "development" })).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY" }),
-      ])
-    );
-
-    process.env.YUNWU_NATIVE_API_KEY = "yunwu-native-key";
-    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY" }),
-      ])
-    );
-
-    delete process.env.YUNWU_NATIVE_API_KEY;
     process.env.NANO_BANANA_PROVIDER = "laozhang";
-    expect(validateEnv({ nodeEnv: "development" })).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "LAOZHANG_API_KEY" }),
-      ])
-    );
+    process.env.GPT_IMAGE_PROVIDER = "plato";
+
+    const issues = validateEnv({ nodeEnv: "development" });
+    const providerKeyNames = new Set([
+      "LINGYA_API_KEY",
+      "CATROUTER_API_KEY",
+      "XIAOMI_MIMO_API_KEY",
+      "MINIMAX_API_KEY",
+      "IMGBB_API_KEY",
+      "YUNWU_API_KEY",
+      "YUNWU_NATIVE_API_KEY",
+      "LAOZHANG_API_KEY",
+      "PLATO_API_KEY",
+      "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY",
+      "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY",
+      "LAOZHANG_API_KEY",
+      "PLATO_API_KEY or LINGYA_API_KEY",
+    ]);
+
+    for (const issue of issues) {
+      expect(providerKeyNames.has(issue.name)).toBe(false);
+    }
   });
 
-  it("checks the selected GPT-Image-2 provider key", () => {
-    expect(validateEnv({ nodeEnv: "development" })).toEqual(
+  it("still enforces production-required variables", () => {
+    const issues = validateEnv({ nodeEnv: "development" });
+    expect(issues).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: "CATROUTER_API_KEY" }),
-      ])
-    );
-
-    process.env.CATROUTER_API_KEY = "catrouter-key";
-    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "CATROUTER_API_KEY" }),
-      ])
-    );
-
-    delete process.env.CATROUTER_API_KEY;
-    process.env.GPT_IMAGE_PROVIDER = "plato";
-    expect(validateEnv({ nodeEnv: "development" })).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "PLATO_API_KEY or LINGYA_API_KEY" }),
+        expect.objectContaining({ name: "SUPABASE_SERVICE_ROLE_KEY" }),
       ])
     );
   });

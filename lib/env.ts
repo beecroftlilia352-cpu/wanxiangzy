@@ -46,32 +46,9 @@ const PRODUCTION_REQUIRED_ENV: EnvContractEntry[] = [
   },
 ];
 
+// 模型/分析/存储供应商密钥已改为后台加密配置（lib/api/model-provider-secrets.ts），
+// env 仅作本地开发回退，不再作为必检项（避免启动日志告警噪音）。
 const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
-  {
-    name: "LINGYA_API_KEY",
-    category: "feature-required",
-    description: "Required for Lingya image generation and Lingya-backed prompt analysis.",
-  },
-  {
-    name: "CATROUTER_API_KEY",
-    category: "feature-required",
-    description: "Required for the default GPT-Image-2 CatRouter channel and optional CatRouter Banana channel.",
-  },
-  {
-    name: "XIAOMI_MIMO_API_KEY",
-    category: "feature-required",
-    description: "Required when ANALYZE_LLM_PROVIDER=xiaomi.",
-  },
-  {
-    name: "MINIMAX_API_KEY",
-    category: "feature-required",
-    description: "Required when ANALYZE_LLM_PROVIDER=minimax.",
-  },
-  {
-    name: "IMGBB_API_KEY",
-    category: "feature-required",
-    description: "Required when IMAGE_STORAGE_PROVIDER=imgbb for user uploads and durable external result-image storage.",
-  },
   {
     name: "JOB_PROCESSOR_SECRET or CRON_SECRET",
     category: "feature-required",
@@ -222,7 +199,6 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
   const nodeEnv = options.nodeEnv || process.env.NODE_ENV;
   const isProduction = nodeEnv === "production";
   const imageStorageProvider = (process.env.IMAGE_STORAGE_PROVIDER || "imgbb").trim().toLowerCase();
-  const analyzeProvider = (process.env.ANALYZE_LLM_PROVIDER || "xiaomi").trim().toLowerCase();
   const issues: EnvValidationIssue[] = [];
 
   for (const entry of PRODUCTION_REQUIRED_ENV) {
@@ -238,12 +214,10 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
     }
   }
 
+  // 模型/分析/存储供应商密钥已改后台加密配置，不再做启动期缺失告警；
+  // 此处只保留后台处理器密钥的强制校验。
   for (const entry of FEATURE_REQUIRED_ENV) {
     if (entry.name.includes(" or ")) continue;
-    if (entry.name === "CATROUTER_API_KEY") continue;
-    if (entry.name === "IMGBB_API_KEY" && imageStorageProvider === "aliyun-oss") continue;
-    if (entry.name === "XIAOMI_MIMO_API_KEY" && analyzeProvider !== "xiaomi") continue;
-    if (entry.name === "MINIMAX_API_KEY" && analyzeProvider !== "minimax") continue;
     if (!process.env[entry.name]) {
       issues.push({
         name: entry.name,
@@ -252,59 +226,6 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
         message: `${entry.name} is not set; related features will fail when used.`,
       });
     }
-  }
-
-  if (analyzeProvider === "yunwu" && !process.env.YUNWU_API_KEY && !process.env.YUNWU_NATIVE_API_KEY) {
-    issues.push({
-      name: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY",
-      category: "feature-required",
-      severity: "warning",
-      message: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY is not set; prompt and image analysis will fail while ANALYZE_LLM_PROVIDER=yunwu.",
-    });
-  }
-
-  const gptImageProvider = normalizeGptImageProvider(process.env.GPT_IMAGE_PROVIDER);
-  if (gptImageProvider === "catrouter" && !process.env.CATROUTER_API_KEY) {
-    issues.push({
-      name: "CATROUTER_API_KEY",
-      category: "feature-required",
-      severity: "warning",
-      message: "CATROUTER_API_KEY is not set; GPT-Image-2 generation will fail while GPT_IMAGE_PROVIDER=catrouter.",
-    });
-  }
-  if (gptImageProvider === "plato" && !process.env.PLATO_API_KEY && !process.env.LINGYA_API_KEY) {
-    issues.push({
-      name: "PLATO_API_KEY or LINGYA_API_KEY",
-      category: "feature-required",
-      severity: "warning",
-      message: "PLATO_API_KEY or LINGYA_API_KEY is not set; GPT-Image-2 generation will fail while GPT_IMAGE_PROVIDER=plato.",
-    });
-  }
-
-  const nanoBananaProvider = normalizeNanoBananaProvider(process.env.NANO_BANANA_PROVIDER);
-  if (nanoBananaProvider === "laozhang" && !process.env.LAOZHANG_API_KEY) {
-    issues.push({
-      name: "LAOZHANG_API_KEY",
-      category: "feature-required",
-      severity: "warning",
-      message: "LAOZHANG_API_KEY is not set; Nano Banana image generation will fail while NANO_BANANA_PROVIDER=laozhang.",
-    });
-  }
-  if (nanoBananaProvider === "catrouter" && !process.env.CATROUTER_API_KEY) {
-    issues.push({
-      name: "CATROUTER_API_KEY",
-      category: "feature-required",
-      severity: "warning",
-      message: "CATROUTER_API_KEY is not set; Nano Banana image generation will fail while NANO_BANANA_PROVIDER=catrouter.",
-    });
-  }
-  if (nanoBananaProvider === "yunwu" && !process.env.YUNWU_NATIVE_API_KEY && !process.env.YUNWU_API_KEY) {
-    issues.push({
-      name: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY",
-      category: "feature-required",
-      severity: "warning",
-      message: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY is not set; Nano Banana image generation will fail while NANO_BANANA_PROVIDER=yunwu.",
-    });
   }
 
   if (imageStorageProvider === "aliyun-oss") {
@@ -322,19 +243,6 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
 
   if (options.log) logEnvIssues(issues);
   return issues;
-}
-
-function normalizeGptImageProvider(value: unknown): "catrouter" | "plato" {
-  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (normalized === "plato" || normalized === "yunwu" || normalized === "yunwu-openai") return "plato";
-  return "catrouter";
-}
-
-function normalizeNanoBananaProvider(value: unknown): "yunwu" | "laozhang" | "catrouter" {
-  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (normalized === "catrouter" || normalized === "cat-router" || normalized === "cat_router") return "catrouter";
-  if (normalized === "laozhang" || normalized === "lao-zhang" || normalized === "lao_zhang") return "laozhang";
-  return "yunwu";
 }
 
 export function validateEnvOnce(): EnvValidationIssue[] {
