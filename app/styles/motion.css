@@ -1,0 +1,91 @@
+/* ============================================================
+   Motion — 体感明显的动效层（原生 View Transition + 交互反馈）
+   路由过渡用 Next experimental.viewTransition（浏览器原生 API，
+   不支持的浏览器自动降级为无动画）。
+   ============================================================ */
+
+/* ---- 1. 路由切换过渡：新页淡入 + 上浮 16px ---- */
+::view-transition-old(root) {
+  animation: motion-page-out 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(root) {
+  animation: motion-page-in 0.3s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+@keyframes motion-page-out {
+  from { opacity: 1; }
+  to { opacity: 0.4; }
+}
+
+@keyframes motion-page-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- 2. 全局按压反馈：可点击元素 150ms 缩放 ---- */
+button:not(:disabled),
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled):active,
+a:active {
+  transform: scale(0.97);
+}
+
+.home-button,
+.studio-button,
+.gradient-brand,
+button {
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease, box-shadow 0.2s ease;
+}
+
+/* ---- 3. 首页 hero 入场：标题与 CTA 错峰上浮淡入 ---- */
+@keyframes motion-rise-in {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.home-landing-hero .home-hero-frame > * {
+  animation: motion-rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.home-landing-hero .home-hero-frame > *:nth-child(1) { animation-delay: 0.05s; }
+.home-landing-hero .home-hero-frame > *:nth-child(2) { animation-delay: 0.12s; }
+.home-landing-hero .home-hero-frame > *:nth-child(3) { animation-delay: 0.19s; }
+.home-landing-hero .home-hero-frame > *:nth-child(4) { animation-delay: 0.26s; }
+.home-landing-hero .home-hero-frame > *:nth-child(5) { animation-delay: 0.33s; }
+.home-landing-hero .home-hero-frame > *:nth-child(6) { animation-delay: 0.4s; }
+.home-landing-hero .home-hero-frame > *:nth-child(7) { animation-delay: 0.47s; }
+
+/* ---- 4. 生成按钮呼吸微光（引导主操作） ---- */
+.studio-run-button,
+.studio-button--primary {
+  animation: motion-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes motion-breathe {
+  0%, 100% { box-shadow: 0 8px 24px rgba(91, 124, 255, 0.3); }
+  50% { box-shadow: 0 8px 36px rgba(124, 58, 237, 0.48); }
+}
+
+/* ---- 5. Reduced motion：全部关闭 ---- */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+
+  .home-landing-hero .home-hero-frame > *,
+  .studio-run-button,
+  .studio-button--primary {
+    animation: none !important;
+  }
+
+  button:not(:disabled):active,
+  a:active {
+    transform: none;
+  }
+}

@@ -27,6 +27,8 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-icons",
     ],
     webpackBuildWorker: true,
+    // 路由级 View Transition（浏览器原生 API，Chromium 111+ / Safari 18.2+）
+    viewTransition: true,
   },
   images: {
     remotePatterns: [
