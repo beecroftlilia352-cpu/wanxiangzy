@@ -65,6 +65,24 @@
   }
 }
 
+/* 暗色画布深邃感：顶部冷调微光 + 深空渐变（Apple/Linear 式暗色层次） */
+.dark .studio-workbench,
+.dark .studio-page-shell {
+  background:
+    radial-gradient(circle at 4% 0%, rgba(91, 124, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 92% 8%, rgba(174, 184, 255, 0.12), transparent 34%),
+    linear-gradient(180deg, #10131c 0%, #0b0d14 100%);
+}
+
+/* 数字等宽：价格/余额/数量显示不抖动 */
+.studio-runbar,
+.studio-runbar-v2,
+.studio-status-badge,
+.home-marketing-actions,
+.studio-model-option-desc {
+  font-variant-numeric: tabular-nums;
+}
+
 .studio-page-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -182,7 +200,11 @@
   background: var(--codex-surface-soft) !important;
   backdrop-filter: blur(18px) saturate(1.08);
   -webkit-backdrop-filter: blur(18px) saturate(1.08);
-  box-shadow: var(--codex-shadow-sm) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), var(--codex-shadow-sm) !important;
+}
+
+.dark .studio-section {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), var(--codex-shadow-sm) !important;
 }
 
 .studio-nav-rail {
