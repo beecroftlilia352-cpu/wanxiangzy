@@ -82,7 +82,7 @@ describe("getHistoryFailureRecoveryCopy", () => {
       hasApplyParams: true,
     });
 
-    expect(copy).toEqual({
+    expect(copy).toMatchObject({
       title: "生成失败",
       reasonLabel: "失败原因",
       reason: "图片无法识别",
@@ -90,6 +90,11 @@ describe("getHistoryFailureRecoveryCopy", () => {
       recoveryHint: "点击“套用参数重试”会带回原参数，调整输入素材或生成参数后重新生成。",
       applyLabel: "套用参数重试",
     });
+    // i18n：lib 返回的 *Key 字段指向 LibShared.history 命名空间，供渲染端 t() 消费
+    expect(copy?.titleKey).toBe("LibShared.history.failureTitle");
+    expect(copy?.reasonLabelKey).toBe("LibShared.history.failureReasonLabel");
+    expect(copy?.recoveryLabelKey).toBe("LibShared.history.failureRecoveryLabel");
+    expect(copy?.applyLabelKey).toBe("LibShared.history.failureApplyRetry");
   });
 
   it("uses a fallback reason and creation hint when apply params are missing", () => {

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, fireEvent } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import zhMessages from "@/messages/zh.json";
 
 afterEach(() => {
   cleanup();
@@ -26,9 +28,17 @@ const sampleUrls = [
   "https://example.com/result-3.png",
 ];
 
+function renderWithIntl(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="zh" messages={zhMessages}>
+      {ui}
+    </NextIntlClientProvider>,
+  );
+}
+
 describe("ResultImageGrid download button", () => {
   it("renders a download button on each completed card", () => {
-    render(
+    renderWithIntl(
       <ResultImageGrid
         urls={sampleUrls}
         filenamePrefix="image-translation"
@@ -42,7 +52,7 @@ describe("ResultImageGrid download button", () => {
   });
 
   it("labels each download button with the image alt prefix", () => {
-    render(
+    renderWithIntl(
       <ResultImageGrid
         urls={sampleUrls}
         filenamePrefix="image-translation"
@@ -62,7 +72,7 @@ describe("ResultImageGrid download button", () => {
 
   it("stops propagation so clicking the button does not open the lightbox", () => {
     const onOpen = vi.fn();
-    render(
+    renderWithIntl(
       <ResultImageGrid
         urls={sampleUrls}
         filenamePrefix="image-translation"
@@ -77,7 +87,7 @@ describe("ResultImageGrid download button", () => {
   });
 
   it("does not render the download button when the slot is empty", () => {
-    render(
+    renderWithIntl(
       <ResultImageGrid
         urls={["", "", ""]}
         filenamePrefix="image-translation"
@@ -90,7 +100,7 @@ describe("ResultImageGrid download button", () => {
   });
 
   it("uses the standard task variant header (disclaimer + timestamp)", () => {
-    render(
+    renderWithIntl(
       <ResultImageGrid
         urls={sampleUrls}
         filenamePrefix="image-translation"
