@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getActiveTopModule, getFeatureItemsForModule, VISIBLE_TOP_MODULES } from "@/lib/navigation";
+import { getActiveTopModule, getFeatureItem, getFeatureItemsForModule, VISIBLE_TOP_MODULES } from "@/lib/navigation";
 
 describe("top module navigation contract", () => {
   it("matches the reference workspace module order", () => {
@@ -24,6 +24,7 @@ describe("top module navigation contract", () => {
     const keys = getFeatureItemsForModule("tools").map((item) => item.key);
     expect(keys).toEqual(expect.arrayContaining(["textToImage", "imageToImage"]));
     expect(keys.indexOf("textToImage")).toBeLessThan(keys.indexOf("imageToImage"));
+    expect(getFeatureItem("imageToImage")?.badge).toBe("NEW");
   });
 
   it("keeps API testing in the AI toolbox and works out of the top bar", () => {

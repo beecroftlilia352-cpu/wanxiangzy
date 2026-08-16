@@ -60,6 +60,7 @@ export function StudioTaskRail({
   className,
 }: StudioTaskRailProps) {
   const t = useTranslations("Shared");
+  const compactRecentTasksLabel = t("recentTasks").trim().split(/\s+/)[0] || t("recentTasks");
   const resolvedModuleLabel = moduleLabel ?? t("currentModule");
   const moduleState = useTaskQueueStore((state) => state.modules[module]);
   const hydrateModule = useTaskQueueStore((state) => state.hydrateModule);
@@ -75,7 +76,6 @@ export function StudioTaskRail({
   const [query, setQuery] = useState("");
   const [displayLimit, setDisplayLimit] = useState(TASK_QUEUE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const loadInFlightRef = useRef(false);
   const snapshotHasFailedRef = useRef(false);
@@ -160,7 +160,6 @@ export function StudioTaskRail({
         snapshotHasFailedRef.current = false;
         setModuleLoadingFailed(module, false);
       }
-      setHasMore(Boolean(payload.hasMore));
       const resolvedNextCursor = typeof payload.nextCursor === "string" && payload.nextCursor ? payload.nextCursor : null;
       queueSnapshotRef.current = { ...queueSnapshotRef.current, nextCursor: resolvedNextCursor };
       setNextCursor(resolvedNextCursor);
@@ -186,7 +185,7 @@ export function StudioTaskRail({
       loadInFlightRef.current = false;
       setLoading(false);
     }
-  }, [applyServerRows, module, setModuleLoadingFailed]);
+  }, [applyServerRows, module, setModuleLoadingFailed, t]);
 
   useEffect(() => {
     try {
@@ -207,7 +206,6 @@ export function StudioTaskRail({
 
   useEffect(() => {
     setDisplayLimit(TASK_QUEUE_PAGE_SIZE);
-    setHasMore(false);
     queueSnapshotRef.current = { ...queueSnapshotRef.current, nextCursor: null };
     setNextCursor(null);
   }, [displayMode, expanded, moduleOnly, query]);
@@ -318,7 +316,7 @@ export function StudioTaskRail({
         toast.error(error instanceof Error ? error.message : t("taskApplyFailed"));
       })
       .finally(session.finish);
-  }, [beginSelection, rows, onSelectTask, selectedId]);
+  }, [beginSelection, rows, onSelectTask, selectedId, t]);
 
   const handleSelect = (item: TaskQueueItem) => {
     localSelectionRef.current = item.id;
@@ -400,14 +398,14 @@ export function StudioTaskRail({
       <div className="flex h-full min-h-0 flex-col">
         <div
           className={cn(
-            "flex items-center justify-between border-b border-[var(--codex-border)] py-3",
-            expanded ? "gap-2 px-3" : "gap-0.5 px-1.5"
+            "flex items-center justify-between border-b border-[var(--codex-border)]",
+            expanded ? "gap-2 px-3 py-3" : "gap-0.5 px-1 py-2.5"
           )}
         >
           <div className={cn("min-w-0 flex-1", !expanded && "flex justify-center")}>
-            <div className={cn("flex items-center font-black text-codex-ink", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[12px] leading-4")}>
+            <div className={cn("flex items-center font-black text-codex-ink", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[11px] leading-4")}>
               {expanded && <History className="h-4 w-4 text-blue-500" />}
-              <span className="whitespace-nowrap">{expanded ? t("allTasks") : t("recentTasks")}</span>
+              <span className="max-w-full truncate whitespace-nowrap">{expanded ? t("allTasks") : compactRecentTasksLabel}</span>
             </div>
             {expanded && (
               <p className="mt-0.5 truncate text-[11px] font-semibold text-codex-faint">
@@ -463,7 +461,7 @@ export function StudioTaskRail({
           onScroll={() => {
             hasScrolledRef.current = true;
           }}
-          className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-2 px-2 py-2")}
+          className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-1.5 px-1.5 py-1.5")}
         >
           {initialLoading ? (
             <>
@@ -511,7 +509,7 @@ export function StudioTaskRail({
           )}
         </div>
 
-        <div className="border-t border-[var(--codex-border)] px-3 py-3">
+        <div className={cn("border-t border-[var(--codex-border)]", expanded ? "px-3 py-3" : "px-2 py-2")}>
           {expanded ? (
             <div className="space-y-2">
               <Progress
@@ -571,9 +569,9 @@ export function StudioTaskRail({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="inline-flex h-9 w-full items-center justify-center gap-0.5 whitespace-nowrap rounded-lg px-1 text-[12px] font-black text-codex-ink transition hover:bg-[var(--codex-surface-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 w-full items-center justify-center gap-0.5 whitespace-nowrap rounded-lg px-1 text-[11px] font-black text-codex-ink transition hover:bg-[var(--codex-surface-soft)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t("allTasks")}
+              {(t("allTasks").trim().split(/\s+/)[0] || t("allTasks"))}
               <ChevronRight className="h-3 w-3" />
             </button>
           )}
@@ -585,19 +583,20 @@ export function StudioTaskRail({
 
 function ContinueCard({ selected, disabled = false, onClick }: { selected: boolean; disabled?: boolean; onClick: () => void }) {
   const t = useTranslations("Shared");
+  const compactLabel = t("continueCreate").trim().split(/\s+/)[0] || t("continueCreate");
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "group relative flex h-[68px] w-full items-center justify-center rounded border bg-white px-1 text-center text-[12px] font-medium leading-4 text-codex-muted transition hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/10 dark:bg-white/5 dark:text-codex-muted dark:hover:border-[var(--codex-accent-45)] dark:hover:bg-white/10",
+        "group relative flex aspect-square w-full items-center justify-center rounded border bg-white px-1 text-center text-[11px] font-medium leading-4 text-codex-muted transition hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/10 dark:bg-white/5 dark:text-codex-muted dark:hover:border-[var(--codex-accent-45)] dark:hover:bg-white/10",
         disabled && "cursor-not-allowed opacity-55",
         selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)] dark:border-[var(--codex-accent-55)] dark:bg-[var(--codex-accent-18)]" : "border-[var(--codex-border)] dark:border-white/10"
       )}
     >
-      <span className="max-w-[3.5em] whitespace-normal break-keep">{t("continueCreate")}</span>
-      {selected && <span className="absolute -right-2 top-2 h-[54px] w-1 rounded-full bg-blue-500" />}
+      <span className="max-w-full truncate whitespace-nowrap">{compactLabel}</span>
+      {selected && <span className="absolute -right-2 top-[7px] h-[50px] w-1 rounded-full bg-blue-500" />}
     </button>
   );
 }
@@ -668,7 +667,7 @@ function TaskCard({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          "studio-task-card group relative flex h-[68px] w-full items-center justify-center rounded border bg-white p-1 text-left transition hover:border-blue-300 hover:bg-blue-50/40",
+          "studio-task-card group relative flex aspect-square w-full items-center justify-center rounded border bg-white p-1 text-left transition hover:border-blue-300 hover:bg-blue-50/40",
           running && "border-blue-100 bg-blue-50/45",
           applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
           selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-[var(--codex-border)]"
@@ -676,7 +675,7 @@ function TaskCard({
         title={item.title || item.id}
       >
         <TaskThumb url={cover} running={running} failed={failed} applying={applying} compact className="h-full w-full" />
-        {selected && <span className="absolute -right-2 top-2 h-[54px] w-1 rounded-full bg-blue-500" />}
+        {selected && <span className="absolute -right-2 top-[7px] h-[50px] w-1 rounded-full bg-blue-500" />}
       </button>
     );
   }
@@ -891,19 +890,19 @@ function TaskRailSkeleton({ compact }: { compact: boolean }) {
         <div
           key={index}
           className={cn(
-            "flex items-center gap-3 overflow-hidden rounded-lg border border-white/70 bg-white/72 p-2 shadow-sm",
-            compact ? "h-[68px]" : "h-[88px]"
+            "flex items-center gap-3 overflow-hidden rounded-lg border border-white/70 bg-white/72 shadow-sm",
+            compact ? "aspect-square p-1" : "h-[88px] p-2"
           )}
         >
           {/* Left thumb (model image area) — same shape as TaskCard */}
           <div
             className={cn(
               "studio-skeleton-shimmer shrink-0 rounded-md",
-              compact ? "h-12 w-12" : "h-16 w-16"
+              compact ? "h-full w-full" : "h-16 w-16"
             )}
           />
           {/* Right text stack */}
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className={cn("min-w-0 flex-1 flex-col gap-1.5", compact ? "hidden" : "flex")}>
             <div className={cn("studio-skeleton-shimmer rounded", compact ? "h-2.5 w-3/4" : "h-3 w-2/3")} />
             <div className={cn("studio-skeleton-shimmer rounded", compact ? "h-2 w-1/2" : "h-2.5 w-1/2")} />
             {!compact && (
@@ -933,7 +932,7 @@ function TaskRailEmpty({
     <div
       className={cn(
         "studio-task-rail-empty flex flex-col items-center justify-center rounded-lg border border-dashed border-[var(--codex-accent-20)] bg-white/70 text-center text-xs font-semibold text-codex-faint",
-        compact ? "min-h-[92px] px-1 py-3" : "min-h-32 px-4 py-5"
+        compact ? "min-h-[80px] px-1 py-2.5" : "min-h-32 px-4 py-5"
       )}
     >
       {failed ? <RefreshCw className="mb-2 h-5 w-5 text-amber-500" /> : <Clock3 className="mb-2 h-5 w-5 text-[var(--codex-accent)]" />}

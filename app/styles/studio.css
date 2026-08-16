@@ -213,8 +213,8 @@
 
 .studio-shell-task-rail {
   position: relative;
-  width: 92px;
-  min-width: 92px;
+  width: var(--studio-task-rail-width);
+  min-width: var(--studio-task-rail-width);
   overflow: visible;
   z-index: 6;
 }
@@ -254,10 +254,10 @@
 }
 
 .studio-task-rail {
-  width: 92px;
-  min-width: 92px;
-  max-width: 92px;
-  flex: 0 0 92px;
+  width: var(--studio-task-rail-width);
+  min-width: var(--studio-task-rail-width);
+  max-width: var(--studio-task-rail-width);
+  flex: 0 0 var(--studio-task-rail-width);
   overflow: hidden;
   border-right: 1px solid var(--codex-border);
   opacity: 1;
@@ -279,7 +279,7 @@
 }
 
 .studio-task-rail > div {
-  min-width: 92px;
+  min-width: var(--studio-task-rail-width);
 }
 
 .studio-task-rail-expanded > div {
@@ -293,7 +293,7 @@
 .studio-task-card {
   contain: layout paint style;
   content-visibility: auto;
-  contain-intrinsic-size: 68px;
+  contain-intrinsic-size: 64px;
 }
 
 .studio-task-card-expanded {

@@ -326,6 +326,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "图生图",
     description: "多张参考图结合提示词生成图片",
     icon: Images,
+    badge: "NEW",
   },
   {
     key: "apiTest",
