@@ -28,7 +28,7 @@ import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
-import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, safeDownloadImage, uploadImage } from "@/lib/utils";
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
@@ -1497,11 +1497,6 @@ export default function ProductSetPage() {
     }
   }
 
-  function downloadResult(url: string, index: number) {
-    const ext = url.toLowerCase().includes(".jpg") || url.toLowerCase().includes(".jpeg") ? "jpg" : "png";
-    safeDownloadImage(url, generateDownloadFilename("product-set", index, ext), { fallback: t("downloadFailed") });
-  }
-
   function handleRunningTask(item: TaskQueueItem) {
     setActiveQueueTask(item);
     const urls = safeTaskQueueUrls(item.resultThumbnails);
@@ -2080,7 +2075,6 @@ export default function ProductSetPage() {
         onClearError={() => { setError(""); setProgress(0); }}
         onPreviewIndexChange={setPreviewIndex}
         onRegenerate={(index) => { void regenerateResult(index); }}
-        onDownload={(url, index) => { void downloadResult(url, index); }}
         />
       )}
     />

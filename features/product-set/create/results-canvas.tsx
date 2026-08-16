@@ -1,9 +1,13 @@
-import { Download, Loader2, RefreshCw, X, ZoomIn } from "lucide-react";
+import { Loader2, RefreshCw, X, ZoomIn } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import {
+  StudioBatchDownloadButton,
+  StudioSingleDownloadButton,
+} from "@/components/studio/StudioMediaDownloadButton";
 import { ModuleProgressList, QualityBadge } from "@/features/product-set/create/analysis-sections";
 import { getAspectRatioLabel, PRODUCT_SET_PREVIEW_ACTIONS } from "@/features/product-set/create/config";
 import type { ProductImage } from "@/features/product-set/create/types";
@@ -18,6 +22,7 @@ import {
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import type { ImagePreviewSession } from "@/lib/studio-image-preview";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { generateDownloadFilename } from "@/lib/utils";
 
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2";
 
@@ -59,7 +64,6 @@ type ResultsCanvasProps = {
   onClearError: () => void;
   onPreviewIndexChange: (index: number | null) => void;
   onRegenerate: (index: number) => void;
-  onDownload: (url: string, index: number) => void;
 };
 
 export function ResultsCanvas({
@@ -94,9 +98,10 @@ export function ResultsCanvas({
   onClearError,
   onPreviewIndexChange,
   onRegenerate,
-  onDownload,
 }: ResultsCanvasProps) {
   const t = useTranslations("ProductSet");
+  const sharedT = useTranslations("Shared");
+  const completedUrls = resultSlots.flatMap((slot) => slot.url ? [slot.url] : []);
   return (
     <main className="studio-canvas relative min-h-[70dvh] flex-1 overflow-visible lg:overflow-hidden">
       <div className="relative overflow-y-visible p-4 pb-24 sm:p-6 lg:absolute lg:inset-0 lg:overflow-y-auto lg:p-8">
@@ -164,9 +169,22 @@ export function ResultsCanvas({
                     {mode === "smart" ? t("meta.smartSet") : t("meta.customSet")} · {imageType === "main" ? t("meta.mainAux") : t("meta.detailsPage")} · {platform} · {t("create.results.generatedCount", { current: visibleResultCount, total: resultSlotCount })}
                   </p>
                 </div>
-                <span aria-live="polite" className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)]">
-                  {isGenerating ? t("create.results.progressCount", { progress }) : t("create.results.completed")}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  {completedUrls.length > 1 ? (
+                    <StudioBatchDownloadButton
+                      urls={completedUrls}
+                      filename="pixel-diffusion-product-set"
+                      label={`${t("create.results.completed")} ZIP`}
+                      resultLabel={t("create.results.resultTitle")}
+                      size="sm"
+                      variant="outline"
+                      className="h-9 rounded-full bg-white px-3 text-xs font-black shadow-sm"
+                    />
+                  ) : null}
+                  <span aria-live="polite" className="inline-flex h-9 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)]">
+                    {isGenerating ? t("create.results.progressCount", { progress }) : t("create.results.completed")}
+                  </span>
+                </div>
               </div>
               {isGenerating ? (
                 <div
@@ -248,14 +266,15 @@ export function ResultsCanvas({
                             >
                               {regeneratingIndex === index ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />}
                             </button>
-                            <button
-                              type="button"
-                              aria-label={t("create.results.downloadAria", { name: cardTitle })}
-                              onClick={() => onDownload(url, index)}
-                              className={`flex h-9 w-9 touch-manipulation items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5 ${focusRing}`}
-                            >
-                              <Download aria-hidden="true" className="h-4 w-4" />
-                            </button>
+                            <StudioSingleDownloadButton
+                              url={url}
+                              filename={generateDownloadFilename("product-set", index, "png")}
+                              label={t("create.results.downloadAria", { name: cardTitle })}
+                              errorFallback={sharedT("downloadFailed")}
+                              showLabel={false}
+                              variant="ghost"
+                              className={`h-9 w-9 rounded-full border border-slate-200 p-0 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5 ${focusRing}`}
+                            />
                           </div>
                         ) : null}
                       </div>

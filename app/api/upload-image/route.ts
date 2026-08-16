@@ -8,6 +8,11 @@ import { RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
 export const maxDuration = 60;
 
 const IMAGE_UPLOAD_TIMEOUT_MS = 60_000;
+// Multi-image controls allow up to 14 files and the client retries transient
+// network/5xx failures. Keep enough authenticated headroom for one full batch
+// plus retries so a shaky domestic connection does not turn recovery into 429s.
+const IMAGE_UPLOAD_RATE_LIMIT = 60;
+const IMAGE_UPLOAD_RATE_WINDOW_MS = 60_000;
 const MAX_UPLOAD_MB = 15;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const MAX_BASE64_LENGTH = 21 * 1024 * 1024; // ~15MB after base64 encoding
@@ -77,7 +82,11 @@ export async function POST(request: Request) {
     if (!user) return response;
     userId = user.id;
 
-    const limit = await checkRateLimit(`upload:${user.id}`, 30, 60_000);
+    const limit = await checkRateLimit(
+      `upload:${user.id}`,
+      IMAGE_UPLOAD_RATE_LIMIT,
+      IMAGE_UPLOAD_RATE_WINDOW_MS,
+    );
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const { image, bytes, contentType, name, tooLarge, debug } = await readUploadRequest(request);

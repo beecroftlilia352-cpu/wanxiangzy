@@ -2,15 +2,16 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Clapperboard, Download, Eye, Loader2, RotateCcw, Sparkles, WandSparkles, XCircle } from "lucide-react";
+import { Clapperboard, Eye, Loader2, RotateCcw, Sparkles, WandSparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioBatchDownloadButton, StudioSingleDownloadButton } from "@/components/studio/StudioMediaDownloadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useTranslations } from "next-intl";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
-import { downloadImage, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
+import { generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
 const FALLBACK_IMAGE =
@@ -116,6 +117,7 @@ export function ResultImageGrid({
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const isSingle = count <= 1;
+  const completedUrls = urls.filter(Boolean);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
   const completedSlotCount = slots.filter(Boolean).length;
   const allExpectedResultsReady = completedSlotCount >= count;
@@ -196,7 +198,20 @@ export function ResultImageGrid({
         <p className="studio-result-disclaimer">
           {t("groupIdDisclaimer")}
         </p>
-        <p className="studio-result-time">{timestamp}</p>
+        <div className="studio-result-download-row">
+          <p className="studio-result-time">{timestamp}</p>
+          {completedUrls.length > 1 && (
+            <StudioBatchDownloadButton
+              urls={completedUrls}
+              filename={`pixel-diffusion-${filenamePrefix}`}
+              resultLabel={t("results")}
+              label={t("downloadAll", { count: completedUrls.length })}
+              variant="outline"
+              size="sm"
+              className="studio-result-batch-download"
+            />
+          )}
+        </div>
 
         <div className="flex w-full items-start gap-3">
           {referenceItems.length > 0 && (
@@ -249,36 +264,52 @@ export function ResultImageGrid({
   const running = getResultGridRunningState(statusGroup, isGenerating, allExpectedResultsReady);
 
   return (
-    <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
-      {slots.map((url, index) => {
-        const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
-        const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
-        return (
-          <ResultCard
-            key={`${renderKey}-${index}`}
-            url={url}
-            index={index}
-            count={count}
-            completedMissing={completedMissing}
-            failed={statusGroup === "failed" || missingFailed}
-            running={running}
-            calmPendingMotion={Boolean(running && (reducePendingMotion || count >= 6))}
-            filenamePrefix={filenamePrefix}
-            extension={extension}
-            imageAltPrefix={resolvedImageAltPrefix}
-            onOpen={onOpen}
-            isSingle={isSingle}
-            failureLabel={statusGroup === "failed" ? failureLabel : missingFailed ? missingFailureLabel : undefined}
-            failureDetail={statusGroup === "failed" ? failureDetail : missingFailed ? missingFailureDetail : undefined}
-            failureActionLabel={missingFailed ? missingFailureActionLabel : undefined}
-            onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
-            failureActionDisabled={missingFailureActionDisabled}
-            tileAspectRatio={tileAspectRatio}
-            isNew={newResultIndexes.has(index)}
-            isBestPick={bestPickIndex === index}
+    <div className="studio-result-card-grid-wrap mx-auto w-full">
+      {completedUrls.length > 1 && (
+        <div className="studio-result-download-row studio-result-download-row-cards">
+          <span />
+          <StudioBatchDownloadButton
+            urls={completedUrls}
+            filename={`pixel-diffusion-${filenamePrefix}`}
+            resultLabel={t("results")}
+            label={t("downloadAll", { count: completedUrls.length })}
+            variant="outline"
+            size="sm"
+            className="studio-result-batch-download"
           />
-        );
-      })}
+        </div>
+      )}
+      <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
+        {slots.map((url, index) => {
+          const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
+          const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
+          return (
+            <ResultCard
+              key={`${renderKey}-${index}`}
+              url={url}
+              index={index}
+              count={count}
+              completedMissing={completedMissing}
+              failed={statusGroup === "failed" || missingFailed}
+              running={running}
+              calmPendingMotion={Boolean(running && (reducePendingMotion || count >= 6))}
+              filenamePrefix={filenamePrefix}
+              extension={extension}
+              imageAltPrefix={resolvedImageAltPrefix}
+              onOpen={onOpen}
+              isSingle={isSingle}
+              failureLabel={statusGroup === "failed" ? failureLabel : missingFailed ? missingFailureLabel : undefined}
+              failureDetail={statusGroup === "failed" ? failureDetail : missingFailed ? missingFailureDetail : undefined}
+              failureActionLabel={missingFailed ? missingFailureActionLabel : undefined}
+              onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
+              failureActionDisabled={missingFailureActionDisabled}
+              tileAspectRatio={tileAspectRatio}
+              isNew={newResultIndexes.has(index)}
+              isBestPick={bestPickIndex === index}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -352,10 +383,6 @@ const ResultCard = memo(function ResultCard({
   const openPreview = () => {
     if (url) onOpen(url, index);
   };
-  const downloadResult = () => {
-    if (!url) return;
-    safeDownloadImage(url, generateDownloadFilename(filenamePrefix, index, extension), { fallback: t("downloadFailed") });
-  };
   const openImageRepair = () => {
     if (!url) return;
     router.push(buildSourceImageHref("/general-image/image-to-image", url));
@@ -427,18 +454,16 @@ const ResultCard = memo(function ResultCard({
 
         {url && (
           <>
-            <button
-              type="button"
-              aria-label={t("downloadResultLabel", { label: imageAltPrefix, index: index + 1 })}
-              title={t("download")}
-              onClick={(event) => {
-                event.stopPropagation();
-                downloadResult();
-              }}
+            <StudioSingleDownloadButton
+              url={url}
+              filename={generateDownloadFilename(filenamePrefix, index, extension)}
+              errorFallback={t("downloadFailed")}
+              label={t("downloadResultLabel", { label: imageAltPrefix, index: index + 1 })}
+              variant="ghost"
+              size="icon-sm"
+              showLabel={false}
               className="studio-result-card-download"
-            >
-              <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
+            />
             <div className="studio-result-focus-layer" aria-hidden={false}>
               <Button
                 type="button"
@@ -454,12 +479,20 @@ const ResultCard = memo(function ResultCard({
                 <Eye className="h-4 w-4" aria-hidden="true" />
                 {t("view")}
               </Button>
-            <div className="studio-result-focus-actions">
-              <ResultFocusAction label={t("actionRepair")} onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
-              <ResultFocusAction label={t("actionAiVideo")} onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
-              <ResultFocusAction label={t("download")} onClick={downloadResult} icon={<Download className="h-3.5 w-3.5" />} />
+              <div className="studio-result-focus-actions">
+                <ResultFocusAction label={t("actionRepair")} onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
+                <ResultFocusAction label={t("actionAiVideo")} onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
+                <StudioSingleDownloadButton
+                  url={url}
+                  filename={generateDownloadFilename(filenamePrefix, index, extension)}
+                  errorFallback={t("downloadFailed")}
+                  label={t("download")}
+                  variant="ghost"
+                  size="sm"
+                  className="studio-result-focus-action"
+                />
+              </div>
             </div>
-          </div>
           </>
         )}
       </div>

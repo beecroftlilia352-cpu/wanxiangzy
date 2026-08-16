@@ -1,9 +1,14 @@
 "use client";
 
-import { Download, Loader2, RefreshCw, X, ZoomIn } from "lucide-react";
+import { Loader2, RefreshCw, X, ZoomIn } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import {
+  StudioBatchDownloadButton,
+  StudioSingleDownloadButton,
+} from "@/components/studio/StudioMediaDownloadButton";
 import { getImageVariantUrl } from "@/lib/image-variants";
+import { generateDownloadFilename } from "@/lib/utils";
 import {
   getAspectRatioLabel,
   type ResultSlot,
@@ -14,7 +19,6 @@ type Props = {
   slots: ResultSlot[];
   regeneratingIndex: number | null;
   onPreview: (url: string, title: string, index: number) => void;
-  onDownload: (url: string, index: number) => void;
   onRegenerate: (index: number) => void;
 };
 
@@ -29,10 +33,11 @@ export function ResultGrid({
   slots,
   regeneratingIndex,
   onPreview,
-  onDownload,
   onRegenerate,
 }: Props) {
   const t = useTranslations("AllCategoryProduct");
+  const sharedT = useTranslations("Shared");
+  const completedUrls = slots.flatMap((slot) => slot.url ? [slot.url] : []);
   return (
     <div className="mt-6">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -40,6 +45,17 @@ export function ResultGrid({
           <h3 className="text-base font-black text-codex-ink">{t("generationDoneTitle")}</h3>
           <p className="mt-1 text-xs text-codex-muted">{t("generationDoneSub")}</p>
         </div>
+        {completedUrls.length > 1 ? (
+          <StudioBatchDownloadButton
+            urls={completedUrls}
+            filename="pixel-diffusion-all-category-product"
+            label={`${t("actionDownload")} ZIP`}
+            resultLabel={t("generationDoneTitle")}
+            size="sm"
+            variant="outline"
+            className="h-9 rounded-full bg-white px-3 text-xs font-bold shadow-sm"
+          />
+        ) : null}
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {slots.map((slot, index) => (
@@ -73,10 +89,14 @@ export function ResultGrid({
                     onClick={() => onPreview(slot.url!, slot.module.title, index)}
                     icon={<ZoomIn aria-hidden="true" className="h-4 w-4" />}
                   />
-                  <IconButton
+                  <StudioSingleDownloadButton
+                    url={slot.url}
+                    filename={generateDownloadFilename("all-category-product", index, "png")}
                     label={t("actionDownload")}
-                    onClick={() => onDownload(slot.url!, index)}
-                    icon={<Download aria-hidden="true" className="h-4 w-4" />}
+                    errorFallback={sharedT("downloadFailed")}
+                    showLabel={false}
+                    variant="ghost"
+                    className="h-10 w-10 rounded-full bg-white p-0 text-codex-ink shadow-lg hover:bg-[var(--codex-surface-soft)]"
                   />
                   <IconButton
                     label={t("regenerate")}

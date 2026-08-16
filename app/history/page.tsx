@@ -4,13 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Download, Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus } from "lucide-react";
-import { downloadImagesAsZip } from "@/lib/download-batch";
-import { downloadImage, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
+import { Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus } from "lucide-react";
+import { generateDownloadFilename } from "@/lib/utils";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { inferMediaExtension, isLikelyVideoUrl } from "@/lib/media";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
+import {
+  StudioBatchDownloadButton,
+  StudioSingleDownloadButton,
+} from "@/components/studio/StudioMediaDownloadButton";
 import {
   buildHistoryFilterUrl,
   buildHistoryDetailUrl,
@@ -137,6 +140,7 @@ async function requestHistoryDetail(t: HistoryT, id: string) {
 export default function HistoryPage() {
   const router = useRouter();
   const t = useTranslations("History");
+  const sharedT = useTranslations("Shared");
   const tAny = useTranslations(); // 数据键全路径（History.* / LibShared.*），用全局 t 解析
   const detailReturnFocusRef = useRef<HTMLElement | null>(null);
   const lightboxReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -602,11 +606,17 @@ export default function HistoryPage() {
 
           return (
             <article key={g.id} className="group relative overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition-[transform,box-shadow] duration-150 hover:-translate-y-1 hover:shadow-[0_20px_52px_rgba(15,23,42,0.12)]">
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => openDetail(g)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  openDetail(g);
+                }}
                 aria-label={t("viewDetailsAria", { module: moduleLabel })}
-                className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--codex-surface-soft)]"
+                className="relative aspect-[3/4] w-full cursor-pointer overflow-hidden bg-[var(--codex-surface-soft)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-inset"
               >
                 {coverUrl ? (
                   <HistoryMediaPreview url={coverUrl} variant="card" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]" alt={t("coverAlt")} />
@@ -625,43 +635,51 @@ export default function HistoryPage() {
                   </span>
                 )}
                 {/* hover 操作浮层 */}
-                <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/55 to-transparent p-3 pt-8 opacity-0 transition-opacity duration-150 group-hover:opacity-100 max-lg:opacity-100">
-                  <span
-                    role="button"
-                    tabIndex={-1}
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/55 to-transparent p-3 pt-8 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 max-lg:opacity-100">
+                  <button
+                    type="button"
                     onClick={(event) => { event.stopPropagation(); openDetail(g); }}
                     className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur transition hover:bg-white"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     {t("viewDetail")}
-                  </span>
-                  <span
-                    role="button"
-                    tabIndex={-1}
+                  </button>
+                  <button
+                    type="button"
                     onClick={(event) => { event.stopPropagation(); applyHistoryRow(g); }}
                     className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur transition hover:bg-white"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     {reuseLabel}
-                  </span>
-                  <span
-                    role="button"
-                    tabIndex={-1}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (resultUrls.length > 1) {
-                        void downloadImagesAsZip({ urls: resultUrls, filename: `pixel-diffusion-${g.id.slice(0, 8)}`, label: t("zipLabel") });
-                      } else if (coverUrl) {
-                        downloadHistoryResult(g, coverUrl, 0);
-                      }
-                    }}
-                    className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    {resultUrls.length > 1 ? t("downloadZip") : t("download")}
-                  </span>
-                </span>
-              </button>
+                  </button>
+                  {resultUrls.length > 1 ? (
+                    <StudioBatchDownloadButton
+                      urls={resultUrls}
+                      filename={`pixel-diffusion-${g.id.slice(0, 8)}`}
+                      label={t("downloadZip")}
+                      resultLabel={t("zipLabel")}
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur hover:bg-white"
+                    />
+                  ) : (
+                    <StudioSingleDownloadButton
+                      url={coverUrl || ""}
+                      filename={generateDownloadFilename(
+                        "history",
+                        0,
+                        inferMediaExtension(coverUrl || "") || "png",
+                      )}
+                      label={t("download")}
+                      errorFallback={sharedT("downloadFailed")}
+                      disabled={!coverUrl}
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur hover:bg-white"
+                    />
+                  )}
+                </div>
+              </div>
               <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-bold text-[var(--codex-ink)]">{moduleLabel}</p>
@@ -747,15 +765,20 @@ export default function HistoryPage() {
                 </DialogDescription>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
+                <StudioSingleDownloadButton
+                  url={selectedResultUrl || ""}
+                  filename={generateDownloadFilename(
+                    "history",
+                    selectedResultIndex,
+                    inferMediaExtension(selectedResultUrl || "") || "png",
+                  )}
+                  label={t("download")}
+                  errorFallback={sharedT("downloadFailed")}
                   disabled={!selectedResultUrl}
+                  size="sm"
+                  variant="outline"
                   className="inline-flex items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-white/75 px-3 py-1.5 text-xs font-medium text-codex-ink shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  {t("download")}
-                </button>
+                />
                 {detailPayload && (
                   <button
                     type="button"
@@ -874,26 +897,30 @@ export default function HistoryPage() {
                         <RotateCcw className="h-3.5 w-3.5" /> {detailFailureCopy?.applyLabel || getHistoryReuseLabel(t, detailPayload)}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
+                    <StudioSingleDownloadButton
+                      url={selectedResultUrl || ""}
+                      filename={generateDownloadFilename(
+                        "history",
+                        selectedResultIndex,
+                        inferMediaExtension(selectedResultUrl || "") || "png",
+                      )}
+                      label={t("downloadSingle")}
+                      errorFallback={sharedT("downloadFailed")}
                       disabled={!selectedResultUrl}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/80 bg-white/85 px-3 text-xs font-bold text-codex-ink shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Download className="h-3.5 w-3.5" /> {t("downloadSingle")}
-                    </button>
+                      size="sm"
+                      variant="outline"
+                      className="h-9 justify-center rounded-lg border-white/80 bg-white/85 px-3 text-xs font-bold text-codex-ink shadow-sm hover:bg-white"
+                    />
                     {detailResults.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => void downloadImagesAsZip({
-                          urls: detailResults,
-                          filename: `pixel-diffusion-${detailRow.id.slice(0, 8)}`,
-                          label: t("zipLabel"),
-                        })}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--codex-accent-38)] bg-[var(--codex-accent-10)] px-3 text-xs font-bold text-[var(--codex-accent)] shadow-sm transition hover:bg-[var(--codex-accent-16)]"
-                      >
-                        <Download className="h-3.5 w-3.5" /> {t("downloadAllZip", { count: detailResults.length })}
-                      </button>
+                      <StudioBatchDownloadButton
+                        urls={detailResults}
+                        filename={`pixel-diffusion-${detailRow.id.slice(0, 8)}`}
+                        label={t("downloadAllZip", { count: detailResults.length })}
+                        resultLabel={t("zipLabel")}
+                        size="sm"
+                        variant="outline"
+                        className="h-9 justify-center rounded-lg border-[var(--codex-accent-38)] bg-[var(--codex-accent-10)] px-3 text-xs font-bold text-[var(--codex-accent)] shadow-sm hover:bg-[var(--codex-accent-16)]"
+                      />
                     )}
                   </div>
                 </section>
@@ -918,7 +945,7 @@ export default function HistoryPage() {
 
                 {detailImages.length > 0 && (
                   <section>
-                    <h4 className="mb-2 text-xs font-bold text-codex-ink">{t("inputImages")}</h4>
+                    <h4 className="mb-2 text-xs font-bold text-codex-ink">{t("inputImages.input")}</h4>
                     <div className="grid grid-cols-3 gap-2">
                       {detailImages.map((image, index) => (
                         <button
@@ -1078,18 +1105,6 @@ async function requestHistoryPage(
   }
 
   return payload;
-}
-
-function downloadHistoryResult(row: HistoryRow, url: string, index: number) {
-  const ext = inferMediaExtension(url, isLikelyVideoUrl(url) ? "mp4" : "png");
-  const dateStr = row.created_at
-    ? new Date(row.created_at).toISOString().slice(0, 10).replace(/-/g, "")
-    : "";
-  const filename = dateStr
-    ? `pixel-diffusion-${dateStr}-${String(index + 1).padStart(2, "0")}.${ext}`
-    : generateDownloadFilename("history", index, ext);
-
-  safeDownloadImage(url, filename);
 }
 
 function getRowPayload(row: HistoryRow) {

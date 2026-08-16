@@ -4200,6 +4200,19 @@
   animation: studio-rail-content-in 220ms ease-out both;
 }
 
+.studio-result-download-row {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.studio-result-download-row-cards {
+  margin-bottom: 8px;
+}
+
 .studio-result-disclaimer,
 .studio-result-time {
   color: rgba(75, 82, 99, 0.42);
@@ -4211,8 +4224,74 @@
 .studio-result-time {
   display: block;
   min-height: 18px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   color: rgba(75, 82, 99, 0.56);
+}
+
+.studio-result-batch-download {
+  min-width: 112px;
+  height: 32px !important;
+  border-color: rgba(205, 211, 225, 0.9) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  padding: 0 11px !important;
+  color: #4f5870 !important;
+  font-size: 12px !important;
+  font-weight: 720 !important;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.06) !important;
+}
+
+.studio-result-batch-download:hover:not(:disabled) {
+  border-color: rgba(111, 126, 255, 0.42) !important;
+  background: #fff !important;
+  color: #536bda !important;
+}
+
+.studio-media-download-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease !important;
+}
+
+.studio-media-download-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.studio-media-download-progress {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  left: 4px;
+  z-index: 2;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.2;
+}
+
+.studio-media-download-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.92;
+  transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-media-download-progress-indeterminate {
+  width: 38% !important;
+  animation: studio-download-progress-indeterminate 950ms linear infinite;
+}
+
+@keyframes studio-download-progress-indeterminate {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(330%); }
 }
 
 .dark .studio-result-disclaimer,
@@ -4375,6 +4454,12 @@
 .studio-result-card-download:hover {
   background: rgb(91, 124, 255);
   color: #fff;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-result-card-download {
+    opacity: 1;
+  }
 }
 
 .dark .studio-result-card-download {
@@ -8430,6 +8515,58 @@ header .animate-spin {
   transform: translate(-50%, 0);
   opacity: 1;
   pointer-events: auto;
+}
+
+.studio-image-preview-focus-downloads {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio-image-preview-focus-downloads .studio-media-download-button {
+  min-width: 108px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  border-radius: 8px !important;
+  background: rgba(20, 24, 34, 0.82) !important;
+  color: #fff !important;
+  font-size: 12px !important;
+  font-weight: 760 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24) !important;
+  backdrop-filter: blur(14px);
+}
+
+@media (max-width: 640px) {
+  .studio-image-preview-focus-downloads {
+    top: 14px;
+    right: 14px;
+    bottom: auto;
+  }
+
+  .studio-image-preview-focus-downloads .studio-media-download-button {
+    width: 38px;
+    min-width: 38px;
+    padding: 0 !important;
+  }
+
+  .studio-image-preview-focus-downloads .studio-media-download-button > span:not(.studio-media-download-progress) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-media-download-button,
+  .studio-media-download-progress > span {
+    transition: none !important;
+  }
+
+  .studio-media-download-progress-indeterminate {
+    animation: none;
+    transform: none;
+  }
 }
 
 @media (max-width: 1180px) {

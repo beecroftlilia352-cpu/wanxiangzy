@@ -22,6 +22,14 @@ vi.mock("@/lib/image-variants", () => ({
   getImageVariantUrl: (url: string) => url,
 }));
 
+vi.mock("@/lib/media-download", () => ({
+  downloadMediaFile: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/download-batch", () => ({
+  downloadImagesAsZip: vi.fn().mockResolvedValue({ successCount: 3, failedCount: 0 }),
+}));
+
 const sampleUrls = [
   "https://example.com/result-1.png",
   "https://example.com/result-2.png",
@@ -49,6 +57,7 @@ describe("ResultImageGrid download button", () => {
     // The new card-level download button uses .studio-result-card-download
     const downloadButtons = document.querySelectorAll(".studio-result-card-download");
     expect(downloadButtons.length).toBe(3);
+    expect(document.querySelector(".studio-result-batch-download")).toBeTruthy();
   });
 
   it("labels each download button with the image alt prefix", () => {

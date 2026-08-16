@@ -340,7 +340,7 @@ export async function compressImageForAgent(file: File): Promise<File> {
 }
 
 /**
- * 上传图片到 imgbb（通过服务端 API 代理）
+ * 上传图片到当前图片存储（通过同源服务端接口，生产环境为阿里云 OSS）
  */
 export async function uploadImage(
   file: File,

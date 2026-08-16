@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Clapperboard,
   Copy,
-  Download,
   Eye,
   Loader2,
   PenLine,
@@ -16,8 +15,12 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  StudioBatchDownloadButton,
+  StudioSingleDownloadButton,
+} from "@/components/studio/StudioMediaDownloadButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { cn, downloadImage, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
+import { cn, generateDownloadFilename } from "@/lib/utils";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import type { OutfitFusionAsset, OutfitFusionConfig } from "@/lib/outfit-fusion";
@@ -76,6 +79,7 @@ export function OutfitFusionTaskCard({
   formatTaskTime,
 }: Props) {
   const t = useTranslations("OutfitFusion");
+  const sharedT = useTranslations("Shared");
   const router = useRouter();
   const running = task.statusGroup === "running" || task.statusGroup === "queued";
   const failed = task.statusGroup === "failed";
@@ -89,10 +93,6 @@ export function OutfitFusionTaskCard({
   const openAiVideo = (url: string) => {
     router.push(buildSourceImageHref("/video", url));
   };
-  const downloadResult = (url: string, slotIndex: number) => {
-    safeDownloadImage(url, generateDownloadFilename("outfit-fusion", slotIndex, "png"), { fallback: t("downloadFailed") });
-  };
-
   return (
     <article
       className="animate-slide-up rounded-[8px] bg-white dark:bg-[var(--codex-surface)] p-3 shadow-sm ring-1 ring-[var(--codex-border)] transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
@@ -168,10 +168,15 @@ export function OutfitFusionTaskCard({
                       onClick={() => openAiVideo(url)}
                       icon={<Clapperboard className="h-3.5 w-3.5" />}
                     />
-                    <OutfitFusionFocusAction
+                    <StudioSingleDownloadButton
+                      url={url}
+                      filename={generateDownloadFilename("outfit-fusion", slotIndex, "png")}
                       label={t("download")}
-                      onClick={() => downloadResult(url, slotIndex)}
-                      icon={<Download className="h-3.5 w-3.5" />}
+                      errorFallback={sharedT("downloadFailed")}
+                      showLabel={false}
+                      variant="ghost"
+                      size="sm"
+                      className="studio-result-focus-action h-8 w-8 rounded-full p-0"
                     />
                   </div>
                 </div>
@@ -225,6 +230,17 @@ export function OutfitFusionTaskCard({
           {running ? <span className="text-[var(--codex-accent)]">{task.progress}%</span> : null}
         </div>
         <div className="flex items-center gap-3">
+          {task.resultUrls.length > 1 ? (
+            <StudioBatchDownloadButton
+              urls={task.resultUrls}
+              filename={`pixel-diffusion-outfit-${task.id.slice(0, 8)}`}
+              label={`${t("download")} ZIP`}
+              resultLabel={t("download")}
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded px-2 text-xs font-semibold text-[var(--codex-accent)]"
+            />
+          ) : null}
           <button
             type="button"
             onClick={onReedit}

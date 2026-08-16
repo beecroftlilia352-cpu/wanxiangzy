@@ -7,7 +7,6 @@ import {
   Bot,
   Check,
   ChevronDown,
-  Download,
   Edit3,
   Languages,
   Loader2,
@@ -50,7 +49,7 @@ import type {
   ProductSetSettings,
 } from "@/lib/product-set";
 import { getProductSetModuleQualityLabel } from "@/lib/product-set";
-import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, safeDownloadImage, uploadImage } from "@/lib/utils";
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import { cn } from "@/lib/utils";
 import {
@@ -619,15 +618,6 @@ export default function AllCategoryProductImagePage() {
     resetOutput();
   }
 
-  async function downloadResult(url: string, index: number) {
-    const ext = url.toLowerCase().includes(".jpg") || url.toLowerCase().includes(".jpeg") ? "jpg" : url.toLowerCase().includes(".webp") ? "webp" : "png";
-    try {
-      await downloadImage(url, generateDownloadFilename("all-category-product", index, ext));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("downloadFailed"));
-    }
-  }
-
   return (
     <div className="flex min-h-[calc(100dvh-64px)] flex-col bg-[#f3f3f4] lg:flex-row">
       <FeatureTabs active="allCategoryProductImage" />
@@ -842,7 +832,6 @@ export default function AllCategoryProductImagePage() {
                     slots={resultSlots}
                     regeneratingIndex={regeneratingIndex}
                     onPreview={(_, __, index) => setPreviewIndex(index)}
-                    onDownload={downloadResult}
                     onRegenerate={(index) => void submitGeneration(index)}
                   />
                   <StudioImagePreviewDialog

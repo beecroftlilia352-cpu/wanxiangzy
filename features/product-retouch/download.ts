@@ -1,4 +1,5 @@
 import { createZip } from "@/lib/zip";
+import { fetchMediaBlob, saveBlobToDevice } from "@/lib/media-download";
 import { generateDownloadFilename } from "@/lib/utils";
 import type { ProductRetouchOutput } from "@/lib/product-retouch";
 
@@ -23,21 +24,10 @@ export async function downloadProductRetouchZip(input: {
     // Match the standard `vwg-ret-{MMDD}-{HHmm}-{seq}.{ext}` filename format used
     // by every other studio module (see lib/utils.ts generateDownloadFilename).
     const filename = generateDownloadFilename(PREFIX, index, extension);
-    // Drop the legacy `proxy=1` flag: /api/download-image already redirects to a
-    // signed OSS URL when possible and only falls back to a server-side fetch when
-    // the upstream host is non-OSS (e.g. yunwu CDN). Forcing proxy always broke
-    // the signed-redirect fast path and surfaced host-allow-list errors as
-    // opaque "下载失败" toasts.
-    const response = await fetch(
-      `/api/download-image?url=${encodeURIComponent(output.resultUrl)}&filename=${encodeURIComponent(filename)}`,
-      { cache: "no-store" },
-    );
-    if (!response.ok) {
-      throw new Error(
-        `${output.sourceFilename || `商品 ${index + 1}`} 下载失败 (${response.status})`,
-      );
-    }
-    const blob = await response.blob();
+    // ZIP needs readable bytes. Hong Kong OSS does not currently expose CORS
+    // headers, so use the guarded same-origin streaming path with retry instead
+    // of following a signed cross-origin redirect from fetch().
+    const blob = await fetchMediaBlob(output.resultUrl, filename, { forceProxy: true });
     totalBytes += blob.size;
     if (totalBytes > MAX_ZIP_BYTES) {
       throw new Error("批次文件超过 500MB，请按商品分组下载");
@@ -46,7 +36,7 @@ export async function downloadProductRetouchZip(input: {
   }
 
   const zip = await createZip(files);
-  saveBlob(
+  saveBlobToDevice(
     zip,
     buildZipFilename(input.batchId, input.scopeLabel, completed.length),
   );
@@ -72,16 +62,4 @@ function sanitizeBaseName(value: string) {
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-")
     .trim()
     .slice(0, 80) || "商品";
-}
-
-function saveBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.rel = "noopener";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }

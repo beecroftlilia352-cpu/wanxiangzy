@@ -65,7 +65,7 @@ export async function downloadImagesAsZip(options: {
         if (totalBytes > 300 * 1024 * 1024) {
           throw new Error("合集超过 300MB，请分批下载");
         }
-        const ext = inferImageExtension(url, blob.type);
+        const ext = inferArchiveExtension(url, blob.type);
         folder.file(`${String(index + 1).padStart(2, "0")}.${ext}`, blob);
       } catch (error) {
         if (signal?.aborted) throw error;
@@ -132,11 +132,15 @@ export async function downloadImagesAsZip(options: {
   }
 }
 
-function inferImageExtension(url: string, mime: string) {
+function inferArchiveExtension(url: string, mime: string) {
   const fromUrl = url.split("?")[0].split(".").pop()?.toLowerCase();
-  if (fromUrl && /^(png|jpe?g|webp|gif)$/.test(fromUrl)) return fromUrl === "jpeg" ? "jpg" : fromUrl;
+  if (fromUrl && /^(png|jpe?g|webp|gif|mp4|webm|mov)$/.test(fromUrl)) return fromUrl === "jpeg" ? "jpg" : fromUrl;
   if (mime === "image/png") return "png";
   if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
+  if (mime === "video/mp4") return "mp4";
+  if (mime === "video/webm") return "webm";
+  if (mime === "video/quicktime") return "mov";
   return "jpg";
 }
 

@@ -1,10 +1,11 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Download, Loader2, Play, XCircle } from "lucide-react";
+import { Loader2, Play, XCircle } from "lucide-react";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { downloadMedia, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
+import { StudioSingleDownloadButton } from "@/components/studio/StudioMediaDownloadButton";
+import { generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { useTranslations } from "next-intl";
 
@@ -162,18 +163,15 @@ function VideoResultCard({
           {t("videoResultBadge")}
         </span>
       </div>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          safeDownloadImage(url, generateDownloadFilename(filenamePrefix, index, "mp4"), { fallback: t("downloadFailed") });
-        }}
+      <StudioSingleDownloadButton
+        url={url}
+        filename={generateDownloadFilename(filenamePrefix, index, "mp4")}
+        errorFallback={t("downloadFailed")}
+        label={t("videoResultDownload", { index: index + 1 })}
+        showLabel={false}
+        variant="ghost"
         className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-codex-ink opacity-100 shadow-lg ring-1 ring-[var(--codex-border)]/70 backdrop-blur transition-[background-color,color,opacity] hover:bg-white hover:text-codex-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-        aria-label={t("videoResultDownload", { index: index + 1 })}
-        title={t("videoResultDownload", { index: index + 1 })}
-      >
-        <Download className="h-4 w-4" aria-hidden="true" />
-      </button>
+      />
     </div>
   );
 }

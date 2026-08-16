@@ -47,6 +47,7 @@ const ACTION_LABEL_KEYS: Record<string, string> = {
 };
 import { Button } from "@/components/ui/button";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioBatchDownloadButton, StudioSingleDownloadButton } from "@/components/studio/StudioMediaDownloadButton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,8 +64,7 @@ import {
   type ImagePreviewResult,
   type ImagePreviewSession,
 } from "@/lib/studio-image-preview";
-import { downloadImagesAsZip } from "@/lib/download-batch";
-import { cn, downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { cn, generateDownloadFilename } from "@/lib/utils";
 
 type StudioImagePreviewWorkspaceProps = {
   session: ImagePreviewSession;
@@ -197,14 +197,6 @@ export function StudioImagePreviewWorkspace({
       return;
     }
 
-    if (action.kind === "download") {
-      try {
-        await downloadImage(activeUrl, generateDownloadFilename(filenamePrefix, activeIndex, extension));
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("downloadFailed"));
-      }
-      return;
-    }
     if (action.kind === "copy") {
       await navigator.clipboard.writeText(activeUrl);
       toast.success(t("imageLinkCopied"));
@@ -317,6 +309,8 @@ export function StudioImagePreviewWorkspace({
             onRouteWithSource={routeWithSource}
             resultUrls={session.results.map((item) => item.url).filter((url): url is string => Boolean(url))}
             filenamePrefix={filenamePrefix}
+            extension={extension}
+            activeIndex={activeIndex}
           />
         </div>
 
@@ -330,6 +324,9 @@ export function StudioImagePreviewWorkspace({
         {focusImage && (
           <ImageFocusDialog
             image={focusImage}
+            filename={generateDownloadFilename(filenamePrefix, activeIndex, extension)}
+            resultUrls={session.results.map((item) => item.url).filter((url): url is string => Boolean(url))}
+            filenamePrefix={filenamePrefix}
             onClose={() => setFocusImage(null)}
           />
         )}
@@ -635,6 +632,8 @@ function PreviewActionBar({
   onRouteWithSource,
   resultUrls,
   filenamePrefix,
+  extension,
+  activeIndex,
 }: {
   actions: ImagePreviewAction[];
   activeUrl: string;
@@ -643,6 +642,8 @@ function PreviewActionBar({
   onRouteWithSource: (path: string) => void;
   resultUrls?: string[];
   filenamePrefix?: string;
+  extension: string;
+  activeIndex: number;
 }) {
   const t = useTranslations("Shared");
   const actionMap = new Map(actions.map((action) => [action.kind, action]));
@@ -693,19 +694,23 @@ function PreviewActionBar({
         </div>
         {downloadAction && (
           <div className="studio-image-preview-action-download-wrap">
-            <PreviewActionButton
-              action={downloadAction}
-              onClick={() => void onRunAction(downloadAction)}
+            <StudioSingleDownloadButton
+              url={activeUrl}
+              filename={generateDownloadFilename(filenamePrefix || "results", activeIndex, extension)}
+              errorFallback={t("downloadFailed")}
+              label={ACTION_LABEL_KEYS[downloadAction.kind] ? t(ACTION_LABEL_KEYS[downloadAction.kind]) : downloadAction.label}
+              variant="ghost"
+              size="sm"
               className="studio-image-preview-action-download"
             />
             {resultUrls && resultUrls.length > 1 && (
-              <PreviewActionButton
-                action={{ kind: "download", label: t("downloadAll", { count: resultUrls.length }) }}
-                onClick={() => void downloadImagesAsZip({
-                  urls: resultUrls,
-                  filename: `pixel-diffusion-${filenamePrefix || "results"}`,
-                  label: t("results"),
-                })}
+              <StudioBatchDownloadButton
+                urls={resultUrls}
+                filename={`pixel-diffusion-${filenamePrefix || "results"}`}
+                resultLabel={t("results")}
+                label={t("downloadAll", { count: resultUrls.length })}
+                variant="ghost"
+                size="sm"
                 className="studio-image-preview-action-download"
               />
             )}
@@ -899,7 +904,19 @@ function PendingThumb({ result }: { result: ImagePreviewResult }) {
   );
 }
 
-function ImageFocusDialog({ image, onClose }: { image: FocusImage; onClose: () => void }) {
+function ImageFocusDialog({
+  image,
+  filename,
+  resultUrls,
+  filenamePrefix,
+  onClose,
+}: {
+  image: FocusImage;
+  filename: string;
+  resultUrls: string[];
+  filenamePrefix: string;
+  onClose: () => void;
+}) {
   const t = useTranslations("Shared");
   const [zoom, setZoom] = useState(100);
   return (
@@ -928,6 +945,26 @@ function ImageFocusDialog({ image, onClose }: { image: FocusImage; onClose: () =
           />
           <div onClick={(event) => event.stopPropagation()}>
             <ZoomDock zoom={zoom} onZoomChange={setZoom} onReset={() => setZoom(100)} />
+          </div>
+          <div className="studio-image-preview-focus-downloads" onClick={(event) => event.stopPropagation()}>
+            <StudioSingleDownloadButton
+              url={image.url}
+              filename={filename}
+              errorFallback={t("downloadFailed")}
+              label={t("actionDownload")}
+              variant="secondary"
+              size="sm"
+            />
+            {resultUrls.length > 1 && (
+              <StudioBatchDownloadButton
+                urls={resultUrls}
+                filename={`pixel-diffusion-${filenamePrefix}`}
+                resultLabel={t("results")}
+                label={t("downloadAll", { count: resultUrls.length })}
+                variant="secondary"
+                size="sm"
+              />
+            )}
           </div>
         </div>
       </DialogContent>
