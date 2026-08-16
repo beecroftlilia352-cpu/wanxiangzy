@@ -14,6 +14,7 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { buildOutfitFusionRuntimePlan, type OutfitFusionAsset, type OutfitFusionConfig } from "@/lib/outfit-fusion";
+import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
 
 export const maxDuration = 60;
 
@@ -151,7 +152,7 @@ function normalizeReferenceUrls(value: unknown) {
   return value
     .map((item) => typeof item === "string" ? item.trim() : "")
     .filter((url) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
-    .slice(0, 8);
+    .slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
 }
 
 function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): OutfitFusionAsset[] {

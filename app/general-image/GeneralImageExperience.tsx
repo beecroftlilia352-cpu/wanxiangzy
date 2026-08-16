@@ -50,8 +50,11 @@ import {
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
 import { ImagePromptDialog, type ImagePromptSource } from "@/features/general-image/image-prompt-dialog";
-
-type GeneralImageMode = "text-to-image" | "image-to-image";
+import {
+  getGeneralImageDefaultSettings,
+  MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+  type GeneralImageMode,
+} from "@/lib/general-image-config";
 
 type ReferenceImage = {
   id: string;
@@ -95,10 +98,12 @@ const GENERAL_IMAGE_PREVIEW_ACTIONS: Array<ImagePreviewAction & { labelKey: stri
 export function GeneralImageExperience({ initialMode = "text-to-image" }: { initialMode?: GeneralImageMode }) {
   const router = useRouter();
   const t = useTranslations("GeneralImage");
+  const tShared = useTranslations("Shared");
   const { confirm, confirmDialog } = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagePromptInputRef = useRef<HTMLInputElement>(null);
   const imagePromptTriggerRef = useRef<HTMLButtonElement>(null);
+  const defaultSettings = getGeneralImageDefaultSettings(initialMode);
 
   const [mode, setMode] = useState<GeneralImageMode>(initialMode);
   const [prompt, setPrompt] = useState("");
@@ -113,10 +118,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     refreshCredits,
     refreshAuth,
   } = useStudioAuth();
-  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>(
+    defaultSettings.model,
+  );
   const modelOptions = useStudioImageModelOptions();
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
-  const [imageSize, setImageSize] = useState<ImageSize>("1K");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(defaultSettings.aspectRatio);
+  const [imageSize, setImageSize] = useState<ImageSize>(defaultSettings.imageSize);
   const [genCount, setGenCount] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -452,9 +459,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setMode(initialMode);
     setPrompt("");
     setReferenceImages([]);
-    setAiModel("nano-banana-2");
-    setAspectRatio("auto");
-    setImageSize("1K");
+    setAiModel(defaultSettings.model);
+    setAspectRatio(defaultSettings.aspectRatio);
+    setImageSize(defaultSettings.imageSize);
     setGenCount(1);
     setIsDragging(false);
     setShowImagePromptModal(false);
@@ -486,10 +493,20 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     const oversized = selected.find((file) => file.size > MAX_FILE_SIZE);
     if (oversized) return toast.error(t("exceedsSize", { name: oversized.name, max: MAX_FILE_SIZE_MB }));
 
-    const remain = Math.max(0, 8 - referenceImages.length);
-    if (!remain) return toast.error(t("maxReferenceImages"));
+    const remain = Math.max(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES - referenceImages.length);
+    if (!remain) {
+      return toast.error(tShared("multiImageCount", {
+        count: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+        max: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+      }));
+    }
     const limited = selected.slice(0, remain);
-    if (selected.length > limited.length) toast.info(t("keptFirst8"));
+    if (selected.length > limited.length) {
+      toast.info(tShared("multiImageCount", {
+        count: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+        max: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+      }));
+    }
 
     setIsUploading(true);
     toast.info(t("uploadingReferences", { count: limited.length }));
@@ -509,7 +526,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         }
       });
       if (nextImages.length) {
-        setReferenceImages((prev) => [...prev, ...nextImages].slice(0, 8));
+        setReferenceImages((prev) => [...prev, ...nextImages].slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES));
         toast.success(t("referenceUploaded"));
       }
     } finally {
@@ -763,11 +780,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   return (
-    <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
+    <div className="studio-workbench studio-general-image-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row" data-mode={mode}>
       <FeatureTabs active={activeFeature} />
       <ModuleTaskRail module="generalImage" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
-      <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
+      <div className="studio-parameters studio-general-image-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
+        <div className="studio-parameters-scroll studio-general-image-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
             title={modeMeta.title}
             tooltip={modeMeta.tooltip}
@@ -788,7 +805,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               {(openFileDialog) => (
                 <MultiImageUploadV2
                   urls={referenceImages.map((item) => item.preview || item.url)}
-                  maxCount={8}
+                  maxCount={MAX_GENERAL_IMAGE_REFERENCE_IMAGES}
                   title={t("referenceSectionTitle")}
                   showExamples={false}
                   descriptionSlot={(
@@ -836,6 +853,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               onOptimizePrompt={optimizePrompt}
               onClear={() => { setPrompt(""); resetOutput(); }}
               onSubmitOnEnter={() => { if (prompt.trim() && !isGenerating) void generate(); }}
+              className="studio-general-image-prompt"
             />
             {!isImageMode && (
               <button
@@ -855,6 +873,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             value={aiModel}
             onChange={setAiModel}
             ariaLabel={t("modelAriaLabel")}
+            className="studio-general-image-model-selector"
           />
 
           <section>
@@ -924,6 +943,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 { title: t("stepWriteIndexTitle"), desc: t("stepWriteIndexDesc") },
                 { title: t("stepGenerateRefTitle"), desc: t("stepGenerateRefDesc") },
               ]}
+              variant="editorial"
             />
           </div>
         )}

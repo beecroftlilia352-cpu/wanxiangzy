@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
 
 export const maxDuration = 60;
 
@@ -116,7 +117,7 @@ function normalizeReferenceUrls(value: unknown) {
   return value
     .map((item) => typeof item === "string" ? item.trim() : "")
     .filter((url) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
-    .slice(0, 8);
+    .slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
 }
 
 function extractMessageText(data: Record<string, unknown>) {

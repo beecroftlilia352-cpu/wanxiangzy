@@ -20,6 +20,7 @@ type PreviewGuideProps = {
   imageAlt?: string;
   icon?: ReactNode;
   actions?: ReactNode;
+  variant?: "default" | "editorial";
 };
 
 export function PreviewGuide({
@@ -30,6 +31,7 @@ export function PreviewGuide({
   imageAlt = "",
   icon,
   actions,
+  variant = "default",
 }: PreviewGuideProps) {
   const stepGridClass = steps.length >= 4
     ? "sm:grid-cols-2 lg:grid-cols-4"
@@ -44,24 +46,24 @@ export function PreviewGuide({
   const connectorVisibilityClass = steps.length >= 4 ? "lg:flex" : "sm:flex";
 
   return (
-    <div className="relative mx-auto w-full max-w-[1080px] px-1 py-3 text-center sm:px-3 sm:py-6">
-      <div className="pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,var(--codex-accent-16),transparent_68%)] blur-3xl" />
-      <div className="relative">
-        <h3 className="bg-[linear-gradient(135deg,#3f5dff_0%,#6d8dff_45%,#aeb8ff_100%)] bg-clip-text text-[24px] font-black tracking-[-0.02em] text-transparent dark:bg-[linear-gradient(135deg,#8fa8ff_0%,#b8c6ff_55%,#dbe4ff_100%)] sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
-        <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-codex-faint sm:text-[15px]">{subtitle}</p>
+    <div className="studio-preview-guide relative mx-auto w-full max-w-[1080px] px-1 py-3 text-center sm:px-3 sm:py-6" data-variant={variant}>
+      <div className="studio-preview-guide-glow pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,var(--codex-accent-16),transparent_68%)] blur-3xl" />
+      <div className="studio-preview-guide-content relative">
+        <h3 className="studio-preview-guide-title bg-[linear-gradient(135deg,#3f5dff_0%,#6d8dff_45%,#aeb8ff_100%)] bg-clip-text text-[24px] font-black tracking-[-0.02em] text-transparent dark:bg-[linear-gradient(135deg,#8fa8ff_0%,#b8c6ff_55%,#dbe4ff_100%)] sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
+        <p className="studio-preview-guide-subtitle mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-codex-faint sm:text-[15px]">{subtitle}</p>
 
-        <div className="mt-8 overflow-hidden rounded-[32px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_var(--codex-accent-12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-codex-ink/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
-          <div className={`grid grid-cols-1 gap-5 sm:gap-8 ${stepGridClass} ${visualGridWidthClass}`}>
+        <div className="studio-preview-guide-panel mt-8 overflow-hidden rounded-[32px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_var(--codex-accent-12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-codex-ink/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
+          <div className={`studio-preview-guide-grid grid grid-cols-1 gap-5 sm:gap-8 ${stepGridClass} ${visualGridWidthClass}`}>
             {steps.map((step, index) => {
               const hasImage = Boolean(step.imageSrc || imageSrc);
               const isContain = step.imageFit === "contain";
 
               return (
-                <div key={step.title} className="group relative min-w-0">
-                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-[var(--codex-surface-soft)] to-[var(--codex-border)] p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_var(--codex-accent-14)] dark:from-stone-800 dark:via-stone-900 dark:to-black">
+                <div key={step.title} className="studio-preview-guide-step group relative min-w-0">
+                  <div className="studio-preview-guide-media-frame relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-[var(--codex-surface-soft)] to-[var(--codex-border)] p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_var(--codex-accent-14)] dark:from-stone-800 dark:via-stone-900 dark:to-black">
                     <div
                       className={cn(
-                        "relative aspect-[4/5] overflow-hidden rounded-[21px]",
+                        "studio-preview-guide-media relative aspect-[4/5] overflow-hidden rounded-[21px]",
                         isContain
                           ? "bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_55%,#eef4ff_100%)] dark:bg-[linear-gradient(135deg,#1c1c1e_0%,#26262a_55%,#1c1c1e_100%)]"
                           : "bg-[var(--codex-surface-soft)]"
@@ -74,7 +76,7 @@ export function PreviewGuide({
                           fill
                           sizes="(max-width: 640px) 86vw, (max-width: 1024px) 42vw, 250px"
                           className={cn(
-                            "transition duration-300 group-hover:scale-[1.025]",
+                            "studio-preview-guide-image transition duration-300 group-hover:scale-[1.025]",
                             isContain ? "object-contain p-5 sm:p-6" : "object-cover object-top"
                           )}
                         />
@@ -86,27 +88,27 @@ export function PreviewGuide({
                           </span>
                         </div>
                       )}
-                      <span className="absolute left-3 top-3 inline-flex h-7 items-center gap-1 rounded-lg border border-[var(--codex-accent-28)] bg-[var(--codex-accent-10)] px-2.5 text-[11px] font-black leading-none text-[var(--codex-accent)] backdrop-blur-sm">
-                        {step.badge || `步骤 ${index + 1}`}
+                      <span className="studio-preview-guide-badge absolute left-3 top-3 inline-flex h-7 items-center gap-1 rounded-lg border border-[var(--codex-accent-28)] bg-[var(--codex-accent-10)] px-2.5 text-[11px] font-black leading-none text-[var(--codex-accent)] backdrop-blur-sm">
+                        {step.badge || (variant === "editorial" ? String(index + 1).padStart(2, "0") : `步骤 ${index + 1}`)}
                       </span>
                     </div>
                   </div>
                   {index < steps.length - 1 ? (
                     <div className={cn(
-                      "pointer-events-none absolute right-[-27px] top-[38%] z-10 hidden h-9 w-9 items-center justify-center rounded-full border-[3px] border-white dark:border-stone-900 bg-[var(--codex-accent)] text-white shadow-[0_16px_34px_var(--codex-accent-28)]",
+                      "studio-preview-guide-connector pointer-events-none absolute right-[-27px] top-[38%] z-10 hidden h-9 w-9 items-center justify-center rounded-full border-[3px] border-white dark:border-stone-900 bg-[var(--codex-accent)] text-white shadow-[0_16px_34px_var(--codex-accent-28)]",
                       connectorVisibilityClass
                     )}>
                       <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </div>
                   ) : null}
-                  <div className="mt-3 flex items-center justify-center gap-2 text-center">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] px-2 text-[11px] font-black text-codex-faint">
+                  <div className="studio-preview-guide-step-heading mt-3 flex items-center justify-center gap-2 text-center">
+                    <span className="studio-preview-guide-step-index inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] px-2 text-[11px] font-black text-codex-faint">
                       {index + 1}
                     </span>
-                    <p className="min-w-0 truncate text-[14px] font-black text-codex-ink sm:text-[15px]">{step.title}</p>
+                    <p className="studio-preview-guide-step-title min-w-0 truncate text-[14px] font-black text-codex-ink sm:text-[15px]">{step.title}</p>
                   </div>
                   {step.desc ? (
-                    <p className="mx-auto mt-1.5 max-w-[220px] text-center text-[12px] font-semibold leading-5 text-codex-faint">
+                    <p className="studio-preview-guide-step-description mx-auto mt-1.5 max-w-[220px] text-center text-[12px] font-semibold leading-5 text-codex-faint">
                       {step.desc}
                     </p>
                   ) : null}
@@ -115,7 +117,7 @@ export function PreviewGuide({
             })}
           </div>
 
-          {actions && <div className="mt-7 flex flex-wrap justify-center gap-2">{actions}</div>}
+          {actions && <div className="studio-preview-guide-actions mt-7 flex flex-wrap justify-center gap-2">{actions}</div>}
         </div>
       </div>
     </div>
