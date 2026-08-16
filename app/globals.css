@@ -319,15 +319,16 @@ a,
     --codex-muted: #4b5263;
     --codex-faint: #7b8498;
     --codex-surface: #ffffff;
-    --codex-surface-soft: var(--codex-surface-soft);
-    --codex-surface-strong: var(--codex-surface-strong);
-    /* White overlay alpha tiers — replaces ad-hoc rgba(255,255,255,*) for glassy surfaces */
-    --codex-surface-04: var(--codex-surface-04);
-    --codex-surface-06: var(--codex-surface-06);
-    --codex-surface-08: var(--codex-surface-08);
-    --codex-surface-10: var(--codex-surface-10);
-    --codex-surface-72: var(--codex-surface-72);
-    --codex-surface-82: var(--codex-surface-82);
+    --codex-surface-soft: rgba(255, 255, 255, 0.78);
+    --codex-surface-strong: rgba(255, 255, 255, 0.92);
+    /* White overlay alpha tiers — replaces ad-hoc rgba(255,255,255,*) for glassy surfaces.
+       Suffix is alpha × 100, so -04 = 4% alpha, -82 = 82% alpha. */
+    --codex-surface-04: rgba(255, 255, 255, 0.04);
+    --codex-surface-06: rgba(255, 255, 255, 0.06);
+    --codex-surface-08: rgba(255, 255, 255, 0.08);
+    --codex-surface-10: rgba(255, 255, 255, 0.10);
+    --codex-surface-72: rgba(255, 255, 255, 0.72);
+    --codex-surface-82: rgba(255, 255, 255, 0.82);
     --codex-border: rgba(17, 24, 39, 0.12);
     --codex-border-strong: rgba(17, 24, 39, 0.2);
     --codex-border-soft: rgba(226, 232, 240, 0.92);
@@ -567,11 +568,12 @@ a,
     --codex-surface: #1c1c1e;
     --codex-surface-soft: rgba(38, 38, 40, 0.78);
     --codex-surface-strong: rgba(28, 28, 30, 0.92);
-    /* White overlay alpha tiers (dark) — dark glassy surface */
-    --codex-surface-04: var(--codex-surface-04);
-    --codex-surface-06: var(--codex-surface-06);
-    --codex-surface-08: var(--codex-surface-08);
-    --codex-surface-10: var(--codex-surface-10);
+    /* White overlay alpha tiers (dark) — low-tier tints match light naming;
+       -72/-82 deliberately lower than 72%/82% so dark glass panels don't blow out. */
+    --codex-surface-04: rgba(255, 255, 255, 0.04);
+    --codex-surface-06: rgba(255, 255, 255, 0.06);
+    --codex-surface-08: rgba(255, 255, 255, 0.08);
+    --codex-surface-10: rgba(255, 255, 255, 0.10);
     --codex-surface-72: rgba(255, 255, 255, 0.12);
     --codex-surface-82: rgba(255, 255, 255, 0.18);
     --codex-border: rgba(255, 255, 255, 0.12);
