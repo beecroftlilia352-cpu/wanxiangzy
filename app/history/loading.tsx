@@ -1,5 +1,5 @@
-import { StudioLoadingFallback } from "@/components/ui/studio-loading";
+import { HistoryLoadingSkeleton } from "@/features/history/HistorySkeletons";
 
 export default function Loading() {
-  return <StudioLoadingFallback />;
+  return <HistoryLoadingSkeleton />;
 }

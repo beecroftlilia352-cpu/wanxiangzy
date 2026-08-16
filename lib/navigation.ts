@@ -105,13 +105,13 @@ export const TOP_MODULES: TopModuleNavItem[] = [
 ];
 
 /**
- * 主导航上展示的"3 个工作场景 + 1 个作品库"。
- * - 3 个场景按使用顺序排列：aiShoots → productImages → aiVideo
+ * 主导航上展示的"4 个工作场景 + 1 个作品库"。
+ * - 4 个场景按使用顺序排列：aiShoots → productImages → tools → aiVideo
  * - 作品库（works）独立成一类，与"做"分离
- * - home 通过 logo 访问；tools（素材生成）只走 URL，不再占主导航位
+ * - home 通过 logo 访问；assistant（工作流助手）只走 URL
  */
 export const VISIBLE_TOP_MODULES: TopModuleNavItem[] = TOP_MODULES.filter(
-  (item) => item.key !== "home" && item.key !== "tools" && item.key !== "assistant",
+  (item) => item.key !== "home" && item.key !== "assistant",
 );
 
 export const FEATURE_ITEMS: FeatureNavItem[] = [

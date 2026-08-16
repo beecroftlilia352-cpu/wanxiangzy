@@ -458,7 +458,7 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
   return (
     <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 xl:flex" aria-label={t("mainNavAria")}>
       {VISIBLE_TOP_MODULES.map((item, index) => {
-        // "3 个工作场景" 与 "作品库" 之间的视觉分界线。
+        // "4 个工作场景" 与 "作品库" 之间的视觉分界线。
         const showDivider = index > 0 && item.key === "works";
         const active = activeModule === item.key;
         const Icon = item.icon;
@@ -799,7 +799,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
         {VISIBLE_TOP_MODULES.map((item, index) => {
           const Icon = item.icon;
           const isActive = item.key === activeModule;
-          // 移动端菜单："3 个工作场景" 与 "作品库" 之间加分隔线
+          // 移动端菜单："4 个工作场景" 与 "作品库" 之间加分隔线
           const showDivider = index > 0 && item.key === "works";
 
           const content = (() => {

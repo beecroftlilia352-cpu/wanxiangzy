@@ -1,15 +1,10 @@
-import { PageFallback, HeroFallback, MetricGridFallback, CardFallback } from "@/components/ui/page-loading";
+import { StudioModuleSkeleton } from "@/components/studio/StudioModuleSkeleton";
 
-export default function HomeLoading() {
-  return (
-    <PageFallback className="space-y-10 px-4 py-10 sm:px-6 lg:px-10">
-      <HeroFallback showActions={false} />
-      <MetricGridFallback count={4} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <CardFallback title lines={4} />
-        <CardFallback title lines={4} />
-      </div>
-      <CardFallback title lines={6} />
-    </PageFallback>
-  );
+/**
+ * 根级兜底骨架屏 — 只对没有自己的 loading.tsx 的路由生效
+ * （如 /auth 回调、/admin-forbidden）。统一用 studio 工作台骨架，
+ * 避免旧的 admin-hero 风格骨架漏出。
+ */
+export default function Loading() {
+  return <StudioModuleSkeleton variant="default" />;
 }
