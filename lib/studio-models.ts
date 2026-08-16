@@ -6,6 +6,9 @@ import { useLocale, useTranslations } from "next-intl";
 import type { ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { ResolutionOption } from "@/components/studio/ResolutionSelector";
 
+const STUDIO_MODEL_ASSET_BASE =
+  "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-covers";
+
 /**
  * Studio 图像模型选项的单一事实来源。
  * 此前 8 个页面各自维护 MODELS 数组 + 预翻译 map；这里统一为：
@@ -25,21 +28,21 @@ export const STUDIO_IMAGE_MODEL_META: Record<
     englishLabel: "GPT Image 2",
     descKey: "Shared.modelDesc.fineDetail",
     badgeKey: "Shared.modelBadge.latest",
-    icon: "/model-covers/gpt-image-2.png",
+    icon: `${STUDIO_MODEL_ASSET_BASE}/gpt-image-2.png`,
   },
   "nano-banana-2": {
     label: "香蕉2",
     englishLabel: "Nano Banana 2",
     descKey: "Shared.modelDesc.fastGeneral",
     badgeKey: "Shared.modelBadge.recommended",
-    icon: "/model-covers/banana-2.png",
+    icon: `${STUDIO_MODEL_ASSET_BASE}/banana-2.png`,
   },
   "nano-banana-pro": {
     label: "香蕉Pro",
     englishLabel: "Nano Banana Pro",
     descKey: "Shared.modelDesc.commercialRetouch",
     badgeKey: "Shared.modelBadge.highQuality",
-    icon: "/model-covers/banana-pro.png",
+    icon: `${STUDIO_MODEL_ASSET_BASE}/banana-pro.png`,
   },
 };
 

@@ -6,6 +6,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { StudioModelSelector } from "@/components/studio/StudioModelSelector";
 import zhMessages from "@/messages/zh.json";
 
+const MODEL_ASSET_BASE =
+  "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-covers";
+
 vi.mock("@/lib/use-visible-image-models", () => ({
   useVisibleImageModels: () => ({ visibleModels: null, isReady: false }),
 }));
@@ -17,20 +20,20 @@ const models = [
     value: "gpt-image-2",
     label: "GPT image 2",
     desc: "复杂指令与文字排版能力更强。",
-    icon: "/model-covers/gpt-image-2.png",
+    icon: `${MODEL_ASSET_BASE}/gpt-image-2.png`,
     badge: "NEW",
   },
   {
     value: "nano-banana-2",
     label: "香蕉2",
     desc: "快速稳定，适合日常批量生成。",
-    icon: "/model-covers/banana-2.png",
+    icon: `${MODEL_ASSET_BASE}/banana-2.png`,
   },
   {
     value: "nano-banana-pro",
     label: "香蕉Pro",
     desc: "精细控制，适合高质量商业出图。",
-    icon: "/model-covers/banana-pro.png",
+    icon: `${MODEL_ASSET_BASE}/banana-pro.png`,
     badge: "PRO",
   },
 ] as const;
@@ -58,7 +61,7 @@ describe("StudioModelSelector", () => {
     expect(getByRole("button", { name: "基础生图模型" }).textContent)
       .toContain("快速稳定，适合日常批量生成。");
     expect(container.querySelector<HTMLImageElement>(".studio-model-selector-trigger-visual img")?.src)
-      .toContain("/model-covers/banana-2.png");
+      .toContain(`${MODEL_ASSET_BASE}/banana-2.png`);
     expect(container.querySelector<HTMLImageElement>(".studio-model-selector-trigger-visual img")?.className)
       .toContain("transition-none");
   });

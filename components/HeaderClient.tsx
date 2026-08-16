@@ -54,7 +54,8 @@ type HeaderAccountState = {
   onLogout: () => Promise<void>;
 };
 
-const DEFAULT_STUDIO_AVATAR = "/avatars/default-studio-user.png";
+const DEFAULT_STUDIO_AVATAR =
+  "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/avatars/default-studio-user.png";
 
 const COMPACT_BRAND_SUBTITLES: Record<string, string> = {
   zh: "AI 视觉工作台",

@@ -23,7 +23,9 @@ describe("studio image model catalog", () => {
     for (const model of Object.values(STUDIO_IMAGE_MODEL_META)) {
       expect(model.descKey).toMatch(/^Shared\.modelDesc\./);
       expect(model.badgeKey).toMatch(/^Shared\.modelBadge\./);
-      expect(model.icon).toMatch(/^\/model-covers\/.+\.png$/);
+      expect(model.icon).toMatch(
+        /^https:\/\/vasthk\.oss-cn-hongkong\.aliyuncs\.com\/site-assets\/original\/model-covers\/.+\.png$/,
+      );
     }
   });
 });
