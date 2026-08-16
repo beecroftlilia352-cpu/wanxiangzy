@@ -7,6 +7,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Bell,
+  BookOpenText,
+  CalendarCheck2,
   ChevronDown,
   CircleHelp,
   Coins,
@@ -40,6 +42,7 @@ import { StudioTabBadge } from "@/components/studio/StudioTabBadge";
 import { codexTheme } from "@/lib/design/codex-theme";
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { toast } from "sonner";
 
 type HeaderAccountState = {
   authReady: boolean;
@@ -409,7 +412,8 @@ function AppHeader({ pathname }: { pathname: string }) {
           <div className="xl:hidden">
             <MobileModuleMenu activeModule={activeModule} />
           </div>
-          <LanguageSwitcher />
+          <HeaderUtilityActions />
+          <LanguageSwitcher variant="icon" />
           <ThemeToggle className="h-10 w-10" />
           <UserCreditActions
             authReady={authReady}
@@ -423,6 +427,32 @@ function AppHeader({ pathname }: { pathname: string }) {
         </div>
       </div>
     </header>
+  );
+}
+
+function HeaderUtilityActions() {
+  const t = useTranslations("Header");
+
+  return (
+    <div className="studio-header-utility hidden items-center gap-1.5 lg:flex">
+      <Link
+        href="/account?tab=help"
+        className="studio-header-utility-button"
+        title={t("imageGuide")}
+      >
+        <BookOpenText aria-hidden="true" />
+        <span>{t("imageGuide")}</span>
+      </Link>
+      <button
+        type="button"
+        className="studio-header-utility-button studio-header-checkin"
+        onClick={() => toast.info(t("checkInComingSoon"))}
+        title={t("checkInComingSoon")}
+      >
+        <CalendarCheck2 aria-hidden="true" />
+        <span>{t("checkIn")}</span>
+      </button>
+    </div>
   );
 }
 
@@ -569,7 +599,6 @@ function UserCreditActions({
         <Coins className="h-3.5 w-3.5" />
         {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-[var(--codex-surface-soft)] dark:bg-white/10" />}
       </Link>
-      <HeaderHelpDropdown />
       <AccountAvatarDropdown
         email={email}
         credits={credits}
@@ -715,45 +744,6 @@ function AccountMenuLink({
         {label}
       </Link>
     </DropdownMenuItem>
-  );
-}
-
-function HeaderHelpDropdown() {
-  const t = useTranslations("Header");
-  const items = [
-    { href: "/account?tab=help", label: t("imageGuide") },
-    { href: "/account?tab=feedback", label: t("contactUs") },
-  ];
-
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="studio-button studio-button-compact hidden sm:inline-flex"
-          title={t("helpCenter")}
-          aria-label={t("openHelpMenuAria")}
-        >
-          <CircleHelp className="h-3.5 w-3.5" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={10}
-        className="z-[80] min-w-[112px] overflow-hidden rounded-md border border-[var(--codex-border)] bg-codex-surface p-1 shadow-[0_12px_28px_rgba(15,23,42,0.14)] dark:border-white/10 dark:shadow-[0_12px_28px_rgba(0,0,0,0.5)]"
-      >
-        {items.map((item) => (
-          <DropdownMenuItem key={item.href} asChild>
-            <Link
-              href={item.href}
-              className="flex h-9 items-center rounded-sm px-3 text-sm font-medium text-codex-ink outline-none transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink focus:bg-[var(--codex-surface-soft)] focus:text-codex-ink data-[highlighted]:bg-[var(--codex-surface-soft)] data-[highlighted]:text-codex-ink"
-            >
-              {item.label}
-            </Link>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

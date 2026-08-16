@@ -179,6 +179,8 @@
     "personalAccount": "Compte personnel",
     "switchAccount": "Changer de compte",
     "topUp": "Recharger",
+    "checkIn": "Pointage",
+    "checkInComingSoon": "Le pointage sera bientôt disponible",
     "upgradeTeamBanner": "Passez à l'abonnement équipe pour une collaboration fluide",
     "languageSwitchFailed": "Échec du changement de langue, veuillez réessayer",
     "featuresBadge": {

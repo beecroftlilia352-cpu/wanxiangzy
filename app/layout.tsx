@@ -10,6 +10,7 @@ import "./styles/studio.css";
 import "./styles/i18n.css";
 import "./styles/artistry.css";
 import "./styles/motion.css";
+import "./styles/workspace-shell.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import { RouteProgress } from "@/components/ui/route-progress";
 import "@/lib/env";

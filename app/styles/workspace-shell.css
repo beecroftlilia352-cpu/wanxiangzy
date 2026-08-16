@@ -1,0 +1,154 @@
+/*
+ * Studio chrome
+ * Imported after the legacy studio styles so the application frame has one
+ * deterministic source of truth while the individual feature modules migrate.
+ */
+
+:root {
+  --studio-frame-gap: 5px;
+  --studio-shell-header-height: 60px;
+  --studio-shell-radius-top: 18px;
+  --studio-shell-radius-bottom: 28px;
+}
+
+.studio-app-header {
+  min-height: var(--studio-shell-header-height) !important;
+  border: 0 !important;
+  background:
+    linear-gradient(104deg, rgba(199, 211, 255, 0.98) 0%, rgba(235, 239, 255, 0.98) 58%, rgba(255, 225, 215, 0.98) 100%) !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.studio-app-header-inner {
+  min-height: var(--studio-shell-header-height) !important;
+  padding-inline: 18px !important;
+}
+
+.studio-header-actions {
+  max-width: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.studio-header-utility-button {
+  display: inline-flex;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.76);
+  padding-inline: 12px;
+  color: #4c5872;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  box-shadow: 0 1px 1px rgba(39, 51, 86, 0.04);
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.studio-header-utility-button svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.9;
+}
+
+.studio-header-utility-button:hover,
+.studio-header-utility-button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #25304a !important;
+  transform: translateY(-1px);
+}
+
+.studio-header-checkin {
+  border-color: rgba(255, 255, 255, 0.38);
+  background: linear-gradient(110deg, #ff5d93 0%, #ff7865 100%);
+  color: #fff;
+  box-shadow: 0 5px 15px rgba(236, 91, 117, 0.18);
+}
+
+.studio-header-checkin:hover,
+.studio-header-checkin:focus-visible {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: linear-gradient(110deg, #f7558d 0%, #f76f5e 100%) !important;
+  color: #fff !important;
+}
+
+@media (min-width: 1024px) {
+  html:has(body > #main > .studio-workbench),
+  body:has(> #main > .studio-workbench) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body:has(> #main > .studio-workbench) {
+    padding: var(--studio-frame-gap);
+    background: #171a22;
+  }
+
+  body:has(> #main > .studio-workbench) > .studio-app-header {
+    top: 0;
+    height: var(--studio-shell-header-height);
+    border-radius: 14px 14px 0 0;
+  }
+
+  body:has(> #main > .studio-workbench) > #main {
+    height: calc(100dvh - var(--studio-shell-header-height) - (var(--studio-frame-gap) * 2));
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:has(> #main > .studio-workbench) > #main > .studio-workbench {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden;
+    border: 1px solid rgba(109, 123, 160, 0.15);
+    border-radius: var(--studio-shell-radius-top) var(--studio-shell-radius-top) var(--studio-shell-radius-bottom) var(--studio-shell-radius-bottom);
+    box-shadow: 0 18px 48px rgba(10, 14, 24, 0.18);
+  }
+
+  body:has(> #main > .studio-workbench) > #main > .history-workbench {
+    overflow-y: auto;
+  }
+}
+
+.dark .studio-app-header {
+  background:
+    linear-gradient(104deg, rgba(30, 39, 68, 0.98) 0%, rgba(27, 31, 50, 0.98) 58%, rgba(56, 34, 43, 0.98) 100%) !important;
+}
+
+.dark .studio-header-actions {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.dark .studio-header-utility-button {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(12, 15, 24, 0.4);
+  color: #d7dcef;
+}
+
+@media (max-width: 1023px) {
+  .studio-app-header {
+    min-height: 56px !important;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.08) !important;
+  }
+
+  .studio-app-header-inner {
+    min-height: 56px !important;
+    padding-inline: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-header-utility-button {
+    transition: none;
+  }
+}

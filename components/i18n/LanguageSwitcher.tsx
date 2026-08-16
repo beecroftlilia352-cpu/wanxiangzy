@@ -34,7 +34,7 @@ const LOCALE_OPTIONS = [
  * - 写入 NEXT_LOCALE cookie 后 router.refresh()，服务端与客户端一致
  * - 12 语言原生名展示，当前语言高亮 + 勾选
  */
-export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | "menu" }) {
+export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | "icon" | "menu" }) {
   const locale = useLocale();
   const t = useTranslations("Header");
   const router = useRouter();
@@ -91,14 +91,21 @@ export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | 
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface)] px-3 text-xs font-bold text-[var(--codex-muted)] transition hover:text-[var(--codex-ink)]"
+        className={cn(
+          "inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface)] text-xs font-bold text-[var(--codex-muted)] transition hover:text-[var(--codex-ink)]",
+          variant === "icon" ? "w-10 px-0" : "px-3",
+        )}
         aria-label={t("language")}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <Languages className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="hidden max-w-[88px] truncate sm:inline">{current.label}</span>
-        <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} aria-hidden="true" />
+        {variant === "icon" ? null : (
+          <>
+            <span className="hidden max-w-[88px] truncate sm:inline">{current.label}</span>
+            <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} aria-hidden="true" />
+          </>
+        )}
       </button>
       {open ? (
         <>
