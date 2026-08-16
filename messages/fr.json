@@ -230,6 +230,12 @@
     "backToLogin": "Retour à la connexion",
     "resetSentBody": "Lien de réinitialisation envoyé à <mail>{email}</mail>",
     "resetSentHint": "Cliquez sur le lien dans l'e-mail pour définir un nouveau mot de passe.",
+    "oauthDivider": "Or continue with",
+    "oauthGoogle": "Continue with Google",
+    "oauthGoogleLoading": "Connecting to Google…",
+    "oauthWechat": "Continue with WeChat",
+    "oauthWechatComingSoon": "Coming soon",
+    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "E-mail ou mot de passe incorrect",
       "emailNotConfirmed": "Veuillez d'abord confirmer votre e-mail via le lien reçu",
@@ -4308,7 +4314,8 @@
       "square": "Carré",
       "landscape": "Paysage",
       "phone": "Portrait mobile",
-      "wide": "Écran large"},
+      "wide": "Écran large"
+    },
     "countLabel": "Nombre de générations",
     "modelPickerPlaceholder": "Choisir un modèle",
     "moduleHeaderAria": "Infos {title}",

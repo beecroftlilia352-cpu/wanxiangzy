@@ -230,6 +230,12 @@
     "backToLogin": "Torna all'accesso",
     "resetSentBody": "Link di reimpostazione inviato a <mail>{email}</mail>",
     "resetSentHint": "Clicca sul link nell'email per impostare una nuova password.",
+    "oauthDivider": "Or continue with",
+    "oauthGoogle": "Continue with Google",
+    "oauthGoogleLoading": "Connecting to Google…",
+    "oauthWechat": "Continue with WeChat",
+    "oauthWechatComingSoon": "Coming soon",
+    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "Email o password errati",
       "emailNotConfirmed": "Conferma prima la tua email tramite il link ricevuto",
@@ -4308,7 +4314,8 @@
       "square": "Quadrato",
       "landscape": "Orizzontale",
       "phone": "Verticale mobile",
-      "wide": "Widescreen"},
+      "wide": "Widescreen"
+    },
     "countLabel": "Numero di generazioni",
     "modelPickerPlaceholder": "Seleziona modello",
     "moduleHeaderAria": "Info {title}",

@@ -230,6 +230,12 @@
     "backToLogin": "返回登入",
     "resetSentBody": "密碼重設連結已寄至 <mail>{email}</mail>",
     "resetSentHint": "請點擊郵件中的連結設定新密碼。",
+    "oauthDivider": "Or continue with",
+    "oauthGoogle": "Continue with Google",
+    "oauthGoogleLoading": "Connecting to Google…",
+    "oauthWechat": "Continue with WeChat",
+    "oauthWechatComingSoon": "Coming soon",
+    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "信箱或密碼錯誤",
       "emailNotConfirmed": "請先點擊確認郵件中的連結完成驗證",
@@ -3457,7 +3463,8 @@
       "square": "方形",
       "landscape": "橫式",
       "phone": "手機直屏",
-      "wide": "寬屏"},
+      "wide": "寬屏"
+    },
     "countLabel": "生成張數",
     "modelPickerPlaceholder": "選擇模型",
     "moduleHeaderAria": "{title}說明",

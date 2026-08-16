@@ -230,6 +230,12 @@
     "backToLogin": "लॉगिन पर वापस जाएँ",
     "resetSentBody": "पासवर्ड रीसेट लिंक <mail>{email}</mail> पर भेजा गया",
     "resetSentHint": "नया पासवर्ड सेट करने के लिए ईमेल में दिए लिंक पर क्लिक करें।",
+    "oauthDivider": "Or continue with",
+    "oauthGoogle": "Continue with Google",
+    "oauthGoogleLoading": "Connecting to Google…",
+    "oauthWechat": "Continue with WeChat",
+    "oauthWechatComingSoon": "Coming soon",
+    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "ईमेल या पासवर्ड गलत है",
       "emailNotConfirmed": "कृपया पहले भेजे गए लिंक से अपना ईमेल सत्यापित करें",
@@ -4308,7 +4314,8 @@
       "square": "वर्गाकार",
       "landscape": "लैंडस्केप",
       "phone": "मोबाइल पोर्ट्रेट",
-      "wide": "वाइडस्क्रीन"},
+      "wide": "वाइडस्क्रीन"
+    },
     "countLabel": "जनरेशन संख्या",
     "modelPickerPlaceholder": "मॉडल चुनें",
     "moduleHeaderAria": "{title} जानकारी",

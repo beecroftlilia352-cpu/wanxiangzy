@@ -230,6 +230,12 @@
     "backToLogin": "Вернуться ко входу",
     "resetSentBody": "Ссылка для сброса пароля отправлена на <mail>{email}</mail>",
     "resetSentHint": "Перейдите по ссылке из письма, чтобы задать новый пароль.",
+    "oauthDivider": "Or continue with",
+    "oauthGoogle": "Continue with Google",
+    "oauthGoogleLoading": "Connecting to Google…",
+    "oauthWechat": "Continue with WeChat",
+    "oauthWechatComingSoon": "Coming soon",
+    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "Неверный email или пароль",
       "emailNotConfirmed": "Сначала подтвердите email по ссылке из письма",
@@ -4308,7 +4314,8 @@
       "square": "Квадрат",
       "landscape": "Горизонтальный",
       "phone": "Мобильный портрет",
-      "wide": "Широкий экран"},
+      "wide": "Широкий экран"
+    },
     "countLabel": "Количество генераций",
     "modelPickerPlaceholder": "Выбрать модель",
     "moduleHeaderAria": "Справка: {title}",

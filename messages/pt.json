@@ -230,6 +230,12 @@
     "backToLogin": "Voltar ao login",
     "resetSentBody": "Link de redefinição enviado para <mail>{email}</mail>",
     "resetSentHint": "Clique no link do e-mail para definir uma nova senha.",
+    "oauthDivider": "Or continue with",
+    "oauthGoogle": "Continue with Google",
+    "oauthGoogleLoading": "Connecting to Google…",
+    "oauthWechat": "Continue with WeChat",
+    "oauthWechatComingSoon": "Coming soon",
+    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "E-mail ou senha incorretos",
       "emailNotConfirmed": "Confirme primeiro seu e-mail pelo link que enviamos",
@@ -4308,7 +4314,8 @@
       "square": "Quadrado",
       "landscape": "Paisagem",
       "phone": "Retrato móvel",
-      "wide": "Widescreen"},
+      "wide": "Widescreen"
+    },
     "countLabel": "Quantidade de gerações",
     "modelPickerPlaceholder": "Selecionar modelo",
     "moduleHeaderAria": "Informações de {title}",
