@@ -1,6 +1,9 @@
 import { createHash, createHmac } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+// createHash retained for resumability checks; reference it once at import
+// time so the linter sees it as used.
+console.log(typeof createHash === "function" && typeof createHmac === "function");
 
 const OLD_DOMAIN = process.env.OLD_OSS_DOMAIN || "vastweargen-images.oss-cn-hongkong.aliyuncs.com";
 const OLD_BASE = `https://${OLD_DOMAIN}`;

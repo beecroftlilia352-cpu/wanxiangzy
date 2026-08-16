@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element, jsx-a11y/alt-text */
+/* eslint-disable jsx-a11y/alt-text */
 "use client";
 
 import { useCallback, useRef, useState } from "react";

@@ -72,7 +72,10 @@ describe("history apply deep links", () => {
       resultUrls: ["https://example.com/result.png"],
       row: { id: "fusion 1" },
     });
-    expect(replaceState).toHaveBeenCalledWith(null, "", "/outfit-fusion");
+    // takeApplyDetail no longer strips the URL itself — that's now the
+    // caller's job (see stripApplyParamFromUrl). URL stripping moved out
+    // so a fetch/apply failure keeps `?apply=<id>` intact for retry.
+    expect(replaceState).not.toHaveBeenCalled();
   });
 
   it("loads the job payload from /api/history and clears the consumed apply parameter", async () => {

@@ -1094,7 +1094,7 @@ function PreviewPanel({
         {scenes.map((scene, index) => (
           <article key={scene.id || scene.sceneKey} className="overflow-hidden rounded-lg border border-[var(--codex-border)] bg-white">
             <div className="relative aspect-[3/4] bg-[var(--codex-surface-soft)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* raw <img> intentionally used for lazy-loaded scene previews */}
               <img src={scene.imageUrl} alt={scene.name} className="h-full w-full object-cover" loading="lazy" />
               <span className="absolute left-2 top-2 rounded-md bg-codex-ink px-2 py-1 text-xs font-black text-white">#{index + 1}</span>
               <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-xs font-black text-[var(--admin-fg)]">{scene.score}</span>
