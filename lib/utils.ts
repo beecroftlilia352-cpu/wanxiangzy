@@ -214,6 +214,7 @@ export const MAX_VIDEO_FILE_SIZE = MAX_VIDEO_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_AUDIO_FILE_SIZE_MB = 30;
 export const MAX_AUDIO_FILE_SIZE = MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024;
 const UPLOAD_TRANSPORT_SAFE_SIZE_MB = 8;
+const IMAGE_PREPROCESS_TIMEOUT_MS = 20_000;
 const IMAGE_UPLOAD_CLIENT_TIMEOUT_MS = 75_000;
 export const MAX_CLOTHING_FILES = 5;
 
@@ -238,54 +239,81 @@ async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): 
     const outputType = isPng ? "image/webp" : "image/jpeg";
     const outputExt = outputType === "image/webp" ? "webp" : "jpg";
     const outputName = file.name.replace(/\.[^.]+$/, `.${outputExt}`);
-    const cleanup = () => URL.revokeObjectURL(objectUrl);
+    let settled = false;
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      img.onload = null;
+      img.onerror = null;
+      URL.revokeObjectURL(objectUrl);
+    };
+    const finish = (value: File) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    // Image decoding and canvas encoding happen before the XHR timeout starts.
+    // Some browser/format combinations never fire Image.onload/onerror or
+    // canvas.toBlob's callback, which previously left every caller awaiting an
+    // eternally pending Promise. Falling back to the original file lets the
+    // server-side image parser make the final format decision.
+    const timeout = window.setTimeout(() => finish(file), IMAGE_PREPROCESS_TIMEOUT_MS);
 
     img.onload = () => {
-      const canvas = document.createElement("canvas");
-      let { width, height } = img;
+      try {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
 
-      // 按比例缩小（最大边 2048px）
-      const maxDim = 2048;
-      if (width > maxDim || height > maxDim) {
-        const ratio = Math.min(maxDim / width, maxDim / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
+        // 按比例缩小（最大边 2048px）
+        const maxDim = 2048;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          finish(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // 逐步降低质量直到小于限制
+        let quality = 0.85;
+        const tryCompress = () => {
+          if (settled) return;
+          canvas.toBlob(
+            (blob) => {
+              if (settled) return;
+              if (!blob) {
+                finish(file);
+                return;
+              }
+              if (blob.size > maxSizeMB * 1024 * 1024 && quality > 0.3) {
+                quality -= 0.1;
+                tryCompress();
+              } else {
+                finish(new File([blob], outputName, { type: outputType }));
+              }
+            },
+            outputType,
+            quality
+          );
+        };
+        tryCompress();
+      } catch {
+        finish(file);
       }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // 逐步降低质量直到小于限制
-      let quality = 0.85;
-      const tryCompress = () => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              cleanup();
-              resolve(file);
-              return;
-            }
-            if (blob.size > maxSizeMB * 1024 * 1024 && quality > 0.3) {
-              quality -= 0.1;
-              tryCompress();
-            } else {
-              cleanup();
-              resolve(new File([blob], outputName, { type: outputType }));
-            }
-          },
-          outputType,
-          quality
-        );
-      };
-      tryCompress();
     };
-    img.onerror = () => {
-      cleanup();
-      resolve(file);
-    };
-    img.src = objectUrl;
+    img.onerror = () => finish(file);
+    try {
+      img.src = objectUrl;
+    } catch {
+      finish(file);
+    }
   });
 }
 
@@ -347,41 +375,74 @@ export async function uploadImage(
   form.append("name", file.name.replace(/\.[^.]+$/, ""));
 
   // XHR 上传以支持进度回调（fetch 不支持 upload progress）
-  const res = await new Promise<Response>((resolve, reject) => {
+  const uploadResponse = await new Promise<{ status: number; responseText: string }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    let settled = false;
     xhr.open("POST", "/api/upload-image");
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      xhr.onload = null;
+      xhr.onerror = null;
+      xhr.onabort = null;
+      xhr.ontimeout = null;
+    };
+    const finishResolve = (value: { status: number; responseText: string }) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const finishReject = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
     const timeout = window.setTimeout(() => {
       xhr.abort();
-      reject(new Error("图片上传超时，请稍后重试"));
+      finishReject(new Error("图片上传超时，请稍后重试"));
     }, IMAGE_UPLOAD_CLIENT_TIMEOUT_MS);
+    xhr.timeout = IMAGE_UPLOAD_CLIENT_TIMEOUT_MS;
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && event.total > 0) {
         options.onProgress?.(Math.round((event.loaded / event.total) * 100));
       }
     };
     xhr.onload = () => {
-      window.clearTimeout(timeout);
-      const { status, statusText, responseText } = xhr;
-      const headers = new Headers({ "content-type": "application/json" });
-      resolve(new Response(responseText, { status, statusText, headers }));
+      const { status, responseText } = xhr;
+      if (status < 100 || status > 599) {
+        finishReject(new Error("网络连接异常，上传失败"));
+        return;
+      }
+      finishResolve({ status, responseText });
     };
-    xhr.onerror = () => {
-      window.clearTimeout(timeout);
-      reject(new Error("网络连接异常，上传失败"));
-    };
-    xhr.onabort = () => {
-      window.clearTimeout(timeout);
-      reject(new Error("图片上传超时，请稍后重试"));
-    };
+    xhr.onerror = () => finishReject(new Error("网络连接异常，上传失败"));
+    xhr.onabort = () => finishReject(new Error("图片上传超时，请稍后重试"));
+    xhr.ontimeout = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.send(form);
   });
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `上传失败 (${res.status})`);
+  const data = (() => {
+    try {
+      const parsed: unknown = JSON.parse(uploadResponse.responseText);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Partial<UploadResult> & { error?: string };
+      }
+      return {} as Partial<UploadResult> & { error?: string };
+    } catch {
+      return {} as Partial<UploadResult> & { error?: string };
+    }
+  })();
+
+  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+    throw new Error(data.error || `上传失败 (${uploadResponse.status})`);
   }
 
-  return res.json();
+  if (!data.url) {
+    throw new Error("图片上传服务返回了无效结果");
+  }
+
+  return data as UploadResult;
 }
 
 export async function uploadVideo(file: File): Promise<UploadResult> {
