@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import type { ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { ResolutionOption } from "@/components/studio/ResolutionSelector";
@@ -18,22 +18,25 @@ import type { ResolutionOption } from "@/components/studio/ResolutionSelector";
  */
 export const STUDIO_IMAGE_MODEL_META: Record<
   LingyaModel,
-  { label: string; descKey: string; badgeKey: string; icon: string }
+  { label: string; englishLabel: string; descKey: string; badgeKey: string; icon: string }
 > = {
   "gpt-image-2": {
-    label: "GPT image 2",
+    label: "GPT Image 2",
+    englishLabel: "GPT Image 2",
     descKey: "Shared.modelDesc.fineDetail",
     badgeKey: "Shared.modelBadge.latest",
     icon: "/model-covers/gpt-image-2.png",
   },
   "nano-banana-2": {
     label: "香蕉2",
+    englishLabel: "Nano Banana 2",
     descKey: "Shared.modelDesc.fastGeneral",
     badgeKey: "Shared.modelBadge.recommended",
     icon: "/model-covers/banana-2.png",
   },
   "nano-banana-pro": {
     label: "香蕉Pro",
+    englishLabel: "Nano Banana Pro",
     descKey: "Shared.modelDesc.commercialRetouch",
     badgeKey: "Shared.modelBadge.highQuality",
     icon: "/model-covers/banana-pro.png",
@@ -107,19 +110,26 @@ export function useImageSizeOptions(
 
 export function useStudioImageModelOptions() {
   const tRoot = useTranslations();
+  const locale = useLocale();
+  const isChinese = locale.toLowerCase().startsWith("zh");
 
   return useMemo(
     () =>
       ALL_CURATED_MODELS.map((value) => {
         const meta = STUDIO_IMAGE_MODEL_META[value];
+        const compactBadge = value === "gpt-image-2"
+          ? "NEW"
+          : value === "nano-banana-2"
+            ? "REC"
+            : "PRO";
         return {
           value,
-          label: meta.label,
+          label: isChinese ? meta.label : meta.englishLabel,
           desc: tRoot(meta.descKey),
-          badge: tRoot(meta.badgeKey),
+          badge: isChinese ? tRoot(meta.badgeKey) : compactBadge,
           icon: meta.icon,
         };
       }),
-    [tRoot],
+    [isChinese, tRoot],
   );
 }

@@ -8,9 +8,14 @@ describe("studio image model catalog", () => {
       value,
       label: model.label,
     }))).toEqual([
-      { value: "gpt-image-2", label: "GPT image 2" },
+      { value: "gpt-image-2", label: "GPT Image 2" },
       { value: "nano-banana-2", label: "香蕉2" },
       { value: "nano-banana-pro", label: "香蕉Pro" },
+    ]);
+    expect(Object.values(STUDIO_IMAGE_MODEL_META).map((model) => model.englishLabel)).toEqual([
+      "GPT Image 2",
+      "Nano Banana 2",
+      "Nano Banana Pro",
     ]);
   });
 

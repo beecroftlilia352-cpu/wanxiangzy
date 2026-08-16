@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/alt-text */
 "use client";
 
 import { useCallback, useRef, useState } from "react";
@@ -10,6 +9,8 @@ type RawPreviewImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "alt"> & {
   alt: string;
   /** 首屏小图（示例图等）用 eager，避免懒加载判定失败导致白图 */
   eager?: boolean;
+  /** Static UI artwork can opt out of the loading fade to avoid flashing on remount. */
+  disableFade?: boolean;
 };
 
 // 图片加载失败的优雅占位：浅灰底 + 细线"图片"图标，替代浏览器默认裂图
@@ -18,7 +19,7 @@ const ERROR_PLACEHOLDER =
 
 const MAX_RETRIES = 1;
 
-export function RawPreviewImage({ eager = false, ...props }: RawPreviewImageProps) {
+export function RawPreviewImage({ eager = false, disableFade = false, ...props }: RawPreviewImageProps) {
   // Studio previews can be blob/data URLs or user/provider URLs that should not go through Next image optimization.
   // Default to lazy + async decoding (below-fold previews); callers can override via {...props}.
   const t = useTranslations("Shared");
@@ -67,8 +68,8 @@ export function RawPreviewImage({ eager = false, ...props }: RawPreviewImageProp
       title={failed ? t("reloadImage") : props.title}
       className={cn(
         // 加载中：透明 + 浅灰底；完成后 300ms 淡入并移除灰底
-        "transition-opacity duration-300",
-        loaded ? "opacity-100" : "opacity-0 bg-[var(--codex-surface-soft)]/70",
+        disableFade ? "opacity-100 transition-none" : "transition-opacity duration-300",
+        !disableFade && (loaded ? "opacity-100" : "opacity-0 bg-[var(--codex-surface-soft)]/70"),
         failed && "cursor-pointer",
         props.className,
       )}

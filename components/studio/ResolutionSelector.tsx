@@ -1,14 +1,14 @@
 "use client";
 
 import type { ComponentType, ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 /**
  * 分辨率档位（1K/2K/4K）的视觉选择器。
  *
  * 设计语言沿用 AspectRatioSelector：紫色 marker 标题 + 卡片化分段控件，
- * 2K 默认显示「推荐」角标；业务方仍可通过 props 覆盖为会员 / 企业版角标。
+ * 2K 默认显示「推荐」角标，4K 默认显示企业版角标；业务方仍可通过 props 覆盖。
  */
 export type ResolutionOption<T extends string = string> = {
   value: T;
@@ -35,7 +35,7 @@ export type ResolutionSelectorProps<T extends string = string> = {
   /** Accessible label for the radio group; falls back to the title text. */
   ariaLabel?: string;
   /**
-   * Per-value badge override. 2K defaults to `recommended` when omitted.
+   * Per-value badge override. 2K defaults to `recommended` and 4K to `enterprise`.
    */
   badges?: Partial<Record<T, "recommended" | "member" | "enterprise">>;
   /** Optional icon rendered before the title text (e.g. lucide Monitor). */
@@ -45,9 +45,15 @@ export type ResolutionSelectorProps<T extends string = string> = {
 
 function resolveBadgeLabel(
   t: ReturnType<typeof useTranslations>,
+  locale: string,
   tier: "recommended" | "member" | "enterprise" | undefined
 ): string | null {
   if (!tier) return null;
+  if (!locale.toLowerCase().startsWith("zh")) {
+    if (tier === "recommended") return "REC";
+    if (tier === "member") return "VIP";
+    return "PRO";
+  }
   if (tier === "recommended") return t("Shared.modelBadge.recommended");
   if (tier === "member") return t("Shared.tierBadge.member");
   return t("Shared.tierBadge.enterprise");
@@ -79,6 +85,7 @@ export function ResolutionSelector<T extends string = string>({
   className,
 }: ResolutionSelectorProps<T>) {
   const t = useTranslations();
+  const locale = useLocale();
   const usesImageClarityTiers = options.some((option) => isImageClarityTier(String(option.value)));
   const resolvedTitle = usesImageClarityTiers ? t("Shared.resolutionClarity") : title;
   const fallbackAria = typeof title === "string" ? title : undefined;
@@ -114,9 +121,14 @@ export function ResolutionSelector<T extends string = string>({
             ? t(option.descriptionKey)
             : option.description;
           const clarityText = resolveClarityLabel(t, String(option.value));
-          const badgeTier = badges?.[option.value]
-            ?? (String(option.value).trim().toUpperCase() === "2K" ? "recommended" : undefined);
-          const badgeText = resolveBadgeLabel(t, badgeTier);
+          const normalizedValue = String(option.value).trim().toUpperCase();
+          const defaultBadgeTier = normalizedValue === "2K"
+            ? "recommended"
+            : normalizedValue === "4K"
+              ? "enterprise"
+              : undefined;
+          const badgeTier = badges?.[option.value] ?? defaultBadgeTier;
+          const badgeText = resolveBadgeLabel(t, locale, badgeTier);
           const accessibilityLabel = [labelText, clarityText, descriptionText]
             .filter((part) => part && part.trim() !== "")
             .join(" · ");

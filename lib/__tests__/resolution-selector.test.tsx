@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import zhMessages from "@/messages/zh.json";
+import enMessages from "@/messages/en.json";
 
 afterEach(() => cleanup());
 
@@ -44,8 +45,31 @@ describe("ResolutionSelector", () => {
       "超清",
     ]);
     expect(getByText("推荐")).toBeTruthy();
-    expect(container.querySelectorAll(".studio-resolution-selector-badge")).toHaveLength(1);
+    expect(container.querySelectorAll(".studio-resolution-selector-badge")).toHaveLength(2);
     expect(container.querySelector('[data-tier="recommended"]')?.textContent).toContain("2K");
+    expect(container.querySelector('[data-tier="enterprise"]')?.textContent).toContain("4K");
+  });
+
+  it("uses compact English badge labels that cannot squeeze the resolution text", () => {
+    const { container, getByText } = render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <ResolutionSelector
+          title="Clarity"
+          value="2K"
+          onChange={vi.fn()}
+          options={[
+            { value: "1K", label: "1K" },
+            { value: "2K", label: "2K" },
+            { value: "4K", label: "4K" },
+          ]}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    expect(getByText("REC")).toBeTruthy();
+    expect(getByText("PRO")).toBeTruthy();
+    expect(Array.from(container.querySelectorAll(".studio-resolution-selector-badge")).map((node) => node.textContent))
+      .toEqual(["REC", "PRO"]);
   });
 
   it("changes the selected resolution through the radio group", () => {
