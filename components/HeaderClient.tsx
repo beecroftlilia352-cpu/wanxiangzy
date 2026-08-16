@@ -43,6 +43,7 @@ import { codexTheme } from "@/lib/design/codex-theme";
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { toast } from "sonner";
+import { StudioTopNavigation } from "@/components/navigation/StudioTopNavigation";
 
 type HeaderAccountState = {
   authReady: boolean;
@@ -405,7 +406,7 @@ function AppHeader({ pathname }: { pathname: string }) {
       <div className="studio-app-header-inner flex min-h-16 w-full items-center justify-between gap-4 px-4 sm:px-6">
         <div className="studio-app-header-leading flex min-w-0 items-center gap-5">
           <BrandMark />
-          <DesktopTopNav activeModule={activeModule} />
+          <StudioTopNavigation activeModule={activeModule} />
         </div>
 
         <div className="studio-header-actions flex shrink-0 items-center gap-1.5">
@@ -480,65 +481,6 @@ function BrandMark() {
         </span>
       </span>
     </Link>
-  );
-}
-
-function DesktopTopNav({ activeModule }: { activeModule: string }) {
-  const t = useTranslations("Header");
-  const tAny = useTranslations(); // 数据键全路径（Header.nav.* / Header.modules.*），用全局 t 解析
-  return (
-    <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 xl:flex" aria-label={t("mainNavAria")}>
-      {VISIBLE_TOP_MODULES.map((item, index) => {
-        // "4 个工作场景" 与 "作品库" 之间的视觉分界线。
-        const showDivider = index > 0 && item.key === "works";
-        const active = activeModule === item.key;
-        const Icon = item.icon;
-        const className = `relative inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-black transition ${
-          active
-            ? "bg-[var(--codex-accent-12)] text-[var(--codex-accent)] shadow-sm ring-1 ring-[var(--codex-accent-30)] dark:bg-[var(--codex-accent-18)] dark:text-[#aeb8ff] dark:ring-[var(--codex-accent-45)]"
-            : "text-codex-muted hover:bg-white/72 hover:text-codex-ink dark:hover:bg-codex-surface/60 dark:hover:text-codex-ink"
-        }`;
-
-        const inner = (() => {
-          if (item.comingSoon) {
-            return (
-              <button
-                type="button"
-                disabled
-                title={t("comingSoon")}
-                className={`${className} cursor-not-allowed opacity-55`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {item.labelKey ? tAny(item.labelKey) : item.label}
-                <span className="ml-0.5 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold text-codex-faint">
-                  {t("comingSoon")}
-                </span>
-              </button>
-            );
-          }
-
-          return (
-            <Link key={item.key} href={item.href} className={className} aria-current={active ? "page" : undefined}>
-              <Icon className="h-3.5 w-3.5" />
-              <span className="relative inline-flex">
-                {item.labelKey ? tAny(item.labelKey) : item.label}
-                {item.badge && (
-                  <StudioTabBadge decorative={false}>{item.badge}</StudioTabBadge>
-                )}
-              </span>
-            </Link>
-          );
-        })();
-
-        if (!showDivider) return inner;
-        return (
-          <div key={item.key} className="flex items-center">
-            <span aria-hidden="true" className="mr-2 h-5 w-px bg-[var(--codex-border)]/80" />
-            {inner}
-          </div>
-        );
-      })}
-    </nav>
   );
 }
 
