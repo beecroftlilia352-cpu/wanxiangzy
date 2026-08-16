@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { TaskQueueItem } from "../task-queue";
+import { taskMatchesScope, type TaskQueueItem } from "../task-queue";
 import {
   createOptimisticTaskQueueItem,
   reconcileTaskQueueRows,
@@ -35,6 +35,25 @@ function task(overrides: Partial<TaskQueueItem> & Pick<TaskQueueItem, "id">): Ta
 }
 
 describe("task queue client store helpers", () => {
+  it("isolates general-image recent tasks by editor mode", () => {
+    const textTask = task({
+      id: "text-task",
+      module: "generalImage",
+      scope: "text-to-image",
+      applyUrl: "/general-image?apply=text-task",
+    });
+    const imageTask = task({
+      id: "image-task",
+      module: "generalImage",
+      scope: "image-to-image",
+      applyUrl: "/general-image/image-to-image?apply=image-task",
+    });
+
+    expect(taskMatchesScope(textTask, "text-to-image")).toBe(true);
+    expect(taskMatchesScope(textTask, "image-to-image")).toBe(false);
+    expect(taskMatchesScope(imageTask, "image-to-image")).toBe(true);
+  });
+
   it("creates a complete optimistic task item", () => {
     const item = createOptimisticTaskQueueItem({
       id: "local-tryon-1",

@@ -18,6 +18,7 @@ import {
 import type { TaskQueueItem, TaskStatusGroup } from "@/lib/task-queue";
 import { TASK_RESULT_THUMBNAIL_LIMIT, normalizeModule } from "@/lib/task-queue-index";
 import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/tryon-input-references";
+import { getGeneralImageHistoryMode, getHistoryModulePath } from "@/lib/history-apply";
 import {
   loadTaskQueueItemsFromIndex,
   loadTaskQueueSummaryFromIndex,
@@ -122,6 +123,7 @@ export async function GET(request: Request) {
     const summaryOnly = searchParams.get("summary") === "1" || searchParams.get("mode") === "summary";
     const includeSummary = summaryOnly || searchParams.get("summary") !== "0";
     const moduleFilter = normalizeModuleFilter(searchParams.get("module"));
+    const scopeFilter = normalizeScopeFilter(moduleFilter, searchParams.get("scope"));
     const searchQuery = (searchParams.get("q") || searchParams.get("query") || "").trim().toLowerCase();
     const limit = clampNumber(searchParams.get("limit"), 8, 80, 32);
     const cursor = searchParams.get("cursor");
@@ -141,11 +143,11 @@ export async function GET(request: Request) {
 
     const cacheMode = getTaskQueueCacheMode();
     if (lightweightModuleQueue) {
-      const result = await loadLightweightModuleQueue(supabase, user.id, moduleFilter, limit);
+      const result = await loadLightweightModuleQueue(supabase, user.id, moduleFilter, scopeFilter, limit);
       return queueJson(detailPayload(result.rows, EMPTY_SUMMARY, result.hasMore, result.nextCursor));
     }
 
-    if (cacheMode !== "legacy") {
+    if (cacheMode !== "legacy" && !scopeFilter) {
       const indexedResponse = await loadIndexedTaskQueueResponse({
         supabase,
         userId: user.id,
@@ -171,6 +173,7 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false });
 
     if (moduleFilter) generationsQuery = generationsQuery.eq("job_payload->>kind", moduleFilter);
+    if (scopeFilter) generationsQuery = generationsQuery.eq("job_payload->>mode", scopeFilter);
     if (cursor) generationsQuery = generationsQuery.lt("created_at", cursor);
 
     const queryLimit = limit + 1;
@@ -190,7 +193,7 @@ export async function GET(request: Request) {
       .filter((row) => !isHiddenByAdmin(row))
       .map(normalizeQueueRow)
       .filter((row) => !moduleFilter || row.module === moduleFilter);
-    const pinnedGenerationRows = cursor ? [] : await loadRunningGenerationRows(supabase, user.id, moduleFilter);
+    const pinnedGenerationRows = cursor ? [] : await loadRunningGenerationRows(supabase, user.id, moduleFilter, scopeFilter);
     const workflowRows = moduleFilter ? [] : await loadWorkflowRows(supabase, user.id, cursor, limit + 1);
     const pinnedWorkflowRows = cursor || moduleFilter ? [] : await loadRunningWorkflowRows(supabase, user.id);
     const filteredRows = mergeQueueRows([
@@ -583,16 +586,18 @@ async function loadLightweightModuleQueue(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   userId: string,
   moduleFilter: string,
+  scopeFilter: string,
   limit: number
 ): Promise<{ rows: TaskQueueItem[]; hasMore: boolean; nextCursor: string | null }> {
-  const recentQuery = supabase
+  let recentQuery = supabase
     .from("generations")
     .select(QUEUE_COLUMNS)
     .eq("user_id", userId)
     .is("job_payload->>internalTask", null)
     .eq("job_payload->>kind", moduleFilter)
-    .order("created_at", { ascending: false })
-    .limit(limit + 1);
+    .order("created_at", { ascending: false });
+  if (scopeFilter) recentQuery = recentQuery.eq("job_payload->>mode", scopeFilter);
+  recentQuery = recentQuery.limit(limit + 1);
 
   const recentResult = await withTimeout(
     recentQuery,
@@ -608,7 +613,7 @@ async function loadLightweightModuleQueue(
     .slice(0, limit);
 
   if (rows.length === 0) {
-    rows = await loadLightweightInferredModuleQueue(supabase, userId, moduleFilter, limit);
+    rows = await loadLightweightInferredModuleQueue(supabase, userId, moduleFilter, scopeFilter, limit);
   }
 
   const hasMore = recentRows.length > limit;
@@ -623,6 +628,7 @@ async function loadLightweightInferredModuleQueue(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   userId: string,
   moduleFilter: string,
+  scopeFilter: string,
   limit: number
 ) {
   const scanLimit = Math.min(LIGHTWEIGHT_LEGACY_SCAN_LIMIT, Math.max(limit * 4, 48));
@@ -649,6 +655,7 @@ async function loadLightweightInferredModuleQueue(
     ...recentRows.filter((row) => !isHiddenByAdmin(row)).map(normalizeQueueRow),
   ])
     .filter((row) => row.module === moduleFilter)
+    .filter((row) => !scopeFilter || row.scope === scopeFilter)
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, limit);
 }
@@ -690,7 +697,8 @@ async function loadWorkflowRows(
 async function loadRunningGenerationRows(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   userId: string,
-  moduleFilter: string
+  moduleFilter: string,
+  scopeFilter = "",
 ) {
   try {
     let query = supabase
@@ -702,6 +710,7 @@ async function loadRunningGenerationRows(
       .order("created_at", { ascending: false })
       .limit(RUNNING_QUEUE_PIN_LIMIT);
     if (moduleFilter) query = query.eq("job_payload->>kind", moduleFilter);
+    if (scopeFilter) query = query.eq("job_payload->>mode", scopeFilter);
 
     const { data, error } = await withTimeout(
       query,
@@ -718,7 +727,8 @@ async function loadRunningGenerationRows(
       .filter((row) => !isHiddenByAdmin(row))
       .map(normalizeQueueRow)
       .filter(isQueueItemRunning)
-      .filter((row) => !moduleFilter || row.module === moduleFilter);
+      .filter((row) => !moduleFilter || row.module === moduleFilter)
+      .filter((row) => !scopeFilter || row.scope === scopeFilter);
   } catch (error) {
     logTaskQueueWarning("running generations unavailable", toLogMessage(error));
     return [];
@@ -781,6 +791,7 @@ function normalizeQueueRow(row: QueueRow): TaskQueueItem {
   return {
     id: row.id,
     module: kind || "unknown",
+    scope: getTaskScope(kind, payload),
     title: moduleLabel(kind),
     status: staleRunning && statusGroup === "running" ? "processing_delayed" : state.status,
     statusGroup,
@@ -795,7 +806,7 @@ function normalizeQueueRow(row: QueueRow): TaskQueueItem {
     inputThumbnails,
     resultThumbnails,
     thumbnails: getDisplayThumbnails(resultThumbnails, inputThumbnails),
-    applyUrl: getApplyUrl(kind, row.id),
+    applyUrl: getApplyUrl(kind, row.id, payload),
   };
 }
 
@@ -976,10 +987,15 @@ function getDisplayThumbnails(resultUrls: string[], inputUrls: string[]) {
   return Array.from(new Set([...resultUrls, ...inputUrls].filter(Boolean))).slice(0, TASK_RESULT_THUMBNAIL_LIMIT);
 }
 
-function getApplyUrl(kind: string, generationId: string) {
-  const path = getModulePath(kind);
+function getApplyUrl(kind: string, generationId: string, payload?: Record<string, unknown>) {
+  const path = getHistoryModulePath(kind, payload) || getModulePath(kind);
   if (!path) return `/history?detail=${encodeURIComponent(generationId)}`;
   return `${path}?apply=${encodeURIComponent(generationId)}`;
+}
+
+function getTaskScope(kind: string, payload?: Record<string, unknown>) {
+  if (kind !== "generalImage") return undefined;
+  return getGeneralImageHistoryMode(payload);
 }
 
 function getModulePath(kind: string) {
@@ -1002,6 +1018,11 @@ function normalizeModuleFilter(value: string | null) {
   const normalized = (value || "").trim();
   if (!normalized || normalized === "all") return "";
   return normalized;
+}
+
+function normalizeScopeFilter(moduleFilter: string, value: string | null) {
+  if (moduleFilter !== "generalImage") return "";
+  return value === "image-to-image" || value === "text-to-image" ? value : "";
 }
 
 function matchesSearch(row: TaskQueueItem, query: string) {

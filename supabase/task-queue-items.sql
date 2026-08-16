@@ -313,7 +313,18 @@ BEGIN
     coalesce(p_item.status, 'queued'), v_status_group, v_progress,
     public.task_queue_generation_expected_count(v_payload, p_item.reference_url, v_result_count),
     v_result_count, v_input_thumbnails, v_result_thumbnails, p_item.error_message,
-    public.task_queue_module_path(v_module) || '?apply=' || p_item.id::TEXT,
+    CASE
+      WHEN v_module = 'generalImage' AND (
+        v_payload ->> 'mode' = 'image-to-image'
+        OR (
+          v_payload ->> 'mode' IS NULL
+          AND jsonb_typeof(v_payload -> 'referenceUrls') = 'array'
+          AND jsonb_array_length(v_payload -> 'referenceUrls') > 0
+        )
+      )
+        THEN '/general-image/image-to-image'
+      ELSE public.task_queue_module_path(v_module)
+    END || '?apply=' || p_item.id::TEXT,
     p_item.created_at, coalesce(p_item.updated_at, p_item.completed_at, p_item.processing_started_at, p_item.created_at), p_item.completed_at
   )
   ON CONFLICT (source_type, source_id) DO UPDATE SET
@@ -355,4 +366,3 @@ CREATE TRIGGER generations_task_queue_items_sync
 -- Backfill is idempotent. Re-run safely after deploying this migration.
 SELECT public.task_queue_upsert_generation(g)
 FROM public.generations AS g;
-

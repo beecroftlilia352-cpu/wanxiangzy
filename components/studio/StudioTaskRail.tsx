@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import type { TaskDisplayMode, TaskQueueItem, TaskQueuePayload, TaskQueueSummary } from "@/lib/task-queue";
-import { isTaskRunning, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
+import { isTaskRunning, taskMatchesScope, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
 import {
   TASK_QUEUE_CONTINUE_ID,
   TASK_QUEUE_PAGE_SIZE,
@@ -35,9 +35,10 @@ import { useTaskSelectionSession, type TaskSelectionSession } from "@/components
 
 type StudioTaskRailProps = {
   module: string;
+  taskScope?: string;
   moduleLabel?: string;
   onContinue?: () => void;
-  onSelectTask?: (item: TaskQueueItem, session: TaskSelectionSession) => void | Promise<void>;
+  onSelectTask?: (item: TaskQueueItem, session: TaskSelectionSession) => boolean | void | Promise<boolean | void>;
   className?: string;
 };
 
@@ -54,6 +55,7 @@ const TASK_RAIL_MIN_LOAD_GAP_MS = 15_000;
 
 export function StudioTaskRail({
   module,
+  taskScope,
   moduleLabel,
   onContinue,
   onSelectTask,
@@ -96,7 +98,7 @@ export function StudioTaskRail({
     cancel: cancelSelection,
   } = useTaskSelectionSession();
 
-  const hasRunningTask = rows.some(isTaskRunning);
+  const hasRunningTask = rows.some((item) => taskMatchesScope(item, taskScope) && isTaskRunning(item));
   const queueSnapshotRef = useRef({
     rows,
     hasLoaded,
@@ -137,6 +139,7 @@ export function StudioTaskRail({
       if (!isExpanded) params.set("summary", "0");
       if (append && snapshot.nextCursor) params.set("cursor", snapshot.nextCursor);
       if (!isExpanded || isModuleOnly) params.set("module", module);
+      if ((!isExpanded || isModuleOnly) && taskScope) params.set("scope", taskScope);
       if (isExpanded && searchQuery) params.set("q", searchQuery);
 
       const controller = new AbortController();
@@ -185,7 +188,7 @@ export function StudioTaskRail({
       loadInFlightRef.current = false;
       setLoading(false);
     }
-  }, [applyServerRows, module, setModuleLoadingFailed, t]);
+  }, [applyServerRows, module, setModuleLoadingFailed, t, taskScope]);
 
   useEffect(() => {
     try {
@@ -257,11 +260,17 @@ export function StudioTaskRail({
   }, [loadQueue]);
 
   const recentRows = useMemo(
-    () => rows.filter((item) => item.module === module).slice(0, TASK_QUEUE_RECENT_LIMIT),
-    [rows, module]
+    () => rows
+      .filter((item) => item.module === module && taskMatchesScope(item, taskScope))
+      .slice(0, TASK_QUEUE_RECENT_LIMIT),
+    [rows, module, taskScope]
   );
 
-  const visibleRows = expanded ? rows.slice(0, displayLimit) : recentRows;
+  const visibleRows = expanded
+    ? rows
+        .filter((item) => !moduleOnly || (item.module === module && taskMatchesScope(item, taskScope)))
+        .slice(0, displayLimit)
+    : recentRows;
   const totalLoaded = rows.length;
   const totalAvailable = summary.totalTaskNum;
   const canLoadMore = Boolean(nextCursor) || totalLoaded < totalAvailable;
@@ -296,7 +305,7 @@ export function StudioTaskRail({
       return;
     }
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("apply")) return;
-    const selected = rows.find((item) => item.id === selectedId);
+    const selected = rows.find((item) => item.id === selectedId && taskMatchesScope(item, taskScope));
     if (!selected) return;
 
     const running = isTaskRunning(selected);
@@ -316,9 +325,10 @@ export function StudioTaskRail({
         toast.error(error instanceof Error ? error.message : t("taskApplyFailed"));
       })
       .finally(session.finish);
-  }, [beginSelection, rows, onSelectTask, selectedId, t]);
+  }, [beginSelection, rows, onSelectTask, selectedId, t, taskScope]);
 
   const handleSelect = (item: TaskQueueItem) => {
+    const previousSelectedId = selectedId;
     localSelectionRef.current = item.id;
     autoSelectSignatureRef.current = getTaskSelectionSignature(item);
     runningSelectionRef.current = isTaskRunning(item) ? item.id : null;
@@ -327,6 +337,15 @@ export function StudioTaskRail({
 
     const session = beginSelection(item.id, "manual");
     void Promise.resolve(onSelectTask(item, session))
+      .then((navigated) => {
+        if (navigated !== false || !session.isCurrent()) return;
+        localSelectionRef.current = previousSelectedId === TASK_QUEUE_CONTINUE_ID ? null : previousSelectedId;
+        if (previousSelectedId === TASK_QUEUE_CONTINUE_ID) {
+          clearSelectedTask(module);
+        } else {
+          setSelectedTask(module, previousSelectedId);
+        }
+      })
       .catch((error) => {
         if (!session.isCurrent()) return;
         console.error("Task selection failed", error);

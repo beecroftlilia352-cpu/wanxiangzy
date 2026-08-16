@@ -449,7 +449,7 @@ export default function HistoryPage() {
         toast.error(t("noApplyParams"));
         return;
       }
-      router.push(getApplyPath(payload.kind, fullRow.id));
+      router.push(getApplyPath(payload, fullRow.id));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("paramLoadFailed"));
     } finally {
@@ -760,7 +760,7 @@ export default function HistoryPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      router.push(getApplyPath(detailPayload.kind, detailRow.id));
+                      router.push(getApplyPath(detailPayload, detailRow.id));
                     }}
                     className="inline-flex items-center gap-1.5 rounded-full gradient-brand px-3 py-1.5 text-xs font-medium text-white"
                   >
@@ -868,7 +868,7 @@ export default function HistoryPage() {
                     {detailPayload && (
                       <button
                         type="button"
-                        onClick={() => router.push(getApplyPath(detailPayload.kind, detailRow.id))}
+                        onClick={() => router.push(getApplyPath(detailPayload, detailRow.id))}
                         className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-codex-ink px-3 text-xs font-bold text-white shadow-sm hover:bg-codex-muted"
                       >
                         <RotateCcw className="h-3.5 w-3.5" /> {detailFailureCopy?.applyLabel || getHistoryReuseLabel(t, detailPayload)}
@@ -951,7 +951,7 @@ export default function HistoryPage() {
                   <div className="sticky bottom-0 -mx-4 -mb-4 border-t bg-white/95 p-4 backdrop-blur sm:-mx-5 sm:-mb-5 sm:p-5 lg:hidden">
                     <button
                       onClick={() => {
-                        router.push(getApplyPath(detailPayload.kind, detailRow.id));
+                        router.push(getApplyPath(detailPayload, detailRow.id));
                       }}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-full gradient-brand px-4 py-2 text-xs font-medium text-white"
                     >

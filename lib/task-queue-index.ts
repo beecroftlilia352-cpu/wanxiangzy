@@ -2,6 +2,7 @@ import type { TaskQueueItem, TaskQueueSummary, TaskStatusGroup } from "@/lib/tas
 import { safeTaskQueueUrls } from "@/lib/task-queue";
 import { normalizeGenerationState } from "@/lib/api/generation-state";
 import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/tryon-input-references";
+import { getGeneralImageHistoryMode, getHistoryModulePath } from "@/lib/history-apply";
 
 export const TASK_QUEUE_ITEM_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const TASK_QUEUE_SUMMARY_TTL_SECONDS = 60 * 5;
@@ -313,6 +314,7 @@ export function normalizeGenerationTaskQueueItem(row: TaskQueueGenerationSourceR
   const item: TaskQueueItem = {
     id: row.id,
     module,
+    scope: taskScope(module, row.job_payload),
     title: moduleTitle(module),
     status: state.status,
     statusGroup,
@@ -327,9 +329,14 @@ export function normalizeGenerationTaskQueueItem(row: TaskQueueGenerationSourceR
     inputThumbnails,
     resultThumbnails,
     thumbnails: resultThumbnails.length > 0 ? resultThumbnails : inputThumbnails,
-    applyUrl: `${modulePath(module)}?task=${encodeURIComponent(row.id)}`,
+    applyUrl: `${getHistoryModulePath(module, row.job_payload || undefined) || modulePath(module)}?apply=${encodeURIComponent(row.id)}`,
   };
   return applyStaleRunningFallback(item);
+}
+
+function taskScope(module: string, payload?: Record<string, unknown> | null) {
+  if (module !== "generalImage") return undefined;
+  return getGeneralImageHistoryMode(payload || undefined);
 }
 
 export function normalizeWorkflowTaskQueueItem(row: TaskQueueWorkflowSourceRow): TaskQueueItem {

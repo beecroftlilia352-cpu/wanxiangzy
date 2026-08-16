@@ -36,6 +36,25 @@ describe("history apply deep links", () => {
     expect(getApplyPath("outfitFusion", "fusion id/1")).toBe("/outfit-fusion?apply=fusion%20id%2F1");
   });
 
+  it("keeps text-to-image and image-to-image history on their owning routes", () => {
+    const base = {
+      kind: "generalImage" as const,
+      referenceUrls: [],
+      aiModel: "nano-banana-2" as never,
+      aspectRatio: "3:4" as never,
+      imageSize: "2K" as never,
+      prompt: "editorial portrait",
+      genCount: 1,
+    };
+
+    expect(getApplyPath({ ...base, mode: "text-to-image" }, "text-job"))
+      .toBe("/general-image?apply=text-job");
+    expect(getApplyPath({ ...base, mode: "image-to-image" }, "image-job"))
+      .toBe("/general-image/image-to-image?apply=image-job");
+    expect(getApplyPath({ ...base, mode: undefined, referenceUrls: ["https://example.com/reference.png"] } as never, "legacy-image-job"))
+      .toBe("/general-image/image-to-image?apply=legacy-image-job");
+  });
+
   it("loads outfit fusion apply details with result URLs", async () => {
     const payload = {
       kind: "outfitFusion",

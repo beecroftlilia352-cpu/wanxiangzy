@@ -36,8 +36,9 @@ import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
-import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getApplyPath, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { requestStudioNavigation } from "@/lib/studio-navigation";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
@@ -70,6 +71,10 @@ type GeneralImageGenerateOptions = {
   retryResultIndex?: number;
   toastMessage?: string;
 };
+
+function createDraftSignature(prompt: string, referenceUrls: string[], imagePromptUrl = "") {
+  return JSON.stringify({ prompt: prompt.trim(), referenceUrls, imagePromptUrl });
+}
 
 const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
   { value: "3:4", label: "3:4 竖版", labelKey: "aspect34" },
@@ -136,15 +141,25 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [referenceLightboxSrc, setReferenceLightboxSrc] = useState<string | null>(null);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
   const [imagePromptImage, setImagePromptImage] = useState<ImagePromptSource | null>(null);
-  // 未保存输入离开拦截：有参考图/提示词/图片时提醒；文生图<->图生图组内切换不拦截
-  const { unsavedDialog } = useUnsavedChangesGuard(
-    Boolean(referenceImages.length || prompt.trim() || imagePromptImage?.url),
-    { exemptPaths: ["/general-image", "/general-image/image-to-image"] },
-  );
   const [imagePromptText, setImagePromptText] = useState("");
   const [isImagePromptUploading, setIsImagePromptUploading] = useState(false);
   const [isImagePromptGenerating, setIsImagePromptGenerating] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
+  const [cleanDraftSignature, setCleanDraftSignature] = useState(() => createDraftSignature("", []));
+  const currentDraftSignature = useMemo(
+    () => createDraftSignature(
+      prompt,
+      referenceImages.map((item) => item.url),
+      imagePromptImage?.url || "",
+    ),
+    [imagePromptImage?.url, prompt, referenceImages],
+  );
+  // Restored/generated tasks are a saved baseline; only edits after that point
+  // should ask for confirmation. Mode switches within general image stay exempt.
+  const { unsavedDialog } = useUnsavedChangesGuard(
+    currentDraftSignature !== cleanDraftSignature,
+    { exemptPaths: ["/general-image", "/general-image/image-to-image"] },
+  );
 
   const supportedSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
@@ -160,6 +175,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   );
   const taskQueue = useTaskQueueGeneration({
     module: "generalImage",
+    scope: mode,
     title: t("taskQueueTitle"),
     defaultExpectedCount: genCount,
     applyPath: isImageMode ? "/general-image/image-to-image" : "/general-image",
@@ -428,6 +444,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       url,
       preview: url,
     })));
+    setImagePromptImage(null);
+    setCleanDraftSignature(createDraftSignature(payload.prompt, payload.referenceUrls ?? []));
     setActiveQueueTask(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
@@ -468,6 +486,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setImagePromptImage(null);
     setImagePromptText("");
     setIsImagePromptGenerating(false);
+    setCleanDraftSignature(createDraftSignature("", []));
     resetOutput();
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (imagePromptInputRef.current) imagePromptInputRef.current.value = "";
@@ -717,6 +736,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         setActiveQueueTask(serverTask);
         activeTaskId = serverTask.id;
       }
+      setCleanDraftSignature(currentDraftSignature);
 
       // 后台轮询：useGenerationPolling 替代原 inline for-loop
       pollCtxRef.current = {
@@ -765,6 +785,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
       if (!session.isCurrent()) return true;
+      if (detail.payload.mode !== mode) {
+        const href = getApplyPath(detail.payload, item.id);
+        return requestStudioNavigation(href, () => router.push(href));
+      }
       applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -782,7 +806,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   return (
     <div className="studio-workbench studio-general-image-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row" data-mode={mode}>
       <FeatureTabs active={activeFeature} />
-      <ModuleTaskRail module="generalImage" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="generalImage" taskScope={mode} moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters studio-general-image-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll studio-general-image-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader

@@ -35,6 +35,7 @@ export type TaskQueueModuleState = {
 export type TaskQueueOptimisticInput = {
   id?: string;
   module: string;
+  scope?: string;
   title: string;
   status?: string;
   statusGroup?: TaskQueueItem["statusGroup"];
@@ -253,6 +254,7 @@ export function createOptimisticTaskQueueItem(input: TaskQueueOptimisticInput): 
   return {
     id: input.id || `local-${input.module}-${Date.now()}`,
     module: input.module,
+    scope: input.scope,
     title: input.title,
     status: input.status || "submitting",
     statusGroup: input.statusGroup || "queued",
@@ -327,6 +329,7 @@ export function normalizeCachedTaskQueueItem(value: unknown): TaskQueueItem | nu
   return {
     id: value.id,
     module: value.module,
+    scope: typeof item.scope === "string" && item.scope ? item.scope : undefined,
     title: typeof item.title === "string" && item.title ? item.title : "AI任务",
     status: typeof item.status === "string" && item.status ? item.status : statusGroup,
     statusGroup,

@@ -5,6 +5,8 @@ export type TaskDisplayMode = "flat" | "grouped";
 export type TaskQueueItem = {
   id: string;
   module: string;
+  /** Optional feature-level scope for modules that contain multiple editors. */
+  scope?: string;
   title: string;
   status: string;
   statusGroup: TaskStatusGroup;
@@ -21,6 +23,21 @@ export type TaskQueueItem = {
   thumbnails: string[];
   applyUrl: string;
 };
+
+export function taskMatchesScope(item: Pick<TaskQueueItem, "scope" | "applyUrl">, scope?: string) {
+  if (!scope) return true;
+  if (item.scope) return item.scope === scope;
+
+  // Backward compatibility for task rows cached before `scope` was added.
+  try {
+    const pathname = new URL(item.applyUrl, "https://task.local").pathname;
+    if (scope === "image-to-image") return pathname === "/general-image/image-to-image";
+    if (scope === "text-to-image") return pathname === "/general-image";
+  } catch {
+    // An empty/legacy apply URL cannot prove that it belongs to this scope.
+  }
+  return false;
+}
 
 export type TaskQueueSummary = {
   totalTaskNum: number;

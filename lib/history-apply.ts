@@ -251,8 +251,12 @@ export type HistoryApplyDetail<K extends HistoryJobPayload["kind"] = HistoryJobP
   resultUrls: string[];
 };
 
-export function getApplyPath(kind: HistoryJobPayload["kind"], generationId?: string) {
-  const path = getModulePath(kind);
+type HistoryRouteSource = HistoryJobPayload["kind"] | HistoryJobPayload;
+
+export function getApplyPath(source: HistoryRouteSource, generationId?: string) {
+  const payload = typeof source === "string" ? undefined : source;
+  const kind = typeof source === "string" ? source : source.kind;
+  const path = getHistoryModulePath(kind, payload);
   if (!generationId) return path;
   return `${path}?apply=${encodeURIComponent(generationId)}`;
 }
@@ -372,13 +376,20 @@ export function stripApplyParamFromUrl(): void {
   window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-function getModulePath(kind: HistoryJobPayload["kind"]) {
+export function getHistoryModulePath(
+  kind: HistoryJobPayload["kind"] | string,
+  payload?: object,
+) {
   if (kind === "tryon") return "/create";
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";
   if (kind === "imageTranslation") return "/image-translation";
   if (kind === "materialEnhancement") return "/material-enhancement";
-  if (kind === "generalImage") return "/general-image";
+  if (kind === "generalImage") {
+    return getGeneralImageHistoryMode(payload) === "image-to-image"
+      ? "/general-image/image-to-image"
+      : "/general-image";
+  }
   if (kind === "outfitFusion") return "/outfit-fusion";
   if (kind === "productRetouch") return "/product-retouch";
   if (kind === "productSet") return "/product-set";
@@ -388,5 +399,15 @@ function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "videoMotion") return "/video/motion-control";
   if (kind === "videoFirstLastFrame") return "/video/first-last-frame";
   if (kind === "model") return "/model";
-  return "/pose";
+  if (kind === "pose") return "/pose";
+  return "";
+}
+
+export function getGeneralImageHistoryMode(payload?: object) {
+  if (payload && "mode" in payload && payload.mode === "image-to-image") return "image-to-image";
+  if (payload && "mode" in payload && payload.mode === "text-to-image") return "text-to-image";
+  if (payload && "referenceUrls" in payload && Array.isArray(payload.referenceUrls) && payload.referenceUrls.length > 0) {
+    return "image-to-image";
+  }
+  return "text-to-image";
 }

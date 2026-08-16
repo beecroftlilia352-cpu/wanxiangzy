@@ -10,6 +10,7 @@ import {
 
 export type TaskQueueGenerationConfig = {
   module: string;
+  scope?: string;
   title: string;
   defaultExpectedCount?: number;
   applyPath?: string;
@@ -23,16 +24,17 @@ type RequiredTaskQueueGenerationConfig = TaskQueueGenerationConfig & {
 };
 
 export function useTaskQueueGeneration(config: TaskQueueGenerationConfig) {
-  const { applyPath, buildApplyUrl, defaultExpectedCount, module, title } = config;
+  const { applyPath, buildApplyUrl, defaultExpectedCount, module, scope, title } = config;
   const resolvedConfig = useMemo(
     () => normalizeTaskQueueGenerationConfig({
       applyPath,
       buildApplyUrl,
       defaultExpectedCount,
       module,
+      scope,
       title,
     }),
-    [applyPath, buildApplyUrl, defaultExpectedCount, module, title]
+    [applyPath, buildApplyUrl, defaultExpectedCount, module, scope, title]
   );
   const createOptimisticTask = useTaskQueueStore((state) => state.createOptimisticTask);
   const replaceStoreTask = useTaskQueueStore((state) => state.replaceTask);
@@ -45,6 +47,7 @@ export function useTaskQueueGeneration(config: TaskQueueGenerationConfig) {
     return createOptimisticTask({
       ...input,
       module: resolvedConfig.module,
+      scope: resolvedConfig.scope,
       title: resolvedConfig.title,
       status: input.status || "submitting",
       statusGroup: input.statusGroup || "queued",
@@ -52,7 +55,7 @@ export function useTaskQueueGeneration(config: TaskQueueGenerationConfig) {
       expectedCount: input.expectedCount ?? resolvedConfig.defaultExpectedCount,
       applyUrl: input.applyUrl || "",
     });
-  }, [createOptimisticTask, resolvedConfig.defaultExpectedCount, resolvedConfig.module, resolvedConfig.title]);
+  }, [createOptimisticTask, resolvedConfig.defaultExpectedCount, resolvedConfig.module, resolvedConfig.scope, resolvedConfig.title]);
 
   const replaceWithServerTask = useCallback((temporaryId: string, input: TaskQueueGenerationInput) => {
     const item = buildTaskQueueGenerationItem(resolvedConfig, {
@@ -158,6 +161,7 @@ export function buildTaskQueueGenerationItem(
     ...input,
     id,
     module: resolvedConfig.module,
+    scope: resolvedConfig.scope,
     title: resolvedConfig.title,
     status: input.status || getDefaultStatus(statusGroup),
     statusGroup,
@@ -186,6 +190,7 @@ function normalizeTaskQueuePatch(
     ...patch,
     id: taskId,
     module: config.module,
+    scope: config.scope,
     title: config.title,
     status: patch.status || (statusGroup ? getDefaultStatus(statusGroup) : undefined),
     statusGroup,
