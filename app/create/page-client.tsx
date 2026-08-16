@@ -36,6 +36,7 @@ import { StudioSection } from "@/components/studio/StudioSection";
 import { StudioSegmentedControl } from "@/components/studio/StudioSegmentedControl";
 import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { useTaskSelectionSession, type TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
@@ -437,7 +438,6 @@ export default function CreatePage() {
   const selectableModels = MODELS;
   const selectedReferenceCount = selectedReferenceImages.length;
   const visibleCustomRefUploads = customRefUploads.filter((item) => item.status === "uploading" || item.status === "error");
-  const showUploadReferenceEmptyTile = sceneMode === "upload_reference" && selectedReferenceCount === 0 && visibleCustomRefUploads.length === 0;
   const resolvedAutoDesign = normalizeAutoDesignSettings(autoDesign);
   const autoDesignBackgroundOptions = resolvedAutoDesign.platform === "ecommerce_clean"
     ? AUTO_DESIGN_BACKGROUNDS.filter((item) => item.value === "white")
@@ -2817,59 +2817,36 @@ export default function CreatePage() {
                   summaries={referenceAnalysisSummaries}
                   isAnalyzing={isAnalyzingReferences}
                 />
-                {showUploadReferenceEmptyTile ? (
-                  <StudioUploadTile
-                    title={t("reference.uploadTitle")}
-                    description={t("reference.uploadDesc", { count: MAX_TRYON_REFERENCE_IMAGES })}
-                    imageAlt={t("reference.uploadImageAlt")}
-                    isDragging={isDraggingRef}
-                    disabled={isReferenceUploadBusy}
-                    loading={isReferenceUploadBusy}
-                    supportBadge={t("common.maxCount", { count: MAX_TRYON_REFERENCE_IMAGES })}
-                    onUploadClick={() => customRefInputRef.current?.click()}
-                    uploadLabel={t("reference.uploadLocal")}
-                    loadingLabel={t("reference.uploadingLabel")}
-                    footnote={t("reference.uploadFootnote")}
-                    examples={{
-                      label: t("clothing.tryIt"),
-                      images: PRESET_REFERENCES.slice(0, 6).map((item) => ({
-                        url: item.url,
-                        title: item.label,
-                      })),
-                      disabled: isReferenceUploadBusy,
-                      onSelect: applyReferenceExample,
-                    }}
-                  />
-                ) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {selectedReferenceImages.map((ref) => (
-                      <div key={ref.url} className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm">
-                        <button
-                          type="button"
-                          onClick={() => openLightbox(ref.url, ref.label || t("common.referenceImage"))}
-                          className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
-                          aria-label={t("reference.preview", { label: ref.label })}
-                        >
-                          <RawPreviewImage eager src={ref.url} alt={t("reference.previewAlt", { label: ref.label })} className="aspect-[3/4] w-full object-cover" />
-                          <span className="absolute inset-0 flex items-center justify-center bg-codex-ink/0 opacity-0 transition group-hover:bg-codex-ink/18 group-hover:opacity-100 group-focus-within:bg-codex-ink/18 group-focus-within:opacity-100">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-codex-ink shadow-sm">
-                              <ZoomIn className="h-4 w-4" />
-                            </span>
-                          </span>
-                        </button>
-                        <span className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
-                          <CheckCircle2 className="h-4 w-4" />
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url))}
-                          className="absolute left-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-codex-muted shadow-sm transition-colors duration-150 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--codex-accent-55)]"
-                          aria-label={t("reference.remove", { label: ref.label })}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                <MultiImageUploadV2
+                  urls={selectedReferenceImages.map((ref) => ref.url)}
+                  maxCount={MAX_TRYON_REFERENCE_IMAGES}
+                  title={t("reference.title")}
+                  emptyHint={t("reference.uploadTitle")}
+                  description={t("reference.uploadDesc", { count: MAX_TRYON_REFERENCE_IMAGES })}
+                  footnote={t("reference.uploadFootnote")}
+                  imageRequirement={t("reference.uploadDesc", { count: MAX_TRYON_REFERENCE_IMAGES })}
+                  imageFit="cover"
+                  isDragging={isDraggingRef}
+                  disabled={isReferenceUploadBusy}
+                  loading={isReferenceUploadBusy}
+                  onUploadClick={() => customRefInputRef.current?.click()}
+                  onPreview={(url, index) => openLightbox(url, selectedReferenceImages[index]?.label || t("common.referenceImage"))}
+                  onRemove={(_, index) => {
+                    setSelectedReferences(selectedReferenceImages.filter((__, itemIndex) => itemIndex !== index));
+                  }}
+                  onClear={clearSelectedReferences}
+                  examples={{
+                    label: t("clothing.tryIt"),
+                    images: PRESET_REFERENCES.slice(0, 6).map((item) => ({
+                      url: item.url,
+                      title: item.label,
+                    })),
+                    disabled: isReferenceUploadBusy,
+                    onSelect: applyReferenceExample,
+                  }}
+                />
+                {visibleCustomRefUploads.length > 0 && (
+                  <div className="mt-3 grid grid-cols-4 gap-2">
                     {visibleCustomRefUploads.map((item) => (
                       <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-[var(--codex-border)] bg-white dark:border-white/10 dark:bg-white/5">
                         <RawPreviewImage eager src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
@@ -2890,16 +2867,6 @@ export default function CreatePage() {
                         )}
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => customRefInputRef.current?.click()}
-                      disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
-                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-codex-faint transition-[color,background-color,border-color,box-shadow] hover:border-[var(--codex-accent)] hover:bg-[var(--codex-accent-10)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-codex-faint dark:hover:bg-[var(--codex-accent-10)]/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-[var(--codex-accent-10)] text-[var(--codex-accent)] dark:bg-[var(--codex-accent-10)]/20" : "border-[var(--codex-border)] dark:border-white/10"}`}
-                      aria-label={t("reference.uploadAriaLabel")}
-                    >
-                      <ChevronRight className="mb-1 h-6 w-6" />
-                      <span className="text-xs font-medium">{t("common.add")}</span>
-                    </button>
                   </div>
                 )}
                 {referenceSelectionFooter}

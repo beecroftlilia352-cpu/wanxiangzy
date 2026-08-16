@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
-  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, PersonStanding, Crop } from "lucide-react";
+  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, PersonStanding, Crop } from "lucide-react";
 import { toast } from "sonner";
 import { isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -56,7 +56,6 @@ import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { VisualAnalysisStatusCard, type VisualAnalysisSummaryItem } from "@/components/studio/VisualAnalysisStatus";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
@@ -2010,67 +2009,23 @@ export default function PosePage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={openFileDialog}
-                      disabled={isUploadingGarmentDetails || activeGarmentAngleReferences.length >= MAX_GARMENT_ANGLE_IMAGES}
-                      className={`flex w-full items-center gap-3 rounded-xl border border-dashed bg-white/85 dark:bg-white/5 p-3 text-left transition hover:border-blue-300 hover:bg-white dark:bg-white/5 disabled:cursor-not-allowed disabled:opacity-55 ${
-                        isDraggingGarmentDetails ? "border-blue-400 bg-blue-50" : "border-blue-200"
-                      }`}
-                      aria-label={t("garment.uploadAria", { mark: activeGarmentAngleMark })}
-                    >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                        {isUploadingGarmentDetails ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Sparkles aria-hidden="true" className="h-5 w-5" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-black text-codex-ink">
-                          {t("garment.uploadAs", { mark: activeGarmentAngleMark })}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[12px] text-codex-muted">
-                          {t("garment.uploadHint")}
-                        </span>
-                      </span>
-                      <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 shadow-sm">
-                        {t("garment.maxCount", { count: MAX_GARMENT_ANGLE_IMAGES })}
-                      </span>
-                    </button>
-
-                    {activeGarmentAngleReferences.length > 0 && (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                          {activeGarmentAngleReferences.map((ref, index) => {
-                            const label = formatGarmentAngleReferenceLabel(ref, index);
-                            return (
-                              <div key={ref.url} className="group relative overflow-hidden rounded-lg border border-blue-200 bg-white dark:bg-white/5 shadow-sm">
-                                <button
-                                  type="button"
-                                  onClick={() => setLightboxSrc(ref.url)}
-                                  className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                                  aria-label={t("garment.previewAria", { label })}
-                                >
-                                  <RawPreviewImage src={ref.url} alt={label} className="aspect-[3/4] w-full object-cover" />
-                                  <span className="absolute bottom-1 left-1 max-w-[calc(100%-8px)] truncate rounded-full bg-white/90 dark:bg-white/5 px-1.5 py-0.5 text-[11px] font-bold text-blue-700">
-                                    {label}
-                                  </span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeGarmentDetail(ref.url)}
-                                  className="absolute right-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/92 dark:bg-white/8 text-codex-muted shadow-sm transition-colors duration-150 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--codex-accent-55)]"
-                                  aria-label={t("garment.removeAria", { label })}
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    <p className="rounded-lg bg-blue-50/70 px-2.5 py-2 text-[12px] leading-relaxed text-blue-800 dark:bg-[var(--codex-accent-16)] dark:text-[#cfd8ff]">
-                      {GARMENT_ANGLE_UPLOAD_FOOTNOTE}
-                    </p>
+                    <MultiImageUploadV2
+                      urls={activeGarmentAngleReferences.map((ref) => ref.url)}
+                      maxCount={MAX_GARMENT_ANGLE_IMAGES}
+                      title={t("garment.uploadTitle")}
+                      emptyHint={t("garment.uploadAs", { mark: activeGarmentAngleMark })}
+                      showExamples={false}
+                      description={t("garment.uploadHint")}
+                      footnote={GARMENT_ANGLE_UPLOAD_FOOTNOTE}
+                      imageRequirement={activeGarmentAngleTargetOption.description}
+                      imageFit="cover"
+                      isDragging={isDraggingGarmentDetails}
+                      loading={isUploadingGarmentDetails}
+                      onUploadClick={openFileDialog}
+                      onPreview={(url) => setLightboxSrc(url)}
+                      onRemove={(url) => removeGarmentDetail(url)}
+                      onClear={() => setGarmentAngleReferences([])}
+                    />
                   </div>
                 )}
               </StudioUploadSection>

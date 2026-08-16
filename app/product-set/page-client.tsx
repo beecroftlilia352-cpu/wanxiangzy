@@ -10,8 +10,6 @@ import {
   RefreshCw,
   Settings2,
   Activity,
-  Trash2,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -22,14 +20,12 @@ import { StudioPageShell } from "@/components/studio/StudioPageShell";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, safeDownloadImage, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -1632,15 +1628,8 @@ export default function ProductSetPage() {
 
           <section
             {...productImageDrag.dragHandlers}
-            className={`studio-stable-upload-boundary rounded-3xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] ${isDragging ? "border-[var(--codex-accent-22)] ring-4 ring-[var(--codex-accent-18)]" : "border-[var(--codex-border)]"}`}
+            className="studio-stable-upload-boundary"
           >
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-codex-ink">{t("productImages.title")}</h3>
-                <p className="mt-1 text-xs text-codex-faint">{t("productImages.help")}</p>
-              </div>
-              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[var(--codex-accent-10)] px-2.5 text-[11px] font-bold text-[var(--codex-accent)]">{productImages.length}/3</span>
-            </div>
             <input
               ref={productInputRef}
               aria-hidden="true"
@@ -1649,21 +1638,41 @@ export default function ProductSetPage() {
               accept="image/*"
               multiple
               className="hidden"
-              onChange={(event: ChangeEvent<HTMLInputElement>) => event.target.files && processFiles(event.target.files)}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                if (event.target.files) void processFiles(event.target.files);
+                event.target.value = "";
+              }}
             />
-            <StudioUploadTile
-              title={productImages.length >= 3 ? t("productImages.maxReached") : productImages.length ? t("productImages.continueUpload") : t("productImages.tileTitle")}
+            <MultiImageUploadV2
+              urls={productImages.map((item) => item.url)}
+              maxCount={3}
+              title={t("productImages.title")}
+              emptyHint={t("productImages.supportBadge")}
               description={t("productImages.help")}
-              imageUrl={null}
-              imageAlt={t("productImages.title")}
+              footnote={t("productImages.footnote")}
+              imageRequirement={t("productImages.help")}
+              imageFit="contain"
               isDragging={isDragging}
               loading={isUploading}
               onUploadClick={() => productInputRef.current?.click()}
               onLibraryClick={() => toast.info(t("library.comingSoon"))}
-              uploadLabel={productImages.length ? t("productImages.continueUploadLabel") : t("upload.localUpload")}
               libraryLabel={t("upload.fromLibrary")}
-              supportBadge={t("productImages.supportBadge")}
-              footnote={t("productImages.footnote")}
+              onPreview={(url) => setLightboxSrc(url)}
+              onRemove={(_, index) => removeProductImage(index)}
+              onMove={(fromIndex, toIndex) => {
+                setProductImages((prev) => {
+                  const next = [...prev];
+                  const [moved] = next.splice(fromIndex, 1);
+                  next.splice(toIndex, 0, moved);
+                  return next;
+                });
+                resetOutput();
+              }}
+              onClear={() => {
+                setProductImages([]);
+                setProductInfo("");
+                resetAnalysisPlan("idle");
+              }}
               examples={{
                 label: t("common.tryIt"),
                 images: PRODUCT_SET_EXAMPLE_GROUPS.map((group) => ({
@@ -1678,27 +1687,6 @@ export default function ProductSetPage() {
                 },
               }}
             />
-
-            {productImages.length > 0 && (
-              <>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {productImages.map((item, index) => (
-                  <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
-                    <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
-                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-codex-muted dark:bg-white/10 dark:text-codex-muted">{t("productImages.imageLabel", { index: index + 1 })}</span>
-                    <button type="button" aria-label={`${t("productImages.remove")}${item.name}`} onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 touch-manipulation items-center justify-center rounded-full bg-codex-ink/85 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2">
-                      <X aria-hidden="true" className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-                <div className="mt-2 flex justify-end">
-                  <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full px-2 text-xs font-bold text-codex-faint transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
-                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" /> {t("common.clear")}
-                  </button>
-                </div>
-              </>
-            )}
           </section>
 
           <section className="rounded-3xl border border-[var(--codex-border)] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">

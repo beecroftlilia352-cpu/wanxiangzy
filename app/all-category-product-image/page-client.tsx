@@ -9,22 +9,19 @@ import {
   ChevronDown,
   Download,
   Edit3,
-  ImagePlus,
   Languages,
   Loader2,
   MonitorSmartphone,
   PackageCheck,
   RefreshCw,
-  Trash2,
-  Upload,
   Brush,
-  X,
   ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -43,7 +40,6 @@ import {
 } from "@/lib/all-category-product-image";
 import { getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { useVisibleImageModels } from "@/lib/use-visible-image-models";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import type {
   ProductSetCustomTemplate,
   ProductSetImageType,
@@ -264,6 +260,7 @@ export default function AllCategoryProductImagePage() {
   const [showAiPlans, setShowAiPlans] = useState(false);
   const [editingDesignSpec, setEditingDesignSpec] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [productLightboxSrc, setProductLightboxSrc] = useState<string | null>(null);
   const { visibleModels } = useVisibleImageModels();
   const visibleModelEntries = useMemo(
     () => MODELS.filter((model) => !visibleModels || visibleModels.has(model.value)),
@@ -663,7 +660,7 @@ export default function AllCategoryProductImagePage() {
 
           <div className="mt-4 grid items-start gap-8 lg:grid-cols-[350px_minmax(0,760px)]">
             <aside className="space-y-5">
-              <section className="rounded-2xl border border-[var(--codex-border)] bg-white p-6 shadow-sm">
+              <section>
                 <input
                   ref={inputRef}
                   type="file"
@@ -676,80 +673,29 @@ export default function AllCategoryProductImagePage() {
                     event.target.value = "";
                   }}
                 />
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] text-codex-muted">
-                      <ImagePlus aria-hidden="true" className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="text-sm font-black text-codex-ink">{t("productImagesTitle")}</h2>
-                      <p className="mt-1 text-xs leading-5 text-codex-muted">{t("productImagesSubtitle")}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-codex-muted">{productImages.length}/{MAX_PRODUCT_UPLOADS}</span>
-                </div>
-
-                {productImages.length ? (
-                  <div className="mt-5 grid grid-cols-3 gap-2">
-                    {productImages.map((item, index) => (
-                      <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-lg border border-[var(--codex-border)]">
-                        <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1" />
-                        <span className="absolute bottom-1 left-1 rounded bg-codex-ink/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeProductImage(index)}
-                          className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-codex-ink/65 text-white group-hover:flex group-focus-within:flex focus-visible:flex"
-                          aria-label={t("deleteImage", { index: index + 1 })}
-                        >
-                          <X aria-hidden="true" className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    {productImages.length < MAX_PRODUCT_UPLOADS && (
-                      <button
-                        type="button"
-                        onClick={() => inputRef.current?.click()}
-                        className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-[var(--codex-border-strong)] bg-[var(--codex-surface-soft)] text-codex-muted hover:border-[var(--codex-border-strong)] hover:bg-white"
-                      >
-                        {isUploading ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <ImagePlus aria-hidden="true" className="h-6 w-6" />}
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="mt-5 flex h-[132px] w-full flex-col items-center justify-center rounded-[14px] border border-dashed border-[var(--codex-border-strong)] bg-white text-center transition hover:border-[var(--codex-border-strong)] hover:bg-[var(--codex-surface-soft)]"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] text-codex-muted">
-                      {isUploading ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Upload aria-hidden="true" className="h-5 w-5" />}
-                    </span>
-                    <span className="mt-4 max-w-[230px] text-xs font-semibold leading-5 text-codex-ink">
-                      {t("multiUploadHint")}
-                    </span>
-                  </button>
-                )}
-
-                {productImages.length > 0 && (
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => inputRef.current?.click()}
-                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-codex-ink px-3 text-sm font-black text-white hover:bg-codex-muted"
-                    >
-                      <Upload aria-hidden="true" className="h-4 w-4" />
-                      {t("uploadProduct")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProductImages([])}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--codex-border)] text-codex-muted"
-                      aria-label={t("clearImages")}
-                    >
-                      <Trash2 aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
+                <MultiImageUploadV2
+                  urls={productImages.map((item) => item.url)}
+                  maxCount={MAX_PRODUCT_UPLOADS}
+                  title={t("productImagesTitle")}
+                  emptyHint={t("productImagesTitle")}
+                  showExamples={false}
+                  description={t("productImagesSubtitle")}
+                  footnote={t("multiUploadHint")}
+                  imageRequirement={t("multiUploadHint")}
+                  imageFit="contain"
+                  loading={isUploading}
+                  onUploadClick={() => inputRef.current?.click()}
+                  onPreview={(url) => setProductLightboxSrc(url)}
+                  onRemove={(_, index) => removeProductImage(index)}
+                  onClear={() => {
+                    setProductImages([]);
+                    setProductInfo("");
+                    setAnalysisDetail(null);
+                    setProductProfile(null);
+                    setActiveStep("input");
+                    resetOutput();
+                  }}
+                />
               </section>
 
               <section className="rounded-2xl border border-[var(--codex-border)] bg-white p-6 shadow-sm">
@@ -952,7 +898,12 @@ export default function AllCategoryProductImagePage() {
         onClose={() => setShowAiPlans(false)}
       />
 
+      <StudioMediaLightbox
+        src={productLightboxSrc}
+        alt={t("productImagesTitle")}
+        onClose={() => setProductLightboxSrc(null)}
+      />
+
     </div>
   );
 }
-

@@ -8,9 +8,6 @@ import {
   Images,
   Crop,
   ImagePlus,
-  Loader2,
-  Trash2,
-  X,
   Sparkles,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -32,8 +29,8 @@ import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
-import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
@@ -130,6 +127,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [referenceLightboxSrc, setReferenceLightboxSrc] = useState<string | null>(null);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
   const [imagePromptImage, setImagePromptImage] = useState<ImagePromptSource | null>(null);
   // 未保存输入离开拦截：有参考图/提示词/图片时提醒；文生图<->图生图组内切换不拦截
@@ -787,54 +785,27 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 await handleFiles(files);
               }}
               className="studio-general-reference-upload"
-              actions={(
-                <span className="rounded-full bg-[var(--codex-accent-10)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]">
-                  {referenceImages.length}/8
-                </span>
-              )}
             >
               {(openFileDialog) => (
-                <>
-                  <StudioUploadTile
-                    title={referenceImages.length >= 8 ? t("uploadTileFullTitle") : referenceImages.length ? t("uploadTileMoreTitle") : t("uploadTileEmptyTitle")}
-                    description={t("uploadTileDescription")}
-                    imageUrl={null}
-                    imageAlt={t("referenceImageAlt")}
-                    isDragging={isDragging}
-                    loading={isUploading}
-                    disabled={referenceImages.length >= 8}
-                    onUploadClick={openFileDialog}
-                    uploadLabel={t("uploadLabel")}
-                    footnote={t("uploadFootnote")}
-                  />
-
-                  {referenceImages.length > 0 && (
-                    <div className="mt-3">
-                      <div className="mb-2 flex items-center justify-between text-xs">
-                        <span className="font-medium text-codex-faint">{t("orderMarkedAsImages")}</span>
-                        <button type="button" onClick={() => { setReferenceImages([]); }} className="inline-flex items-center gap-1 text-codex-faint hover:text-red-500">
-                          <Trash2 className="h-3.5 w-3.5" /> {t("clear")}
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                        {referenceImages.map((item, index) => (
-                          <div key={item.id} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white shadow-sm">
-                            <RawPreviewImage src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
-                            <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-codex-faint">{t("imageIndex", { index: index + 1 })}</span>
-                            <button
-                              type="button"
-                              onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); }}
-                              className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-codex-ink/75 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-lg:opacity-100"
-                              aria-label={t("removeImage", { index: index + 1 })}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
+                <MultiImageUploadV2
+                  urls={referenceImages.map((item) => item.preview || item.url)}
+                  maxCount={8}
+                  title={t("referenceSectionTitle")}
+                  emptyHint={t("referenceSectionTitle")}
+                  showExamples={false}
+                  description={t("uploadTileDescription")}
+                  footnote={t("uploadFootnote")}
+                  imageRequirement={t("orderMarkedAsImages")}
+                  imageFit="contain"
+                  loading={isUploading}
+                  isDragging={isDragging}
+                  onUploadClick={openFileDialog}
+                  onPreview={(url) => setReferenceLightboxSrc(url)}
+                  onRemove={(_, index) => {
+                    setReferenceImages((prev) => prev.filter((__, itemIndex) => itemIndex !== index));
+                  }}
+                  onClear={() => setReferenceImages([])}
+                />
               )}
             </StudioUploadSection>
           )}
@@ -1018,6 +989,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         onGenerate={() => void generateImagePrompt()}
         onTextChange={setImagePromptText}
         onApply={applyImagePromptToDescription}
+      />
+      <StudioMediaLightbox
+        src={referenceLightboxSrc}
+        alt={t("referenceImageAlt")}
+        onClose={() => setReferenceLightboxSrc(null)}
       />
       {confirmDialog}
     </div>
