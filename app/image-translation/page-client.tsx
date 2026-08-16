@@ -857,8 +857,13 @@ export default function ImageTranslationPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-codex-ink">{t("genCountSectionTitle")}</h3>
-            <GenerationCountField value={genCount} onChange={setGenCount} ariaLabel={t("genCountAriaLabel")} summary="" />
+            <GenerationCountField
+              title={t("genCountSectionTitle")}
+              label={t("genCountSectionTitle")}
+              value={genCount}
+              onChange={setGenCount}
+              ariaLabel={t("genCountAriaLabel")}
+            />
             <p className="mt-2 text-[12px] leading-relaxed text-codex-faint">
               {t("genTotalHint", { count: sourceUrls.length * Math.max(languages.length, 1) * genCount })}
             </p>

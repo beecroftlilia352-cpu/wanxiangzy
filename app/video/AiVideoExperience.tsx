@@ -1117,11 +1117,10 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         </section>
 
         <section>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-codex-ink">{t("genCountSection")}</h3>
-            <span className="text-[11px] font-bold text-codex-faint">{t("genCountPerVideo", { cost: perVideoCost })}</span>
-          </div>
           <GenerationCountField
+            title={t("genCountSection")}
+            label={t("genCountSection")}
+            titleMeta={t("genCountPerVideo", { cost: perVideoCost })}
             value={genCount}
             onChange={(value) => setGenCount(normalizeAiVideoGenCount(value))}
             counts={[1, 2, 3, 4]}

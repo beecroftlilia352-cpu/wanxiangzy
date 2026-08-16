@@ -766,8 +766,13 @@ export default function MaterialEnhancementPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.count")}</h3>
-            <GenerationCountField value={genCount} onChange={setGenCount} ariaLabel={t("section.countAria")} />
+            <GenerationCountField
+              title={t("section.count")}
+              label={t("section.count")}
+              value={genCount}
+              onChange={setGenCount}
+              ariaLabel={t("section.countAria")}
+            />
           </section>
         </div>
 

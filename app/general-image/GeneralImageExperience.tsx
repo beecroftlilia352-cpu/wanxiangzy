@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
-  Images,
   Crop,
   ImagePlus,
   Sparkles,
@@ -875,8 +874,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("countSectionTitle")}</h3>
             <GenerationCountField
+              title={t("countSectionTitle")}
+              label={t("countSectionTitle")}
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("countAriaLabel")}

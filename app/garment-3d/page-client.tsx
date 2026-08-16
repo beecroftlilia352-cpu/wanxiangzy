@@ -976,8 +976,9 @@ export default function Garment3dPage() {
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("countSectionTitle")}</h3>
             <GenerationCountField
+              title={t("countSectionTitle")}
+              label={t("countSectionTitle")}
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("countSectionTitle")}

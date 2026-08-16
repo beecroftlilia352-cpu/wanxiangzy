@@ -917,8 +917,9 @@ export default function FaceSwapPage() {
           </section>
 
           <section>
-            <PanelTitle title={t("countSectionTitle")} />
             <GenerationCountField
+              title={t("countSectionTitle")}
+              label={t("countSectionTitle")}
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("countSectionTitle")}

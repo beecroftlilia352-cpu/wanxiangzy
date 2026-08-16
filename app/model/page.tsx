@@ -966,8 +966,9 @@ export default function ModelPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("genCount")}</h3>
             <GenerationCountField
+              title={t("genCount")}
+              label={t("genCount")}
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("genCount")}

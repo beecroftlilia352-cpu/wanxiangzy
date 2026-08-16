@@ -738,7 +738,7 @@ export default function AllCategoryProductImagePage() {
                     <SelectField label={t("modelLabel")} value={aiModel} options={visibleModelEntries.map((item) => item.value)} labels={Object.fromEntries(visibleModelEntries.map((item) => [item.value, item.badge ? `${item.label} · ${item.badgeKey ? tAny(item.badgeKey) : item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />
                     <SelectField label={t("sizeRatio")} value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-4">
                     <div>
                       <ResolutionSelector
                         titleKey="quality"
@@ -752,8 +752,9 @@ export default function AllCategoryProductImagePage() {
                       />
                     </div>
                     <div>
-                      <span className="mb-2 block text-xs font-semibold text-codex-muted">{t("genCount")}</span>
                       <GenerationCountField
+                        title={t("genCount")}
+                        label={t("genCount")}
                         value={imageCount}
                         onChange={changeCount}
                         counts={countOptions}

@@ -806,16 +806,16 @@ export function ProductRetouchExperience() {
                     columns={3}
                   />
                 </div>
-                <div className="mt-4">
-                  <Label className="mb-2 block">{t("section.perSourceLabel")}</Label>
-                  <GenerationCountField
-                    value={variantsPerSource}
-                    onChange={setVariantsPerSource}
-                    counts={[1, 2, 3, 4]}
-                    unit={t("section.perSourceUnit")}
-                    ariaLabel={t("section.perSourceAria")}
-                  />
-                </div>
+                <GenerationCountField
+                  className="mt-4"
+                  title={t("section.perSourceLabel")}
+                  label={t("section.perSourceLabel")}
+                  value={variantsPerSource}
+                  onChange={setVariantsPerSource}
+                  counts={[1, 2, 3, 4]}
+                  unit={t("section.perSourceUnit")}
+                  ariaLabel={t("section.perSourceAria")}
+                />
               </StudioSection>
 
               <PromptTextarea

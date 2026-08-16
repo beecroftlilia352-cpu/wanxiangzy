@@ -96,12 +96,16 @@ export function CountSelector({ imageType, value, options, onChange, helper }: {
   const unit = imageType === "main" ? t("units.singleImage") : t("units.singleScreen");
   const countLabel = imageType === "main" ? t("analysis.genCount") : t("analysis.detailScreenCount");
   return (
-    <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-      <div className="mb-2 flex items-center justify-between text-xs">
-        <span className="font-bold text-slate-700">{countLabel}</span>
-        <span className="font-black text-[var(--codex-accent)]">{value > 0 ? `${value} ${unit}` : t("create.count.unselected")}</span>
-      </div>
-      <GenerationCountField value={value} onChange={onChange} counts={options} unit={unit} ariaLabel={countLabel} />
+    <div className="mt-3">
+      <GenerationCountField
+        title={countLabel}
+        label={countLabel}
+        value={value}
+        onChange={onChange}
+        counts={options}
+        unit={unit}
+        ariaLabel={countLabel}
+      />
       {helper ? <p className="mt-2 text-[11px] leading-5 text-slate-400">{helper}</p> : null}
     </div>
   );

@@ -1015,8 +1015,9 @@ export default function ModelBackgroundPage() {
             />
           </section>
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genCount")}</h3>
             <GenerationCountField
+              title={t("genCount")}
+              label={t("genCount")}
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("genCount")}

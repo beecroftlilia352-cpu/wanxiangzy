@@ -28,6 +28,10 @@ export type GenerationCountFieldProps = {
   /** Title rendered above the row with the purple marker accent. */
   title?: ReactNode;
   titleKey?: string;
+  /** Optional supporting copy below the title. */
+  description?: ReactNode;
+  /** Optional metadata aligned to the title's right edge. */
+  titleMeta?: ReactNode;
   /** Label inside the row, e.g. "生成张数". Pass `null` to hide the label cell. */
   label?: ReactNode;
   labelKey?: string;
@@ -64,6 +68,8 @@ export function GenerationCountField({
   titleKey,
   label,
   labelKey,
+  description,
+  titleMeta,
   summary,
   summaryKey,
   unit,
@@ -78,22 +84,22 @@ export function GenerationCountField({
     [options, counts]
   );
 
-  const resolvedTitle = titleKey ? t(titleKey) : title;
-  const resolvedLabel = labelKey ? t(labelKey) : label;
+  const resolvedTitle = titleKey
+    ? t(titleKey)
+    : title !== undefined
+      ? title
+      : ariaLabel;
+  const resolvedLabel = labelKey
+    ? t(labelKey)
+    : label !== undefined
+      ? label
+      : resolvedTitle;
   const hasLabel = resolvedLabel != null && resolvedLabel !== "";
   const resolvedUnit = unitKey ? t(unitKey) : unit ?? t("Shared.unitZhang");
-  // Skip empty unit fragments so locales with `unitZhang=""` (e.g. ar/it) don't
-  // leave a trailing space in the auto-summary.
-  const fallbackSummary =
-    [t("Shared.totalLabel"), String(value), resolvedUnit]
-      .filter((part) => part && part.trim() !== "")
-      .join(" ");
   const resolvedSummary =
     summaryKey !== undefined
       ? t(summaryKey)
-      : summary !== undefined
-        ? summary
-        : fallbackSummary;
+      : summary;
   // Dropdown 弹层里只显示数字本身（不重复 unit），unit 在触发器右侧单独展示。
   // Unit visibility is independent of `hasLabel` so callers passing label={null}
   // still get the unit hint next to the trigger.
@@ -165,12 +171,20 @@ export function GenerationCountField({
 
   return (
     <section className={cn("studio-generation-count-field", className)}>
-      {resolvedTitle != null && resolvedTitle !== "" && (
-        <h3 className="studio-aspect-ratio-selector-title">
-          <span aria-hidden="true" className="studio-aspect-ratio-selector-title-mark" />
-          <span className="studio-aspect-ratio-selector-title-text">{resolvedTitle}</span>
-        </h3>
-      )}
+      {(resolvedTitle != null && resolvedTitle !== "") || titleMeta ? (
+        <div className="studio-generation-count-header">
+          {resolvedTitle != null && resolvedTitle !== "" ? (
+            <h3 className="studio-aspect-ratio-selector-title">
+              <span aria-hidden="true" className="studio-aspect-ratio-selector-title-mark" />
+              <span className="studio-aspect-ratio-selector-title-text">{resolvedTitle}</span>
+            </h3>
+          ) : null}
+          {titleMeta ? <span className="studio-generation-count-meta">{titleMeta}</span> : null}
+        </div>
+      ) : null}
+      {description ? (
+        <p className="studio-generation-count-description">{description}</p>
+      ) : null}
       <div className="studio-generation-count-row">
         {hasLabel && (
           <span className="studio-generation-count-label">

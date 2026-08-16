@@ -916,8 +916,9 @@ export default function GrassPage() {
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("genCountTitle")}</h3>
             <GenerationCountField
+              title={t("genCountTitle")}
+              label={t("genCountTitle")}
               value={genCount}
               onChange={setGenCount}
               ariaLabel={t("genCountAria")}
