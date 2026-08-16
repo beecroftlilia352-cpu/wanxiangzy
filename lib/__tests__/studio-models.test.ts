@@ -18,7 +18,7 @@ describe("studio image model catalog", () => {
     for (const model of Object.values(STUDIO_IMAGE_MODEL_META)) {
       expect(model.descKey).toMatch(/^Shared\.modelDesc\./);
       expect(model.badgeKey).toMatch(/^Shared\.modelBadge\./);
-      expect(model.icon).toMatch(/^\/model-icons\//);
+      expect(model.icon).toMatch(/^\/model-covers\/.+\.png$/);
     }
   });
 });

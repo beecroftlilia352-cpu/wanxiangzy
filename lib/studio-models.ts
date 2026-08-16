@@ -24,19 +24,19 @@ export const STUDIO_IMAGE_MODEL_META: Record<
     label: "GPT image 2",
     descKey: "Shared.modelDesc.fineDetail",
     badgeKey: "Shared.modelBadge.latest",
-    icon: "/model-icons/openai.svg",
+    icon: "/model-covers/gpt-image-2.png",
   },
   "nano-banana-2": {
     label: "香蕉2",
     descKey: "Shared.modelDesc.fastGeneral",
     badgeKey: "Shared.modelBadge.recommended",
-    icon: "/model-icons/gemini.png",
+    icon: "/model-covers/banana-2.png",
   },
   "nano-banana-pro": {
     label: "香蕉Pro",
     descKey: "Shared.modelDesc.commercialRetouch",
     badgeKey: "Shared.modelBadge.highQuality",
-    icon: "/model-icons/gemini.png",
+    icon: "/model-covers/banana-pro.png",
   },
 };
 
