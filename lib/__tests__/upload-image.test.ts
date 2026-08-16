@@ -71,6 +71,28 @@ describe("uploadImage", () => {
       .rejects.toThrow("网络连接异常，上传失败");
   });
 
+  it("retries a transient network failure and keeps the upload result", async () => {
+    vi.useFakeTimers();
+    installMockXhr();
+    let attempts = 0;
+    class RetryXMLHttpRequest extends MockXMLHttpRequest {
+      send() {
+        attempts += 1;
+        queueMicrotask(() => {
+          if (attempts === 1) this.onerror?.(new ProgressEvent("error"));
+          else this.onload?.(new ProgressEvent("load"));
+        });
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", RetryXMLHttpRequest);
+
+    const result = uploadImage(new File(["image"], "source.jpg", { type: "image/jpeg" }));
+    await vi.advanceTimersByTimeAsync(700);
+
+    await expect(result).resolves.toEqual(SUCCESS_RESULT);
+    expect(attempts).toBe(2);
+  });
+
   it("falls back to the original file when browser preprocessing never settles", async () => {
     vi.useFakeTimers();
     installMockXhr();

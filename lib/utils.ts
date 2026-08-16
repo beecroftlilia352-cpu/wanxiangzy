@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { downloadMediaFile, type MediaDownloadProgress } from "@/lib/media-download";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -106,34 +107,12 @@ function inferExt(url: string): string {
   return "png";
 }
 
-export async function downloadMedia(url: string, filename: string) {
-  if (!url) return;
-  const downloadUrl = url.startsWith("http")
-    ? `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}&proxy=1`
-    : url;
-
-  // fetch + blob + blob URL — avoids cross-origin <a download> failures and the
-  // browser beforeunload dialog that fires when the page navigates to the
-  // /api/download-image URL. See features/product-retouch/download.ts for the
-  // same pattern.
-  const response = await fetch(downloadUrl, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`下载失败 (${response.status})`);
-  }
-  const blob = await response.blob();
-  saveBlob(blob, filename);
-}
-
-function saveBlob(blob: Blob, filename: string) {
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = filename;
-  anchor.rel = "noopener";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+export async function downloadMedia(
+  url: string,
+  filename: string,
+  options: { signal?: AbortSignal; onProgress?: (progress: MediaDownloadProgress) => void } = {},
+) {
+  return downloadMediaFile(url, filename, options);
 }
 
 export async function downloadImage(url: string, filename: string) {
@@ -216,6 +195,7 @@ export const MAX_AUDIO_FILE_SIZE = MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024;
 const UPLOAD_TRANSPORT_SAFE_SIZE_MB = 8;
 const IMAGE_PREPROCESS_TIMEOUT_MS = 20_000;
 const IMAGE_UPLOAD_CLIENT_TIMEOUT_MS = 75_000;
+const IMAGE_UPLOAD_RETRY_DELAYS_MS = [0, 700, 1_600] as const;
 export const MAX_CLOTHING_FILES = 5;
 
 export interface UploadResult {
@@ -370,17 +350,56 @@ export async function uploadImage(
     ? UPLOAD_TRANSPORT_SAFE_SIZE_MB
     : MAX_FILE_SIZE_MB;
   const compressed = await compressImage(file, uploadLimitMB);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      if (IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt] > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt]));
+        options.onProgress?.(0);
+      }
+      const uploadResponse = await sendImageUpload(compressed, file.name, options.onProgress);
+      const data = parseUploadResponse(uploadResponse.responseText);
+
+      if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+        const error = new Error(data.error || `上传失败 (${uploadResponse.status})`);
+        if (attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length - 1 && isRetryableUploadStatus(uploadResponse.status)) {
+          lastError = error;
+          continue;
+        }
+        throw error;
+      }
+
+      if (!data.url) throw new Error("图片上传服务返回了无效结果");
+      options.onProgress?.(100);
+      return data as UploadResult;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= IMAGE_UPLOAD_RETRY_DELAYS_MS.length - 1 || !isRetryableUploadError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("网络连接异常，上传失败");
+}
+
+function sendImageUpload(
+  file: File,
+  originalName: string,
+  onProgress?: (percent: number) => void,
+) {
   const form = new FormData();
-  form.append("image", compressed);
-  form.append("name", file.name.replace(/\.[^.]+$/, ""));
+  form.append("image", file);
+  form.append("name", originalName.replace(/\.[^.]+$/, ""));
 
   // XHR 上传以支持进度回调（fetch 不支持 upload progress）
-  const uploadResponse = await new Promise<{ status: number; responseText: string }>((resolve, reject) => {
+  return new Promise<{ status: number; responseText: string }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let settled = false;
     xhr.open("POST", "/api/upload-image");
     const cleanup = () => {
       window.clearTimeout(timeout);
+      xhr.upload.onprogress = null;
       xhr.onload = null;
       xhr.onerror = null;
       xhr.onabort = null;
@@ -405,7 +424,7 @@ export async function uploadImage(
     xhr.timeout = IMAGE_UPLOAD_CLIENT_TIMEOUT_MS;
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && event.total > 0) {
-        options.onProgress?.(Math.round((event.loaded / event.total) * 100));
+        onProgress?.(Math.round((event.loaded / event.total) * 100));
       }
     };
     xhr.onload = () => {
@@ -421,28 +440,27 @@ export async function uploadImage(
     xhr.ontimeout = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.send(form);
   });
+}
 
-  const data = (() => {
-    try {
-      const parsed: unknown = JSON.parse(uploadResponse.responseText);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as Partial<UploadResult> & { error?: string };
-      }
-      return {} as Partial<UploadResult> & { error?: string };
-    } catch {
-      return {} as Partial<UploadResult> & { error?: string };
+function parseUploadResponse(responseText: string) {
+  try {
+    const parsed: unknown = JSON.parse(responseText);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Partial<UploadResult> & { error?: string };
     }
-  })();
-
-  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
-    throw new Error(data.error || `上传失败 (${uploadResponse.status})`);
+  } catch {
+    // Invalid gateway responses are handled as retryable status failures.
   }
+  return {} as Partial<UploadResult> & { error?: string };
+}
 
-  if (!data.url) {
-    throw new Error("图片上传服务返回了无效结果");
-  }
+function isRetryableUploadStatus(status: number) {
+  return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
+}
 
-  return data as UploadResult;
+function isRetryableUploadError(error: unknown) {
+  if (!(error instanceof Error)) return true;
+  return /网络连接异常|上传超时|Failed to fetch|NetworkError/i.test(error.message);
 }
 
 export async function uploadVideo(file: File): Promise<UploadResult> {

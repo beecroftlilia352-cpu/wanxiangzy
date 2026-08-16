@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { createAliyunOssDownloadUrl } from "@/lib/api/image-storage";
 import { rateLimitResponse } from "@/lib/api/rate-limit";
-import { fetchRemoteImageBuffer, RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
+import { fetchRemoteImageResponse, RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
-const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
-const DOWNLOAD_TIMEOUT_MS = 15000;
+const MAX_DOWNLOAD_BYTES = 40 * 1024 * 1024;
+const DOWNLOAD_TIMEOUT_MS = 30_000;
 const DOWNLOAD_RATE_LIMIT = 120;
 const DOWNLOAD_RATE_WINDOW_MS = 60_000;
 const DEFAULT_ALLOWED_HOSTS = [
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
   const imageUrl = request.nextUrl.searchParams.get("url");
   const filename = request.nextUrl.searchParams.get("filename") || "tryon-result.jpg";
   const forceProxy = request.nextUrl.searchParams.get("proxy") === "1";
+  const resolveOnly = request.nextUrl.searchParams.get("resolve") === "1";
 
   if (!imageUrl) {
     return NextResponse.json({ error: "Missing url" }, { status: 400 });
@@ -64,6 +65,16 @@ export async function GET(request: NextRequest) {
   }
 
   const aliyunOssDownloadUrl = createAliyunOssDownloadUrl(parsedUrl.toString(), filename);
+  if (resolveOnly) {
+    if (aliyunOssDownloadUrl) {
+      return NextResponse.json({ strategy: "direct", url: aliyunOssDownloadUrl });
+    }
+    const proxyUrl = new URL("/api/download-image", request.nextUrl.origin);
+    proxyUrl.searchParams.set("url", parsedUrl.toString());
+    proxyUrl.searchParams.set("filename", filename);
+    proxyUrl.searchParams.set("proxy", "1");
+    return NextResponse.json({ strategy: "proxy", url: proxyUrl.pathname + proxyUrl.search });
+  }
   if (aliyunOssDownloadUrl && !forceProxy) {
     const redirect = NextResponse.redirect(aliyunOssDownloadUrl, 302);
     redirect.headers.set("Cache-Control", "no-store");
@@ -71,9 +82,9 @@ export async function GET(request: NextRequest) {
   }
   const upstreamUrl = aliyunOssDownloadUrl || parsedUrl.toString();
 
-  let download: Awaited<ReturnType<typeof fetchRemoteImageBuffer>>;
+  let download: Awaited<ReturnType<typeof fetchRemoteImageResponse>>;
   try {
-    download = await fetchRemoteImageBuffer(upstreamUrl, {
+    download = await fetchRemoteImageResponse(upstreamUrl, {
       allowHttp: true,
       allowedHosts: getAllowedHosts(),
       maxBytes: MAX_DOWNLOAD_BYTES,
@@ -82,16 +93,22 @@ export async function GET(request: NextRequest) {
   } catch (err: unknown) {
     return remoteImageErrorResponse(err);
   }
+  if (!download.response.body) {
+    return NextResponse.json({ error: "Image download failed" }, { status: 502 });
+  }
 
   const headers = new Headers({
     "Content-Type": download.contentType,
     "Content-Disposition": getContentDisposition(filename),
-    "Cache-Control": "no-store",
+    "Cache-Control": "private, max-age=300",
     "X-Accel-Buffering": "no",
-    "Content-Length": String(download.bytes.length),
+    "X-Content-Type-Options": "nosniff",
   });
+  if (download.contentLength > 0) {
+    headers.set("Content-Length", String(download.contentLength));
+  }
 
-  return new NextResponse(bufferToArrayBuffer(download.bytes), { headers });
+  return new NextResponse(limitResponseBody(download.response.body, MAX_DOWNLOAD_BYTES), { headers });
 }
 
 function sanitizeFilename(value: string): string {
@@ -230,6 +247,16 @@ function remoteImageErrorResponse(err: unknown) {
   return NextResponse.json({ error: "Image download failed" }, { status: 502 });
 }
 
-function bufferToArrayBuffer(bytes: Buffer) {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+function limitResponseBody(body: ReadableStream<Uint8Array>, maxBytes: number) {
+  let totalBytes = 0;
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      totalBytes += chunk.byteLength;
+      if (totalBytes > maxBytes) {
+        controller.error(new RemoteImageFetchError("remote image is too large", "too-large"));
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  }));
 }
