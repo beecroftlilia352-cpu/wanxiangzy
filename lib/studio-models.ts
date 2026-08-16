@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 
 import type { ImageSize, LingyaModel } from "@/lib/api/lingya";
+import type { ResolutionOption } from "@/components/studio/ResolutionSelector";
 
 /**
  * Studio 图像模型选项的单一事实来源。
@@ -42,9 +43,41 @@ export const STUDIO_IMAGE_MODEL_META: Record<
 const ALL_CURATED_MODELS = Object.keys(STUDIO_IMAGE_MODEL_META) as LingyaModel[];
 
 /**
- * 清晰度选项（1K/2K/4K）的统一分层：
- * - 标签只显 "1K"/"2K"/"4K"，档位名（标清/高清/超清）与单价放在描述行
- * - 2K 为推荐档，带「推荐」徽章；层次分明不再平铺
+ * 清晰度选项（1K/2K/4K）的统一分层，供 ResolutionSelector 直接消费：
+ * - 标签只显 "1K"/"2K"/"4K"，档位名（标清/高清/超清）走 description 行
+ * - 价格 / 单件积分不再内联展示（避免小卡片拥挤），统一放在 RunBar summary
+ * - 角标由调用方通过 `badges` prop 决定，按用户等级决定是否挂会员/企业版锁
+ */
+export function useResolutionOptions(
+  sizes: ImageSize[],
+  getCost: (size: ImageSize) => number,
+  creditsUnit: string
+): ResolutionOption<ImageSize>[] {
+  const tRoot = useTranslations();
+  return useMemo(
+    () =>
+      sizes.map((size) => {
+        const tierKey =
+          size === "1K"
+            ? "Shared.resolutionStandard"
+            : size === "2K"
+              ? "Shared.resolutionHD"
+              : "Shared.resolutionUltra";
+        return {
+          value: size,
+          label: size,
+          description: `${tRoot(tierKey)} · ${getCost(size)}${creditsUnit}`,
+        };
+      }),
+    [sizes, getCost, creditsUnit, tRoot],
+  );
+}
+
+/**
+ * 旧版 StudioOptionGrid 兼容导出（保留以防旧调用方残留，description 含单价）。
+ * 新代码请直接使用 ResolutionSelector + useResolutionOptions。
+ *
+ * @deprecated use ResolutionSelector + useResolutionOptions
  */
 export function useImageSizeOptions(
   sizes: ImageSize[],

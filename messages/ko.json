@@ -1018,6 +1018,8 @@
       "uploadLocal": "로컬에서 업로드",
       "uploadingLabel": "레퍼런스 업로드 중…",
       "uploadFootnote": "이 영역에 이미지를 드래그해도 업로드됩니다. 레퍼런스는 인물 포즈·씬·구도·조명의 소스로 사용됩니다.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "preview": "레퍼런스 미리보기: {label}",
       "previewAlt": "레퍼런스: {label}",
       "remove": "레퍼런스 제거: {label}",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "표준",
     "resolutionHD": "HD",
     "resolutionUltra": "울트라",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "AI 도우미",
+      "wordLibrary": "단어 라이브러리",
+      "saveToMyPrompts": "내 프롬프트에 저장",
+      "clear": "지우기",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "첫/끝 프레임",

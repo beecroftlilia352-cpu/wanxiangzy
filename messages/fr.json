@@ -1113,6 +1113,8 @@
       "uploadDesc": "Téléversez 1-{count} images de référence de poses, scènes ou compositions.",
       "uploadFailedCount": "{count} images de référence n'ont pas pu être téléversées : {message}",
       "uploadFootnote": "Glissez les images ici pour les téléverser; les références servent de source de pose, scène, composition et éclairage.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "uploadImageAlt": "Image de référence d'essayage",
       "uploadLabel": "Téléverser la référence {index}",
       "uploadLocal": "Téléverser depuis l'appareil",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "Standard",
     "resolutionHD": "HD",
     "resolutionUltra": "Ultra",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "Assistant IA",
+      "wordLibrary": "Bibliothèque",
+      "saveToMyPrompts": "Enregistrer dans mes invites",
+      "clear": "Effacer",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "actionTemplateSection": "Modèle de mouvement",

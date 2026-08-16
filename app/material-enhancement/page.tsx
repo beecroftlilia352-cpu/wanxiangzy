@@ -13,7 +13,9 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
@@ -26,7 +28,7 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { useImageSizeOptions, useStudioImageModelOptions } from "@/lib/studio-models";
+import { useResolutionOptions, useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -128,6 +130,13 @@ export default function MaterialEnhancementPage() {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
+  // Hoisted from JSX prop expression to satisfy Rules of Hooks (useResolutionOptions
+  // calls useTranslations + useMemo).
+  const resolutionOptions = useResolutionOptions(
+    imageSizes,
+    (size) => getCreditCost(aiModel, size, aspectRatio),
+    t("common.lingpoints"),
+  );
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const authIsAnonymous = authChecked && !isAuthenticated;
@@ -714,14 +723,16 @@ export default function MaterialEnhancementPage() {
             />
           </section>
 
-          <StudioPromptTextarea
-            title={t("prompt.title")}
+          <PromptTextarea
+            titleKey="prompt.title"
             badge={t("prompt.badge")}
             value={userPrompt}
             onChange={(event) => setUserPrompt(event.target.value)}
             placeholder={t("prompt.placeholder")}
             rows={4}
             description={t("prompt.desc")}
+            maxLength={2000}
+            onClear={() => setUserPrompt("")}
           />
 
           <section>
@@ -745,12 +756,11 @@ export default function MaterialEnhancementPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.resolution")}</h3>
-            <StudioOptionGrid
-              options={useImageSizeOptions(imageSizes, (size) => getCreditCost(aiModel, size, aspectRatio), t("common.lingpoints"))}
+            <ResolutionSelector
+              titleKey="section.resolution"
+              options={resolutionOptions}
               value={imageSize}
               onChange={setImageSize}
-              columns={2}
               ariaLabel={t("section.resolutionAria")}
             />
           </section>

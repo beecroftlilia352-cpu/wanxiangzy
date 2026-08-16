@@ -1018,6 +1018,8 @@
       "uploadLocal": "Tải từ máy",
       "uploadingLabel": "Đang tải ảnh tham chiếu…",
       "uploadFootnote": "Kéo ảnh vào vùng này cũng có thể tải lên; ảnh tham chiếu là nguồn tư thế, bối cảnh, bố cục và ánh sáng.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "preview": "Xem trước ảnh tham chiếu: {label}",
       "previewAlt": "Ảnh tham chiếu: {label}",
       "remove": "Gỡ ảnh tham chiếu: {label}",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "Chuẩn",
     "resolutionHD": "HD",
     "resolutionUltra": "Siêu nét",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "Trợ lý AI",
+      "wordLibrary": "Thư viện từ",
+      "saveToMyPrompts": "Lưu vào lời nhắc",
+      "clear": "Xóa",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",

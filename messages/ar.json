@@ -1018,6 +1018,8 @@
       "uploadLocal": "تحميل من الجهاز",
       "uploadingLabel": "جارٍ تحميل المرجع…",
       "uploadFootnote": "اسحب الصور هنا للتحميل؛ تُعد المراجع مصدر الوضعية والمشهد والتكوين والإضاءة.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "preview": "معاينة المرجع: {label}",
       "previewAlt": "المرجع: {label}",
       "remove": "إزالة المرجع: {label}",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "قياسي",
     "resolutionHD": "عالية الدقة",
     "resolutionUltra": "فائق",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "مساعد ذكي",
+      "wordLibrary": "مكتبة الكلمات",
+      "saveToMyPrompts": "حفظ في مطالباتي",
+      "clear": "مسح",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",

@@ -17,7 +17,7 @@ import { useTryOnStore } from "@/lib/store/tryon-store";
 import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
-import { useImageSizeOptions } from "@/lib/studio-models";
+import { useResolutionOptions } from "@/lib/studio-models";
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -41,7 +41,7 @@ import { useTaskSelectionSession, type TaskSelectionSession } from "@/components
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useTaskQueueStore } from "@/lib/task-queue-client-store";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
@@ -372,7 +372,7 @@ export default function CreatePage() {
 
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
-  const imageSizeOptions = useImageSizeOptions(
+  const imageSizeOptions = useResolutionOptions(
     imageSizes,
     (size) => getCreditCost(aiModel, size, aspectRatio),
     t("resolution.creditUnit"),

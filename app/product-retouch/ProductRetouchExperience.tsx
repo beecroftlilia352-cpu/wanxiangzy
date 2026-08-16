@@ -17,13 +17,13 @@ import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
 import {
   StudioModelSelector,
   StudioOptionGrid,
-  StudioPromptTextarea,
 } from "@/components/studio/StudioFormControls";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
-import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioPageShell } from "@/components/studio/StudioPageShell";
 import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
@@ -713,13 +713,11 @@ export function ProductRetouchExperience() {
                 onFiles={handleFiles}
               >
                 {(openFileDialog) => (
-                  <StudioMultiImageUpload
+                  <MultiImageUploadV2
                     urls={sources.map((source) => source.url)}
                     maxCount={PRODUCT_RETOUCH_MAX_SOURCES}
                     title={t("upload.uploadedTitle")}
-                    emptyTitle={t("upload.emptyTitle")}
-                    description={t("upload.description")}
-                    emptyDescription={t("upload.emptyDescription")}
+                    emptyHint={t("upload.emptyTitle")}
                     itemLabelPrefix={t("upload.itemLabelPrefix")}
                     loading={isUploading}
                     disabled={isGenerating}
@@ -820,8 +818,8 @@ export function ProductRetouchExperience() {
                 </div>
               </StudioSection>
 
-              <StudioPromptTextarea
-                title={t("prompt.title")}
+              <PromptTextarea
+                titleKey="prompt.title"
                 badge={t("prompt.badge")}
                 value={userInstruction}
                 maxLength={1200}
@@ -830,6 +828,7 @@ export function ProductRetouchExperience() {
                 placeholder={t("prompt.placeholder")}
                 description={t("prompt.desc")}
                 disabled={isGenerating}
+                onClear={() => setUserInstruction("")}
               />
             </div>
           </StudioControlPanel>

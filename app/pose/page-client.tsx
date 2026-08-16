@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
-  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, PersonStanding, Crop, Monitor } from "lucide-react";
+  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, PersonStanding, Crop } from "lucide-react";
 import { toast } from "sonner";
 import { isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -46,11 +46,13 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
-import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { VisualAnalysisStatusCard, type VisualAnalysisSummaryItem } from "@/components/studio/VisualAnalysisStatus";
@@ -1808,17 +1810,14 @@ export default function PosePage() {
                 setDragging={setIsDraggingPoseReferences}
               >
                 {(openFileDialog) => (
-                  <StudioMultiImageUpload
+                  <MultiImageUploadV2
                     urls={poseReferenceUrls}
                     maxCount={MAX_POSE_REFERENCE_IMAGES}
                     title={t("reference.uploadedTitle")}
-                    emptyTitle={t("reference.emptyTitle")}
-                    description={t("reference.desc")}
-                    emptyDescription={t("reference.emptyDesc")}
+                    emptyHint={t("reference.emptyTitle")}
                     itemLabelPrefix={t("reference.itemPrefix")}
                     loading={isUploadingPoseReferences}
                     isDragging={isDraggingPoseReferences}
-                    uploadLabel={t("reference.uploadLabel")}
                     libraryLabel={t("reference.libraryLabel")}
                     summary={poseReferenceUrls.length ? t("reference.summary", { count: poseReferenceOutputCount }) : undefined}
                     footnote={t("reference.footnote")}
@@ -2251,15 +2250,15 @@ export default function PosePage() {
 
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-codex-ink"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution.title")}</h3>
-              <StudioOptionGrid
+              <ResolutionSelector
+                titleKey="resolution.title"
                 options={imageSizes.map((size) => ({
                   value: size,
-                  label: `${size} · ${t("resolution.perImageCredit", { cost: getCreditCost(aiModel, size, aspectRatio) })}`,
+                  label: size,
+                  description: t("resolution.perImageCredit", { cost: getCreditCost(aiModel, size, aspectRatio) }),
                 }))}
                 value={imageSize}
                 onChange={setImageSize}
-                columns={3}
                 ariaLabel={t("resolution.title")}
               />
             </section>
@@ -2471,7 +2470,7 @@ export default function PosePage() {
                                 <div className="mt-3 grid gap-3">
                                   <div>
                                     <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.actionDetail")}</label>
-                                    <StudioPromptTextarea
+                                    <PromptTextarea
                                       value={selectedPosePlanSlot.bodyAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "bodyAction", event.target.value)}
                                       rows={3}
@@ -2481,7 +2480,7 @@ export default function PosePage() {
                                   </div>
                                   <div>
                                     <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.handAction")}</label>
-                                    <StudioPromptTextarea
+                                    <PromptTextarea
                                       value={selectedPosePlanSlot.handAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "handAction", event.target.value)}
                                       rows={2}
@@ -2492,7 +2491,7 @@ export default function PosePage() {
                                   {!suppressPoseFaceControls && (
                                     <div>
                                       <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.expressionDetail")}</label>
-                                      <StudioPromptTextarea
+                                      <PromptTextarea
                                         value={selectedPosePlanSlot.headDirection || ""}
                                         onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "headDirection", event.target.value)}
                                         rows={2}
@@ -2503,7 +2502,7 @@ export default function PosePage() {
                                   )}
                                   <div>
                                     <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.cameraFraming")}</label>
-                                    <StudioPromptTextarea
+                                    <PromptTextarea
                                       value={selectedPosePlanSlot.cameraFraming || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "cameraFraming", event.target.value)}
                                       rows={2}
@@ -2524,14 +2523,16 @@ export default function PosePage() {
             </section>
           )}
 
-          <StudioPromptTextarea
-            title={t("supplement.title")}
+          <PromptTextarea
+            titleKey="supplement.title"
             badge={t("supplement.badge")}
             value={supplementPrompt}
             onChange={(event) => setSupplementPrompt(event.target.value)}
             rows={4}
             placeholder={t("supplement.placeholder")}
             description={t("supplement.desc")}
+            maxLength={2000}
+            onClear={() => setSupplementPrompt("")}
           />
         </div>
 

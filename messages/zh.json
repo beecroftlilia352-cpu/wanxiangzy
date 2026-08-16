@@ -2203,6 +2203,8 @@
     "libraryLabel": "从作品选择",
     "uploadedCount": "已上传 {count} 张",
     "uploadFootnote": "支持 JPG / PNG / WEBP / HEIC，最多 {max} 张。",
+    "uploadDescriptionSlot": "想要一次配置生成多任务？试试",
+    "uploadDescriptionLink": "批量图生图",
     "tipNoteLabel": "说明",
     "tipNoteText": "保留品牌、Logo、产品名、参数、价格、链接、二维码、条形码原样。",
     "tipRecommendLabel": "推荐",
@@ -4237,6 +4239,24 @@
     "unitZhang": "张",
     "totalLabel": "共",
     "remixNumber": "{number}",
+    "tierBadge": {
+      "member": "会员",
+      "enterprise": "企业版"
+    },
+    "prompt": {
+      "aiAssist": "AI帮写",
+      "wordLibrary": "词库",
+      "saveToMyPrompts": "保存到我的提示词",
+      "clear": "清空"
+    },
+    "multiImageCount": "已上传{count}/{max}",
+    "multiImageClearTitle": "确认清空？",
+    "multiImageClearContent": "清空后已上传图片将无法恢复",
+    "multiImageClearOk": "仍要清空",
+    "multiImageClearCancel": "再想想",
+    "multiImageContinue": "继续上传",
+    "multiImageUploadDefault": "点击上传 / 或拖拽至此 / 粘贴",
+    "uploadHintWithSuffix": "点击上传 / 或拖拽至此 / 粘贴【{hint}】",
     "onboardingUpload": "上传素材",
     "onboardingUploadDesc": "上传服装平铺图或模特图，系统自动识别版型、颜色与结构。",
     "onboardingReference": "选择参考",

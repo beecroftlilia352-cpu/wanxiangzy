@@ -1018,6 +1018,8 @@
       "uploadLocal": "लोकल से अपलोड करें",
       "uploadingLabel": "रेफ़रेंस अपलोड हो रहा है…",
       "uploadFootnote": "अपलोड करने के लिए यहाँ इमेज ड्रैग करें; रेफ़रेंस पोज़, सीन, कंपोज़िशन और लाइटिंग का स्रोत हैं।",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "preview": "रेफ़रेंस प्रीव्यू: {label}",
       "previewAlt": "रेफ़रेंस: {label}",
       "remove": "रेफ़रेंस हटाएँ: {label}",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "स्टैंडर्ड",
     "resolutionHD": "HD",
     "resolutionUltra": "अल्ट्रा",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "AI सहायक",
+      "wordLibrary": "शब्दकोश",
+      "saveToMyPrompts": "मेरे प्रॉम्प्ट में सहेजें",
+      "clear": "साफ़ करें",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "फर्स्ट और लास्ट फ्रेम",

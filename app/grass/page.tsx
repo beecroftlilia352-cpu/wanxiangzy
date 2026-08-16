@@ -14,9 +14,11 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -31,7 +33,7 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { useImageSizeOptions, useStudioImageModelOptions } from "@/lib/studio-models";
+import { useResolutionOptions, useStudioImageModelOptions } from "@/lib/studio-models";
 import {
   buildGrassPrompt,
   GRASS_PROMPT_REFERENCES,
@@ -236,6 +238,13 @@ export default function GrassPage() {
     aspectRatio,
   });
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
+  // Hoisted from JSX prop expression to satisfy Rules of Hooks (useResolutionOptions
+  // calls useTranslations + useMemo).
+  const resolutionOptions = useResolutionOptions(
+    imageSizes,
+    (s) => getCreditCost(aiModel, s, aspectRatio),
+    t("resolutionCreditUnit"),
+  );
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const cost = costPerImage * genCount;
   const taskQueue = useTaskQueueGeneration({
@@ -801,11 +810,13 @@ export default function GrassPage() {
 
             {sceneMode === "custom_prompt" ? (
               <div className="mt-3 space-y-3">
-                <StudioPromptTextarea
+                <PromptTextarea
                   value={userPrompt}
                   onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}
                   placeholder={t("customPromptPlaceholder")}
-                  className="studio-prompt-textarea-compact"
+                  rows={6}
+                  maxLength={2000}
+                  onClear={() => setUserPrompt("")}
                 />
                 <div>
                   <p className="mb-2 text-[12px] font-bold text-codex-faint">{t("referencePromptsLabel")}</p>
@@ -826,14 +837,16 @@ export default function GrassPage() {
               </div>
             ) : (
               <div className="mt-3">
-                <StudioPromptTextarea
-                  title={t("supplementTitle")}
+                <PromptTextarea
+                  titleKey="supplementTitle"
                   badge={t("supplementBadge")}
                   value={supplementPrompt}
                   onChange={(e) => { setSupplementPrompt(e.target.value); setPromptOverride(null); }}
                   placeholder={t("supplementPlaceholder")}
                   rows={3}
                   description={t("supplementDescription")}
+                  maxLength={1000}
+                  onClear={() => setSupplementPrompt("")}
                 />
               </div>
             )}
@@ -893,9 +906,9 @@ export default function GrassPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("resolutionTitle")}</h3>
-            <StudioOptionGrid
-              options={useImageSizeOptions(imageSizes, (s) => getCreditCost(aiModel, s, aspectRatio), t("resolutionCreditUnit"))}
+            <ResolutionSelector
+              titleKey="resolutionTitle"
+              options={resolutionOptions}
               value={imageSize}
               onChange={setImageSize}
               ariaLabel={t("resolutionAria")}

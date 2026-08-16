@@ -1067,6 +1067,8 @@
     "uploadTileDescription": "支援上傳多張參考圖，系統會按順序識別為圖1、圖2、圖3。",
     "uploadLabel": "從本地上傳",
     "uploadFootnote": "參考圖會按上傳順序作為圖1、圖2、圖3；畫面清晰、主體明確更好控圖。",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
     "orderMarkedAsImages": "上傳順序會標記為圖1、圖2、圖3",
     "clear": "清空",
     "imageIndex": "圖{index}",
@@ -3493,7 +3495,25 @@
     "resolutionStandard": "標清",
     "resolutionHD": "高清",
     "resolutionUltra": "超清",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "AI 幫寫",
+      "wordLibrary": "詞庫",
+      "saveToMyPrompts": "儲存到我的提示詞",
+      "clear": "清空",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "首尾幀",

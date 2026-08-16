@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import {
-  Monitor,
   Crop,
   Layers,
   Camera,
@@ -25,11 +24,13 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
-import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
@@ -738,17 +739,14 @@ export default function ModelBackgroundPage() {
             onFiles={(files) => handleUpload(files, "source")}
           >
             {(openFileDialog) => (
-              <StudioMultiImageUpload
+              <MultiImageUploadV2
                 urls={sourceUrls}
                 maxCount={MAX_MODEL_BACKGROUND_SOURCE_IMAGES}
                 title={t("uploadedSourceTitle")}
-                emptyTitle={t("uploadEmptyTitle")}
-                description={t("uploadDescription")}
-                emptyDescription={t("uploadEmptyDescription")}
+                emptyHint={t("uploadEmptyTitle")}
                 itemLabelPrefix={t("itemPrefix")}
                 loading={uploadingTarget === "source"}
                 isDragging={isSourceDragging}
-                uploadLabel={t("uploadLocal")}
                 libraryLabel={t("uploadLibrary")}
                 summary={sourceUrls.length ? t("uploadSummary", { count: sourceUrls.length * genCount }) : undefined}
                 footnote={t("uploadFootnote", { max: MAX_MODEL_BACKGROUND_SOURCE_IMAGES })}
@@ -964,7 +962,7 @@ export default function ModelBackgroundPage() {
                 </button>
               ) : (
                 <div className="space-y-3">
-                <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder={t("backgroundTextPlaceholder")} />
+                <PromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} placeholder={t("backgroundTextPlaceholder")} maxLength={1000} onClear={() => setBackgroundText("")} />
                   <div className="flex flex-wrap gap-2">
                     {BACKGROUND_TEXT_PRESETS.map((preset) => (
                       <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="inline-flex min-h-9 items-center rounded-full border border-[var(--codex-border)] bg-codex-surface px-3 py-1.5 text-[12px] text-codex-muted transition-colors duration-150 hover:border-[var(--codex-accent-45)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-white/5 dark:text-codex-muted">
@@ -977,13 +975,15 @@ export default function ModelBackgroundPage() {
             </section>
           ) : null}
 
-          <StudioPromptTextarea
-            title={t("extraPrompt")}
+          <PromptTextarea
+            titleKey="extraPrompt"
             badge={t("optional")}
             value={userPrompt}
             onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}
             rows={4}
             placeholder={MODEL_BACKGROUND_USER_PROMPT_PLACEHOLDER}
+            maxLength={2000}
+            onClear={() => setUserPrompt("")}
           />
 
           <section>
@@ -1002,15 +1002,15 @@ export default function ModelBackgroundPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution")}</h3>
-            <StudioOptionGrid
+            <ResolutionSelector
+              titleKey="resolution"
               options={imageSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}${t("creditsUnit")}`,
+                label: size,
+                description: `${getCreditCost(aiModel, size, aspectRatio)}${t("creditsUnit")}`,
               }))}
               value={imageSize}
               onChange={setImageSize}
-              columns={3}
               ariaLabel={t("resolution")}
             />
           </section>

@@ -6,12 +6,10 @@ import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
   Images,
-  Monitor,
   Crop,
   ImagePlus,
   Loader2,
   Trash2,
-  Brush,
   X,
   Sparkles,
 } from "lucide-react";
@@ -26,7 +24,9 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
@@ -840,40 +840,30 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           )}
 
           <div>
-            <StudioPromptTextarea
-              title={t("textDescriptionTitle")}
+            <PromptTextarea
+              titleKey="textDescriptionTitle"
               value={prompt}
+              maxLength={4000}
               onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); }}
               placeholder={isImageMode ? t(IMAGE_PROMPT_PLACEHOLDER_KEY) : t("textPlaceholder")}
               rows={6}
-              className="studio-prompt-textarea-compact"
+              hasAiAssistant
+              isOptimizing={isOptimizing}
+              onOptimizePrompt={optimizePrompt}
+              onClear={() => { setPrompt(""); resetOutput(); }}
               onSubmitOnEnter={() => { if (prompt.trim() && !isGenerating) void generate(); }}
             />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap gap-2">
-                {!isImageMode && (
-                  <button
-                    ref={imagePromptTriggerRef}
-                    type="button"
-                    onClick={() => setShowImagePromptModal(true)}
-                    className="studio-button studio-button-compact"
-                  >
-                    <ImagePlus className="h-3.5 w-3.5" />
-                    {t("imageToPromptButton")}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={optimizePrompt}
-                  disabled={isOptimizing}
-                  className="studio-button studio-button-compact"
-                >
-                  {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brush className="h-3.5 w-3.5" />}
-                  {t("aiHelpWrite")}
-                </button>
-              </div>
-              <span className="text-[11px] font-medium text-codex-faint">{prompt.length} / 4000</span>
-            </div>
+            {!isImageMode && (
+              <button
+                ref={imagePromptTriggerRef}
+                type="button"
+                onClick={() => setShowImagePromptModal(true)}
+                className="studio-button studio-button-compact mt-2"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+                {t("imageToPromptButton")}
+              </button>
+            )}
           </div>
 
           <section>
@@ -900,8 +890,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolutionSectionTitle")}</h3>
-            <StudioOptionGrid
+            <ResolutionSelector
+              titleKey="resolutionSectionTitle"
               options={supportedSizes.map((size) => ({
                 value: size,
                 label: size,
@@ -909,7 +899,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               }))}
               value={imageSize}
               onChange={setImageSize}
-              columns={3}
               ariaLabel={t("resolutionAriaLabel")}
             />
           </section>

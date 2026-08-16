@@ -1171,7 +1171,25 @@
     "resolutionStandard": "มาตรฐาน",
     "resolutionHD": "HD",
     "resolutionUltra": "อัลตรา",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "ผู้ช่วย AI",
+      "wordLibrary": "คลังคำ",
+      "saveToMyPrompts": "บันทึกในพรอมต์ของฉัน",
+      "clear": "ล้าง",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "ModelBackground": {
     "title": "เปลี่ยนพื้นหลัง",
@@ -1263,6 +1281,8 @@
     "uploadEmptyDescription": "ภาพ 1 ใช้เป็นพื้นฐานของคน เสื้อผ้า ท่าทาง เฟรมและการครอป แนะนำให้ตัวหลักครบ เสื้อผ้าชัดเจน",
     "uploadSummary": "สร้างรวม {count} ภาพ",
     "uploadFootnote": "รองรับอัปโหลดหลายภาพพร้อมกัน（สูงสุด {max} ภาพ）แต่ละภาพ × จำนวนที่สร้าง。เปลี่ยนพื้นหลังเท่านั้นจะล็อกเฟรมและการครอปของภาพต้นฉบับ",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
     "tipNote": "คำอธิบาย",
     "tipNoteText": "เปลี่ยนพื้นหลังเท่านั้นจะล็อกคน เสื้อผ้า ท่าทาง และการครอปของภาพต้นฉบับ",
     "tipRequirement": "ข้อกำหนดรูปภาพ",

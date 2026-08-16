@@ -1,13 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Monitor } from "lucide-react";
-import { StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import type { ResolutionOption } from "@/components/studio/ResolutionSelector";
 import type { ImageSize } from "@/lib/api/lingya";
 
 type Props = {
   imageSize: ImageSize;
-  imageSizeOptions: { value: ImageSize; label: string }[];
+  imageSizeOptions: ResolutionOption<ImageSize>[];
   onChangeImageSize: (value: ImageSize) => void;
 };
 
@@ -21,16 +21,12 @@ export function ResolutionSection({ imageSize, imageSizeOptions, onChangeImageSi
   const t = useTranslations("Create");
 
   return (
-    <section>
-      <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-codex-ink">
-        <Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution.title")}
-      </h3>
-      <StudioOptionGrid
-        options={imageSizeOptions}
-        value={imageSize}
-        onChange={onChangeImageSize}
-        ariaLabel={t("resolution.title")}
-      />
-    </section>
+    <ResolutionSelector
+      titleKey="resolution.title"
+      options={imageSizeOptions}
+      value={imageSize}
+      onChange={onChangeImageSize}
+      ariaLabel={t("resolution.title")}
+    />
   );
 }

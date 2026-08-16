@@ -1171,7 +1171,25 @@
     "resolutionStandard": "Стандарт",
     "resolutionHD": "HD",
     "resolutionUltra": "Ултра",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "AI асистент",
+      "wordLibrary": "Библиотека",
+      "saveToMyPrompts": "Запази в моите",
+      "clear": "Изчисти",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "ModelBackground": {
     "title": "Смяна на фон",
@@ -1263,6 +1281,8 @@
     "uploadEmptyDescription": "Изображение 1 е основа за човека, дрехите, позата, рамката и изрязването; препоръчва се пълен обект и ясни дрехи.",
     "uploadSummary": "Общо {count} изображения",
     "uploadFootnote": "Поддържа едновременно качване на няколко изображения (до {max}), всяко × брой генерирания. Само смяната на фон заключва рамката и изрязването.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
     "tipNote": "Обяснение",
     "tipNoteText": "Смяната само на фона заключва човека, дрехите, позата и изрязването.",
     "tipRequirement": "Изисквания за изображението",

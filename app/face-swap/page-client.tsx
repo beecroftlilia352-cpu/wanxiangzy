@@ -27,10 +27,12 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
-import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
@@ -775,17 +777,14 @@ export default function FaceSwapPage() {
             onFiles={(files) => handleUpload(files, "source")}
           >
             {(openFileDialog) => (
-              <StudioMultiImageUpload
+              <MultiImageUploadV2
                 urls={sourceUrls}
                 maxCount={MAX_FACE_SWAP_SOURCE_IMAGES}
                 title={t("sourceUploadTitle")}
-                emptyTitle={t("sourceEmptyTitle")}
-                description={t("sourceDescription")}
-                emptyDescription={t("sourceEmptyDescription")}
+                emptyHint={t("sourceEmptyTitle")}
                 itemLabelPrefix={t("itemLabelPrefix")}
                 loading={isUploadingOriginal}
                 isDragging={isOriginalDragging}
-                uploadLabel={t("uploadLabel")}
                 libraryLabel={t("libraryLabel")}
                 summary={sourceUrls.length ? t("sourceSummary", { count: sourceUrls.length * normalizeFaceSwapCount(genCount) }) : undefined}
                 footnote={t("sourceFootnote", { max: MAX_FACE_SWAP_SOURCE_IMAGES })}
@@ -904,11 +903,12 @@ export default function FaceSwapPage() {
           </section>
 
           <section>
-            <PanelTitle title={t("sizeSectionTitle")} />
-            <StudioOptionGrid
+            <ResolutionSelector
+              titleKey="sizeSectionTitle"
               options={supportedSizes.map((size) => ({
                 value: size,
-                label: t("sizeOption", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
+                label: size,
+                description: t("sizeOption", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
               }))}
               value={imageSizeValue}
               ariaLabel={t("sizeSectionTitle")}
@@ -946,8 +946,8 @@ export default function FaceSwapPage() {
             </button>
           </section>
 
-          <StudioPromptTextarea
-            title={t("promptTitle")}
+          <PromptTextarea
+            titleKey="promptTitle"
             badge={t("promptBadge")}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
@@ -956,6 +956,8 @@ export default function FaceSwapPage() {
               ? t("promptPlaceholderHairSkin")
               : t("promptPlaceholderFeatures")}
             description={t("promptDescription")}
+            maxLength={2000}
+            onClear={() => setPrompt("")}
           />
         </div>
 

@@ -36,6 +36,7 @@ import {
   subscribeToProfileCredits,
 } from "@/lib/supabase/client";
 import { VISIBLE_TOP_MODULES, getActiveTopModule } from "@/lib/navigation";
+import { StudioTabBadge } from "@/components/studio/StudioTabBadge";
 import { codexTheme } from "@/lib/design/codex-theme";
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
@@ -492,12 +493,7 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
               <span className="relative inline-flex">
                 {item.labelKey ? tAny(item.labelKey) : item.label}
                 {item.badge && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute -right-3 -top-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1.5 text-[9px] font-black leading-none tracking-tight text-white ring-2 ring-white/90 dark:ring-codex-ink/80"
-                  >
-                    {item.badge}
-                  </span>
+                  <StudioTabBadge decorative={false}>{item.badge}</StudioTabBadge>
                 )}
               </span>
             </Link>
@@ -832,9 +828,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
                   <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
                     <span className="truncate">{item.labelKey ? tAny(item.labelKey) : item.label}</span>
                     {item.badge && (
-                      <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[9px] font-black leading-none text-white">
-                        {item.badge}
-                      </span>
+                      <StudioTabBadge variant="inline" decorative={false}>{item.badge}</StudioTabBadge>
                     )}
                   </span>
                 </Link>

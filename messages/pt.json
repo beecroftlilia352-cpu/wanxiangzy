@@ -1018,6 +1018,8 @@
       "uploadLocal": "Enviar do dispositivo",
       "uploadingLabel": "Enviando referência…",
       "uploadFootnote": "Arraste imagens aqui para enviar; as referências servem como fonte de pose, cena, composição e iluminação.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "preview": "Visualizar referência: {label}",
       "previewAlt": "Referência: {label}",
       "remove": "Remover referência: {label}",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "Padrão",
     "resolutionHD": "HD",
     "resolutionUltra": "Ultra",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "Assistente IA",
+      "wordLibrary": "Biblioteca",
+      "saveToMyPrompts": "Salvar nos meus prompts",
+      "clear": "Limpar",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "Primeiro e último frame",

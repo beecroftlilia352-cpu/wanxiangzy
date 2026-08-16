@@ -80,6 +80,7 @@ export function GenerationCountField({
 
   const resolvedTitle = titleKey ? t(titleKey) : title;
   const resolvedLabel = labelKey ? t(labelKey) : label;
+  const hasLabel = resolvedLabel != null && resolvedLabel !== "";
   const resolvedUnit = unitKey ? t(unitKey) : unit ?? t("Shared.unitZhang");
   // Skip empty unit fragments so locales with `unitZhang=""` (e.g. ar/it) don't
   // leave a trailing space in the auto-summary.
@@ -93,6 +94,10 @@ export function GenerationCountField({
       : summary !== undefined
         ? summary
         : fallbackSummary;
+  // Dropdown 弹层里只显示数字本身（不重复 unit），unit 在触发器右侧单独展示。
+  // Unit visibility is independent of `hasLabel` so callers passing label={null}
+  // still get the unit hint next to the trigger.
+  const showUnit = resolvedUnit != null && String(resolvedUnit).trim() !== "";
   const resolvedAriaLabel =
     ariaLabel ?? (typeof resolvedLabel === "string" ? resolvedLabel : undefined);
 
@@ -103,11 +108,19 @@ export function GenerationCountField({
   const listboxId = useId();
   const listboxRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const initialIndex = useMemo(() => {
-    const idx = resolvedOptions.findIndex((opt) => opt.value === value);
-    return idx >= 0 ? idx : 0;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [focusedIdx, setFocusedIdx] = useState(initialIndex);
+  // Track current value's index so history-apply / external `value` changes
+  // move keyboard focus to the right option (not frozen at mount).
+  const valueIndex = useMemo(
+    () => {
+      const idx = resolvedOptions.findIndex((opt) => opt.value === value);
+      return idx >= 0 ? idx : 0;
+    },
+    [resolvedOptions, value],
+  );
+  const [focusedIdx, setFocusedIdx] = useState(valueIndex);
+  useEffect(() => {
+    setFocusedIdx(valueIndex);
+  }, [valueIndex]);
 
   useEffect(() => {
     optionRefs.current[focusedIdx]?.focus();
@@ -147,7 +160,6 @@ export function GenerationCountField({
     }
   };
 
-  const hasLabel = resolvedLabel != null && resolvedLabel !== "";
   const hasSummary =
     resolvedSummary != null && String(resolvedSummary).trim() !== "";
 
@@ -201,10 +213,14 @@ export function GenerationCountField({
             >
               {resolvedOptions.map((option, index) => {
                 const selected = option.value === value;
+                const fallbackLabel =
+                  showUnit
+                    ? `${option.value}${resolvedUnit}`
+                    : String(option.value);
                 const optionLabel =
                   option.labelKey
                     ? t(option.labelKey)
-                    : option.label ?? `${option.value} ${resolvedUnit}`.trim();
+                    : option.label ?? fallbackLabel;
                 return (
                   <button
                     key={option.value}
@@ -235,6 +251,11 @@ export function GenerationCountField({
             </div>
           </PopoverContent>
         </Popover>
+        {showUnit && (
+          <span className="studio-generation-count-unit" aria-hidden="true">
+            {resolvedUnit}
+          </span>
+        )}
         {hasSummary && (
           <span className="studio-generation-count-summary">{resolvedSummary}</span>
         )}

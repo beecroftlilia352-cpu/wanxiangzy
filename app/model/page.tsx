@@ -13,11 +13,13 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
-import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
@@ -741,17 +743,14 @@ export default function ModelPage() {
             onFiles={addFiles}
           >
             {(openFileDialog) => (
-              <StudioMultiImageUpload
+              <MultiImageUploadV2
                 urls={referenceUrls}
                 maxCount={3}
                 title={t("uploadedReferenceTitle")}
-                emptyTitle={t("uploadEmptyTitle")}
-                description={t("uploadDescription")}
-                emptyDescription={t("uploadEmptyDescription")}
+                emptyHint={t("uploadEmptyTitle")}
                 itemLabelPrefix={t("itemPrefix")}
                 loading={isUploadingReference}
                 isDragging={isReferenceDragging}
-                uploadLabel={t("uploadLocal")}
                 libraryLabel={t("uploadLibrary")}
                 summary={referenceUrls.length ? t("uploadSummary") : undefined}
                 footnote={t("uploadFootnote")}
@@ -938,11 +937,12 @@ export default function ModelPage() {
 
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("resolution")}</h3>
-              <StudioOptionGrid
+              <ResolutionSelector
+                titleKey="resolution"
                 options={imageSizes.map((size) => ({
                   value: size,
-                  label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}${t("creditsUnit")}`,
+                  label: size,
+                  description: `${getCreditCost(aiModel, size, aspectRatio)}${t("creditsUnit")}`,
                 }))}
                 value={imageSize}
                 onChange={setImageSize}
@@ -952,14 +952,16 @@ export default function ModelPage() {
           )}
 
           <section>
-            <StudioPromptTextarea
-              title={t("extraPrompt")}
+            <PromptTextarea
+              titleKey="extraPrompt"
               badge={t("optional")}
               value={userExtraPrompt}
               onChange={(event) => setUserExtraPrompt(event.target.value)}
               placeholder={t("extraPromptPlaceholder")}
               rows={4}
               description={t("extraPromptDescription")}
+              maxLength={2000}
+              onClear={() => setUserExtraPrompt("")}
             />
           </section>
 

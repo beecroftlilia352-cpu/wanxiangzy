@@ -1113,6 +1113,8 @@
       "uploadDesc": "Lade 1-{count} Referenzbilder von Posen, Szenen oder Kompositionen hoch.",
       "uploadFailedCount": "{count} Referenzbilder konnten nicht hochgeladen werden: {message}",
       "uploadFootnote": "Ziehe Bilder hierher zum Hochladen; Referenzen dienen als Quelle für Pose, Szene, Komposition und Licht.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "uploadImageAlt": "Anprobe-Referenzbild",
       "uploadLabel": "Referenz {index} hochladen",
       "uploadLocal": "Vom Gerät hochladen",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "Standard",
     "resolutionHD": "HD",
     "resolutionUltra": "Ultra",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "KI-Hilfe",
+      "wordLibrary": "Wortliste",
+      "saveToMyPrompts": "In meinen Prompts speichern",
+      "clear": "Leeren",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "actionTemplateSection": "Bewegungsvorlage",

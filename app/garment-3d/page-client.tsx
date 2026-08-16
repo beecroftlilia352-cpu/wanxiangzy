@@ -13,7 +13,9 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
@@ -29,7 +31,7 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { useImageSizeOptions, useStudioImageModelOptions } from "@/lib/studio-models";
+import { useResolutionOptions, useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
@@ -147,6 +149,13 @@ export default function Garment3dPage() {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
+  // Hoisted from JSX prop expression to satisfy Rules of Hooks (useResolutionOptions
+  // calls useTranslations + useMemo).
+  const resolutionOptions = useResolutionOptions(
+    imageSizes,
+    (size) => getCreditCost(aiModel, size, aspectRatio),
+    t("sizeUnit"),
+  );
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const activeReferenceUrl = customReferenceUrl || selectedReference.url;
@@ -911,7 +920,7 @@ export default function Garment3dPage() {
             </div>
 
             <div className="relative mt-3">
-              <StudioPromptTextarea
+              <PromptTextarea
                 title={outputMode === "reference" ? t("promptTitleReference") : t("promptTitlePrompt")}
                 badge={outputMode === "reference" ? t("promptBadge") : undefined}
                 value={prompt}
@@ -923,17 +932,12 @@ export default function Garment3dPage() {
                 description={outputMode === "reference"
                   ? t("promptDescriptionReference")
                   : undefined}
-                action={(
-                  <button
-                    type="button"
-                    onClick={optimizePrompt}
-                    disabled={isOptimizing || !garmentUrl}
-                    className="studio-prompt-icon-action"
-                    title={t("analyzeTooltip")}
-                  >
-                    {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                  </button>
-                )}
+                maxLength={2000}
+                hasAiAssistant
+                isOptimizing={isOptimizing}
+                onOptimizePrompt={optimizePrompt}
+                aiAssistantDisabled={!garmentUrl}
+                onClear={() => setPrompt("")}
               />
             </div>
           </section>
@@ -963,12 +967,11 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("sizeSectionTitle")}</h3>
-            <StudioOptionGrid
-              options={useImageSizeOptions(imageSizes, (size) => getCreditCost(aiModel, size, aspectRatio), t("sizeUnit"))}
+            <ResolutionSelector
+              titleKey="sizeSectionTitle"
+              options={resolutionOptions}
               value={imageSize}
               onChange={setImageSize}
-              columns={2}
               ariaLabel={t("sizeSectionTitle")}
             />
           </section>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Loader2, Wand } from "lucide-react";
-import { StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { STYLE_PRESETS } from "@/lib/tryon-studio-options";
 
 type Props = {
@@ -23,25 +22,20 @@ export function PromptStyleSection({ customStyle, optimizing, onChangeStyle, onO
 
   return (
     <section>
-      <StudioPromptTextarea
-        title={t("prompt.title")}
+      <PromptTextarea
+        titleKey="prompt.title"
         badge={t("common.optional")}
         value={customStyle}
         onChange={(e) => onChangeStyle(e.target.value)}
         placeholder={t("prompt.placeholder")}
         aria-label={t("prompt.title")}
         rows={4}
-        action={(
-          <button
-            type="button"
-            onClick={onOptimize}
-            disabled={optimizing || !customStyle.trim()}
-            className="studio-prompt-icon-action"
-            title={t("prompt.optimizeTitle")}
-          >
-            {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-          </button>
-        )}
+        maxLength={1000}
+        hasAiAssistant
+        isOptimizing={optimizing}
+        onOptimizePrompt={onOptimize}
+        aiAssistantDisabled={!customStyle.trim()}
+        onClear={() => onChangeStyle("")}
       />
       <div className="flex flex-wrap gap-1.5 mt-2">
         {STYLE_PRESETS.map((s, i) => (

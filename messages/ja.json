@@ -1067,6 +1067,8 @@
     "uploadTileDescription": "複数の参照画像をアップロードできます。順番に画像1・2・3として認識されます。",
     "uploadLabel": "端末からアップロード",
     "uploadFootnote": "参照画像はアップロード順に画像1・2・3になります。画面が鮮明で被写体が明確なほど制御しやすくなります。",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
     "orderMarkedAsImages": "アップロード順が画像1・2・3としてマークされます",
     "clear": "クリア",
     "imageIndex": "画像{index}",
@@ -3493,7 +3495,25 @@
     "resolutionStandard": "標準",
     "resolutionHD": "HD",
     "resolutionUltra": "超高精細",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "AIアシスト",
+      "wordLibrary": "ワードライブラリ",
+      "saveToMyPrompts": "マイプロンプトに保存",
+      "clear": "クリア",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "始点終点フレーム",

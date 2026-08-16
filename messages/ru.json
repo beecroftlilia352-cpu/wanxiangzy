@@ -1018,6 +1018,8 @@
       "uploadLocal": "Загрузить с устройства",
       "uploadingLabel": "Загрузка референса…",
       "uploadFootnote": "Можно перетащить изображения сюда; референс служит источником позы, сцены, композиции и освещения.",
+    "uploadDescriptionSlot": "Want to generate many tasks in one config? Try",
+    "uploadDescriptionLink": "Batch image-to-image",
       "preview": "Предпросмотр референса: {label}",
       "previewAlt": "Референс: {label}",
       "remove": "Удалить референс: {label}",
@@ -4344,7 +4346,25 @@
     "resolutionStandard": "Стандарт",
     "resolutionHD": "HD",
     "resolutionUltra": "Ультра",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "tierBadge": {
+      "member": "Member",
+      "enterprise": "Enterprise"
+    },
+    "prompt": {
+      "aiAssist": "ИИ-помощник",
+      "wordLibrary": "Библиотека",
+      "saveToMyPrompts": "Сохранить в мои подсказки",
+      "clear": "Очистить",
+      "multiImageCount": "Uploaded {count}/{max}",
+      "multiImageClearTitle": "Confirm clear?",
+      "multiImageClearContent": "Cleared images cannot be restored",
+      "multiImageClearOk": "Clear anyway",
+      "multiImageClearCancel": "Cancel",
+      "multiImageContinue": "Continue uploading",
+      "multiImageUploadDefault": "Click to upload / drag here / paste",
+      "uploadHintWithSuffix": "Click to upload / drag here / paste 【{hint}】"
+    }
   },
   "Video": {
     "moduleFirstLastFrame": "Первый и последний кадр",

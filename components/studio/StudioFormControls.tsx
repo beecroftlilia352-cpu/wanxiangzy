@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import type { ChangeEvent, ComponentType, ReactNode, TextareaHTMLAttributes } from "react";
+import type { ChangeEvent, ComponentType, ReactNode } from "react";
 import { useVisibleImageModels } from "@/lib/use-visible-image-models";
 import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -181,47 +181,3 @@ export type StudioPresetImage = {
   label?: ReactNode;
   icon?: ComponentType<{ className?: string }>;
 };
-
-export function StudioPromptTextarea({
-  title,
-  badge,
-  description,
-  action,
-  className,
-  onSubmitOnEnter,
-  onKeyDown,
-  ...props
-}: TextareaHTMLAttributes<HTMLTextAreaElement> & {
-  title?: ReactNode;
-  badge?: ReactNode;
-  description?: ReactNode;
-  action?: ReactNode;
-  /** Enter 提交（Shift+Enter 换行）；桌面端快捷生成 */
-  onSubmitOnEnter?: () => void;
-}) {
-  return (
-    <section className="studio-prompt-control">
-      {(title || badge) && (
-        <div className="mb-3 flex min-w-0 items-center gap-2">
-          {title && <h3 className="text-sm font-black text-codex-ink">{title}</h3>}
-          {badge && <span className="rounded-full bg-[var(--codex-surface-soft)] px-2 py-0.5 text-[10px] font-bold text-codex-muted">{badge}</span>}
-        </div>
-      )}
-      <div className="studio-prompt-field">
-        <textarea
-          {...props}
-          onKeyDown={(event) => {
-            onKeyDown?.(event);
-            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && onSubmitOnEnter) {
-              event.preventDefault();
-              onSubmitOnEnter();
-            }
-          }}
-          className={cn("studio-prompt-textarea", action && "studio-prompt-textarea-with-action", className)}
-        />
-        {action ? <div className="studio-prompt-inline-action">{action}</div> : null}
-      </div>
-      {description && <p className="mt-2 text-[11px] leading-relaxed text-codex-faint">{description}</p>}
-    </section>
-  );
-}

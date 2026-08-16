@@ -20,7 +20,8 @@ import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultVideoGrid } from "@/components/ResultVideoGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { StudioOptionGrid, StudioPromptTextarea, StudioToggleRow } from "@/components/studio/StudioFormControls";
+import { StudioOptionGrid, StudioToggleRow } from "@/components/studio/StudioFormControls";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
@@ -962,7 +963,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           </>
         )}
 
-        <StudioPromptTextarea
+        <PromptTextarea
           title={isFirstLastFrame ? t("promptTitleFirstLast") : isMotion ? t("promptTitleMotion") : t("promptTitleImage")}
           badge={isFirstLastFrame ? t("durationValue", { seconds: duration }) : selectedTemplate ? selectedTemplate.title : t("promptBadgeCustom")}
           value={prompt}
@@ -977,16 +978,13 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           description={isFirstLastFrame
             ? t("promptDescFirstLast")
             : isMotion ? t("promptDescMotion") : t("promptDescImage")}
-          action={isFirstLastFrame ? (
-            <button
-              type="button"
-              onClick={applyFirstLastPromptSuggestion}
-              className="gradient-brand inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-black text-white shadow-[0_10px_24px_var(--codex-accent-22)] transition hover:opacity-95"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              {t("aiHelpWrite")}
-            </button>
-          ) : undefined}
+          maxLength={4000}
+          hasAiAssistant={isFirstLastFrame}
+          onOptimizePrompt={isFirstLastFrame ? applyFirstLastPromptSuggestion : undefined}
+          onClear={() => {
+            setPrompt("");
+            if (!isMotion) setSelectedTemplateId(null);
+          }}
         />
 
         {!isFirstLastFrame && (
@@ -1103,14 +1101,16 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           />
           {generateAudio && (
             <div className="mt-3 space-y-3">
-              <StudioPromptTextarea
-                title={t("audioPromptTitle")}
+              <PromptTextarea
+                titleKey="audioPromptTitle"
                 badge={t("audioPromptBadge")}
                 value={audioPrompt}
                 onChange={(event) => setAudioPrompt(event.target.value)}
                 rows={3}
                 placeholder={t("audioPromptPlaceholder")}
                 description={t("audioPromptDesc")}
+                maxLength={1000}
+                onClear={() => setAudioPrompt("")}
               />
             </div>
           )}

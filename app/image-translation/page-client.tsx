@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
+  ArrowUpRight,
   CheckCircle2,
   ChevronRight,
   Images as ImagesIcon,
@@ -23,12 +24,13 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import {
   StudioModelSelector,
   StudioOptionGrid,
-  StudioPromptTextarea,
 } from "@/components/studio/StudioFormControls";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
-import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
+import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { LanguagePickerModal } from "@/components/studio/LanguagePickerModal";
@@ -78,7 +80,6 @@ import {
   MAX_IMAGE_TRANSLATION_LANGUAGES,
   normalizeImageTranslationLanguageCodes,
   normalizeImageTranslationSourceUrls,
-  type ImageTranslationExampleConfig,
   type ImageTranslationLanguageConfig,
   type ImageTranslationLanguageCode,
 } from "@/lib/image-translation";
@@ -93,46 +94,6 @@ type ImageTranslationGenerateOptions = {
 };
 
 const DEFAULT_ASPECT_RATIO: AspectRatio = "auto";
-
-const IMAGE_TRANSLATION_UPLOAD_RULE = {
-  demos: [
-    {
-      titleKey: "demoTitle1",
-      title: "推荐示例 1",
-      descriptionKey: "demoDesc1",
-      description: "电商详情页商品图，含中文标题/参数",
-      imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/01.jpg",
-    },
-    {
-      titleKey: "demoTitle2",
-      title: "推荐示例 2",
-      descriptionKey: "demoDesc2",
-      description: "海报式商品图，含多语种可替换素材",
-      imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/02.jpg",
-    },
-    {
-      titleKey: "demoTitle3",
-      title: "推荐示例 3",
-      descriptionKey: "demoDesc3",
-      description: "包装/标签类商品图，适合多地区翻译",
-      imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/03.jpg",
-    },
-    {
-      titleKey: "demoTitle4",
-      title: "推荐示例 4",
-      descriptionKey: "demoDesc4",
-      description: "实物+说明文案组合图，验证翻译保真",
-      imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/04.jpg",
-    },
-    {
-      titleKey: "demoTitle5",
-      title: "推荐示例 5",
-      descriptionKey: "demoDesc5",
-      description: "跨境多语种营销图，确认本地化效果",
-      imageUrl: "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.4/img_translate/pic_case/05.jpg",
-    },
-  ],
-};
 
 const IMAGE_TRANSLATION_PREVIEW_ACTIONS = [
   { kind: "download" as const, label: "下载图片", labelKey: "actionDownload" },
@@ -150,7 +111,6 @@ export default function ImageTranslationPage() {
   const [languageLabels, setLanguageLabels] = useState<string[]>([]);
   const [languageConfig, setLanguageConfig] = useState<ImageTranslationLanguageConfig>([]);
   const [languageConfigLoading, setLanguageConfigLoading] = useState(true);
-  const [exampleResources, setExampleResources] = useState<ImageTranslationExampleConfig>([]);
   const [userPrompt, setUserPrompt] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const modelOptions = useStudioImageModelOptions();
@@ -379,25 +339,6 @@ export default function ImageTranslationPage() {
     };
   }, []);
 
-  // 拉取示例资源
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/image-translation-resources", { method: "GET", cache: "no-store" });
-        if (!res.ok) throw new Error("failed");
-        const json = (await res.json()) as { data?: ImageTranslationExampleConfig };
-        if (cancelled) return;
-        if (Array.isArray(json.data) && json.data.length) setExampleResources(json.data);
-      } catch {
-        if (!cancelled) setExampleResources([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   // 历史任务回填
   useHistoryApply({
     kind: "imageTranslation",
@@ -496,12 +437,6 @@ export default function ImageTranslationPage() {
     },
     [sourceUrls.length, t]
   );
-
-  const handleApplyDemo = (demo: { title?: string; imageUrl: string }) => {
-    setSourceUrls([demo.imageUrl]);
-    setPromptOverride(null);
-    toast.success(t("demoApplied", { title: demo.title || t("demoTitlePrefix") }));
-  };
 
   const runDisabledReason = !sourceUrls.length
     ? t("needUploadFirst")
@@ -734,14 +669,6 @@ export default function ImageTranslationPage() {
     return current.length === next.length && current.every((url, index) => url === next[index]);
   }
 
-  const examplesForUpload = useMemo(() => {
-    const list = exampleResources.length ? exampleResources : IMAGE_TRANSLATION_UPLOAD_RULE.demos.map((demo) => ({ picUrl: demo.imageUrl, title: demo.title, titleKey: demo.titleKey }));
-    return list.map((item) => ({
-      url: item.picUrl,
-      title: "titleKey" in item && item.titleKey ? t(item.titleKey) : (item.title || t("demoTitlePrefix")),
-    }));
-  }, [exampleResources, t]);
-
   const authIsAnonymous = authChecked && !isAuthenticated;
   const summary = (() => {
     if (!sourceUrls.length) return t("waitingUploadSummary", { count: genCount });
@@ -779,19 +706,27 @@ export default function ImageTranslationPage() {
             onFiles={handleSourceUpload}
           >
             {(openFileDialog) => (
-              <StudioMultiImageUpload
+              <MultiImageUploadV2
                 urls={sourceUrls}
                 maxCount={MAX_IMAGE_TRANSLATION_IMAGES}
                 title={t("uploadTitle")}
-                emptyTitle={t("uploadEmptyTitle")}
-                description={t("uploadDescription")}
-                emptyDescription={t("uploadEmptyDescription")}
+                showExamples={false}
+                descriptionSlot={(
+                  <span>
+                    {t("uploadDescriptionSlot")}{" "}
+                    <a
+                      href="/all-category-product-image"
+                      className="inline-flex items-center gap-1"
+                    >
+                      {t("uploadDescriptionLink")}
+                      <ArrowUpRight className="h-3 w-3" />
+                    </a>
+                  </span>
+                )}
                 itemLabelPrefix={t("uploadItemLabelPrefix")}
                 loading={isUploadingSource}
                 isDragging={isSourceDragging}
-                uploadLabel={t("uploadLabel")}
                 libraryLabel={t("libraryLabel")}
-                summary={sourceUrls.length ? t("uploadedCount", { count: sourceUrls.length }) : undefined}
                 footnote={t("uploadFootnote", { max: MAX_IMAGE_TRANSLATION_IMAGES })}
                 tips={[
                   { label: t("tipNoteLabel"), text: t("tipNoteText") },
@@ -808,13 +743,6 @@ export default function ImageTranslationPage() {
                 onClear={() => {
                   setSourceUrls([]);
                   setPromptOverride(null);
-                }}
-                examples={{
-                  label: t("tryIt"),
-                  images: examplesForUpload,
-                  disabled: isUploadingSource,
-                  onSelect: (image) =>
-                    handleApplyDemo({ title: image.title, imageUrl: image.url }),
                 }}
               />
             )}
@@ -874,7 +802,7 @@ export default function ImageTranslationPage() {
               <ImagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
               {t("extraSectionTitle")} <span className="text-xs font-normal text-codex-faint">· {t("extraOptional")}</span>
             </h3>
-            <StudioPromptTextarea
+            <PromptTextarea
               value={userPrompt}
               onChange={(event) => {
                 setUserPrompt(event.target.value);
@@ -882,6 +810,8 @@ export default function ImageTranslationPage() {
               }}
               rows={3}
               placeholder={t("extraPlaceholder")}
+              maxLength={1000}
+              onClear={() => setUserPrompt("")}
             />
             <p className="mt-2 text-[12px] leading-relaxed text-codex-faint">
               {t("extraHint")}
@@ -918,15 +848,15 @@ export default function ImageTranslationPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-codex-ink">{t("resolutionSectionTitle")}</h3>
-            <StudioOptionGrid
+            <ResolutionSelector
+              titleKey="resolutionSectionTitle"
               options={getSupportedImageSizes(aiModel, aspectRatio).map((size) => ({
                 value: size,
-                label: t("resolutionCostLabel", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
+                label: size,
+                description: t("resolutionCostLabel", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
               }))}
               value={imageSize}
               onChange={setImageSize}
-              columns={3}
               ariaLabel={t("resolutionAriaLabel")}
             />
           </section>

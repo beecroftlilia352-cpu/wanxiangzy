@@ -26,6 +26,7 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES,
@@ -798,7 +799,18 @@ export default function AllCategoryProductImagePage() {
                     <SelectField label={t("sizeRatio")} value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <SelectField label={t("quality")} value={imageSize} options={supportedSizes} onChange={(value) => { setImageSize(value as ImageSize); resetOutput(); }} />
+                    <div>
+                      <ResolutionSelector
+                        titleKey="quality"
+                        options={supportedSizes.map((size) => ({
+                          value: size,
+                          label: size,
+                        }))}
+                        value={imageSize}
+                        onChange={(value) => { setImageSize(value as ImageSize); resetOutput(); }}
+                        ariaLabel={t("quality")}
+                      />
+                    </div>
                     <div>
                       <span className="mb-2 block text-xs font-semibold text-codex-muted">{t("genCount")}</span>
                       <GenerationCountField
