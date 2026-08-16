@@ -50,9 +50,9 @@ export function StudioGenerationLoader({
   const mergedMeta = [resolvedEstimatedTime, t("resultCountUnit", { count: safeCount }), ...metaItems].filter(Boolean);
 
   return (
-    <div className="studio-loading-stage flex min-h-[280px] items-center justify-center p-5 sm:min-h-[380px] sm:p-8 lg:h-full">
+    <div className="studio-loading-stage flex min-h-[280px] items-center justify-center p-5 sm:min-h-[380px] sm:p-8 lg:h-full" aria-busy="true">
       <div className="w-full max-w-5xl">
-        <div className="studio-generation-loader-status mx-auto mb-4 flex max-w-[720px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="studio-generation-loader-status mx-auto mb-4 flex max-w-[720px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" role="status" aria-live="polite" aria-atomic="true">
           <div className="min-w-0">
             <p className="text-sm font-semibold tracking-[-0.01em] text-codex-ink">{t("moduleGenerating", { name: resolvedModuleName })}</p>
             <p className="mt-0.5 text-xs text-codex-muted">{label}</p>
@@ -60,7 +60,7 @@ export function StudioGenerationLoader({
           <div className="flex flex-wrap items-center gap-2">
             {mergedMeta.map((item) => (
               <span key={item} className="studio-generation-loader-meta inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-codex-muted">
-                {item === resolvedEstimatedTime && <Clock3 className="h-3 w-3 text-[var(--codex-accent)]" />}
+                {item === resolvedEstimatedTime && <Clock3 className="h-3 w-3 text-[var(--codex-accent)]" aria-hidden="true" />}
                 {item}
               </span>
             ))}
@@ -77,7 +77,7 @@ export function StudioGenerationLoader({
                 <span className="min-w-0">
                   <span className="block truncate text-[11px] font-semibold text-codex-ink">{item.label}</span>
                   <span className="mt-0.5 flex items-center gap-1 text-[10px] text-codex-faint">
-                    <ImageIcon className="h-3 w-3" />
+                    <ImageIcon className="h-3 w-3" aria-hidden="true" />
                     {t("referenceImage")}
                   </span>
                 </span>
@@ -93,7 +93,7 @@ export function StudioGenerationLoader({
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5">
                 <div className="relative flex h-12 w-12 items-center justify-center">
                   <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/14 bg-black/14 shadow-sm">
-                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    <Loader2 className="h-5 w-5 animate-spin text-white" aria-hidden="true" />
                   </div>
                 </div>
                 <span className="text-xl font-semibold tabular-nums text-white">{displayProgress}%</span>
@@ -105,7 +105,14 @@ export function StudioGenerationLoader({
 
         <div className={`mx-auto mt-4 flex items-center gap-3 px-1 ${safeCount > 1 ? "max-w-[460px]" : "max-w-[330px]"}`}>
           <span className="shrink-0 text-[11px] font-medium text-codex-muted">{resolvedModuleName}</span>
-          <div className="studio-loader-progress h-1.5 flex-1 overflow-hidden rounded-full bg-black/10">
+          <div
+            className="studio-loader-progress h-1.5 flex-1 overflow-hidden rounded-full bg-black/10"
+            role="progressbar"
+            aria-label={`${resolvedModuleName} ${label}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={displayProgress}
+          >
             <div
               className="h-full rounded-full bg-[var(--codex-accent)] transition-[width] duration-300 ease-out"
               style={{ width: `${Math.max(displayProgress, 5)}%` }}
