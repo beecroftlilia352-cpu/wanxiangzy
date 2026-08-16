@@ -29,9 +29,11 @@
       "home": "होम",
       "aiShoots": "मॉडल फोटोशूट",
       "productImages": "प्रोडक्ट इमेज",
-      "assistant": "वर्कफ़्लो असिस्टेंट",
+      "assistant": "क्रिएशन एजेंट",
       "tools": "एसेट बनाएँ",
       "aiVideo": "AI वीडियो",
+      "toolbox": "AI टूलबॉक्स",
+      "enterprise": "एंटरप्राइज़",
       "works": "वर्क्स"
     },
     "login": "लॉग इन",
@@ -170,6 +172,10 @@
     "topUp": "टॉप अप",
     "checkIn": "चेक इन",
     "checkInComingSoon": "चेक-इन सुविधा जल्द उपलब्ध होगी",
+    "generationHistory": "जनरेशन इतिहास",
+    "resourceLibrary": "संसाधन लाइब्रेरी",
+    "resourceLibraryComingSoon": "संसाधन लाइब्रेरी जल्द उपलब्ध होगी",
+    "apiDisclaimer": "कंटेंट Pixel Diffusion AI API से बनाया जाता है। मॉडल लगातार सीख रहे हैं; वास्तविक उपयोग से पहले परिणामों की समीक्षा करें।",
     "creditsAria": "क्रेडिट विवरण",
     "openAccountCenter": "अकाउंट सेंटर खोलें",
     "openAccountMenuAria": "अकाउंट मेन्यू खोलें",
@@ -184,7 +190,8 @@
     "contactUs": "हमसे संपर्क करें",
     "languageSwitchFailed": "भाषा बदलने में विफल, कृपया पुनः प्रयास करें",
     "featuresBadge": {
-      "new": "नया"
+      "new": "नया",
+      "upgrade": "अपग्रेड"
     }
   },
   "Login": {

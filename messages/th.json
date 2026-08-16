@@ -29,9 +29,11 @@
       "home": "หน้าแรก",
       "aiShoots": "ภาพนางแบบ",
       "productImages": "ภาพสินค้า",
-      "assistant": "ผู้ช่วยเวิร์กโฟลว์",
+      "assistant": "เอเจนต์สร้างสรรค์",
       "tools": "สร้างทรัพยากร",
       "aiVideo": "วิดีโอ AI",
+      "toolbox": "เครื่องมือ AI",
+      "enterprise": "องค์กร",
       "works": "ผลงาน"
     },
     "login": "เข้าสู่ระบบ",
@@ -170,6 +172,10 @@
     "topUp": "ศูนย์เติมเครดิต",
     "checkIn": "เช็กอิน",
     "checkInComingSoon": "ฟีเจอร์เช็กอินจะเปิดให้ใช้งานเร็ว ๆ นี้",
+    "generationHistory": "ประวัติการสร้าง",
+    "resourceLibrary": "คลังทรัพยากร",
+    "resourceLibraryComingSoon": "คลังทรัพยากรจะเปิดให้ใช้งานเร็ว ๆ นี้",
+    "apiDisclaimer": "เนื้อหาสร้างผ่าน Pixel Diffusion AI API โมเดลยังเรียนรู้อย่างต่อเนื่องและอาจคลาดเคลื่อน โปรดตรวจสอบก่อนใช้งานจริง",
     "creditsAria": "รายละเอียดเครดิต",
     "openAccountCenter": "เปิดศูนย์บัญชี",
     "openAccountMenuAria": "เปิดเมนูศูนย์บัญชี",
@@ -184,7 +190,8 @@
     "contactUs": "ติดต่อเรา",
     "languageSwitchFailed": "เปลี่ยนภาษาไม่สำเร็จ กรุณาลองอีกครั้ง",
     "featuresBadge": {
-      "new": "ใหม่"
+      "new": "ใหม่",
+      "upgrade": "อัปเกรด"
     }
   },
   "Login": {

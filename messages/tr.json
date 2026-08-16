@@ -29,9 +29,11 @@
       "home": "Ana Sayfa",
       "aiShoots": "Model Çekimleri",
       "productImages": "Ürün Görselleri",
-      "assistant": "İş Akışı Asistanı",
+      "assistant": "Yaratıcı Agent",
       "tools": "Varlık Üreticisi",
       "aiVideo": "Yapay Zekâ Video",
+      "toolbox": "Yapay Zekâ Araçları",
+      "enterprise": "Kurumsal",
       "works": "Çalışmalar"
     },
     "login": "Giriş Yap",
@@ -170,6 +172,10 @@
     "topUp": "Yükleme",
     "checkIn": "Giriş yap",
     "checkInComingSoon": "Giriş özelliği yakında kullanıma açılacak",
+    "generationHistory": "Oluşturma geçmişi",
+    "resourceLibrary": "Kaynak kitaplığı",
+    "resourceLibraryComingSoon": "Kaynak kitaplığı yakında kullanıma açılacak",
+    "apiDisclaimer": "İçerik Pixel Diffusion AI API üzerinden oluşturulur. Modeller öğrenmeye devam eder; sonuçları gerçek kullanım öncesinde inceleyin.",
     "creditsAria": "Kredi detayları",
     "openAccountCenter": "Hesap merkezini aç",
     "openAccountMenuAria": "Hesap menüsünü aç",
@@ -184,7 +190,8 @@
     "contactUs": "Bize ulaşın",
     "languageSwitchFailed": "Dil değiştirilemedi, lütfen tekrar deneyin",
     "featuresBadge": {
-      "new": "Yeni"
+      "new": "Yeni",
+      "upgrade": "Yükselt"
     }
   },
   "Login": {

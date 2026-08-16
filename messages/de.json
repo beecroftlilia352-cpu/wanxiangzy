@@ -29,9 +29,11 @@
       "home": "Start",
       "aiShoots": "Model-Shots",
       "productImages": "Produktbilder",
-      "assistant": "Workflow-Assistent",
+      "assistant": "Creative Agent",
       "tools": "Asset-Generator",
       "aiVideo": "KI-Video",
+      "toolbox": "KI-Werkzeuge",
+      "enterprise": "Unternehmen",
       "works": "Meine Projekte"
     },
     "login": "Anmelden",
@@ -181,10 +183,15 @@
     "topUp": "Aufladen",
     "checkIn": "Einchecken",
     "checkInComingSoon": "Die Check-in-Funktion ist bald verfügbar",
+    "generationHistory": "Generierungsverlauf",
+    "resourceLibrary": "Ressourcenbibliothek",
+    "resourceLibraryComingSoon": "Die Ressourcenbibliothek ist bald verfügbar",
+    "apiDisclaimer": "Inhalte werden über die Pixel Diffusion AI API erzeugt. Die Modelle lernen fortlaufend; Ergebnisse bitte vor dem produktiven Einsatz prüfen.",
     "upgradeTeamBanner": "Upgrade auf Team-Mitgliedschaft für nahtlose Zusammenarbeit",
     "languageSwitchFailed": "Sprachwechsel fehlgeschlagen, bitte erneut versuchen",
     "featuresBadge": {
-      "new": "Neu"
+      "new": "Neu",
+      "upgrade": "Upgrade"
     }
   },
   "Login": {

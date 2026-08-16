@@ -3,6 +3,12 @@ import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin();
+const staticAssetCacheControl =
+  process.env.NODE_ENV === "production"
+    ? "public, max-age=31536000, immutable"
+    : "no-store, must-revalidate";
+const developmentDeploymentId =
+  process.env.NODE_ENV === "development" ? "studio-shell-refresh-1" : undefined;
 
 const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
@@ -15,6 +21,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   compress: true,
+  deploymentId: developmentDeploymentId,
   poweredByHeader: false,
   reactStrictMode: true,
   outputFileTracingRoot: process.cwd(),
@@ -52,16 +59,18 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      // Static assets: aggressive caching (immutable content hashes in filenames)
+      // Production chunks are content-hashed. Development chunks reuse stable
+      // filenames, so long-lived caching there serves stale React trees after a
+      // restart and can cause hydration mismatches.
       {
         source: "/_next/static/(.*)",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          { key: "Cache-Control", value: staticAssetCacheControl },
         ],
       },
       // Public assets (images, fonts)
       {
-        source: "/assets/(.*)\.(svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)",
+        source: "/assets/(.*)\\.(svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)",
         headers: [
           { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
         ],

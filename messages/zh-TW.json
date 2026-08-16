@@ -29,9 +29,11 @@
       "home": "首頁",
       "aiShoots": "模特圖",
       "productImages": "商品圖",
-      "assistant": "工作流程助手",
+      "assistant": "創作 Agent",
       "tools": "素材生成",
       "aiVideo": "AI 影片",
+      "toolbox": "AI 工具箱",
+      "enterprise": "企業功能",
       "works": "作品庫"
     },
     "login": "登入",
@@ -168,8 +170,12 @@
     "brandHomeAria": "Pixel Diffusion 首頁",
     "homePage": "首頁",
     "topUp": "儲值",
-    "checkIn": "簽到",
+    "checkIn": "簽到領米豆",
     "checkInComingSoon": "簽到功能已預留，即將開放",
+    "generationHistory": "生成記錄",
+    "resourceLibrary": "資源倉庫",
+    "resourceLibraryComingSoon": "資源倉庫功能已預留，即將開放",
+    "apiDisclaimer": "生成內容由 Pixel Diffusion AI 介面提供。模型持續學習與調整中，結果可能存在偏差，請依實際業務情境審核後使用。",
     "creditsAria": "點數明細",
     "openAccountCenter": "開啟個人中心",
     "openAccountMenuAria": "開啟個人中心選單",
@@ -180,11 +186,12 @@
     "memberBadge": "會員",
     "helpCenter": "說明中心",
     "openHelpMenuAria": "開啟說明選單",
-    "imageGuide": "生圖指南",
+    "imageGuide": "使用手冊",
     "contactUs": "聯絡我們",
     "languageSwitchFailed": "語言切換失敗，請重試",
     "featuresBadge": {
-      "new": "新功能"
+      "new": "新功能",
+      "upgrade": "升級"
     }
   },
   "Login": {

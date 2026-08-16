@@ -29,9 +29,11 @@
       "home": "Trang chủ",
       "aiShoots": "Ảnh người mẫu",
       "productImages": "Ảnh sản phẩm",
-      "assistant": "Trợ lý quy trình",
+      "assistant": "Agent sáng tạo",
       "tools": "Tạo tài nguyên",
       "aiVideo": "Video AI",
+      "toolbox": "Công cụ AI",
+      "enterprise": "Doanh nghiệp",
       "works": "Tác phẩm"
     },
     "login": "Đăng nhập",
@@ -170,6 +172,10 @@
     "topUp": "Trung tâm nạp Credit",
     "checkIn": "Điểm danh",
     "checkInComingSoon": "Tính năng điểm danh sẽ sớm ra mắt",
+    "generationHistory": "Lịch sử tạo",
+    "resourceLibrary": "Kho tài nguyên",
+    "resourceLibraryComingSoon": "Kho tài nguyên sẽ sớm ra mắt",
+    "apiDisclaimer": "Nội dung được tạo qua API AI Pixel Diffusion. Mô hình tiếp tục học và kết quả có thể sai lệch; hãy kiểm tra trước khi sử dụng thực tế.",
     "creditsAria": "Chi tiết Credit",
     "openAccountCenter": "Mở trung tâm tài khoản",
     "openAccountMenuAria": "Mở menu trung tâm tài khoản",
@@ -184,7 +190,8 @@
     "contactUs": "Liên hệ chúng tôi",
     "languageSwitchFailed": "Chuyển ngôn ngữ thất bại, vui lòng thử lại",
     "featuresBadge": {
-      "new": "Mới"
+      "new": "Mới",
+      "upgrade": "Nâng cấp"
     }
   },
   "Login": {

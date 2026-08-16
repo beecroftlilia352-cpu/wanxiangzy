@@ -29,9 +29,11 @@
       "home": "Inicio",
       "aiShoots": "Sesiones con modelo",
       "productImages": "Imágenes de producto",
-      "assistant": "Asistente de flujo",
+      "assistant": "Agente creativo",
       "tools": "Generador de recursos",
       "aiVideo": "Vídeo IA",
+      "toolbox": "Herramientas de IA",
+      "enterprise": "Empresas",
       "works": "Trabajos"
     },
     "login": "Iniciar sesión",
@@ -170,6 +172,10 @@
     "topUp": "Centro de recarga",
     "checkIn": "Registro",
     "checkInComingSoon": "La función de registro estará disponible pronto",
+    "generationHistory": "Historial de generación",
+    "resourceLibrary": "Biblioteca de recursos",
+    "resourceLibraryComingSoon": "La biblioteca de recursos estará disponible pronto",
+    "apiDisclaimer": "El contenido se genera mediante la API de IA de Pixel Diffusion. Los modelos siguen aprendiendo; revisa los resultados antes de usarlos en producción.",
     "creditsAria": "Detalle de créditos",
     "openAccountCenter": "Abrir centro de cuenta",
     "openAccountMenuAria": "Abrir menú de cuenta",
@@ -184,7 +190,8 @@
     "contactUs": "Contáctanos",
     "languageSwitchFailed": "No se pudo cambiar el idioma, inténtalo de nuevo",
     "featuresBadge": {
-      "new": "Nuevo"
+      "new": "Nuevo",
+      "upgrade": "Mejorar"
     }
   },
   "Login": {

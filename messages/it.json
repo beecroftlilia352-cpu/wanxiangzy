@@ -29,9 +29,11 @@
       "home": "Home",
       "aiShoots": "Scatti con modella",
       "productImages": "Immagini prodotto",
-      "assistant": "Assistente di flusso",
+      "assistant": "Agente creativo",
       "tools": "Generatore di asset",
       "aiVideo": "Video IA",
+      "toolbox": "Strumenti IA",
+      "enterprise": "Aziende",
       "works": "Lavori"
     },
     "login": "Accedi",
@@ -170,6 +172,10 @@
     "topUp": "Acquista crediti",
     "checkIn": "Check-in",
     "checkInComingSoon": "La funzione di check-in sarà presto disponibile",
+    "generationHistory": "Cronologia generazioni",
+    "resourceLibrary": "Libreria risorse",
+    "resourceLibraryComingSoon": "La libreria risorse sarà presto disponibile",
+    "apiDisclaimer": "I contenuti sono generati tramite l’API AI di Pixel Diffusion. I modelli continuano ad apprendere; verifica i risultati prima dell’uso in produzione.",
     "creditsAria": "Dettagli crediti",
     "openAccountCenter": "Apri centro account",
     "openAccountMenuAria": "Apri menu account",
@@ -184,7 +190,8 @@
     "contactUs": "Contattaci",
     "languageSwitchFailed": "Cambio lingua non riuscito, riprova",
     "featuresBadge": {
-      "new": "Nuovo"
+      "new": "Nuovo",
+      "upgrade": "Upgrade"
     }
   },
   "Login": {

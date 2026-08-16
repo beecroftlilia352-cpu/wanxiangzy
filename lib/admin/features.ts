@@ -1,4 +1,4 @@
-import { FEATURE_ITEMS, type AppModuleKey, type FeatureKey } from "@/lib/navigation";
+import { FEATURE_ITEMS, type AppModuleKey } from "@/lib/navigation";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 export const ADMIN_FEATURES_CONFIG_KEY = "features.registry";
@@ -39,6 +39,8 @@ const moduleAdminHref: Record<AppModuleKey, string> = {
   productImages: "/admin/product-retouch-skill",
   assistant: "/admin",
   tools: "/admin/generations",
+  toolbox: "/admin/generations",
+  enterprise: "/admin/billing",
   aiVideo: "/admin/generations",
   works: "/admin/assets",
 };
@@ -166,7 +168,9 @@ function normalizeText(value: unknown, maxLength: number) {
 
 function normalizeModule(value: unknown): AppModuleKey | null {
   const module = normalizeText(value, 40);
-  return ["home", "aiShoots", "assistant", "tools", "aiVideo", "works"].includes(module) ? (module as AppModuleKey) : null;
+  return ["home", "aiShoots", "productImages", "assistant", "tools", "toolbox", "enterprise", "aiVideo", "works"].includes(module)
+    ? (module as AppModuleKey)
+    : null;
 }
 
 function normalizeStatus(value: unknown): AdminFeatureStatus {

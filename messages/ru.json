@@ -29,9 +29,11 @@
       "home": "Главная",
       "aiShoots": "Фото с моделью",
       "productImages": "Товарные фото",
-      "assistant": "Ассистент по рабочим процессам",
+      "assistant": "Творческий агент",
       "tools": "Генератор материалов",
       "aiVideo": "ИИ-видео",
+      "toolbox": "ИИ-инструменты",
+      "enterprise": "Для бизнеса",
       "works": "Работы"
     },
     "login": "Войти",
@@ -170,6 +172,10 @@
     "topUp": "Пополнение",
     "checkIn": "Отметиться",
     "checkInComingSoon": "Функция отметки скоро станет доступна",
+    "generationHistory": "История генераций",
+    "resourceLibrary": "Библиотека ресурсов",
+    "resourceLibraryComingSoon": "Библиотека ресурсов скоро станет доступна",
+    "apiDisclaimer": "Контент создаётся через Pixel Diffusion AI API. Модели продолжают обучение, поэтому проверяйте результат перед использованием.",
     "creditsAria": "История кредитов",
     "openAccountCenter": "Открыть личный кабинет",
     "openAccountMenuAria": "Открыть меню личного кабинета",
@@ -184,7 +190,8 @@
     "contactUs": "Связаться с нами",
     "languageSwitchFailed": "Не удалось сменить язык, попробуйте ещё раз",
     "featuresBadge": {
-      "new": "Новое"
+      "new": "Новое",
+      "upgrade": "Обновить"
     }
   },
   "Login": {

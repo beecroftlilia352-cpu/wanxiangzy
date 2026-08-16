@@ -29,9 +29,11 @@
       "home": "Home",
       "aiShoots": "Model Shots",
       "productImages": "Product Images",
-      "assistant": "Workflow Assistant",
+      "assistant": "Creation Agent",
       "tools": "Asset Generator",
       "aiVideo": "AI Video",
+      "toolbox": "AI Toolbox",
+      "enterprise": "Enterprise",
       "works": "Works"
     },
     "login": "Log in",
@@ -170,6 +172,10 @@
     "topUp": "Top up",
     "checkIn": "Check in",
     "checkInComingSoon": "Check-in is reserved and coming soon",
+    "generationHistory": "Generation history",
+    "resourceLibrary": "Asset library",
+    "resourceLibraryComingSoon": "The asset library is reserved and coming soon",
+    "apiDisclaimer": "Content is generated through the Pixel Diffusion AI API. Models keep learning and may produce inaccurate results; review outputs before production use.",
     "creditsAria": "Credit details",
     "openAccountCenter": "Open account center",
     "openAccountMenuAria": "Open account menu",
@@ -180,11 +186,12 @@
     "memberBadge": "Member",
     "helpCenter": "Help center",
     "openHelpMenuAria": "Open help menu",
-    "imageGuide": "Image guide",
+    "imageGuide": "User guide",
     "contactUs": "Contact us",
     "languageSwitchFailed": "Failed to switch language, please retry",
     "featuresBadge": {
-      "new": "New"
+      "new": "New",
+      "upgrade": "Upgrade"
     }
   },
   "Login": {

@@ -29,9 +29,11 @@
       "home": "Accueil",
       "aiShoots": "Photos mannequin",
       "productImages": "Images produit",
-      "assistant": "Assistant de workflow",
+      "assistant": "Agent créatif",
       "tools": "Générateur d'assets",
       "aiVideo": "Vidéo IA",
+      "toolbox": "Outils IA",
+      "enterprise": "Entreprise",
       "works": "Mes créations"
     },
     "login": "Connexion",
@@ -181,10 +183,15 @@
     "topUp": "Recharger",
     "checkIn": "Pointage",
     "checkInComingSoon": "Le pointage sera bientôt disponible",
+    "generationHistory": "Historique des générations",
+    "resourceLibrary": "Bibliothèque de ressources",
+    "resourceLibraryComingSoon": "La bibliothèque de ressources sera bientôt disponible",
+    "apiDisclaimer": "Le contenu est généré via l’API IA Pixel Diffusion. Les modèles évoluent en continu ; vérifiez les résultats avant tout usage en production.",
     "upgradeTeamBanner": "Passez à l'abonnement équipe pour une collaboration fluide",
     "languageSwitchFailed": "Échec du changement de langue, veuillez réessayer",
     "featuresBadge": {
-      "new": "Nouveau"
+      "new": "Nouveau",
+      "upgrade": "Mise à niveau"
     }
   },
   "Login": {

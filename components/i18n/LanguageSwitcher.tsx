@@ -92,7 +92,7 @@ export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | 
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface)] text-xs font-bold text-[var(--codex-muted)] transition hover:text-[var(--codex-ink)]",
+          "language-switcher-trigger inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface)] text-xs font-bold text-[var(--codex-muted)] transition hover:text-[var(--codex-ink)]",
           variant === "icon" ? "w-10 px-0" : "px-3",
         )}
         aria-label={t("language")}

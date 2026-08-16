@@ -29,9 +29,11 @@
       "home": "ホーム",
       "aiShoots": "モデル撮影",
       "productImages": "商品画像",
-      "assistant": "ワークフローアシスタント",
+      "assistant": "クリエイティブAgent",
       "tools": "素材生成",
       "aiVideo": "AI動画",
+      "toolbox": "AIツール",
+      "enterprise": "エンタープライズ",
       "works": "作品"
     },
     "login": "ログイン",
@@ -170,6 +172,10 @@
     "topUp": "チャージ",
     "checkIn": "チェックイン",
     "checkInComingSoon": "チェックイン機能は近日公開予定です",
+    "generationHistory": "生成履歴",
+    "resourceLibrary": "素材ライブラリ",
+    "resourceLibraryComingSoon": "素材ライブラリは近日公開予定です",
+    "apiDisclaimer": "コンテンツは Pixel Diffusion AI API により生成されます。モデルは継続的に学習中のため、実運用前に結果をご確認ください。",
     "creditsAria": "クレジット履歴",
     "openAccountCenter": "アカウントセンターを開く",
     "openAccountMenuAria": "アカウントメニューを開く",
@@ -184,7 +190,8 @@
     "contactUs": "お問い合わせ",
     "languageSwitchFailed": "言語の切り替えに失敗しました。もう一度お試しください",
     "featuresBadge": {
-      "new": "新機能"
+      "new": "新機能",
+      "upgrade": "アップグレード"
     }
   },
   "Login": {

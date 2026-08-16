@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   clearCachedProfile,
@@ -53,6 +53,8 @@ type HeaderAccountState = {
   isLoggingOut: boolean;
   onLogout: () => Promise<void>;
 };
+
+const DEFAULT_STUDIO_AVATAR = "/avatars/default-studio-user.png";
 
 const marketingNav = [
   { labelKey: "Header.nav.products", href: "/#features" },
@@ -415,7 +417,6 @@ function AppHeader({ pathname }: { pathname: string }) {
           </div>
           <HeaderUtilityActions />
           <LanguageSwitcher variant="icon" />
-          <ThemeToggle className="h-10 w-10" />
           <UserCreditActions
             authReady={authReady}
             creditsReady={creditsReady}
@@ -517,7 +518,7 @@ function UserCreditActions({
 
   if (!email) {
     return (
-      <Link href="/login" className="codex-primary-action flex h-9 shrink-0 items-center rounded-full px-4 text-xs font-bold text-white">
+      <Link href="/login" className="studio-header-login flex h-9 shrink-0 items-center px-4 text-xs font-bold">
         {t("login")}
       </Link>
     );
@@ -527,18 +528,18 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_4px_14px_var(--codex-accent-30)] transition hover:-translate-y-0.5 hover:opacity-90 dark:bg-[var(--codex-accent-72)] sm:inline-flex"
+        className="studio-header-recharge hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_4px_14px_var(--codex-accent-30)] transition sm:inline-flex"
         title={t("topUp")}
       >
-        <CreditCard className="h-3.5 w-3.5" />
+        <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
         {t("topUp")}
       </Link>
       <Link
         href="/account?tab=credits"
-        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--codex-accent-30)] bg-[var(--codex-accent-10)] px-4 text-xs font-black text-[var(--codex-accent)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--codex-accent-16)] dark:border-[var(--codex-accent-38)] dark:bg-[var(--codex-accent-14)] dark:text-[#aeb8ff] dark:hover:bg-[var(--codex-accent-22)]"
+        className="studio-header-credit inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--codex-accent-30)] bg-[var(--codex-accent-10)] px-4 text-xs font-black text-[var(--codex-accent)] shadow-sm transition"
         title={t("creditsAria")}
       >
-        <Coins className="h-3.5 w-3.5" />
+        <Coins className="h-3.5 w-3.5" aria-hidden="true" />
         {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-[var(--codex-surface-soft)] dark:bg-white/10" />}
       </Link>
       <AccountAvatarDropdown
@@ -577,12 +578,13 @@ function AccountAvatarDropdown({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--codex-accent-18)]"
+          className="studio-header-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition focus-visible:outline-none"
           title={t("openAccountCenter")}
           aria-label={t("openAccountMenuAria")}
           aria-expanded={open}
         >
           <Avatar className="size-8 bg-[#dbe6ff] text-[#6d8fe8]">
+            <AvatarImage src={DEFAULT_STUDIO_AVATAR} alt="" />
             <AvatarFallback className="bg-[#dbe6ff] text-xs font-black text-[#6d8fe8]">
               {getAvatarFallback(email)}
             </AvatarFallback>
@@ -635,6 +637,7 @@ function AccountMenuHeader({
     <div className="bg-[var(--codex-surface-soft)] px-3 py-3">
       <div className="flex items-center gap-3">
         <Avatar size="lg" className="bg-[#c8d7ff] text-white dark:bg-[#3b4d7a]">
+          <AvatarImage src={DEFAULT_STUDIO_AVATAR} alt="" />
           <AvatarFallback className="bg-[#c8d7ff] text-sm font-black text-white dark:bg-[#3b4d7a]">
             {getAvatarFallback(email)}
           </AvatarFallback>
@@ -724,11 +727,9 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
         sideOffset={8}
         className="mac-surface z-[80] min-w-[190px] overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-codex-surface p-1.5 shadow-xl shadow-slate-200/50"
       >
-        {VISIBLE_TOP_MODULES.map((item, index) => {
+        {VISIBLE_TOP_MODULES.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === activeModule;
-          // 移动端菜单："4 个工作场景" 与 "作品库" 之间加分隔线
-          const showDivider = index > 0 && item.key === "works";
 
           const content = (() => {
             if (item.comingSoon) {
@@ -759,24 +760,18 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
                   <Icon className="h-4 w-4" />
                   <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
                     <span className="truncate">{item.labelKey ? tAny(item.labelKey) : item.label}</span>
-                    {item.badge && (
-                      <StudioTabBadge variant="inline" decorative={false}>{item.badge}</StudioTabBadge>
-                    )}
+                    {item.badge || item.badgeLabelKey ? (
+                      <StudioTabBadge variant="inline" decorative={false}>
+                        {item.badgeLabelKey ? tAny(item.badgeLabelKey) : item.badge}
+                      </StudioTabBadge>
+                    ) : null}
                   </span>
                 </Link>
               </DropdownMenuItem>
             );
           })();
 
-          if (!showDivider) {
-            return <div key={item.key}>{content}</div>;
-          }
-          return (
-            <div key={item.key} className="space-y-1">
-              <div aria-hidden="true" className="my-1 h-px bg-[var(--codex-border)]/80" />
-              {content}
-            </div>
-          );
+          return <div key={item.key}>{content}</div>;
         })}
       </DropdownMenuContent>
     </DropdownMenu>

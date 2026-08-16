@@ -29,9 +29,11 @@
       "home": "홈",
       "aiShoots": "모델 컷",
       "productImages": "상품 이미지",
-      "assistant": "워크플로 도우미",
+      "assistant": "크리에이션 Agent",
       "tools": "소재 생성기",
       "aiVideo": "AI 영상",
+      "toolbox": "AI 도구함",
+      "enterprise": "기업용",
       "works": "작품"
     },
     "login": "로그인",
@@ -170,6 +172,10 @@
     "topUp": "충전 센터",
     "checkIn": "출석",
     "checkInComingSoon": "출석 기능은 곧 제공될 예정입니다",
+    "generationHistory": "생성 기록",
+    "resourceLibrary": "리소스 보관함",
+    "resourceLibraryComingSoon": "리소스 보관함 기능은 곧 제공될 예정입니다",
+    "apiDisclaimer": "콘텐츠는 Pixel Diffusion AI API를 통해 생성됩니다. 모델은 계속 학습 중이며 결과에 오차가 있을 수 있으니 실제 사용 전에 검토해 주세요.",
     "creditsAria": "크레딧 내역",
     "openAccountCenter": "개인 센터 열기",
     "openAccountMenuAria": "개인 센터 메뉴 열기",
@@ -184,7 +190,8 @@
     "contactUs": "문의하기",
     "languageSwitchFailed": "언어 전환에 실패했습니다. 다시 시도해 주세요",
     "featuresBadge": {
-      "new": "신규"
+      "new": "신규",
+      "upgrade": "업그레이드"
     }
   },
   "Login": {

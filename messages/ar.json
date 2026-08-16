@@ -29,9 +29,11 @@
       "home": "الرئيسية",
       "aiShoots": "جلسات تصوير الموديل",
       "productImages": "صور المنتجات",
-      "assistant": "مساعد سير العمل",
+      "assistant": "وكيل الإبداع",
       "tools": "مولّد الأصول",
       "aiVideo": "فيديو بالذكاء الاصطناعي",
+      "toolbox": "أدوات الذكاء الاصطناعي",
+      "enterprise": "المؤسسات",
       "works": "الأعمال"
     },
     "login": "تسجيل الدخول",
@@ -170,6 +172,10 @@
     "topUp": "شحن الرصيد",
     "checkIn": "تسجيل الحضور",
     "checkInComingSoon": "ميزة تسجيل الحضور ستتوفر قريبًا",
+    "generationHistory": "سجل التوليد",
+    "resourceLibrary": "مكتبة الموارد",
+    "resourceLibraryComingSoon": "ستتوفر مكتبة الموارد قريبًا",
+    "apiDisclaimer": "يتم إنشاء المحتوى عبر واجهة Pixel Diffusion AI. تستمر النماذج في التعلم وقد تنتج نتائج غير دقيقة؛ يُرجى مراجعتها قبل الاستخدام.",
     "creditsAria": "تفاصيل الرصيد",
     "openAccountCenter": "فتح مركز الحساب",
     "openAccountMenuAria": "فتح قائمة الحساب",
@@ -184,7 +190,8 @@
     "contactUs": "تواصل معنا",
     "languageSwitchFailed": "تعذّر تبديل اللغة، يرجى المحاولة مرة أخرى",
     "featuresBadge": {
-      "new": "جديد"
+      "new": "جديد",
+      "upgrade": "ترقية"
     }
   },
   "Login": {

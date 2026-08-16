@@ -1,6 +1,7 @@
 import {
   Bot,
   Box,
+  Building2,
   Camera,
   Clapperboard,
   GalleryHorizontalEnd,
@@ -18,6 +19,7 @@ import {
   ServerCog,
   Shirt,
   Sparkles,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,6 +29,8 @@ export type AppModuleKey =
   | "productImages"
   | "assistant"
   | "tools"
+  | "toolbox"
+  | "enterprise"
   | "aiVideo"
   | "works";
 
@@ -64,6 +68,7 @@ export type TopModuleNavItem = {
   labelKey?: string;
   icon: LucideIcon;
   badge?: "NEW";
+  badgeLabelKey?: string;
   comingSoon?: boolean;
 };
 
@@ -89,6 +94,14 @@ const SHOW_INTERNAL_NAV =
 
 export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "home", href: "/", label: "首页", labelKey: "Header.modules.home", icon: Home },
+  {
+    key: "assistant",
+    href: "/agent",
+    label: "创作Agent",
+    labelKey: "Header.modules.assistant",
+    icon: Bot,
+    badgeLabelKey: "Header.featuresBadge.upgrade",
+  },
   { key: "aiShoots", href: "/create", label: "模特图", labelKey: "Header.modules.aiShoots", icon: Camera },
   {
     key: "productImages",
@@ -96,22 +109,19 @@ export const TOP_MODULES: TopModuleNavItem[] = [
     label: "商品图",
     labelKey: "Header.modules.productImages",
     icon: PackageOpen,
-    badge: "NEW",
   },
-  { key: "assistant", href: "/agent", label: "工作流助手", labelKey: "Header.modules.assistant", icon: Bot },
-  { key: "tools", href: "/general-image", label: "素材生成", labelKey: "Header.modules.tools", icon: Images },
   { key: "aiVideo", href: "/video", label: "AI视频", labelKey: "Header.modules.aiVideo", icon: Clapperboard, badge: "NEW" },
+  { key: "tools", href: "/general-image", label: "素材生成", labelKey: "Header.modules.tools", icon: Images, badge: "NEW" },
+  { key: "toolbox", href: "/api-platform-test", label: "AI工具箱", labelKey: "Header.modules.toolbox", icon: Wrench },
+  { key: "enterprise", href: "/pricing", label: "企业功能", labelKey: "Header.modules.enterprise", icon: Building2 },
   { key: "works", href: "/history", label: "作品库", labelKey: "Header.modules.works", icon: GalleryHorizontalEnd },
 ];
 
 /**
- * 主导航上展示的"4 个工作场景 + 1 个作品库"。
- * - 4 个场景按使用顺序排列：aiShoots → productImages → tools → aiVideo
- * - 作品库（works）独立成一类，与"做"分离
- * - home 通过 logo 访问；assistant（工作流助手）只走 URL
+ * 主导航按工作台参考结构展示；作品库下沉到左侧固定快捷区。
  */
 export const VISIBLE_TOP_MODULES: TopModuleNavItem[] = TOP_MODULES.filter(
-  (item) => item.key !== "home" && item.key !== "assistant",
+  (item) => item.key !== "works",
 );
 
 export const FEATURE_ITEMS: FeatureNavItem[] = [
@@ -296,7 +306,6 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "助手",
     description: "聊天、分析与工作流执行",
     icon: Bot,
-    hiddenFromNav: true,
   },
   {
     key: "textToImage",
@@ -320,7 +329,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
   },
   {
     key: "apiTest",
-    module: "tools",
+    module: "toolbox",
     href: "/api-platform-test",
     label: "API 测试",
     labelKey: "Header.features.apiTest.label",
@@ -360,6 +369,7 @@ export function getActiveTopModule(pathname: string | null | undefined): AppModu
     .find((item) => path === item.href || path.startsWith(`${item.href}/`));
 
   if (feature) return feature.module;
+  if (path === "/pricing" || path.startsWith("/pricing/")) return "enterprise";
   if (path === "/" || path.startsWith("/login") || path.startsWith("/auth")) return "home";
   return "aiShoots";
 }

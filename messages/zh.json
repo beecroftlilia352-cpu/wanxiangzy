@@ -29,9 +29,11 @@
       "home": "首页",
       "aiShoots": "模特图",
       "productImages": "商品图",
-      "assistant": "工作流助手",
+      "assistant": "创作Agent",
       "tools": "素材生成",
       "aiVideo": "AI视频",
+      "toolbox": "AI工具箱",
+      "enterprise": "企业功能",
       "works": "作品库"
     },
     "login": "登录",
@@ -168,8 +170,12 @@
     "brandHomeAria": "Pixel Diffusion 首页",
     "homePage": "首页",
     "topUp": "充值",
-    "checkIn": "签到",
+    "checkIn": "签到领米豆",
     "checkInComingSoon": "签到功能已预留，即将开放",
+    "generationHistory": "生成记录",
+    "resourceLibrary": "资源仓库",
+    "resourceLibraryComingSoon": "资源仓库功能已预留，即将开放",
+    "apiDisclaimer": "生成内容由 Pixel Diffusion AI 接口提供。模型持续学习与调优中，结果可能存在偏差，请结合实际业务场景审核后使用。",
     "creditsAria": "灵点明细",
     "openAccountCenter": "打开个人中心",
     "openAccountMenuAria": "打开个人中心菜单",
@@ -180,11 +186,12 @@
     "memberBadge": "会员",
     "helpCenter": "帮助中心",
     "openHelpMenuAria": "打开帮助菜单",
-    "imageGuide": "生图指南",
+    "imageGuide": "使用手册",
     "contactUs": "联系我们",
     "languageSwitchFailed": "语言切换失败，请重试",
     "featuresBadge": {
-      "new": "新功能"
+      "new": "新功能",
+      "upgrade": "升级"
     }
   },
   "Login": {

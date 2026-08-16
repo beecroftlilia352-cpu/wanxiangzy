@@ -29,9 +29,11 @@
       "home": "Beranda",
       "aiShoots": "Foto Model",
       "productImages": "Gambar Produk",
-      "assistant": "Asisten Alur Kerja",
+      "assistant": "Agen Kreatif",
       "tools": "Generator Aset",
       "aiVideo": "Video AI",
+      "toolbox": "Peralatan AI",
+      "enterprise": "Perusahaan",
       "works": "Karya"
     },
     "login": "Masuk",
@@ -170,6 +172,10 @@
     "topUp": "Pusat Isi Ulang",
     "checkIn": "Check-in",
     "checkInComingSoon": "Fitur check-in akan segera tersedia",
+    "generationHistory": "Riwayat generasi",
+    "resourceLibrary": "Pustaka aset",
+    "resourceLibraryComingSoon": "Pustaka aset akan segera tersedia",
+    "apiDisclaimer": "Konten dibuat melalui API AI Pixel Diffusion. Model terus belajar dan hasil dapat kurang akurat; tinjau sebelum digunakan dalam produksi.",
     "creditsAria": "Rincian kredit",
     "openAccountCenter": "Buka pusat akun",
     "openAccountMenuAria": "Buka menu pusat akun",
@@ -184,7 +190,8 @@
     "contactUs": "Hubungi Kami",
     "languageSwitchFailed": "Gagal mengganti bahasa, silakan coba lagi",
     "featuresBadge": {
-      "new": "Baru"
+      "new": "Baru",
+      "upgrade": "Tingkatkan"
     }
   },
   "Login": {

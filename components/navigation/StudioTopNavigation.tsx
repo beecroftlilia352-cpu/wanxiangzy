@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   type AppModuleKey,
@@ -12,8 +12,8 @@ import {
 } from "@/lib/navigation";
 import { StudioTabBadge } from "@/components/studio/StudioTabBadge";
 
-const POINTER_OPEN_DELAY_MS = 130;
-const POINTER_CLOSE_DELAY_MS = 110;
+const POINTER_OPEN_DELAY_MS = 95;
+const POINTER_CLOSE_DELAY_MS = 90;
 const EXIT_DURATION_MS = 150;
 const SCROLL_GUARD_MS = 260;
 
@@ -122,14 +122,11 @@ export function StudioTopNavigation({ activeModule }: { activeModule: string }) 
       }}
     >
       <div className="studio-top-navigation-track">
-        {VISIBLE_TOP_MODULES.map((item, index) => {
-          const showDivider = index > 0 && item.key === "works";
+        {VISIBLE_TOP_MODULES.map((item) => {
           const active = activeModule === item.key;
-          const Icon = item.icon;
 
           return (
             <div key={item.key} className="studio-top-navigation-slot">
-              {showDivider ? <span aria-hidden="true" className="studio-top-navigation-divider" /> : null}
               <Link
                 href={item.href}
                 className="studio-top-navigation-trigger"
@@ -143,10 +140,13 @@ export function StudioTopNavigation({ activeModule }: { activeModule: string }) 
                 onFocus={() => reveal(item.key)}
                 onClick={() => requestClose(0)}
               >
-                <Icon aria-hidden="true" />
                 <span className="relative inline-flex">
                   {item.labelKey ? tAny(item.labelKey) : item.label}
-                  {item.badge ? <StudioTabBadge decorative={false}>{item.badge}</StudioTabBadge> : null}
+                  {item.badge || item.badgeLabelKey ? (
+                    <StudioTabBadge decorative={false}>
+                      {item.badgeLabelKey ? tAny(item.badgeLabelKey) : item.badge}
+                    </StudioTabBadge>
+                  ) : null}
                 </span>
               </Link>
             </div>
@@ -165,12 +165,8 @@ export function StudioTopNavigation({ activeModule }: { activeModule: string }) 
             if (event.pointerType === "mouse" || event.pointerType === "pen") requestClose();
           }}
         >
-          <div className="studio-top-navigation-popover-heading">
-            <span>{activePopoverModule.labelKey ? tAny(activePopoverModule.labelKey) : activePopoverModule.label}</span>
-            <ChevronRight aria-hidden="true" />
-          </div>
           <div className="studio-top-navigation-feature-grid" data-compact={popoverFeatures.length <= 3 ? "true" : "false"}>
-            {popoverFeatures.map((feature, index) => {
+            {popoverFeatures.map((feature) => {
               const FeatureIcon = feature.icon;
               const featureActive = activeModule === feature.module && activeFeatureKey === feature.key;
 
@@ -180,7 +176,6 @@ export function StudioTopNavigation({ activeModule }: { activeModule: string }) 
                   href={feature.href}
                   className="studio-top-navigation-feature"
                   data-active={featureActive ? "true" : "false"}
-                  style={{ "--studio-popover-item-index": index } as CSSProperties}
                   onClick={() => requestClose(0)}
                   tabIndex={isOpen ? 0 : -1}
                 >
@@ -200,6 +195,9 @@ export function StudioTopNavigation({ activeModule }: { activeModule: string }) 
                 </Link>
               );
             })}
+            {popoverFeatures.length === 0 ? (
+              <p className="studio-top-navigation-empty">{t("comingSoon")}</p>
+            ) : null}
           </div>
         </div>
       ) : null}
