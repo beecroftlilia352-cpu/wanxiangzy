@@ -37,7 +37,6 @@
    Disabled when reduced-motion is preferred. */
 .btn-press {
   transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
 }
 
 .btn-press:active:not(:disabled):not([aria-disabled="true"]) {
@@ -288,26 +287,26 @@ a,
 
 @layer base {
   :root {
-    --background: 222 100% 96%;
-    --foreground: 0 0% 2%;
+    --background: 216 20% 96%;
+    --foreground: 225 13% 10%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 2%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 2%;
-    --primary: 230 100% 68%;
+    --primary: 220 31% 47%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 100% 96%;
-    --secondary-foreground: 226 18% 18%;
-    --muted: 222 46% 94%;
-    --muted-foreground: 224 13% 34%;
-    --accent: 230 100% 68%;
+    --secondary: 216 18% 95%;
+    --secondary-foreground: 224 16% 20%;
+    --muted: 216 14% 93%;
+    --muted-foreground: 220 10% 35%;
+    --accent: 220 31% 47%;
     --accent-foreground: 0 0% 100%;
     --destructive: 2 64% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 226 35% 86%;
-    --input: 226 35% 86%;
-    --ring: 230 100% 68%;
-    --radius: 1rem;
+    --border: 220 13% 85%;
+    --input: 220 13% 85%;
+    --ring: 220 31% 47%;
+    --radius: 0.75rem;
     --radius-sm: calc(var(--radius) - 4px);
     --radius-md: calc(var(--radius) - 2px);
     --radius-lg: var(--radius);
@@ -315,12 +314,12 @@ a,
     --spacing: 0.25rem;
     --font-heading: var(--font-sans);
 
-    --codex-ink: #050505;
-    --codex-muted: #4b5263;
-    --codex-faint: #7b8498;
-    --codex-surface: #ffffff;
-    --codex-surface-soft: rgba(255, 255, 255, 0.78);
-    --codex-surface-strong: rgba(255, 255, 255, 0.92);
+    --codex-ink: #17191f;
+    --codex-muted: #4b5260;
+    --codex-faint: #747c8c;
+    --codex-surface: #fbfbfc;
+    --codex-surface-soft: rgba(251, 251, 252, 0.94);
+    --codex-surface-strong: rgba(251, 251, 252, 0.98);
     /* White overlay alpha tiers — replaces ad-hoc rgba(255,255,255,*) for glassy surfaces.
        Suffix is alpha × 100, so -04 = 4% alpha, -82 = 82% alpha. */
     --codex-surface-04: rgba(255, 255, 255, 0.04);
@@ -329,63 +328,62 @@ a,
     --codex-surface-10: rgba(255, 255, 255, 0.10);
     --codex-surface-72: rgba(255, 255, 255, 0.72);
     --codex-surface-82: rgba(255, 255, 255, 0.82);
-    --codex-border: rgba(17, 24, 39, 0.12);
-    --codex-border-strong: rgba(17, 24, 39, 0.2);
-    --codex-border-soft: rgba(226, 232, 240, 0.92);
-    --codex-radius-sm: 10px;
-    --codex-radius-md: 16px;
-    --codex-radius-lg: 24px;
-    --codex-radius-xl: 32px;
-    --codex-accent: #5b7cff;
-    --codex-accent-soft: #aeb8ff;
-    --codex-ice: #dbe8ff;
-    --codex-dark: #07080d;
+    --codex-border: rgba(26, 29, 35, 0.12);
+    --codex-border-strong: rgba(26, 29, 35, 0.2);
+    --codex-border-soft: rgba(223, 226, 232, 0.92);
+    --codex-radius-sm: 8px;
+    --codex-radius-md: 12px;
+    --codex-radius-lg: 18px;
+    --codex-radius-xl: 24px;
+    --codex-accent: #52699c;
+    --codex-accent-soft: #9aa7c2;
+    --codex-ice: #e8ebf1;
+    --codex-dark: #17191f;
     --codex-success: #22885f;
     --codex-warning: #a66a00;
     --codex-danger: #d13b35;
-    --codex-running: #5b7cff;
+    --codex-running: #52699c;
     /* Accent alpha tiers — replaces ad-hoc rgba(91,124,255,*) for selection / hover / shadow */
-    --codex-accent-04: rgba(91, 124, 255, 0.04);
-    --codex-accent-06: rgba(91, 124, 255, 0.06);
-    --codex-accent-08: rgba(91, 124, 255, 0.08);
-    --codex-accent-10: rgba(91, 124, 255, 0.10);
-    --codex-accent-12: rgba(91, 124, 255, 0.12);
-    --codex-accent-14: rgba(91, 124, 255, 0.14);
-    --codex-accent-16: rgba(91, 124, 255, 0.16);
-    --codex-accent-18: rgba(91, 124, 255, 0.18);
-    --codex-accent-20: rgba(91, 124, 255, 0.20);
-    --codex-accent-22: rgba(91, 124, 255, 0.22);
-    --codex-accent-24: rgba(91, 124, 255, 0.24);
-    --codex-accent-25: rgba(91, 124, 255, 0.25);
-    --codex-accent-26: rgba(91, 124, 255, 0.26);
-    --codex-accent-28: rgba(91, 124, 255, 0.28);
-    --codex-accent-30: rgba(91, 124, 255, 0.30);
-    --codex-accent-32: rgba(91, 124, 255, 0.32);
-    --codex-accent-34: rgba(91, 124, 255, 0.34);
-    --codex-accent-35: rgba(91, 124, 255, 0.35);
-    --codex-accent-38: rgba(91, 124, 255, 0.38);
-    --codex-accent-40: rgba(91, 124, 255, 0.40);
-    --codex-accent-42: rgba(91, 124, 255, 0.42);
-    --codex-accent-45: rgba(91, 124, 255, 0.45);
-    --codex-accent-48: rgba(91, 124, 255, 0.48);
-    --codex-accent-50: rgba(91, 124, 255, 0.50);
-    --codex-accent-52: rgba(91, 124, 255, 0.52);
-    --codex-accent-55: rgba(91, 124, 255, 0.55);
-    --codex-accent-58: rgba(91, 124, 255, 0.58);
-    --codex-accent-60: rgba(91, 124, 255, 0.60);
-    --codex-accent-62: rgba(91, 124, 255, 0.62);
-    --codex-accent-70: rgba(91, 124, 255, 0.70);
-    --codex-accent-72: rgba(91, 124, 255, 0.72);
-    --codex-accent-75: rgba(91, 124, 255, 0.75);
-    --codex-accent-92: rgba(91, 124, 255, 0.92);
-    /* Motion — 统一节奏：fast 微交互 150ms / base 状态过渡 250ms / slow 场景过渡 400ms；
-       缓动用 spring-feel out-cubic（进入快出慢，符合高级质感） */
-    --codex-motion-fast: 150ms;
-    --codex-motion-base: 250ms;
-    --codex-motion-slow: 400ms;
+    --codex-accent-04: rgba(82, 105, 156, 0.04);
+    --codex-accent-06: rgba(82, 105, 156, 0.06);
+    --codex-accent-08: rgba(82, 105, 156, 0.08);
+    --codex-accent-10: rgba(82, 105, 156, 0.10);
+    --codex-accent-12: rgba(82, 105, 156, 0.12);
+    --codex-accent-14: rgba(82, 105, 156, 0.14);
+    --codex-accent-16: rgba(82, 105, 156, 0.16);
+    --codex-accent-18: rgba(82, 105, 156, 0.18);
+    --codex-accent-20: rgba(82, 105, 156, 0.20);
+    --codex-accent-22: rgba(82, 105, 156, 0.22);
+    --codex-accent-24: rgba(82, 105, 156, 0.24);
+    --codex-accent-25: rgba(82, 105, 156, 0.25);
+    --codex-accent-26: rgba(82, 105, 156, 0.26);
+    --codex-accent-28: rgba(82, 105, 156, 0.28);
+    --codex-accent-30: rgba(82, 105, 156, 0.30);
+    --codex-accent-32: rgba(82, 105, 156, 0.32);
+    --codex-accent-34: rgba(82, 105, 156, 0.34);
+    --codex-accent-35: rgba(82, 105, 156, 0.35);
+    --codex-accent-38: rgba(82, 105, 156, 0.38);
+    --codex-accent-40: rgba(82, 105, 156, 0.40);
+    --codex-accent-42: rgba(82, 105, 156, 0.42);
+    --codex-accent-45: rgba(82, 105, 156, 0.45);
+    --codex-accent-48: rgba(82, 105, 156, 0.48);
+    --codex-accent-50: rgba(82, 105, 156, 0.50);
+    --codex-accent-52: rgba(82, 105, 156, 0.52);
+    --codex-accent-55: rgba(82, 105, 156, 0.55);
+    --codex-accent-58: rgba(82, 105, 156, 0.58);
+    --codex-accent-60: rgba(82, 105, 156, 0.60);
+    --codex-accent-62: rgba(82, 105, 156, 0.62);
+    --codex-accent-70: rgba(82, 105, 156, 0.70);
+    --codex-accent-72: rgba(82, 105, 156, 0.72);
+    --codex-accent-75: rgba(82, 105, 156, 0.75);
+    --codex-accent-92: rgba(82, 105, 156, 0.92);
+    /* Motion — 快速反馈、清晰状态变化、克制场景过渡。 */
+    --codex-motion-fast: 140ms;
+    --codex-motion-base: 200ms;
+    --codex-motion-slow: 280ms;
     --codex-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --codex-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --codex-selection: rgba(91, 124, 255, 0.22);
+    --codex-selection: rgba(82, 105, 156, 0.22);
     --font-ui-sans: var(--font-sans);
     --codex-font:
       var(--font-ui-sans),
@@ -401,26 +399,24 @@ a,
       "Noto Sans CJK SC",
       sans-serif;
     --codex-mono: "SF Mono", "Cascadia Code", "JetBrains Mono", ui-monospace, monospace;
-    --codex-shadow-sm: 0 1px 2px rgba(5, 5, 5, 0.07), 0 2px 6px rgba(5, 5, 5, 0.04);
-    --codex-shadow-md: 0 1px 2px rgba(14, 18, 38, 0.08), 0 6px 18px rgba(14, 18, 38, 0.07), 0 20px 48px rgba(14, 18, 38, 0.10);
-    --codex-shadow-lg: 0 1px 2px rgba(7, 8, 13, 0.10), 0 12px 32px rgba(7, 8, 13, 0.14), 0 40px 100px rgba(7, 8, 13, 0.24);
+    --codex-shadow-sm: 0 1px 2px rgba(23, 25, 31, 0.05), 0 3px 10px rgba(23, 25, 31, 0.04);
+    --codex-shadow-md: 0 1px 2px rgba(23, 25, 31, 0.06), 0 12px 30px rgba(23, 25, 31, 0.08);
+    --codex-shadow-lg: 0 2px 6px rgba(23, 25, 31, 0.08), 0 24px 64px rgba(23, 25, 31, 0.13);
     --codex-gradient-page:
-      radial-gradient(circle at 10% 0%, rgba(91, 124, 255, 0.36), transparent 34%),
-      radial-gradient(circle at 88% 4%, rgba(174, 184, 255, 0.52), transparent 36%),
-      linear-gradient(180deg, #eef4ff 0%, #dbe8ff 38%, #f8fbff 100%);
+      radial-gradient(circle at 0% 0%, rgba(112, 132, 172, 0.20), transparent 32%),
+      radial-gradient(circle at 100% 0%, rgba(205, 177, 161, 0.14), transparent 34%),
+      linear-gradient(180deg, #f3f5f8 0%, #edf0f3 100%);
     --codex-gradient-hero:
-      radial-gradient(circle at 10% 10%, rgba(91, 124, 255, 0.72), transparent 32%),
-      radial-gradient(circle at 82% 16%, rgba(174, 184, 255, 0.88), transparent 38%),
-      linear-gradient(180deg, #dbe8ff 0%, #aeb8ff 54%, #5f6f9d 78%, #07080d 100%);
+      radial-gradient(circle at 8% 8%, rgba(112, 132, 172, 0.28), transparent 34%),
+      radial-gradient(circle at 88% 10%, rgba(205, 177, 161, 0.18), transparent 38%),
+      linear-gradient(180deg, #eef0f3 0%, #c7cdd7 54%, #4a515c 80%, #17191f 100%);
     --codex-gradient-primary:
       linear-gradient(180deg, rgba(255, 255, 255, 0.13), transparent 38%),
       linear-gradient(180deg, #111318 0%, #050505 100%);
-    --codex-gradient-loader:
-      radial-gradient(circle at 44% 35%, rgba(231, 243, 255, 0.92) 0 10%, transparent 34%),
-      linear-gradient(113deg, #307dff 0%, #89bfff 25%, #d6eaff 45%, #7f7aff 72%, #4a63f6 100%);
+    --codex-gradient-loader: linear-gradient(145deg, #30363d 0%, #20252b 100%);
 
     /* Legacy aliases kept while pages migrate. */
-    --studio-bg: #eef4ff;
+    --studio-bg: #eef0f3;
     --studio-panel: var(--codex-surface-soft);
     --studio-panel-strong: var(--codex-surface-strong);
     --studio-border: var(--codex-border);
@@ -438,19 +434,19 @@ a,
     --studio-top-content-gap: 6px;
     --studio-task-rail-width: 76px;
     --studio-nav-rail-width: 60px;
-    --chart-1: 230 100% 68%;
+    --chart-1: 220 31% 47%;
     --chart-2: 185 58% 48%;
     --chart-3: 38 92% 55%;
     --chart-4: 2 64% 51%;
     --chart-5: 262 72% 58%;
     --sidebar: 0 0% 100%;
     --sidebar-foreground: 0 0% 2%;
-    --sidebar-primary: 230 100% 68%;
+    --sidebar-primary: 220 31% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 100% 96%;
+    --sidebar-accent: 216 18% 95%;
     --sidebar-accent-foreground: 226 18% 18%;
-    --sidebar-border: 226 35% 86%;
-    --sidebar-ring: 230 100% 68%;
+    --sidebar-border: 220 13% 85%;
+    --sidebar-ring: 220 31% 47%;
   }
 
   * {
@@ -460,7 +456,7 @@ a,
   }
 
   html {
-    background-color: #eef4ff;
+    background-color: #edf0f3;
     scrollbar-gutter: stable;
     text-size-adjust: 100%;
     @apply font-sans;
@@ -474,13 +470,11 @@ a,
     width: 100%;
     min-height: 100dvh;
     overflow-x: hidden;
-    background-color: #eef4ff;
+    background-color: #edf0f3;
     background-image: var(--codex-gradient-page);
     background-attachment: fixed;
     color: var(--codex-ink);
     font-family: var(--codex-font);
-    font-feature-settings: "rlig" 1, "calt" 1;
-    text-rendering: optimizeLegibility;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -509,51 +503,51 @@ a,
     --font-sans: var(--font-sans);
   }
   .dark {
-    --background: 226 18% 12%;
+    --background: 220 8% 10%;
     --foreground: 0 0% 98%;
-    --card: 226 18% 16%;
+    --card: 220 7% 13%;
     --card-foreground: 0 0% 98%;
-    --popover: 226 18% 16%;
+    --popover: 220 7% 13%;
     --popover-foreground: 0 0% 98%;
-    --primary: 230 100% 76%;
-    --primary-foreground: 226 18% 12%;
-    --secondary: 226 18% 20%;
+    --primary: 220 34% 64%;
+    --primary-foreground: 220 8% 10%;
+    --secondary: 220 7% 18%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 226 18% 20%;
-    --muted-foreground: 224 13% 70%;
-    --accent: 230 100% 76%;
-    --accent-foreground: 226 18% 12%;
+    --muted: 220 7% 18%;
+    --muted-foreground: 220 9% 70%;
+    --accent: 220 34% 64%;
+    --accent-foreground: 220 8% 10%;
     --destructive: 2 70% 63%;
-    --border: 226 18% 28%;
-    --input: 226 18% 28%;
-    --ring: 230 100% 76%;
+    --border: 220 7% 27%;
+    --input: 220 7% 27%;
+    --ring: 220 34% 64%;
     --chart-1: 230 100% 76%;
     --chart-2: 185 58% 58%;
     --chart-3: 38 92% 65%;
     --chart-4: 2 70% 58%;
     --chart-5: 262 72% 68%;
-    --sidebar: 226 18% 16%;
+    --sidebar: 220 7% 13%;
     --sidebar-foreground: 0 0% 98%;
     --codex-ink: #f5f5f7;
     --codex-muted: #b3bac7;
     --codex-faint: #8b94a8;
-    --codex-surface: #16181f;
-    --codex-surface-soft: rgba(22, 24, 31, 0.82);
-    --codex-surface-strong: rgba(22, 24, 31, 0.94);
+    --codex-surface: #1b1d21;
+    --codex-surface-soft: rgba(27, 29, 33, 0.92);
+    --codex-surface-strong: rgba(27, 29, 33, 0.98);
     --codex-border: rgba(255, 255, 255, 0.12);
     --codex-border-strong: rgba(255, 255, 255, 0.2);
     --codex-border-soft: rgba(255, 255, 255, 0.1);
-    --codex-ice: #1e2438;
-    --codex-accent-soft: #7c86e8;
+    --codex-ice: #292d35;
+    --codex-accent-soft: #66769a;
     --codex-success: #30d158;
     --codex-warning: #ffb340;
     --codex-danger: #ff6b61;
-    --sidebar-primary: 230 100% 76%;
-    --sidebar-primary-foreground: 226 18% 12%;
-    --sidebar-accent: 226 18% 20%;
+    --sidebar-primary: 220 34% 64%;
+    --sidebar-primary-foreground: 220 8% 10%;
+    --sidebar-accent: 220 7% 18%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 226 18% 28%;
-    --sidebar-ring: 230 100% 76%;
+    --sidebar-border: 220 7% 27%;
+    --sidebar-ring: 220 34% 64%;
 
     /* ==========================================================================
        Codex design system — dark mode overrides.
@@ -565,9 +559,9 @@ a,
     --codex-ink: #f5f5f7;
     --codex-muted: #a8aab2;
     --codex-faint: #7a7d85;
-    --codex-surface: #1c1c1e;
-    --codex-surface-soft: rgba(38, 38, 40, 0.78);
-    --codex-surface-strong: rgba(28, 28, 30, 0.92);
+    --codex-surface: #1b1d21;
+    --codex-surface-soft: rgba(32, 34, 39, 0.92);
+    --codex-surface-strong: rgba(27, 29, 33, 0.98);
     /* White overlay alpha tiers (dark) — low-tier tints match light naming;
        -72/-82 deliberately lower than 72%/82% so dark glass panels don't blow out. */
     --codex-surface-04: rgba(255, 255, 255, 0.04);
@@ -578,68 +572,66 @@ a,
     --codex-surface-82: rgba(255, 255, 255, 0.18);
     --codex-border: rgba(255, 255, 255, 0.12);
     --codex-border-strong: rgba(255, 255, 255, 0.20);
-    --codex-accent: #5b8cff;
-    --codex-accent-soft: #2a3d6e;
-    --codex-ice: #1f2a44;
+    --codex-accent: #778bb9;
+    --codex-accent-soft: #39445c;
+    --codex-ice: #292d35;
     --codex-dark: #ffffff;
     /* Accent alpha tiers (dark) — slightly brighter rgba so dark-mode glow still reads */
-    --codex-accent-04: rgba(91, 140, 255, 0.04);
-    --codex-accent-06: rgba(91, 140, 255, 0.06);
-    --codex-accent-08: rgba(91, 140, 255, 0.08);
-    --codex-accent-10: rgba(91, 140, 255, 0.10);
-    --codex-accent-12: rgba(91, 140, 255, 0.12);
-    --codex-accent-14: rgba(91, 140, 255, 0.14);
-    --codex-accent-16: rgba(91, 140, 255, 0.16);
-    --codex-accent-18: rgba(91, 140, 255, 0.18);
-    --codex-accent-20: rgba(91, 140, 255, 0.20);
-    --codex-accent-22: rgba(91, 140, 255, 0.22);
-    --codex-accent-24: rgba(91, 140, 255, 0.24);
-    --codex-accent-25: rgba(91, 140, 255, 0.25);
-    --codex-accent-26: rgba(91, 140, 255, 0.26);
-    --codex-accent-28: rgba(91, 140, 255, 0.28);
-    --codex-accent-30: rgba(91, 140, 255, 0.30);
-    --codex-accent-32: rgba(91, 140, 255, 0.32);
-    --codex-accent-34: rgba(91, 140, 255, 0.34);
-    --codex-accent-35: rgba(91, 140, 255, 0.35);
-    --codex-accent-38: rgba(91, 140, 255, 0.38);
-    --codex-accent-40: rgba(91, 140, 255, 0.40);
-    --codex-accent-42: rgba(91, 140, 255, 0.42);
-    --codex-accent-45: rgba(91, 140, 255, 0.45);
-    --codex-accent-48: rgba(91, 140, 255, 0.48);
-    --codex-accent-50: rgba(91, 140, 255, 0.50);
-    --codex-accent-52: rgba(91, 140, 255, 0.52);
-    --codex-accent-55: rgba(91, 140, 255, 0.55);
-    --codex-accent-58: rgba(91, 140, 255, 0.58);
-    --codex-accent-60: rgba(91, 140, 255, 0.60);
-    --codex-accent-62: rgba(91, 140, 255, 0.62);
-    --codex-accent-70: rgba(91, 140, 255, 0.70);
-    --codex-accent-72: rgba(91, 140, 255, 0.72);
-    --codex-accent-75: rgba(91, 140, 255, 0.75);
-    --codex-accent-92: rgba(91, 140, 255, 0.92);
+    --codex-accent-04: rgba(103, 128, 184, 0.04);
+    --codex-accent-06: rgba(103, 128, 184, 0.06);
+    --codex-accent-08: rgba(103, 128, 184, 0.08);
+    --codex-accent-10: rgba(103, 128, 184, 0.10);
+    --codex-accent-12: rgba(103, 128, 184, 0.12);
+    --codex-accent-14: rgba(103, 128, 184, 0.14);
+    --codex-accent-16: rgba(103, 128, 184, 0.16);
+    --codex-accent-18: rgba(103, 128, 184, 0.18);
+    --codex-accent-20: rgba(103, 128, 184, 0.20);
+    --codex-accent-22: rgba(103, 128, 184, 0.22);
+    --codex-accent-24: rgba(103, 128, 184, 0.24);
+    --codex-accent-25: rgba(103, 128, 184, 0.25);
+    --codex-accent-26: rgba(103, 128, 184, 0.26);
+    --codex-accent-28: rgba(103, 128, 184, 0.28);
+    --codex-accent-30: rgba(103, 128, 184, 0.30);
+    --codex-accent-32: rgba(103, 128, 184, 0.32);
+    --codex-accent-34: rgba(103, 128, 184, 0.34);
+    --codex-accent-35: rgba(103, 128, 184, 0.35);
+    --codex-accent-38: rgba(103, 128, 184, 0.38);
+    --codex-accent-40: rgba(103, 128, 184, 0.40);
+    --codex-accent-42: rgba(103, 128, 184, 0.42);
+    --codex-accent-45: rgba(103, 128, 184, 0.45);
+    --codex-accent-48: rgba(103, 128, 184, 0.48);
+    --codex-accent-50: rgba(103, 128, 184, 0.50);
+    --codex-accent-52: rgba(103, 128, 184, 0.52);
+    --codex-accent-55: rgba(103, 128, 184, 0.55);
+    --codex-accent-58: rgba(103, 128, 184, 0.58);
+    --codex-accent-60: rgba(103, 128, 184, 0.60);
+    --codex-accent-62: rgba(103, 128, 184, 0.62);
+    --codex-accent-70: rgba(103, 128, 184, 0.70);
+    --codex-accent-72: rgba(103, 128, 184, 0.72);
+    --codex-accent-75: rgba(103, 128, 184, 0.75);
+    --codex-accent-92: rgba(103, 128, 184, 0.92);
     --codex-success: #30d158;
     --codex-warning: #ff9f0a;
     --codex-danger: #ff453a;
-    --codex-running: #5b8cff;
-    --codex-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-    --codex-shadow-md: 0 18px 50px rgba(0, 0, 0, 0.55);
-    --codex-shadow-lg: 0 40px 120px rgba(0, 0, 0, 0.7);
+    --codex-running: #778bb9;
+    --codex-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.34);
+    --codex-shadow-md: 0 14px 36px rgba(0, 0, 0, 0.42);
+    --codex-shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.52);
     --codex-gradient-page:
-      radial-gradient(circle at 10% 0%, rgba(91, 140, 255, 0.18), transparent 38%),
-      radial-gradient(circle at 88% 4%, rgba(174, 184, 255, 0.14), transparent 40%),
-      linear-gradient(180deg, #14141a 0%, #0c0c10 50%, #0a0a0e 100%);
+      radial-gradient(circle at 0% 0%, rgba(103, 128, 184, 0.14), transparent 36%),
+      radial-gradient(circle at 100% 0%, rgba(145, 112, 99, 0.10), transparent 38%),
+      linear-gradient(180deg, #181a1e 0%, #131519 100%);
     --codex-gradient-hero:
-      radial-gradient(circle at 10% 10%, rgba(91, 140, 255, 0.42), transparent 32%),
-      radial-gradient(circle at 82% 16%, rgba(174, 184, 255, 0.30), transparent 38%),
-      linear-gradient(180deg, #1f2a44 0%, #11162a 54%, #0a0c14 78%, #050608 100%);
+      radial-gradient(circle at 8% 8%, rgba(103, 128, 184, 0.20), transparent 34%),
+      radial-gradient(circle at 88% 10%, rgba(145, 112, 99, 0.12), transparent 38%),
+      linear-gradient(180deg, #292d34 0%, #202328 56%, #17191d 100%);
     --codex-gradient-primary:
       linear-gradient(180deg, var(--codex-surface-10), transparent 38%),
       linear-gradient(180deg, #2c2c2e 0%, #1c1c1e 100%);
-    --codex-gradient-loader:
-      radial-gradient(circle at 44% 35%, rgba(91, 140, 255, 0.55) 0 10%, transparent 34%),
-      linear-gradient(113deg, #307dff 0%, #89bfff 25%, #d6eaff 45%, #7f7aff 72%, #4a63f6 100%);
+    --codex-gradient-loader: linear-gradient(145deg, #32373e 0%, #1f2328 100%);
 
     /* Legacy aliases (kept while pages migrate). */
-    --studio-bg: #0c0c10;
+    --studio-bg: #131519;
     --studio-panel: var(--codex-surface-soft);
     --studio-panel-strong: var(--codex-surface-strong);
     --studio-border: var(--codex-border);
@@ -686,7 +678,7 @@ a,
 
 /* 选中文本：品牌色调 */
 ::selection {
-  background: var(--codex-selection, rgba(91, 124, 255, 0.22));
+  background: var(--codex-selection, rgba(82, 105, 156, 0.22));
 }
 
 /* Sonner toast：品牌语言（令牌圆角 + 描边 + key-light + 分层阴影） */
