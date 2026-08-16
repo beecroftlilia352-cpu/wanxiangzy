@@ -1525,7 +1525,7 @@
   outline-offset: -2px;
 }
 
-/* ===== Tab badge (NEW / BETA，红色倾斜角标) ===== */
+/* ===== Tab badge (参考顶导：深灰胶囊角标) ===== */
 .studio-tab-badge {
   display: inline-flex;
   align-items: center;
@@ -1537,41 +1537,31 @@
     "Segoe UI",
     Roboto,
     sans-serif;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   white-space: nowrap;
+  background: #555764;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: none;
+  text-shadow: none;
 }
 
 .studio-tab-badge-floating {
   position: absolute;
-  top: -7px;
-  right: -10px;
-  height: 16px;
-  padding: 0 5px;
-  border-radius: 5px;
-  background: linear-gradient(135deg, var(--codex-danger) 0%, #ff7a72 100%);
-  color: #fff;
+  top: -11px;
+  right: -14px;
+  height: 15px;
+  padding: 0 6px;
+  border-radius: 999px;
   font-size: 9px;
-  font-weight: 800;
-  line-height: 1;
-  transform: rotate(-10deg);
-  box-shadow:
-    0 4px 10px rgba(209, 59, 53, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
 }
 
 .studio-tab-badge-inline {
-  height: 18px;
-  padding: 0 7px;
-  border-radius: 6px;
-  background: var(--codex-danger);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow:
-    0 2px 6px rgba(209, 59, 53, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 9px;
 }
 
 /* ===== Resolution selector (设计稿：紫色 marker 标题 + 1×N 分段档位卡片) ===== */

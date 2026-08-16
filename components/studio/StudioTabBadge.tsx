@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
  * 顶导 / 侧导 tab 上的「NEW / BETA」类角标。
  *
  * 设计要点：
- * - 红色实心 + 白字，对比强烈，扫一眼就能注意到新功能
- * - 倾斜 -10° + 投影 + 白边，挂在文字右上角时不抢戏但又有质感
- * - 不依赖颜色库：复用 `--codex-danger` 主题色，自动跟随明暗模式
+ * - 深灰实心胶囊 + 白字，对齐产品顶部导航参考样式
+ * - 无旋转、无彩色投影，紧贴文字右上方
+ * - NEW 统一呈现为更自然的 `New`
  *
  * a11y：默认对屏幕阅读器隐藏（角标是装饰性的视觉强调）。如果角标文字本身
  * 携带了独立于父链接的信息（例如「BETA」对未激活用户是重要状态），传
@@ -28,6 +28,10 @@ export function StudioTabBadge({
   variant = "floating",
   decorative = true,
 }: StudioTabBadgeProps) {
+  const displayLabel = typeof children === "string" && children.toUpperCase() === "NEW"
+    ? "New"
+    : children;
+
   return (
     <span
       aria-hidden={decorative ? "true" : undefined}
@@ -39,7 +43,7 @@ export function StudioTabBadge({
         className
       )}
     >
-      {children}
+      {displayLabel}
     </span>
   );
 }
