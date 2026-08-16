@@ -4343,6 +4343,7 @@
     "searchQuery": "Suchen",
     "confirmNotInitialized": "Bestätigungsdialog nicht initialisiert — Aktion wurde nicht ausgeführt",
     "operationFailed": "Vorgang fehlgeschlagen",
+    "resolutionClarity": "Bildschärfe",
     "resolutionStandard": "Standard",
     "resolutionHD": "HD",
     "resolutionUltra": "Ultra",

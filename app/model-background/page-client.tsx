@@ -1003,7 +1003,7 @@ export default function ModelBackgroundPage() {
 
           <section>
             <ResolutionSelector
-              titleKey="resolution"
+              title={t("resolution")}
               options={imageSizes.map((size) => ({
                 value: size,
                 label: size,

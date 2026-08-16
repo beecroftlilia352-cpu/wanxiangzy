@@ -2206,7 +2206,7 @@ export default function PosePage() {
           {imageSizes.length > 1 && (
             <section>
               <ResolutionSelector
-                titleKey="resolution.title"
+                title={t("resolution.title")}
                 options={imageSizes.map((size) => ({
                   value: size,
                   label: size,

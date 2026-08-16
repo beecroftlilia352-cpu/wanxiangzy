@@ -19,6 +19,7 @@ import {
   StudioOptionGrid,
 } from "@/components/studio/StudioFormControls";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -793,19 +794,17 @@ export function ProductRetouchExperience() {
                     ariaLabel={t("section.aspectAria")}
                   />
                 </div>
-                <div className="mt-4">
-                  <Label className="mb-2 block">{t("section.resolutionLabel")}</Label>
-                  <StudioOptionGrid
-                    value={imageSize}
-                    options={displaySizes.map((option) => ({
-                      ...option,
-                      disabled: !getSupportedImageSizes(model, aspectRatio).includes(option.value),
-                    }))}
-                    onChange={setImageSize}
-                    ariaLabel={t("section.resolutionAria")}
-                    columns={3}
-                  />
-                </div>
+                <ResolutionSelector
+                  className="mt-4"
+                  title={t("section.resolutionLabel")}
+                  value={imageSize}
+                  options={displaySizes.map((option) => ({
+                    ...option,
+                    disabled: !getSupportedImageSizes(model, aspectRatio).includes(option.value),
+                  }))}
+                  onChange={setImageSize}
+                  ariaLabel={t("section.resolutionAria")}
+                />
                 <GenerationCountField
                   className="mt-4"
                   title={t("section.perSourceLabel")}

@@ -3492,6 +3492,7 @@
     "searchQuery": "検索",
     "confirmNotInitialized": "確認ダイアログが初期化されていないため、操作は実行されませんでした",
     "operationFailed": "操作に失敗しました",
+    "resolutionClarity": "鮮明度",
     "resolutionStandard": "標準",
     "resolutionHD": "HD",
     "resolutionUltra": "超高精細",

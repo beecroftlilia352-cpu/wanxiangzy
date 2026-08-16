@@ -968,7 +968,7 @@ export default function Garment3dPage() {
 
           <section>
             <ResolutionSelector
-              titleKey="sizeSectionTitle"
+              title={t("sizeSectionTitle")}
               options={resolutionOptions}
               value={imageSize}
               onChange={setImageSize}

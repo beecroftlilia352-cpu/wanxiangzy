@@ -904,7 +904,7 @@ export default function FaceSwapPage() {
 
           <section>
             <ResolutionSelector
-              titleKey="sizeSectionTitle"
+              title={t("sizeSectionTitle")}
               options={supportedSizes.map((size) => ({
                 value: size,
                 label: size,

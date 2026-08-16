@@ -4362,6 +4362,7 @@
     "searchQuery": "Search",
     "confirmNotInitialized": "Confirm dialog not initialized — action was not executed",
     "operationFailed": "Operation failed",
+    "resolutionClarity": "Clarity",
     "resolutionStandard": "Standard",
     "resolutionHD": "HD",
     "resolutionUltra": "Ultra"

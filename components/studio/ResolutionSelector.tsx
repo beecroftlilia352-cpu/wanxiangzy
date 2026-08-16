@@ -8,8 +8,7 @@ import { cn } from "@/lib/utils";
  * 分辨率档位（1K/2K/4K）的视觉选择器。
  *
  * 设计语言沿用 AspectRatioSelector：紫色 marker 标题 + 卡片化分段控件，
- * 可选档位角标（Member / Enterprise）通过 props 控制是否渲染，
- * 业务方按用户等级决定要不要挂会员/企业版锁。
+ * 2K 默认显示「推荐」角标；业务方仍可通过 props 覆盖为会员 / 企业版角标。
  */
 export type ResolutionOption<T extends string = string> = {
   value: T;
@@ -18,8 +17,9 @@ export type ResolutionOption<T extends string = string> = {
   /** next-intl key path; takes precedence over `label` when provided. */
   labelKey?: string;
   /**
-   * Optional second line shown under the main label, e.g. "标清 / 高清 / 超清".
-   * Use `descriptionKey` for i18n.
+   * Optional supporting text. For 1K / 2K / 4K, the visible descriptor is
+   * normalized to the localized 标清 / 高清 / 超清 label and this value stays
+   * available in the accessible name (for example, to preserve credit cost).
    */
   description?: string;
   descriptionKey?: string;
@@ -32,15 +32,12 @@ export type ResolutionSelectorProps<T extends string = string> = {
   onChange: (value: T) => void;
   /** Title rendered above the row with the purple marker accent. */
   title?: ReactNode;
-  /** next-intl key for the title; takes precedence over `title`. */
-  titleKey?: string;
   /** Accessible label for the radio group; falls back to the title text. */
   ariaLabel?: string;
   /**
-   * Per-value tier badge — render the Member / Enterprise corner tag.
-   * 默认全部关闭；业务模块按用户等级或产品策略开启。
+   * Per-value badge override. 2K defaults to `recommended` when omitted.
    */
-  badges?: Partial<Record<T, "member" | "enterprise">>;
+  badges?: Partial<Record<T, "recommended" | "member" | "enterprise">>;
   /** Optional icon rendered before the title text (e.g. lucide Monitor). */
   icon?: ComponentType<{ className?: string }>;
   className?: string;
@@ -48,11 +45,27 @@ export type ResolutionSelectorProps<T extends string = string> = {
 
 function resolveBadgeLabel(
   t: ReturnType<typeof useTranslations>,
-  tier: "member" | "enterprise" | undefined
+  tier: "recommended" | "member" | "enterprise" | undefined
 ): string | null {
   if (!tier) return null;
+  if (tier === "recommended") return t("Shared.modelBadge.recommended");
   if (tier === "member") return t("Shared.tierBadge.member");
   return t("Shared.tierBadge.enterprise");
+}
+
+function resolveClarityLabel(
+  t: ReturnType<typeof useTranslations>,
+  value: string,
+): string | null {
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "1K") return t("Shared.resolutionStandard");
+  if (normalized === "2K") return t("Shared.resolutionHD");
+  if (normalized === "4K") return t("Shared.resolutionUltra");
+  return null;
+}
+
+function isImageClarityTier(value: string): boolean {
+  return ["1K", "2K", "4K"].includes(value.trim().toUpperCase());
 }
 
 export function ResolutionSelector<T extends string = string>({
@@ -60,19 +73,15 @@ export function ResolutionSelector<T extends string = string>({
   value,
   onChange,
   title,
-  titleKey,
   ariaLabel,
   badges,
   icon: Icon,
   className,
 }: ResolutionSelectorProps<T>) {
   const t = useTranslations();
-  const resolvedTitle = titleKey ? t(titleKey) : title;
-  const fallbackAria = titleKey
-    ? t(titleKey)
-    : typeof title === "string"
-      ? title
-      : undefined;
+  const usesImageClarityTiers = options.some((option) => isImageClarityTier(String(option.value)));
+  const resolvedTitle = usesImageClarityTiers ? t("Shared.resolutionClarity") : title;
+  const fallbackAria = typeof title === "string" ? title : undefined;
   // Guard against empty / missing i18n keys — an empty aria-label removes the
   // radiogroup's accessible name, which breaks screen reader navigation.
   const resolvedAriaLabel =
@@ -104,21 +113,20 @@ export function ResolutionSelector<T extends string = string>({
           const descriptionText = option.descriptionKey
             ? t(option.descriptionKey)
             : option.description;
-          const badgeTier = badges?.[option.value];
+          const clarityText = resolveClarityLabel(t, String(option.value));
+          const badgeTier = badges?.[option.value]
+            ?? (String(option.value).trim().toUpperCase() === "2K" ? "recommended" : undefined);
           const badgeText = resolveBadgeLabel(t, badgeTier);
+          const accessibilityLabel = [labelText, clarityText, descriptionText]
+            .filter((part) => part && part.trim() !== "")
+            .join(" · ");
           return (
             <button
               key={option.value}
               type="button"
               role="radio"
               aria-checked={selected}
-              aria-label={
-                descriptionText
-                  ? `${labelText} · ${descriptionText}`
-                  : typeof labelText === "string"
-                    ? labelText
-                    : undefined
-              }
+              aria-label={accessibilityLabel || undefined}
               disabled={option.disabled}
               onClick={() => onChange(option.value as T)}
               title={typeof labelText === "string" ? labelText : undefined}
@@ -135,7 +143,9 @@ export function ResolutionSelector<T extends string = string>({
                     "studio-resolution-selector-badge",
                     badgeTier === "enterprise"
                       ? "studio-resolution-selector-badge-enterprise"
-                      : "studio-resolution-selector-badge-member"
+                      : badgeTier === "recommended"
+                        ? "studio-resolution-selector-badge-recommended"
+                        : "studio-resolution-selector-badge-member"
                   )}
                 >
                   <svg viewBox="0 0 12 12" aria-hidden="true" className="studio-resolution-selector-badge-spark">
@@ -147,8 +157,13 @@ export function ResolutionSelector<T extends string = string>({
                   {badgeText}
                 </span>
               ) : null}
-              <span className="studio-resolution-selector-label">{labelText}</span>
-              {descriptionText ? (
+              <span className="studio-resolution-selector-label">
+                <span>{labelText}</span>
+                {clarityText ? (
+                  <span className="studio-resolution-selector-clarity">{clarityText}</span>
+                ) : null}
+              </span>
+              {!clarityText && descriptionText ? (
                 <span className="studio-resolution-selector-description">{descriptionText}</span>
               ) : null}
             </button>

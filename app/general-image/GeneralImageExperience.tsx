@@ -861,7 +861,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
           <section>
             <ResolutionSelector
-              titleKey="resolutionSectionTitle"
+              title={t("resolutionSectionTitle")}
               options={supportedSizes.map((size) => ({
                 value: size,
                 label: size,

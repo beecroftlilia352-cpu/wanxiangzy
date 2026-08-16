@@ -23,6 +23,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioOptionGrid, StudioToggleRow } from "@/components/studio/StudioFormControls";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
@@ -1043,8 +1044,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("resolutionSection")}</h3>
-          <StudioOptionGrid
+          <ResolutionSelector
+            title={t("resolutionSection")}
             options={resolutionOptions.map((item) => ({
               value: item.value,
               label: item.label,
@@ -1052,7 +1053,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             }))}
             value={resolution}
             onChange={(value) => setResolution(normalizeAiVideoResolution(value, effectiveModelMode))}
-            columns={2}
             ariaLabel={t("resolutionAria")}
           />
         </section>

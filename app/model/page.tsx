@@ -938,7 +938,7 @@ export default function ModelPage() {
           {imageSizes.length > 1 && (
             <section>
               <ResolutionSelector
-                titleKey="resolution"
+                title={t("resolution")}
                 options={imageSizes.map((size) => ({
                   value: size,
                   label: size,

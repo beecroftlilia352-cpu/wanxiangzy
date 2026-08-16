@@ -4343,6 +4343,7 @@
     "searchQuery": "Поиск",
     "confirmNotInitialized": "Диалог подтверждения не инициализирован — действие не выполнено",
     "operationFailed": "Операция не удалась",
+    "resolutionClarity": "Чёткость",
     "resolutionStandard": "Стандарт",
     "resolutionHD": "HD",
     "resolutionUltra": "Ультра",

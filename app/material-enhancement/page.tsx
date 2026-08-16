@@ -757,7 +757,7 @@ export default function MaterialEnhancementPage() {
 
           <section>
             <ResolutionSelector
-              titleKey="section.resolution"
+              title={t("section.resolution")}
               options={resolutionOptions}
               value={imageSize}
               onChange={setImageSize}

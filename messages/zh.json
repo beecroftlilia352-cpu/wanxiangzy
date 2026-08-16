@@ -4362,6 +4362,7 @@
     "searchQuery": "查询",
     "confirmNotInitialized": "确认弹窗未初始化，操作未执行",
     "operationFailed": "操作失败",
+    "resolutionClarity": "清晰度",
     "resolutionStandard": "标清",
     "resolutionHD": "高清",
     "resolutionUltra": "超清"

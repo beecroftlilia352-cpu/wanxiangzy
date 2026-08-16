@@ -741,7 +741,7 @@ export default function AllCategoryProductImagePage() {
                   <div className="grid gap-4">
                     <div>
                       <ResolutionSelector
-                        titleKey="quality"
+                        title={t("quality")}
                         options={supportedSizes.map((size) => ({
                           value: size,
                           label: size,

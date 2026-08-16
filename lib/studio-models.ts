@@ -44,9 +44,9 @@ const ALL_CURATED_MODELS = Object.keys(STUDIO_IMAGE_MODEL_META) as LingyaModel[]
 
 /**
  * 清晰度选项（1K/2K/4K）的统一分层，供 ResolutionSelector 直接消费：
- * - 标签只显 "1K"/"2K"/"4K"，档位名（标清/高清/超清）走 description 行
- * - 价格 / 单件积分不再内联展示（避免小卡片拥挤），统一放在 RunBar summary
- * - 角标由调用方通过 `badges` prop 决定，按用户等级决定是否挂会员/企业版锁
+ * - 标签只传 "1K"/"2K"/"4K"，组件统一组合本地化的标清/高清/超清
+ * - 价格 / 单件积分保留在无障碍描述，并在 RunBar summary 中展示
+ * - 2K 的「推荐」角标由 ResolutionSelector 统一渲染
  */
 export function useResolutionOptions(
   sizes: ImageSize[],

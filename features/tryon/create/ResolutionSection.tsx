@@ -22,7 +22,7 @@ export function ResolutionSection({ imageSize, imageSizeOptions, onChangeImageSi
 
   return (
     <ResolutionSelector
-      titleKey="resolution.title"
+      title={t("resolution.title")}
       options={imageSizeOptions}
       value={imageSize}
       onChange={onChangeImageSize}

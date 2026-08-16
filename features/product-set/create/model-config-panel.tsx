@@ -1,6 +1,7 @@
 import { Activity } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { getCreditCost, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
 import type { ProductSetImageType } from "@/lib/product-set";
@@ -65,32 +66,24 @@ export function ModelConfigPanel({
         </div>
       </fieldset>
 
-      <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <legend className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">{t("create.modelConfig.resolution")}</legend>
-        <div role="radiogroup" className="grid grid-cols-3 gap-2">
-          {supportedSizes.map((size) => (
-            <button
-              key={size}
-              type="button"
-              role="radio"
-              aria-checked={imageSize === size}
-              onClick={() => onSizeChange(size)}
-              className={`h-10 touch-manipulation rounded-xl border px-2 text-xs font-bold transition-colors ${focusRing} ${
-                imageSize === size
-                  ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              {t("create.modelConfig.sizeCost", { size, cost: getCreditCost(aiModel, size, "3:4") })}
-            </button>
-          ))}
-        </div>
+      <div className="py-1">
+        <ResolutionSelector
+          title={t("create.modelConfig.resolution")}
+          options={supportedSizes.map((size) => ({
+            value: size,
+            label: size,
+            description: t("create.modelConfig.sizeCost", { size, cost: getCreditCost(aiModel, size, "3:4") }),
+          }))}
+          value={imageSize}
+          onChange={onSizeChange}
+          ariaLabel={t("create.modelConfig.resolution")}
+        />
         {imageType === "details" && imageSize === "1K" ? (
           <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-4 text-amber-700">
             {t("create.modelConfig.detailsWarning")}
           </div>
         ) : null}
-      </fieldset>
+      </div>
 
       <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
         <legend className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">{t("create.modelConfig.quality")}</legend>

@@ -908,7 +908,7 @@ export default function GrassPage() {
 
           <section>
             <ResolutionSelector
-              titleKey="resolutionTitle"
+              title={t("resolutionTitle")}
               options={resolutionOptions}
               value={imageSize}
               onChange={setImageSize}

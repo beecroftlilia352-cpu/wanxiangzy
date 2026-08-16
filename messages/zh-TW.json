@@ -3492,6 +3492,7 @@
     "searchQuery": "查詢",
     "confirmNotInitialized": "確認彈窗未初始化，操作未執行",
     "operationFailed": "操作失敗",
+    "resolutionClarity": "清晰度",
     "resolutionStandard": "標清",
     "resolutionHD": "高清",
     "resolutionUltra": "超清",

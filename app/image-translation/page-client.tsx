@@ -844,7 +844,7 @@ export default function ImageTranslationPage() {
 
           <section>
             <ResolutionSelector
-              titleKey="resolutionSectionTitle"
+              title={t("resolutionSectionTitle")}
               options={getSupportedImageSizes(aiModel, aspectRatio).map((size) => ({
                 value: size,
                 label: size,

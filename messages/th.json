@@ -1168,6 +1168,7 @@
     "searchQuery": "ค้นหา",
     "confirmNotInitialized": "กล่องยืนยันยังไม่พร้อมใช้งาน จึงยังไม่ได้ดำเนินการ",
     "operationFailed": "การดำเนินการล้มเหลว",
+    "resolutionClarity": "ความคมชัด",
     "resolutionStandard": "มาตรฐาน",
     "resolutionHD": "HD",
     "resolutionUltra": "อัลตรา",
