@@ -1,5 +1,4 @@
-﻿import "@/app/styles/admin.css";
-import { AdminUIProvider } from "@/components/admin/AdminUIProvider";
+﻿import { AdminUIProvider } from "@/components/admin/AdminUIProvider";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdmin } from "@/lib/admin/auth";
 import { countPendingOperationRequests } from "@/lib/admin/data";

@@ -779,7 +779,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       <div className="space-y-4">
         {isFirstLastFrame ? (
           <>
-            <section className="rounded-xl bg-slate-50/90 p-4">
+            <section className="rounded-xl bg-[var(--codex-surface-soft)]/90 p-4">
               <div className="mb-3">
                 <h3 className="text-sm font-black text-codex-ink">{t("uploadSectionTitle")}</h3>
                 <p className="mt-2 text-[11px] font-semibold leading-5 text-codex-faint">
@@ -787,7 +787,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <section {...firstFrameDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingFirstFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+                <section {...firstFrameDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingFirstFrame ? "ring-2 ring-[var(--codex-accent-38)] ring-offset-2" : ""}`}>
                   <input
                     ref={firstFrameInputRef}
                     type="file"
@@ -820,7 +820,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     uploadLabel={t("uploadFirstFrameLabel")}
                   />
                 </section>
-                <section {...lastFrameDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingLastFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+                <section {...lastFrameDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingLastFrame ? "ring-2 ring-[var(--codex-accent-38)] ring-offset-2" : ""}`}>
                   <input
                     ref={lastFrameInputRef}
                     type="file"
@@ -857,7 +857,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             </section>
           </>
         ) : !isMotion ? (
-          <section {...imageDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingImage ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+          <section {...imageDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingImage ? "ring-2 ring-[var(--codex-accent-38)] ring-offset-2" : ""}`}>
             <input
               ref={imageInputRef}
               type="file"
@@ -893,7 +893,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           </section>
         ) : (
           <>
-            <section {...modelImageDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingModelImage ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+            <section {...modelImageDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingModelImage ? "ring-2 ring-[var(--codex-accent-38)] ring-offset-2" : ""}`}>
               <input
                 ref={modelImageInputRef}
                 type="file"
@@ -926,7 +926,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 uploadLabel={t("uploadClickDragLabel")}
               />
             </section>
-            <section {...videoDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingVideo ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+            <section {...videoDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingVideo ? "ring-2 ring-[var(--codex-accent-38)] ring-offset-2" : ""}`}>
               <input
                 ref={videoInputRef}
                 type="file"
@@ -980,7 +980,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             <button
               type="button"
               onClick={applyFirstLastPromptSuggestion}
-              className="gradient-brand inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(91,124,255,0.22)] transition hover:opacity-95"
+              className="gradient-brand inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-black text-white shadow-[0_10px_24px_var(--codex-accent-22)] transition hover:opacity-95"
             >
               <Sparkles className="h-3.5 w-3.5" />
               {t("aiHelpWrite")}
@@ -1177,7 +1177,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             <div className="max-w-md rounded-2xl border border-red-100 bg-white/82 p-6 text-center shadow-[0_18px_54px_rgba(15,23,42,0.08)]">
               <X className="mx-auto mb-3 h-10 w-10 rounded-full bg-red-50 p-2 text-red-500" />
               <h2 className="text-base font-black text-red-600">{t("videoFailedHeading")}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">{error}</p>
+              <p className="mt-2 text-sm leading-6 text-codex-muted">{error}</p>
               <button type="button" onClick={() => setError("")} className="mac-button mt-4 h-10 px-5 text-sm font-black">
                 {t("backToEdit")}
               </button>
@@ -1220,7 +1220,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           ariaLabel={isMotion ? t("drawerMotionAria") : t("drawerImageAria")}
           onClose={() => setTemplatePanelOpen(false)}
         >
-          <div className="border-b border-slate-100 px-5 py-3">
+          <div className="border-b border-[var(--codex-border)] px-5 py-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <TemplateTabs />
@@ -1248,7 +1248,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       <StudioMediaLightbox
         src={lightboxImage}
         alt={t("lightboxImageAlt")}
-        mediaClassName="rounded-2xl bg-white"
+        mediaClassName="rounded-2xl bg-codex-surface"
         onClose={() => setLightboxImage(null)}
       />
     </div>
@@ -1277,7 +1277,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
   return (
     <div className="relative" onMouseLeave={() => setPreviewTemplate(null)}>
       {previewTemplate && (
-        <div className="pointer-events-none absolute bottom-[94px] left-0 z-30 aspect-[4/5] w-[232px] overflow-hidden rounded-2xl border border-white/90 bg-slate-950 shadow-[0_28px_70px_rgba(15,23,42,0.22)] ring-1 ring-blue-200/80">
+        <div className="pointer-events-none absolute bottom-[94px] left-0 z-30 aspect-[4/5] w-[232px] overflow-hidden rounded-2xl border border-white/90 bg-codex-ink shadow-[0_28px_70px_rgba(15,23,42,0.22)] ring-1 ring-blue-200/80">
           <RawPreviewImage src={previewTemplate.previewImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <video
             ref={previewVideoRef}
@@ -1289,8 +1289,8 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
             preload="metadata"
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/18 via-transparent to-slate-950/42" />
-          <span className="absolute left-3 top-3 rounded-full bg-slate-950/72 px-3 py-1.5 text-sm font-black text-white shadow-sm backdrop-blur">00:05</span>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/18 via-transparent to-codex-ink/42" />
+          <span className="absolute left-3 top-3 rounded-full bg-codex-ink/72 px-3 py-1.5 text-sm font-black text-white shadow-sm backdrop-blur">00:05</span>
           <span className="absolute inset-x-3 bottom-3 rounded-full border border-white/22 bg-white/16 px-3 py-2 text-xs font-black text-white shadow-sm backdrop-blur-md">
             {previewTemplate.title}
           </span>
@@ -1311,10 +1311,10 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
               onFocus={() => setPreviewTemplate(template)}
               onBlur={() => setPreviewTemplate(null)}
               aria-pressed={selected}
-              className={`group relative h-[78px] w-[68px] shrink-0 overflow-hidden rounded-sm border bg-slate-100 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
+              className={`group relative h-[78px] w-[68px] shrink-0 overflow-hidden rounded-sm border bg-[var(--codex-surface-soft)] transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
                 selected || previewing
                   ? "border-blue-500 shadow-[0_12px_28px_rgba(59,130,246,0.2)] ring-2 ring-blue-100"
-                  : "border-slate-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_10px_22px_rgba(15,23,42,0.10)]"
+                  : "border-[var(--codex-border)] hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_10px_22px_rgba(15,23,42,0.10)]"
               }`}
               title={template.title}
             >
@@ -1364,7 +1364,7 @@ function ImageToVideoGuide({ onOpenTemplates }: { onOpenTemplates: () => void })
           ]}
         />
         <div className="mt-5 flex justify-center">
-          <button type="button" onClick={onOpenTemplates} className="gradient-brand inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-[0_18px_44px_rgba(91,124,255,0.24)]">
+          <button type="button" onClick={onOpenTemplates} className="gradient-brand inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-[0_18px_44px_var(--codex-accent-24)]">
             <ImagePlus className="h-4 w-4" />
             {t("chooseTemplate")}
           </button>
@@ -1424,13 +1424,13 @@ function TemplateTabs() {
     { key: "templateTabToddler", label: "幼童" },
   ];
   return (
-    <div className="flex gap-7 overflow-x-auto text-sm font-black text-slate-950">
+    <div className="flex gap-7 overflow-x-auto text-sm font-black text-codex-ink">
       {tabs.map((item, index) => (
         <button
           key={item.key}
           type="button"
           className={`h-9 shrink-0 border-b-2 px-0.5 transition ${
-            index === 0 ? "border-slate-950 text-slate-950" : "border-transparent text-slate-700 hover:text-slate-950"
+            index === 0 ? "border-[var(--codex-ink)] text-codex-ink" : "border-transparent text-codex-ink hover:text-codex-ink"
           }`}
         >
           {t(item.key)}
@@ -1493,15 +1493,15 @@ function TemplateCard({
 
   return (
     <article
-      className={`group overflow-hidden rounded-sm border bg-white shadow-sm transition hover:-translate-y-0.5 ${
-        selected ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"
+      className={`group overflow-hidden rounded-sm border bg-codex-surface shadow-sm transition hover:-translate-y-0.5 ${
+        selected ? "border-blue-500 ring-2 ring-blue-100" : "border-[var(--codex-border)]"
       }`}
       onMouseEnter={() => setActive(true)}
       onMouseLeave={() => setActive(false)}
       onFocus={() => setActive(true)}
       onBlur={() => setActive(false)}
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
+      <div className="relative aspect-[4/5] overflow-hidden bg-[var(--codex-surface-soft)]">
         <RawPreviewImage src={template.previewImage} alt={template.title} className={`h-full w-full object-cover transition ${active ? "opacity-0" : "opacity-100"}`} />
         <video
           ref={videoRef}
@@ -1516,14 +1516,14 @@ function TemplateCard({
           <span className="absolute left-3 top-3 rounded-full bg-black/72 px-2.5 py-1 text-xs font-black text-white">00:05</span>
         )}
         {selected && (
-          <span className="absolute inset-0 flex items-center justify-center bg-slate-950/18 text-white">
+          <span className="absolute inset-0 flex items-center justify-center bg-codex-ink/18 text-white">
             <Maximize2 className="h-9 w-9 drop-shadow" />
           </span>
         )}
       </div>
       <div className="p-4">
-        <h3 className="truncate text-base font-black text-slate-950">{template.title}</h3>
-        <p className="mt-1 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-slate-500">{template.promptContent}</p>
+        <h3 className="truncate text-base font-black text-codex-ink">{template.title}</h3>
+        <p className="mt-1 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-codex-faint">{template.promptContent}</p>
         <button
           type="button"
           onClick={onSelect}

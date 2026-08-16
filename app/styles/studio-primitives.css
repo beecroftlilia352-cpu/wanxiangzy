@@ -19,14 +19,14 @@
 
   .studio-surface-canvas {
     background:
-      radial-gradient(circle at 10% 8%, rgba(91, 124, 255, 0.18), transparent 28%),
+      radial-gradient(circle at 10% 8%, var(--codex-accent-18), transparent 28%),
       radial-gradient(circle at 84% 10%, rgba(174, 184, 255, 0.3), transparent 34%),
       rgba(255, 255, 255, 0.58);
   }
 
   .studio-surface-toolbar {
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--codex-surface-82);
   }
 
   .studio-density-compact {
@@ -46,7 +46,7 @@
     gap: 8px;
     border: 1px solid var(--codex-border);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
+    background: var(--codex-surface-soft);
     color: var(--codex-ink);
     padding: 0 14px;
     font-size: 12px;
@@ -58,7 +58,7 @@
 
   .studio-button:hover:not(:disabled) {
     transform: translateY(-1px);
-    border-color: rgba(91, 124, 255, 0.3);
+    border-color: var(--codex-accent-30);
     background: #fff;
   }
 
@@ -77,10 +77,10 @@
   .studio-button-selected,
   .studio-tone-accent,
   .studio-tone-primary {
-    border-color: rgba(91, 124, 255, 0.34);
-    background: rgba(255, 255, 255, 0.92);
+    border-color: var(--codex-accent-34);
+    background: var(--codex-surface-strong);
     color: var(--codex-ink);
-    box-shadow: 0 10px 26px rgba(91, 124, 255, 0.12);
+    box-shadow: 0 10px 26px var(--codex-accent-12);
   }
 
   .studio-button.studio-tone-primary {
@@ -96,7 +96,7 @@
     justify-content: center;
     border-radius: 999px;
     border: 1px solid var(--codex-border);
-    background: rgba(255, 255, 255, 0.72);
+    background: var(--codex-surface-72);
     padding: 4px 9px;
     font-size: 10px;
     font-weight: 800;
@@ -107,4 +107,4 @@
   .studio-status-badge.studio-tone-success { color: var(--codex-success); background: rgba(34, 136, 95, 0.1); border-color: rgba(34, 136, 95, 0.22); }
   .studio-status-badge.studio-tone-warning { color: var(--codex-warning); background: rgba(166, 106, 0, 0.1); border-color: rgba(166, 106, 0, 0.24); }
   .studio-status-badge.studio-tone-danger { color: var(--codex-danger); background: rgba(209, 59, 53, 0.1); border-color: rgba(209, 59, 53, 0.24); }
-  .studio-status-badge.studio-tone-accent { color: var(--codex-accent); background: rgba(91, 124, 255, 0.1); border-color: rgba(91, 124, 255, 0.22); }
+  .studio-status-badge.studio-tone-accent { color: var(--codex-accent); background: var(--codex-accent-10); border-color: var(--codex-accent-22); }

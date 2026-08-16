@@ -496,8 +496,8 @@ export function AdminTryOnReferenceConsole({
         <Metric label="前台链路" value="已接入" hint="上传识别 -> 推荐排序 -> 多选生成" />
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+      <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-[var(--codex-border)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-sm font-black text-[var(--admin-fg)]">生产配置流程</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">推荐按“草稿导入 → 预览命中 → 发布版本 → 前台生效”走，避免直接改线上配置。</p>
@@ -524,8 +524,8 @@ export function AdminTryOnReferenceConsole({
             ["3", "预览推荐", "按类目、人群、年龄测试排序和命中原因。"],
             ["4", "发布版本", "写入 admin_config_versions，审计可追溯。"],
           ].map(([step, title, text]) => (
-            <div key={step} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-950 text-xs font-black text-white">{step}</span>
+            <div key={step} className="rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] p-3">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-codex-ink text-xs font-black text-white">{step}</span>
               <p className="mt-3 text-sm font-black text-[var(--admin-fg)]">{title}</p>
               <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">{text}</p>
             </div>
@@ -660,7 +660,7 @@ export function AdminTryOnReferenceConsole({
 
 function Metric({ label, value, hint }: { label: string; value: string | number; hint: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-[var(--codex-border)] bg-white p-4 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.1em] text-[var(--admin-faint)]">{label}</p>
       <p className="mt-3 text-2xl font-black text-[var(--admin-fg)]">{value}</p>
       <p className="mt-2 text-xs font-semibold text-[var(--admin-muted)]">{hint}</p>
@@ -719,8 +719,8 @@ function CategoryForm({
 }) {
   const parents = categories.filter((category) => category.level === 1);
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--codex-border)] px-4 py-3">
         <div>
           <h2 className="text-sm font-black text-[var(--admin-fg)]">类目编辑</h2>
           <p className="mt-1 text-xs text-[var(--admin-muted)]">识别模型输出必须最终落到这些 code。</p>
@@ -784,14 +784,14 @@ function CategoryTable({
   onDisable: (code: string) => void;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="border-b border-[var(--codex-border)] px-4 py-3">
         <h2 className="text-sm font-black text-[var(--admin-fg)]">分类体系</h2>
         <p className="mt-1 text-xs text-[var(--admin-muted)]">一级/二级树结构，禁用后不会参与发布校验和推荐匹配。</p>
       </div>
       <div className="max-h-[720px] overflow-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="sticky top-0 bg-slate-50">
+          <thead className="sticky top-0 bg-[var(--codex-surface-soft)]">
             <tr>
               {["类目", "Slot", "状态", "默认标签", "操作"].map((item) => (
                 <th key={item} className="px-4 py-2 text-left text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{item}</th>
@@ -800,7 +800,7 @@ function CategoryTable({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {categories.map((category) => (
-              <tr key={category.code} className={category.level === 1 ? "bg-slate-50/60" : "bg-white"}>
+              <tr key={category.code} className={category.level === 1 ? "bg-[var(--codex-surface-soft)]/60" : "bg-white"}>
                 <td className="px-4 py-3">
                   <p className="text-sm font-black text-[var(--admin-fg)]">{category.level === 2 ? "└ " : ""}{category.name_zh}</p>
                   <p className="font-mono text-[11px] text-[var(--admin-faint)]">{category.code}</p>
@@ -839,8 +839,8 @@ function SceneForm({
   loading: boolean;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="border-b border-[var(--codex-border)] px-4 py-3">
         <h2 className="text-sm font-black text-[var(--admin-fg)]">场景编辑</h2>
         <p className="mt-1 text-xs text-[var(--admin-muted)]">主场景展示在顶部，raw_config.children 会作为下方子图集。</p>
       </div>
@@ -918,14 +918,14 @@ function SceneList({
   onArchive: (sceneKey: string) => void;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-[var(--codex-border)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-sm font-black text-[var(--admin-fg)]">系统参考图</h2>
           <p className="mt-1 text-xs text-[var(--admin-muted)]">Active 会进入前台推荐；Draft 可用于后台预览。</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <select value={status} onChange={(event) => onFilterStatus(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-[var(--admin-muted)]">
+          <select value={status} onChange={(event) => onFilterStatus(event.target.value)} className="h-9 rounded-lg border border-[var(--codex-border)] bg-white px-2 text-xs font-bold text-[var(--admin-muted)]">
             <option value="active">active</option>
             <option value="draft">draft</option>
             <option value="archived">archived</option>
@@ -933,7 +933,7 @@ function SceneList({
           </select>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[var(--admin-faint)]" />
-            <input value={search} onChange={(event) => onSearch(event.target.value)} className="h-9 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs font-semibold outline-none focus:border-slate-400" placeholder="搜索名称 / 类目 / tag" />
+            <input value={search} onChange={(event) => onSearch(event.target.value)} className="h-9 w-56 rounded-lg border border-[var(--codex-border)] bg-white pl-8 pr-3 text-xs font-semibold outline-none focus:border-[var(--codex-border-strong)]" placeholder="搜索名称 / 类目 / tag" />
           </div>
         </div>
       </div>
@@ -941,7 +941,7 @@ function SceneList({
         {scenes.map((scene) => {
           const children = Array.isArray(scene.raw_config?.children) ? scene.raw_config.children.length : 0;
           return (
-            <article key={scene.scene_key} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <article key={scene.scene_key} className="overflow-hidden rounded-lg border border-[var(--codex-border)] bg-white">
               <div className="flex gap-3 p-3">
                 <ThumbnailStrip urls={[scene.image_url]} />
                 <div className="min-w-0 flex-1">
@@ -957,7 +957,7 @@ function SceneList({
                   <p className="mt-1 text-[11px] font-bold text-[var(--admin-faint)]">子图集 {children} · {scene.gender} · {scene.age_ranges.join(",")}</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+              <div className="flex items-center justify-between gap-2 border-t border-[var(--codex-border)] px-3 py-2">
                 <span className="text-[11px] font-semibold text-[var(--admin-faint)]">{formatDateTime(scene.updated_at)}</span>
 	                <div className="flex gap-2">
 	                  <button type="button" onClick={() => onEdit(scene)} className="admin-tryon-mini-btn">编辑</button>
@@ -998,8 +998,8 @@ function ImportPanel({
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="border-b border-[var(--codex-border)] px-4 py-3">
         <h2 className="text-sm font-black text-[var(--admin-fg)]">批量导入主场景 / 子图集</h2>
         <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">主场景粘贴「场景主.txt」，子图集粘贴「场景子.txt」。导入器兼容 data.list 和 data[id].children。</p>
       </div>
@@ -1067,15 +1067,15 @@ function PreviewPanel({
   onSubmit: (event?: React.FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="border-b border-[var(--codex-border)] px-4 py-3">
         <h2 className="text-sm font-black text-[var(--admin-fg)]">推荐排序预览</h2>
         <p className="mt-1 text-xs text-[var(--admin-muted)]">上线前用真实类目预览前台“推荐场景”的排序和命中原因。</p>
       </div>
       <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3 p-4">
         <label className="space-y-1.5">
           <span className="text-xs font-black text-[var(--admin-muted)]">二级类目</span>
-          <select value={subcategory} onChange={(event) => onSubcategory(event.target.value)} className="h-10 w-64 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-[var(--admin-fg)]">
+          <select value={subcategory} onChange={(event) => onSubcategory(event.target.value)} className="h-10 w-64 rounded-lg border border-[var(--codex-border)] bg-white px-2 text-sm font-bold text-[var(--admin-fg)]">
             {categories.map((category) => <option key={category.code} value={category.code}>{category.name_zh} · {category.code}</option>)}
           </select>
         </label>
@@ -1092,11 +1092,11 @@ function PreviewPanel({
       </form>
       <div className="grid gap-3 p-4 pt-0 md:grid-cols-2 xl:grid-cols-4">
         {scenes.map((scene, index) => (
-          <article key={scene.id || scene.sceneKey} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <div className="relative aspect-[3/4] bg-slate-100">
+          <article key={scene.id || scene.sceneKey} className="overflow-hidden rounded-lg border border-[var(--codex-border)] bg-white">
+            <div className="relative aspect-[3/4] bg-[var(--codex-surface-soft)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={scene.imageUrl} alt={scene.name} className="h-full w-full object-cover" loading="lazy" />
-              <span className="absolute left-2 top-2 rounded-md bg-slate-950 px-2 py-1 text-xs font-black text-white">#{index + 1}</span>
+              <span className="absolute left-2 top-2 rounded-md bg-codex-ink px-2 py-1 text-xs font-black text-white">#{index + 1}</span>
               <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-xs font-black text-[var(--admin-fg)]">{scene.score}</span>
             </div>
             <div className="p-3">
@@ -1113,14 +1113,14 @@ function PreviewPanel({
 
 function SceneOverview({ scenes }: { scenes: TryOnAdminSceneRow[] }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="border-b border-[var(--codex-border)] px-4 py-3">
         <h2 className="text-sm font-black text-[var(--admin-fg)]">前台 Active 场景</h2>
         <p className="mt-1 text-xs text-[var(--admin-muted)]">这些数据会进入用户侧“系统生成参考图”。</p>
       </div>
       <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
         {scenes.map((scene) => (
-          <div key={scene.scene_key} className="rounded-lg border border-slate-200 p-3">
+          <div key={scene.scene_key} className="rounded-lg border border-[var(--codex-border)] p-3">
             <ThumbnailStrip urls={[scene.image_url]} />
             <p className="mt-3 truncate text-sm font-black text-[var(--admin-fg)]">{scene.name}</p>
             <p className="truncate font-mono text-[11px] text-[var(--admin-faint)]">{scene.scene_key}</p>
@@ -1134,8 +1134,8 @@ function SceneOverview({ scenes }: { scenes: TryOnAdminSceneRow[] }) {
 
 function VersionPanel({ versions, onRollback }: { versions: TryOnAdminConfigVersionRow[]; onRollback: (id: string) => void }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
+      <div className="border-b border-[var(--codex-border)] px-4 py-3">
         <h2 className="text-sm font-black text-[var(--admin-fg)]">配置版本</h2>
         <p className="mt-1 text-xs text-[var(--admin-muted)]">发布、回滚都会写审计日志。</p>
       </div>

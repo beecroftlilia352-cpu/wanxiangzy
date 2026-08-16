@@ -45,12 +45,12 @@ export function PreviewGuide({
 
   return (
     <div className="relative mx-auto w-full max-w-[1080px] px-1 py-3 text-center sm:px-3 sm:py-6">
-      <div className="pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,rgba(91,124,255,0.16),transparent_68%)] blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,var(--codex-accent-16),transparent_68%)] blur-3xl" />
       <div className="relative">
         <h3 className="bg-[linear-gradient(135deg,#3f5dff_0%,#6d8dff_45%,#aeb8ff_100%)] bg-clip-text text-[24px] font-black tracking-[-0.02em] text-transparent dark:bg-[linear-gradient(135deg,#8fa8ff_0%,#b8c6ff_55%,#dbe4ff_100%)] sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
-        <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 dark:text-stone-400 sm:text-[15px]">{subtitle}</p>
+        <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-codex-faint sm:text-[15px]">{subtitle}</p>
 
-        <div className="mt-8 overflow-hidden rounded-[32px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_rgba(91,124,255,0.12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-slate-950/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
+        <div className="mt-8 overflow-hidden rounded-[32px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_var(--codex-accent-12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-codex-ink/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
           <div className={`grid grid-cols-1 gap-5 sm:gap-8 ${stepGridClass} ${visualGridWidthClass}`}>
             {steps.map((step, index) => {
               const hasImage = Boolean(step.imageSrc || imageSrc);
@@ -58,13 +58,13 @@ export function PreviewGuide({
 
               return (
                 <div key={step.title} className="group relative min-w-0">
-                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-100 to-slate-200 p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_rgba(91,124,255,0.14)] dark:from-stone-800 dark:via-stone-900 dark:to-black">
+                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-[var(--codex-surface-soft)] to-[var(--codex-border)] p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_var(--codex-accent-14)] dark:from-stone-800 dark:via-stone-900 dark:to-black">
                     <div
                       className={cn(
                         "relative aspect-[4/5] overflow-hidden rounded-[21px]",
                         isContain
                           ? "bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_55%,#eef4ff_100%)] dark:bg-[linear-gradient(135deg,#1c1c1e_0%,#26262a_55%,#1c1c1e_100%)]"
-                          : "bg-slate-100 dark:bg-stone-800"
+                          : "bg-[var(--codex-surface-soft)]"
                       )}
                     >
                       {hasImage ? (
@@ -80,33 +80,33 @@ export function PreviewGuide({
                         />
                       ) : (
                         <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fbff,#eef3ff)] dark:bg-[linear-gradient(135deg,#1c1c1e,#26262a)]">
-                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(91,124,255,0.16),transparent_52%),radial-gradient(circle_at_76%_72%,rgba(174,184,255,0.16),transparent_48%)]" />
-                          <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/72 text-3xl font-black text-[var(--codex-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_12px_28px_rgba(91,124,255,0.16)] backdrop-blur-sm dark:bg-white/8 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_28px_rgba(0,0,0,0.35)]">
+                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,var(--codex-accent-16),transparent_52%),radial-gradient(circle_at_76%_72%,rgba(174, 184, 255, 0.18),transparent_48%)]" />
+                          <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/72 text-3xl font-black text-[var(--codex-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_12px_28px_var(--codex-accent-16)] backdrop-blur-sm dark:bg-white/8 dark:shadow-[inset_0_1px_0_var(--codex-surface-08),0_12px_28px_rgba(0,0,0,0.35)]">
                             {icon || index + 1}
                           </span>
                         </div>
                       )}
-                      <span className="absolute left-3 top-3 inline-flex h-7 items-center gap-1 rounded-lg border border-[rgba(91,124,255,0.28)] bg-[rgba(91,124,255,0.1)] px-2.5 text-[11px] font-black leading-none text-[var(--codex-accent)] backdrop-blur-sm">
+                      <span className="absolute left-3 top-3 inline-flex h-7 items-center gap-1 rounded-lg border border-[var(--codex-accent-28)] bg-[var(--codex-accent-10)] px-2.5 text-[11px] font-black leading-none text-[var(--codex-accent)] backdrop-blur-sm">
                         {step.badge || `步骤 ${index + 1}`}
                       </span>
                     </div>
                   </div>
                   {index < steps.length - 1 ? (
                     <div className={cn(
-                      "pointer-events-none absolute right-[-27px] top-[38%] z-10 hidden h-9 w-9 items-center justify-center rounded-full border-[3px] border-white dark:border-stone-900 bg-[var(--codex-accent)] text-white shadow-[0_16px_34px_rgba(91,124,255,0.28)]",
+                      "pointer-events-none absolute right-[-27px] top-[38%] z-10 hidden h-9 w-9 items-center justify-center rounded-full border-[3px] border-white dark:border-stone-900 bg-[var(--codex-accent)] text-white shadow-[0_16px_34px_var(--codex-accent-28)]",
                       connectorVisibilityClass
                     )}>
                       <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </div>
                   ) : null}
                   <div className="mt-3 flex items-center justify-center gap-2 text-center">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 px-2 text-[11px] font-black text-slate-500 dark:text-stone-400">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] px-2 text-[11px] font-black text-codex-faint">
                       {index + 1}
                     </span>
-                    <p className="min-w-0 truncate text-[14px] font-black text-slate-950 dark:text-stone-100 sm:text-[15px]">{step.title}</p>
+                    <p className="min-w-0 truncate text-[14px] font-black text-codex-ink sm:text-[15px]">{step.title}</p>
                   </div>
                   {step.desc ? (
-                    <p className="mx-auto mt-1.5 max-w-[220px] text-center text-[12px] font-semibold leading-5 text-slate-500 dark:text-stone-400">
+                    <p className="mx-auto mt-1.5 max-w-[220px] text-center text-[12px] font-semibold leading-5 text-codex-faint">
                       {step.desc}
                     </p>
                   ) : null}

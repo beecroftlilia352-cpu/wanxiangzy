@@ -168,7 +168,7 @@ function VideoResultCard({
           event.stopPropagation();
           downloadMedia(url, generateDownloadFilename(filenamePrefix, index, "mp4"));
         }}
-        className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-[background-color,color,opacity] hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+        className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-codex-ink opacity-100 shadow-lg ring-1 ring-[var(--codex-border)]/70 backdrop-blur transition-[background-color,color,opacity] hover:bg-white hover:text-codex-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
         aria-label={t("videoResultDownload", { index: index + 1 })}
         title={t("videoResultDownload", { index: index + 1 })}
       >

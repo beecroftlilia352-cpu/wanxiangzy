@@ -1417,7 +1417,7 @@ export const DatePicker = {
           ) : null}
           <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         </span>
-        <PopoverContent align="start" sideOffset={6} className="z-[5000] w-[min(720px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-lg border border-border bg-card p-0 shadow-xl ring-1 ring-slate-950/10">
+        <PopoverContent align="start" sideOffset={6} className="z-[5000] w-[min(720px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-lg border border-border bg-card p-0 shadow-xl ring-1 ring-codex-ink/10">
           <div className="grid md:grid-cols-[120px_1fr]">
             <div className="flex gap-1 border-b border-border p-2 md:block md:border-b-0 md:border-r">
               <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-muted md:w-full" onClick={() => applyQuickRange(7)}>
@@ -1494,7 +1494,7 @@ function RangeCalendarMonth({
               aria-pressed={selected}
               className={cn(
                 "h-8 rounded-md text-sm transition-colors",
-                !inMonth && "text-slate-300",
+                !inMonth && "text-codex-faint",
                 inRange && !selected && "bg-primary/10 text-primary",
                 selected && "bg-primary text-primary-foreground hover:bg-primary",
                 !selected && !inRange && "hover:bg-muted",

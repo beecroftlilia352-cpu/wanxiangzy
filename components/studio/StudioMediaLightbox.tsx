@@ -53,7 +53,7 @@ export function StudioMediaLightbox({
             onNext?.();
           }
         }}
-        overlayClassName="z-[240] bg-slate-950/70 backdrop-blur-xl"
+        overlayClassName="z-[240] bg-codex-ink/70 backdrop-blur-xl"
         className="z-[241] max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] place-items-center gap-0 overflow-hidden bg-transparent p-0 text-white ring-0 shadow-none sm:max-w-[calc(100vw-3rem)]"
       >
         <DialogTitle className="sr-only">{alt}</DialogTitle>

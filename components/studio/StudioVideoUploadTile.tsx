@@ -69,10 +69,10 @@ export function StudioVideoUploadTile({
         )}
 
         {videoUrl ? (
-          <div className="studio-upload-tile-main relative bg-slate-950">
+          <div className="studio-upload-tile-main relative bg-codex-ink">
             <video src={videoUrl} controls playsInline preload="metadata" className="h-full w-full object-contain" />
             {sourceLabel && (
-              <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-slate-950/70 px-2.5 py-1 text-[11px] font-black text-white shadow-sm backdrop-blur">
+              <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-codex-ink/70 px-2.5 py-1 text-[11px] font-black text-white shadow-sm backdrop-blur">
                 {sourceLabel}
               </span>
             )}
@@ -117,7 +117,7 @@ export function StudioVideoUploadTile({
                 </button>
               )}
             </span>
-            <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/70 px-2.5 py-1 text-[11px] font-black text-slate-500">
+            <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-white/70 px-2.5 py-1 text-[11px] font-black text-codex-muted">
               <Video className="h-3.5 w-3.5 text-[var(--codex-accent)]" />
               MP4 / MOV
             </span>
@@ -140,7 +140,7 @@ export function StudioVideoUploadTile({
 
       {loading && (
         <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/72 backdrop-blur-[2px]">
-          <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-slate-700 shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
+          <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-codex-ink shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
             <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" />
             <span>{resolvedLoadingLabel}</span>
           </div>

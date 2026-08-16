@@ -21,7 +21,23 @@
       "Bash(grep -oE 'supported_reasoning_levels[^}]{0,200}')",
       "Bash(command -v npx)",
       "Bash(npx --yes @electron/asar extract /Applications/Codex.app/Contents/Resources/app.asar /tmp/codex-extracted)",
-      "Bash(grep -rEo 'display_name:\\\\s*\"[^\"]{1,60}\"' /tmp/codex-extracted/webview/assets/)"
+      "Bash(grep -rEo 'display_name:\\\\s*\"[^\"]{1,60}\"' /tmp/codex-extracted/webview/assets/)",
+      "Bash(export ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic)",
+      "Bash(export ANTHROPIC_AUTH_TOKEN=sk-3a2afeacc7304f5ebb930ede9d0a68a7)",
+      "Bash(export ANTHROPIC_MODEL=deepseek-v4-pro[1m])",
+      "Bash(export ANTHROPIC_DEFAULT_OPUS_MODEL=deepseek-v4-pro[1m])",
+      "Bash(export ANTHROPIC_DEFAULT_SONNET_MODEL=deepseek-v4-pro[1m])",
+      "Bash(env)",
+      "Bash(xxd -l 32 \"/tmp/Screenshot 2026-08-14 at 2.00.58 PM.png\")",
+      "Bash(npm i --no-save pg)",
+      "Bash(npm rm --no-save pg)",
+      "Bash(cd \"/Users/jingmeng.gan/Documents/New project/wanxiangzy\" && PGPASSWORD=*:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin v*:*)",
+      "Bash(git tag v*:*)",
+      "Bash(node *)"
     ]
   }
 }

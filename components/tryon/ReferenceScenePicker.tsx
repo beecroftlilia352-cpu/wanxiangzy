@@ -109,29 +109,29 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent
         showCloseButton={false}
-        overlayClassName="z-[210] bg-slate-950/34 backdrop-blur-sm lg:left-[calc(var(--studio-nav-rail-width)+var(--studio-task-rail-width)+var(--studio-sidebar-width))] lg:bg-transparent lg:backdrop-blur-0"
+        overlayClassName="z-[210] bg-codex-ink/34 backdrop-blur-sm lg:left-[calc(var(--studio-nav-rail-width)+var(--studio-task-rail-width)+var(--studio-sidebar-width))] lg:bg-transparent lg:backdrop-blur-0"
         className={cn(
           "z-[211] !bottom-3 !left-3 !right-3 !top-3 !h-auto !w-auto !max-w-none !translate-x-0 !translate-y-0 gap-0 overflow-hidden bg-transparent p-0 ring-0 shadow-none lg:!bottom-3 lg:!left-[calc(var(--studio-nav-rail-width)+var(--studio-task-rail-width)+var(--studio-sidebar-width)+20px)] lg:!right-5 lg:!top-6",
           className
         )}
       >
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[var(--codex-surface)]">
-          <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-slate-100 px-12">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-[var(--codex-border)] bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[var(--codex-surface)]">
+          <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-[var(--codex-border)] px-12">
             <div className="min-w-0 text-center">
-              <DialogTitle className="truncate text-[13px] font-bold leading-normal text-slate-950">{pickerTitle}</DialogTitle>
-              <DialogDescription className="hidden truncate text-[10px] text-slate-400 sm:block">{pickerDescription}</DialogDescription>
+              <DialogTitle className="truncate text-[13px] font-bold leading-normal text-codex-ink">{pickerTitle}</DialogTitle>
+              <DialogDescription className="hidden truncate text-[10px] text-codex-faint sm:block">{pickerDescription}</DialogDescription>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+              className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-codex-faint transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
               aria-label={t("scenePicker.close")}
             >
               <X className="h-4 w-4" />
             </button>
           </header>
 
-          <div className="shrink-0 bg-slate-50 px-4 py-3">
+          <div className="shrink-0 bg-[var(--codex-surface-soft)] px-4 py-3">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -141,10 +141,10 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                       type="button"
                       onClick={() => onTabChange(item.value)}
                       className={cn(
-                        "h-8 rounded-full px-4 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
+                        "h-8 rounded-full px-4 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2",
                         activeTab === item.value
-                          ? "bg-violet-100 text-[var(--codex-accent)]"
-                          : "bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:bg-[var(--codex-surface)] dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-200"
+                          ? "bg-[var(--codex-accent-10)] text-[var(--codex-accent)]"
+                          : "bg-white text-codex-muted hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink dark:bg-[var(--codex-surface)] dark:text-codex-faint dark:hover:bg-[var(--codex-surface-strong)] dark:hover:text-stone-200"
                       )}
                     >
                       {item.label}
@@ -152,13 +152,13 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" className="h-7 rounded-full bg-violet-100 px-3 text-[10px] font-bold text-[var(--codex-accent)]">
+                  <button type="button" className="h-7 rounded-full bg-[var(--codex-accent-10)] px-3 text-[10px] font-bold text-[var(--codex-accent)]">
                     {t("scenePicker.allScenes")}
                   </button>
-                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-[var(--codex-surface)] dark:text-stone-400">
+                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-codex-muted dark:bg-[var(--codex-surface)] dark:text-codex-faint">
                     {t("scenePicker.studioLook")}
                   </button>
-                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-[var(--codex-surface)] dark:text-stone-400">
+                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-codex-muted dark:bg-[var(--codex-surface)] dark:text-codex-faint">
                     {t("scenePicker.realScene")}
                   </button>
                 </div>
@@ -168,7 +168,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 <select
                   value={viewFilter}
                   onChange={(event) => onViewFilterChange(event.target.value as ReferenceScenePickerViewFilter)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-[var(--codex-surface)] dark:text-stone-400"
+                  className="h-8 rounded-lg border border-[var(--codex-border)] bg-white px-3 text-[11px] font-medium text-codex-muted focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-[var(--codex-surface)] dark:text-codex-faint"
                   aria-label={t("scenePicker.viewFilterLabel")}
                 >
                   <option value="all">{t("scenePicker.viewAll")}</option>
@@ -178,7 +178,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 <select
                   value={bodyFilter}
                   onChange={(event) => onBodyFilterChange(event.target.value as ReferenceScenePickerBodyFilter)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-[var(--codex-surface)] dark:text-stone-400"
+                  className="h-8 rounded-lg border border-[var(--codex-border)] bg-white px-3 text-[11px] font-medium text-codex-muted focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-[var(--codex-surface)] dark:text-codex-faint"
                   aria-label={t("scenePicker.bodyFilterLabel")}
                 >
                   <option value="all">{t("scenePicker.bodyAll")}</option>
@@ -187,18 +187,18 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                   <option value="lower">{t("scenePicker.bodyLower")}</option>
                 </select>
                 {categoryLabels.slice(0, 2).map((category) => (
-                  <span key={category} className="inline-flex h-8 max-w-[210px] items-center rounded-lg bg-white px-2.5 text-[11px] font-medium text-slate-600 dark:bg-stone-800 dark:text-stone-300">
+                  <span key={category} className="inline-flex h-8 max-w-[210px] items-center rounded-lg bg-white px-2.5 text-[11px] font-medium text-codex-muted dark:bg-[var(--codex-surface-strong)] dark:text-stone-300">
                     <span className="truncate">{category}</span>
-                    <X className="ml-1 h-3 w-3 text-slate-400" />
+                    <X className="ml-1 h-3 w-3 text-codex-faint" />
                   </span>
                 ))}
                 <label className="relative block">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-codex-faint" />
                   <input
                     value={search}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={t("scenePicker.searchPlaceholder")}
-                    className="h-8 w-[min(260px,calc(100vw-96px))] rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-[11px] text-slate-600 outline-none transition focus:border-[var(--codex-accent)]"
+                    className="h-8 w-[min(260px,calc(100vw-96px))] rounded-lg border border-[var(--codex-border)] bg-white pl-8 pr-3 text-[11px] text-codex-muted outline-none transition focus:border-[var(--codex-accent)]"
                   />
                 </label>
               </div>
@@ -241,7 +241,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col bg-white">
-              <div className="shrink-0 border-b border-slate-100 px-4 py-3">
+              <div className="shrink-0 border-b border-[var(--codex-border)] px-4 py-3">
                 <div className="studio-scrollbar-hide flex gap-3 overflow-x-auto pb-1">
                   {mainReferences.map((ref) => (
                     <button
@@ -249,14 +249,14 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                       type="button"
                       onClick={() => onActiveReferenceChange(ref.url)}
                       className={cn(
-                        "w-[108px] shrink-0 overflow-hidden rounded-lg border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
+                        "w-[108px] shrink-0 overflow-hidden rounded-lg border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2",
                         activeReference?.url === ref.url
                           ? "border-[var(--codex-accent)] shadow-sm"
-                          : "border-slate-200 hover:border-slate-300"
+                          : "border-[var(--codex-border)] hover:border-[var(--codex-border-strong)]"
                       )}
                     >
                       <RawPreviewImage src={ref.url} alt={ref.label || t("scenePicker.mainScene")} className="aspect-[3/4] w-full object-cover" />
-                      <p className="line-clamp-2 px-2 py-1.5 text-center text-[11px] font-medium text-slate-700">{ref.label}</p>
+                      <p className="line-clamp-2 px-2 py-1.5 text-center text-[11px] font-medium text-codex-ink">{ref.label}</p>
                     </button>
                   ))}
                 </div>
@@ -282,7 +282,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
             </div>
           )}
 
-          <footer className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-white/92 px-4">
+          <footer className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-[var(--codex-border)] bg-white/92 px-4">
             {selectedCount > 0 ? (
               <div className="flex items-center gap-4">
                 <span className="text-[11px] font-semibold text-[var(--codex-accent)]">{t("scenePicker.selectedCount", { count: selectedCount, max: maxSelected })}</span>
@@ -301,7 +301,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
               <button
                 type="button"
                 onClick={onClose}
-                className="h-10 min-w-[120px] rounded-lg border border-slate-200 bg-white px-5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50"
+                className="h-10 min-w-[120px] rounded-lg border border-[var(--codex-border)] bg-white px-5 text-[13px] font-bold text-codex-ink transition hover:bg-[var(--codex-surface-soft)]"
               >
                 {t("scenePicker.cancel")}
               </button>
@@ -309,7 +309,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 type="button"
                 onClick={onConfirm}
                 disabled={!selectedCount}
-                className="h-10 min-w-[120px] rounded-lg bg-[var(--codex-accent)] px-5 text-[13px] font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-200"
+                className="h-10 min-w-[120px] rounded-lg bg-[var(--codex-accent)] px-5 text-[13px] font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-[var(--codex-border)]"
               >
                 {t("scenePicker.confirm")}
               </button>
@@ -344,30 +344,30 @@ function ScenePreviewPane({
 }) {
   const t = useTranslations("TryonShared");
   return (
-    <aside className="flex min-h-[320px] flex-col border-b border-slate-100 bg-slate-50 p-4 lg:min-h-0 lg:border-b-0 lg:border-r">
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-100">
+    <aside className="flex min-h-[320px] flex-col border-b border-[var(--codex-border)] bg-[var(--codex-surface-soft)] p-4 lg:min-h-0 lg:border-b-0 lg:border-r">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-[var(--codex-surface-soft)]">
         {activeReference ? (
           <>
             <button
               type="button"
               onClick={() => onPreview?.(activeReference.url, activeReference.label || t("scenePicker.mainScene"))}
-              className="block h-full w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+              className="block h-full w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
               aria-label={t("scenePicker.previewScene", { label: activeReference.label })}
             >
               <RawPreviewImage src={activeReference.url} alt={activeReference.label || t("scenePicker.mainScene")} className="h-full min-h-[320px] w-full object-cover lg:min-h-0" />
             </button>
-            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-slate-950/68 to-transparent p-3 text-white">
+            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-codex-ink/68 to-transparent p-3 text-white">
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-bold">{activeReference.label}</p>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {[...(activeReference.viewTags || []), ...(activeReference.cropTags || [])].slice(0, 4).map((tag) => (
-                    <span key={tag} className="rounded bg-slate-950/48 px-1.5 py-0.5 text-[10px] font-medium">
+                    <span key={tag} className="rounded bg-codex-ink/48 px-1.5 py-0.5 text-[10px] font-medium">
                       {tag.replace(/_/g, " ")}
                     </span>
                   ))}
                 </div>
               </div>
-              <span className="shrink-0 rounded-full bg-slate-950/58 px-2 py-1 text-[11px] font-bold">
+              <span className="shrink-0 rounded-full bg-codex-ink/58 px-2 py-1 text-[11px] font-bold">
                 {activeIndex >= 0 ? activeIndex + 1 : 0}/{total}
               </span>
             </div>
@@ -376,7 +376,7 @@ function ScenePreviewPane({
                 <button
                   type="button"
                   onClick={onPrevious}
-                  className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/50 text-white transition hover:bg-slate-950/68"
+                  className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-codex-ink/50 text-white transition hover:bg-codex-ink/68"
                   aria-label={t("scenePicker.previousScene")}
                 >
                   <ChevronLeft className="h-5 w-5" />
@@ -384,7 +384,7 @@ function ScenePreviewPane({
                 <button
                   type="button"
                   onClick={onNext}
-                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/50 text-white transition hover:bg-slate-950/68"
+                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-codex-ink/50 text-white transition hover:bg-codex-ink/68"
                   aria-label={t("scenePicker.nextScene")}
                 >
                   <ChevronRight className="h-5 w-5" />
@@ -393,7 +393,7 @@ function ScenePreviewPane({
             )}
           </>
         ) : (
-          <div className="flex h-full min-h-[360px] flex-col items-center justify-center text-center text-slate-400">
+          <div className="flex h-full min-h-[360px] flex-col items-center justify-center text-center text-codex-faint">
             <Sparkles className="mb-2 h-6 w-6" />
             <p className="text-xs font-medium">{t("scenePicker.notSelected")}</p>
             <p className="mt-1 text-[11px] text-[var(--codex-accent)]">{t("scenePicker.notSelectedHint")}</p>
@@ -402,12 +402,12 @@ function ScenePreviewPane({
       </div>
 
       <div className="mt-3 rounded-xl bg-white px-3 py-3">
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-codex-muted">
           {t("scenePicker.matchHintPrefix")}
           <span className="font-semibold text-red-500">{t("scenePicker.matchHintHighlight")}</span>
           {t("scenePicker.matchHintSuffix")}
         </p>
-        <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="mt-3 flex items-center justify-between text-[11px] text-codex-faint">
           <span>{t("scenePicker.totalScenes", { total })}</span>
           {selectedCount > 0 && (
             <span className="font-semibold text-[var(--codex-accent)]">{t("scenePicker.selectedCount", { count: selectedCount, max: maxSelected })}</span>
@@ -435,8 +435,8 @@ function SceneMainCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative overflow-hidden rounded-lg border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
-        active || selected ? "border-[var(--codex-accent)] shadow-sm" : "border-slate-200 hover:border-slate-300"
+        "group relative overflow-hidden rounded-lg border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2",
+        active || selected ? "border-[var(--codex-accent)] shadow-sm" : "border-[var(--codex-border)] hover:border-[var(--codex-border-strong)]"
       )}
       aria-label={t("scenePicker.selectScene", { label: item.label })}
     >
@@ -447,7 +447,7 @@ function SceneMainCard({
       )}>
         {selected && <CheckCircle2 className="h-4 w-4 text-white" />}
       </span>
-      <p className="line-clamp-2 px-2 py-2 text-center text-[10px] font-medium leading-4 text-slate-700">{item.label}</p>
+      <p className="line-clamp-2 px-2 py-2 text-center text-[10px] font-medium leading-4 text-codex-ink">{item.label}</p>
     </button>
   );
 }
@@ -467,8 +467,8 @@ function SceneChildCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative overflow-hidden rounded-xl border-2 bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
-        selected ? "border-[var(--codex-accent)] shadow-sm" : "border-transparent hover:border-slate-300"
+        "group relative overflow-hidden rounded-xl border-2 bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2",
+        selected ? "border-[var(--codex-accent)] shadow-sm" : "border-transparent hover:border-[var(--codex-border-strong)]"
       )}
       aria-label={t("scenePicker.selectPose", { label: item.label })}
     >
@@ -479,14 +479,14 @@ function SceneChildCard({
       )}>
         {selected && <CheckCircle2 className="h-4 w-4 text-white" />}
       </span>
-      <p className="line-clamp-2 px-2 py-2 text-center text-[10px] font-medium leading-4 text-slate-700">{item.label}</p>
+      <p className="line-clamp-2 px-2 py-2 text-center text-[10px] font-medium leading-4 text-codex-ink">{item.label}</p>
     </button>
   );
 }
 
 function PickerEmptyState({ label }: { label: string }) {
   return (
-    <div className="flex min-h-[260px] flex-col items-center justify-center py-20 text-center text-xs text-slate-400">
+    <div className="flex min-h-[260px] flex-col items-center justify-center py-20 text-center text-xs text-codex-faint">
       <Sparkles className="mb-2 h-6 w-6" />
       {label}
     </div>

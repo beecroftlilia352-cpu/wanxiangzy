@@ -35,6 +35,7 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -43,6 +44,7 @@ import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyR
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -157,6 +159,142 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     defaultExpectedCount: genCount,
     applyPath: isImageMode ? "/general-image/image-to-image" : "/general-image",
   });
+
+  // 后台轮询：useGenerationPolling 替代 inline for-loop + setTimeout + fetch
+  // general-image 比较直白：completed / failed 二选一，没有 transient 分支。
+  const pollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    displayExpectedCount: number;
+    retryPreviousResultUrls: string[];
+    retryResultIndex: number | null;
+    taskInputThumbnails: string[];
+    latestTaskResultUrlsRef: { current: string[] };
+    setProgress: (p: number) => void;
+    setResultUrls: (urls: string[]) => void;
+    setIsGenerating: (b: boolean) => void;
+    setError: (msg: string) => void;
+    setActiveQueueTask: (task: TaskQueueItem) => void;
+    refreshCredits: () => Promise<number | null | undefined>;
+    taskQueue: typeof taskQueue;
+    isImageMode: boolean;
+  } | null>(null);
+
+  const { start: startGeneralImagePolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown };
+  }>({
+    id: "",
+    buildUrl: (id) => {
+      const ctx = pollCtxRef.current;
+      return `/api/general-image?generation_id=${encodeURIComponent(ctx?.generationId ?? id)}`;
+    },
+    isTerminal: (state) => state.status === "completed" || state.status === "failed",
+    intervalMs: 2000,
+    maxAttempts: 150,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      // 终端态交给 onComplete
+      if (state.status === "completed" || state.status === "failed") return;
+
+      if (Array.isArray(state.result_urls) && state.result_urls.length) {
+        ctx.latestTaskResultUrlsRef.current = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          state.result_urls,
+          ctx.displayExpectedCount
+        );
+        ctx.setResultUrls(ctx.latestTaskResultUrlsRef.current);
+      }
+
+      const nextProgress = Number(state.progress);
+      if (Number.isFinite(nextProgress)) {
+        const runningProgress = Math.min(Math.max(Math.round(nextProgress), 0), 99);
+        ctx.setProgress(runningProgress);
+      }
+      const runningTask = ctx.taskQueue.markRunning(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
+        progress: Number.isFinite(nextProgress) ? Math.min(Math.max(Math.round(nextProgress), 0), 99) : 25,
+        status: state.status || "processing",
+      });
+      ctx.setActiveQueueTask(runningTask);
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+
+      if (state.status === "completed") {
+        const finalUrls = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          Array.isArray(state.result_urls) ? state.result_urls : ctx.latestTaskResultUrlsRef.current,
+          ctx.displayExpectedCount
+        );
+        ctx.latestTaskResultUrlsRef.current = finalUrls;
+        const finalResultCount = finalUrls.filter(Boolean).length;
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { message?: unknown })
+          : null;
+        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        ctx.setProgress(100);
+        ctx.setResultUrls(finalUrls);
+        const completedTask = ctx.taskQueue.markCompleted(ctx.activeTaskId, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+          error: completedError ? summarizeGenerationError(completedError) : "",
+        });
+        ctx.setActiveQueueTask(completedTask);
+        ctx.setIsGenerating(false);
+        if (completedError || finalResultCount < ctx.displayExpectedCount) {
+          void ctx.refreshCredits();
+          toast.warning(t(ctx.isImageMode ? "partialCompleteImageToImage" : "partialCompleteTextToImage", { done: finalResultCount, expected: ctx.displayExpectedCount }));
+        } else {
+          toast.success(t(ctx.isImageMode ? "completeImageToImage" : "completeTextToImage"));
+        }
+        return;
+      }
+
+      if (state.status === "failed") {
+        const message = summarizeGenerationError(state.error || t("generateFailed"));
+        ctx.setError(message);
+        const failedTask = ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+          resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
+        });
+        ctx.setActiveQueueTask(failedTask);
+        toast.error(message);
+        void ctx.refreshCredits();
+        ctx.setIsGenerating(false);
+      }
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = summarizeGenerationError(error.message || t("generateTimeout"));
+      ctx.setError(message);
+      const failedTask = ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
+      });
+      ctx.setActiveQueueTask(failedTask);
+      toast.error(message);
+      void ctx.refreshCredits();
+      ctx.setIsGenerating(false);
+    },
+  });
   const modeMeta = isImageMode
     ? {
         title: t("modeImageToImage"),
@@ -199,33 +337,30 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       toastMessage: t("retryToast", { index: index + 1 }),
     });
   }
-  const previewSession = useMemo(
-    () => createGenericImagePreviewSession({
-      module: "generalImage",
-      title: modeMeta.title,
-      urls: resultUrls,
-      expectedCount: activeResultExpectedCount,
-      isGenerating,
-      statusGroup: activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined),
-      createdAt: activeQueueTask?.createdAt,
-      references: previewReferenceUrls.map((url, index) => ({
-        url,
-        label: t("referenceImageLabel", { index: index + 1 }),
-        role: "reference" as const,
-      })),
-      promptText: prompt,
-      metaItems: [
-        { label: t("metaMode"), value: modeMeta.title },
-        { label: t("metaModel"), value: aiModel },
-        { label: t("metaRatio"), value: aspectRatio },
-        { label: t("metaResolution"), value: imageSize },
-        { label: t("metaCount"), value: genCount },
-      ],
-      resultTitlePrefix: isImageMode ? t("resultPrefixImageToImage") : t("resultPrefixTextToImage"),
-      aspectRatio,
-    }),
-    [activeQueueTask, activeResultExpectedCount, aiModel, aspectRatio, genCount, imageSize, isGenerating, isImageMode, modeMeta.title, previewReferenceUrls, prompt, resultUrls, t]
-  );
+  const previewSession = useStudioPreview({
+    module: "generalImage",
+    title: modeMeta.title,
+    urls: resultUrls,
+    expectedCount: activeResultExpectedCount,
+    isGenerating,
+    statusGroup: activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined),
+    createdAt: activeQueueTask?.createdAt,
+    references: previewReferenceUrls.map((url, index) => ({
+      url,
+      label: t("referenceImageLabel", { index: index + 1 }),
+      role: "reference" as const,
+    })),
+    promptText: prompt,
+    metaItems: [
+      { label: t("metaMode"), value: modeMeta.title },
+      { label: t("metaModel"), value: aiModel },
+      { label: t("metaRatio"), value: aspectRatio },
+      { label: t("metaResolution"), value: imageSize },
+      { label: t("metaCount"), value: genCount },
+    ],
+    resultTitlePrefix: isImageMode ? t("resultPrefixImageToImage") : t("resultPrefixTextToImage"),
+    aspectRatio,
+  });
   const canGenerate = !isGenerating && !isUploading && prompt.trim().length > 0 && (!isImageMode || referenceImages.length > 0);
   const runDisabledReason = !prompt.trim()
     ? t("needPrompt")
@@ -526,7 +661,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     });
     setActiveQueueTask(provisionalTask);
     let activeTaskId = provisionalTask.id;
-    let latestTaskResultUrls: string[] = [];
     try {
       const res = await fetch("/api/general-image", {
         method: "POST",
@@ -571,70 +705,33 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         activeTaskId = serverTask.id;
       }
 
-      for (let attempts = 0; attempts < 150; attempts++) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const poll = await fetch(`/api/general-image?generation_id=${encodeURIComponent(data.generation_id)}`);
-        if (!poll.ok) continue;
-        const state = await poll.json();
-        const nextProgress = Number(state.progress);
-        const runningProgress = Number.isFinite(nextProgress) ? Math.min(Math.max(Math.round(nextProgress), 0), 99) : 25;
-        if (Number.isFinite(nextProgress)) setProgress(runningProgress);
-        if (Array.isArray(state.result_urls) && state.result_urls.length) {
-          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
-          setResultUrls(latestTaskResultUrls);
-        }
-        const runningTask = taskQueue.markRunning(activeTaskId, {
-          expectedCount: displayExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          resultThumbnails: latestTaskResultUrls,
-          resultCount: latestTaskResultUrls.filter(Boolean).length,
-          progress: runningProgress,
-          status: state.status || "processing",
-        });
-        setActiveQueueTask(runningTask);
-        if (state.status === "completed") {
-          const finalUrls = mergeRetryResultUrls(
-            retryPreviousResultUrls,
-            retryResultIndex,
-            Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls,
-            displayExpectedCount
-          );
-          latestTaskResultUrls = finalUrls;
-          const finalResultCount = finalUrls.filter(Boolean).length;
-          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
-            ? state.partial_failure as { message?: unknown }
-            : null;
-          const completedError = state.error || partialFailure?.message || "";
-          setProgress(100);
-          setResultUrls(finalUrls);
-          const completedTask = taskQueue.markCompleted(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: taskInputThumbnails,
-            resultThumbnails: finalUrls,
-            resultCount: finalResultCount,
-            error: completedError ? summarizeGenerationError(completedError) : "",
-          });
-          setActiveQueueTask(completedTask);
-          setIsGenerating(false);
-          if (completedError || finalResultCount < displayExpectedCount) {
-            void refreshCredits();
-            toast.warning(t(isImageMode ? "partialCompleteImageToImage" : "partialCompleteTextToImage", { done: finalResultCount, expected: displayExpectedCount }));
-          } else {
-            toast.success(t(isImageMode ? "completeImageToImage" : "completeTextToImage"));
-          }
-          return;
-        }
-        if (state.status === "failed") throw new Error(state.error || t("generateFailed"));
-      }
-      throw new Error(t("generateTimeout"));
+      // 后台轮询：useGenerationPolling 替代原 inline for-loop
+      pollCtxRef.current = {
+        activeTaskId,
+        generationId: typeof data.generation_id === "string" ? data.generation_id : "",
+        displayExpectedCount,
+        retryPreviousResultUrls,
+        retryResultIndex,
+        taskInputThumbnails: taskInputThumbnails,
+        latestTaskResultUrlsRef: { current: [] },
+        setProgress,
+        setResultUrls,
+        setIsGenerating,
+        setError,
+        setActiveQueueTask,
+        refreshCredits,
+        taskQueue,
+        isImageMode,
+      };
+      startGeneralImagePolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
-        resultThumbnails: latestTaskResultUrls,
-        resultCount: latestTaskResultUrls.filter(Boolean).length,
+        resultThumbnails: pollCtxRef.current?.latestTaskResultUrlsRef.current ?? [],
+        resultCount: pollCtxRef.current?.latestTaskResultUrlsRef.current.filter(Boolean).length ?? 0,
       });
       setActiveQueueTask(failedTask);
       toast.error(message);
@@ -692,7 +789,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               }}
               className="studio-general-reference-upload"
               actions={(
-                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]">
+                <span className="rounded-full bg-[var(--codex-accent-10)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]">
                   {referenceImages.length}/8
                 </span>
               )}
@@ -715,8 +812,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   {referenceImages.length > 0 && (
                     <div className="mt-3">
                       <div className="mb-2 flex items-center justify-between text-xs">
-                        <span className="font-medium text-slate-500">{t("orderMarkedAsImages")}</span>
-                        <button type="button" onClick={() => { setReferenceImages([]); }} className="inline-flex items-center gap-1 text-slate-400 hover:text-red-500">
+                        <span className="font-medium text-codex-faint">{t("orderMarkedAsImages")}</span>
+                        <button type="button" onClick={() => { setReferenceImages([]); }} className="inline-flex items-center gap-1 text-codex-faint hover:text-red-500">
                           <Trash2 className="h-3.5 w-3.5" /> {t("clear")}
                         </button>
                       </div>
@@ -724,11 +821,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                         {referenceImages.map((item, index) => (
                           <div key={item.id} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white shadow-sm">
                             <RawPreviewImage src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
-                            <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">{t("imageIndex", { index: index + 1 })}</span>
+                            <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-codex-faint">{t("imageIndex", { index: index + 1 })}</span>
                             <button
                               type="button"
                               onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); }}
-                              className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/75 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-lg:opacity-100"
+                              className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-codex-ink/75 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-lg:opacity-100"
                               aria-label={t("removeImage", { index: index + 1 })}
                             >
                               <X className="h-3 w-3" />
@@ -776,7 +873,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   {t("aiHelpWrite")}
                 </button>
               </div>
-              <span className="text-[11px] font-medium text-slate-400">{prompt.length} / 4000</span>
+              <span className="text-[11px] font-medium text-codex-faint">{prompt.length} / 4000</span>
             </div>
           </div>
 

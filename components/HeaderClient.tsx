@@ -310,7 +310,7 @@ function MarketingAccountActions({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50 dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:shadow-black/40"
+        className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-codex-surface p-1.5 shadow-xl shadow-slate-200/50 dark:shadow-black/40"
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
         <AccountMenuLink href="/account" icon={UserRound} label={t("accountMenu.account")} />
@@ -319,7 +319,7 @@ function MarketingAccountActions({
         <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label={t("accountMenu.help")} />
         <AccountMenuLink href="/account?tab=messages" icon={Bell} label={t("accountMenu.messages")} />
         <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label={t("accountMenu.feedback")} />
-        <DropdownMenuSeparator className="my-1 h-px bg-slate-100 dark:bg-stone-800" />
+        <DropdownMenuSeparator className="my-1 h-px bg-[var(--codex-border)]" />
         <AccountMenuLink href="/history" icon={ArrowUpRight} label={t("accountMenu.works")} />
         <AccountMenuLink href="/create" icon={Home} label={t("accountMenu.workspace")} />
         <DropdownMenuItem
@@ -328,7 +328,7 @@ function MarketingAccountActions({
             event.preventDefault();
             onLogout();
           }}
-          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 dark:text-stone-200 dark:hover:bg-stone-800 dark:hover:text-white dark:focus:bg-stone-800 dark:focus:text-white dark:data-[highlighted]:bg-stone-800 dark:data-[highlighted]:text-white"
+          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-codex-ink outline-none transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink focus:bg-[var(--codex-surface-soft)] focus:text-codex-ink data-[highlighted]:bg-[var(--codex-surface-soft)] data-[highlighted]:text-codex-ink data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           <LogOut className="h-4 w-4" />
           {isLoggingOut ? t("loggingOut") : t("logout")}
@@ -346,7 +346,7 @@ function MarketingMobileMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="home-menu-pill inline-flex h-10 w-10 items-center justify-center rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)] lg:hidden"
+          className="home-menu-pill inline-flex h-10 w-10 items-center justify-center rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-[var(--codex-accent-18)] lg:hidden"
           aria-label={t("openNavAria")}
         >
           <Menu className="h-4 w-4" />
@@ -355,14 +355,14 @@ function MarketingMobileMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/45 dark:border-stone-700 dark:bg-[var(--codex-surface)] dark:shadow-black/40"
+        className="z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-codex-surface p-1.5 shadow-xl shadow-slate-300/45 dark:shadow-black/40"
       >
         {marketingNav.map((item) => (
           <DropdownMenuItem key={item.href} asChild>
             <Link
               href={item.href}
               prefetch={false}
-              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 dark:text-stone-200 dark:hover:bg-stone-800 dark:hover:text-white dark:focus:bg-stone-800 dark:focus:text-white dark:data-[highlighted]:bg-stone-800 dark:data-[highlighted]:text-white"
+              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-codex-ink outline-none transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink focus:bg-[var(--codex-surface-soft)] focus:text-codex-ink data-[highlighted]:bg-[var(--codex-surface-soft)] data-[highlighted]:text-codex-ink"
             >
               {tAny(item.labelKey)}
             </Link>
@@ -372,7 +372,7 @@ function MarketingMobileMenu() {
           <Link
             href="/create"
             prefetch={false}
-            className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-black text-[var(--codex-accent)] outline-none transition hover:bg-[rgba(91,124,255,0.1)] focus:bg-[rgba(91,124,255,0.1)] data-[highlighted]:bg-[rgba(91,124,255,0.1)] dark:text-[#9db4ff]"
+            className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-black text-[var(--codex-accent)] outline-none transition hover:bg-[var(--codex-accent-10)] focus:bg-[var(--codex-accent-10)] data-[highlighted]:bg-[var(--codex-accent-10)] dark:text-[#9db4ff]"
           >
             {t("accountMenu.workspace")}
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -429,7 +429,7 @@ function BrandMark() {
   const t = useTranslations("Header");
   return (
     <Link href="/" className="studio-brand-mark flex min-w-0 items-center gap-3" aria-label={t("brandHomeAria")}>
-      <span className="studio-brand-logo relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-stone-700 dark:bg-stone-800/90">
+      <span className="studio-brand-logo relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-[var(--codex-border)] dark:bg-[var(--codex-surface)]/90">
         <Image
           src={codexTheme.brand.logo}
           alt=""
@@ -457,48 +457,59 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
   const tAny = useTranslations(); // 数据键全路径（Header.nav.* / Header.modules.*），用全局 t 解析
   return (
     <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 xl:flex" aria-label={t("mainNavAria")}>
-      {VISIBLE_TOP_MODULES.map((item) => {
+      {VISIBLE_TOP_MODULES.map((item, index) => {
+        // "3 个工作场景" 与 "作品库" 之间的视觉分界线。
+        const showDivider = index > 0 && item.key === "works";
         const active = activeModule === item.key;
         const Icon = item.icon;
         const className = `relative inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-black transition ${
           active
-            ? "bg-[rgba(91,124,255,0.12)] text-[var(--codex-accent)] shadow-sm ring-1 ring-[rgba(91,124,255,0.3)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#aeb8ff] dark:ring-[rgba(91,140,255,0.45)]"
-            : "text-codex-muted hover:bg-white/72 hover:text-codex-ink dark:text-stone-400 dark:hover:bg-stone-800/60 dark:hover:text-stone-100"
+            ? "bg-[var(--codex-accent-12)] text-[var(--codex-accent)] shadow-sm ring-1 ring-[var(--codex-accent-30)] dark:bg-[var(--codex-accent-18)] dark:text-[#aeb8ff] dark:ring-[var(--codex-accent-45)]"
+            : "text-codex-muted hover:bg-white/72 hover:text-codex-ink dark:hover:bg-codex-surface/60 dark:hover:text-codex-ink"
         }`;
 
-        if (item.comingSoon) {
-          return (
-            <button
-              key={item.key}
-              type="button"
-              disabled
-              title={t("comingSoon")}
-              className={`${className} cursor-not-allowed opacity-55`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {item.labelKey ? tAny(item.labelKey) : item.label}
-              <span className="ml-0.5 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold text-codex-faint">
-                {t("comingSoon")}
-              </span>
-            </button>
-          );
-        }
-
-        return (
-          <Link key={item.key} href={item.href} className={className} aria-current={active ? "page" : undefined}>
-            <Icon className="h-3.5 w-3.5" />
-            <span className="relative inline-flex">
-              {item.labelKey ? tAny(item.labelKey) : item.label}
-              {item.badge && (
-                <span
-                  aria-hidden="true"
-                  className="absolute -right-3 -top-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1.5 text-[9px] font-black leading-none tracking-tight text-white ring-2 ring-white/90 dark:ring-stone-900/80"
-                >
-                  {item.badge}
+        const inner = (() => {
+          if (item.comingSoon) {
+            return (
+              <button
+                type="button"
+                disabled
+                title={t("comingSoon")}
+                className={`${className} cursor-not-allowed opacity-55`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {item.labelKey ? tAny(item.labelKey) : item.label}
+                <span className="ml-0.5 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold text-codex-faint">
+                  {t("comingSoon")}
                 </span>
-              )}
-            </span>
-          </Link>
+              </button>
+            );
+          }
+
+          return (
+            <Link key={item.key} href={item.href} className={className} aria-current={active ? "page" : undefined}>
+              <Icon className="h-3.5 w-3.5" />
+              <span className="relative inline-flex">
+                {item.labelKey ? tAny(item.labelKey) : item.label}
+                {item.badge && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-3 -top-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1.5 text-[9px] font-black leading-none tracking-tight text-white ring-2 ring-white/90 dark:ring-codex-ink/80"
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </span>
+            </Link>
+          );
+        })();
+
+        if (!showDivider) return inner;
+        return (
+          <div key={item.key} className="flex items-center">
+            <span aria-hidden="true" className="mr-2 h-5 w-px bg-[var(--codex-border)]/80" />
+            {inner}
+          </div>
         );
       })}
     </nav>
@@ -548,7 +559,7 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_4px_14px_rgba(91,124,255,0.3)] transition hover:-translate-y-0.5 hover:opacity-90 dark:bg-[rgba(91,140,255,0.85)] sm:inline-flex"
+        className="hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_4px_14px_var(--codex-accent-30)] transition hover:-translate-y-0.5 hover:opacity-90 dark:bg-[var(--codex-accent-72)] sm:inline-flex"
         title={t("topUp")}
       >
         <CreditCard className="h-3.5 w-3.5" />
@@ -556,11 +567,11 @@ function UserCreditActions({
       </Link>
       <Link
         href="/account?tab=credits"
-        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.3)] bg-[rgba(91,124,255,0.1)] px-4 text-xs font-black text-[var(--codex-accent)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[rgba(91,124,255,0.16)] dark:border-[rgba(91,140,255,0.4)] dark:bg-[rgba(91,140,255,0.14)] dark:text-[#aeb8ff] dark:hover:bg-[rgba(91,140,255,0.22)]"
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--codex-accent-30)] bg-[var(--codex-accent-10)] px-4 text-xs font-black text-[var(--codex-accent)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--codex-accent-16)] dark:border-[var(--codex-accent-38)] dark:bg-[var(--codex-accent-14)] dark:text-[#aeb8ff] dark:hover:bg-[var(--codex-accent-22)]"
         title={t("creditsAria")}
       >
         <Coins className="h-3.5 w-3.5" />
-        {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200 dark:bg-white/10" />}
+        {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-[var(--codex-surface-soft)] dark:bg-white/10" />}
       </Link>
       <HeaderHelpDropdown />
       <AccountAvatarDropdown
@@ -599,7 +610,7 @@ function AccountAvatarDropdown({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--codex-accent-18)]"
           title={t("openAccountCenter")}
           aria-label={t("openAccountMenuAria")}
           aria-expanded={open}
@@ -614,7 +625,7 @@ function AccountAvatarDropdown({
       <DropdownMenuContent
         align="end"
         sideOffset={12}
-        className="z-[80] w-[272px] overflow-hidden rounded-md border border-slate-100 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-[#1c1c1e] dark:shadow-[0_18px_50px_rgba(0,0,0,0.6)]"
+        className="z-[80] w-[272px] overflow-hidden rounded-md border border-[var(--codex-border)] bg-codex-surface shadow-[0_18px_50px_rgba(15,23,42,0.16)] dark:border-white/10 dark:shadow-[0_18px_50px_rgba(0,0,0,0.6)]"
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
         <AccountMenuBanner />
@@ -625,14 +636,14 @@ function AccountAvatarDropdown({
         <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label={t("accountMenu.help")} />
         <AccountMenuLink href="/account?tab=messages" icon={Bell} label={t("accountMenu.messages")} />
         <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label={t("accountMenu.feedback")} />
-        <DropdownMenuSeparator className="h-px bg-slate-100" />
+        <DropdownMenuSeparator className="h-px bg-[var(--codex-border)]" />
         <DropdownMenuItem
           disabled={isLoggingOut}
           onSelect={(event) => {
             event.preventDefault();
             onLogout();
           }}
-          className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-codex-ink outline-none transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink focus:bg-[var(--codex-surface-soft)] focus:text-codex-ink data-[highlighted]:bg-[var(--codex-surface-soft)] data-[highlighted]:text-codex-ink data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           <LogOut className="h-4 w-4" />
           {isLoggingOut ? t("loggingOut") : t("logout")}
@@ -654,7 +665,7 @@ function AccountMenuHeader({
   const t = useTranslations("Header");
   const masked = email ? maskAccountLabel(email) : t("personalAccount");
   return (
-    <div className="bg-[#f8fafc] px-3 py-3 dark:bg-white/4">
+    <div className="bg-[var(--codex-surface-soft)] px-3 py-3">
       <div className="flex items-center gap-3">
         <Avatar size="lg" className="bg-[#c8d7ff] text-white dark:bg-[#3b4d7a]">
           <AvatarFallback className="bg-[#c8d7ff] text-sm font-black text-white dark:bg-[#3b4d7a]">
@@ -662,17 +673,17 @@ function AccountMenuHeader({
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-950 dark:text-stone-100">{masked}</p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-stone-400">{t("personalAccount")}</p>
+          <p className="truncate text-sm font-semibold text-codex-ink">{masked}</p>
+          <p className="mt-0.5 text-xs text-codex-faint">{t("personalAccount")}</p>
         </div>
         <Link
           href="/login"
-          className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:hover:bg-white/10"
+          className="shrink-0 rounded-md border border-[var(--codex-border)] bg-codex-surface px-2.5 py-1.5 text-xs font-medium text-codex-ink transition hover:bg-[var(--codex-surface-soft)]"
         >
           {t("switchAccount")}
         </Link>
       </div>
-      <p className="mt-2 text-xs font-medium tabular-nums text-slate-500 dark:text-stone-400">
+      <p className="mt-2 text-xs font-medium tabular-nums text-codex-faint">
         {t("availableCredits", { credits: creditsReady ? credits ?? "--" : "--" })}
       </p>
     </div>
@@ -703,7 +714,7 @@ function AccountMenuLink({
 }) {
   return (
     <DropdownMenuItem asChild>
-      <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-slate-100 px-4 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 dark:border-white/5 dark:text-stone-200 dark:hover:bg-white/5 dark:hover:text-white dark:focus:bg-white/5 dark:focus:text-white dark:data-[highlighted]:bg-white/5 dark:data-[highlighted]:text-white">
+      <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-[var(--codex-border)] px-4 text-sm font-medium text-codex-ink outline-none transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink focus:bg-[var(--codex-surface-soft)] focus:text-codex-ink data-[highlighted]:bg-[var(--codex-surface-soft)] data-[highlighted]:text-codex-ink">
         <Icon className="h-4 w-4" />
         {label}
       </Link>
@@ -733,13 +744,13 @@ function HeaderHelpDropdown() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="z-[80] min-w-[112px] overflow-hidden rounded-md border border-slate-100 bg-white p-1 shadow-[0_12px_28px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[#1c1c1e] dark:shadow-[0_12px_28px_rgba(0,0,0,0.5)]"
+        className="z-[80] min-w-[112px] overflow-hidden rounded-md border border-[var(--codex-border)] bg-codex-surface p-1 shadow-[0_12px_28px_rgba(15,23,42,0.14)] dark:border-white/10 dark:shadow-[0_12px_28px_rgba(0,0,0,0.5)]"
       >
         {items.map((item) => (
           <DropdownMenuItem key={item.href} asChild>
             <Link
               href={item.href}
-              className="flex h-9 items-center rounded-sm px-3 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950"
+              className="flex h-9 items-center rounded-sm px-3 text-sm font-medium text-codex-ink outline-none transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink focus:bg-[var(--codex-surface-soft)] focus:text-codex-ink data-[highlighted]:bg-[var(--codex-surface-soft)] data-[highlighted]:text-codex-ink"
             >
               {item.label}
             </Link>
@@ -772,7 +783,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="mac-button inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm"
+          className="mac-button inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--codex-border)] bg-codex-surface px-3 text-xs font-black text-codex-ink shadow-sm"
           aria-label={t("switchModule")}
         >
           <ActiveIcon className="h-3.5 w-3.5" />
@@ -783,49 +794,62 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="mac-surface z-[80] min-w-[190px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+        className="mac-surface z-[80] min-w-[190px] overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-codex-surface p-1.5 shadow-xl shadow-slate-200/50"
       >
-        {VISIBLE_TOP_MODULES.map((item) => {
+        {VISIBLE_TOP_MODULES.map((item, index) => {
           const Icon = item.icon;
           const isActive = item.key === activeModule;
+          // 移动端菜单："3 个工作场景" 与 "作品库" 之间加分隔线
+          const showDivider = index > 0 && item.key === "works";
 
-          if (item.comingSoon) {
-            return (
-              <DropdownMenuItem
-                key={item.key}
-                disabled
-                className="flex cursor-not-allowed items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-400 outline-none"
-              >
-                <Icon className="h-4 w-4" />
-                <span className="flex flex-1 items-center justify-between gap-3">
-                  {item.labelKey ? tAny(item.labelKey) : item.label}
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                    {t("comingSoon")}
+          const content = (() => {
+            if (item.comingSoon) {
+              return (
+                <DropdownMenuItem
+                  disabled
+                  className="flex cursor-not-allowed items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-codex-faint outline-none"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="flex flex-1 items-center justify-between gap-3">
+                    {item.labelKey ? tAny(item.labelKey) : item.label}
+                    <span className="rounded-full bg-[var(--codex-surface-soft)] px-2 py-0.5 text-[10px] font-bold text-codex-faint">
+                      {t("comingSoon")}
+                    </span>
                   </span>
-                </span>
+                </DropdownMenuItem>
+              );
+            }
+
+            return (
+              <DropdownMenuItem asChild>
+                <Link
+                  href={item.href}
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold outline-none transition-colors ${
+                    isActive ? "bg-white/80 text-[var(--codex-accent)]" : "text-codex-muted hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                    <span className="truncate">{item.labelKey ? tAny(item.labelKey) : item.label}</span>
+                    {item.badge && (
+                      <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[9px] font-black leading-none text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                  </span>
+                </Link>
               </DropdownMenuItem>
             );
-          }
+          })();
 
+          if (!showDivider) {
+            return <div key={item.key}>{content}</div>;
+          }
           return (
-            <DropdownMenuItem key={item.key} asChild>
-              <Link
-                href={item.href}
-                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold outline-none transition-colors ${
-                  isActive ? "bg-white/80 text-[var(--mac-accent)]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                  <span className="truncate">{item.labelKey ? tAny(item.labelKey) : item.label}</span>
-                  {item.badge && (
-                    <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[9px] font-black leading-none text-white">
-                      {item.badge}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            </DropdownMenuItem>
+            <div key={item.key} className="space-y-1">
+              <div aria-hidden="true" className="my-1 h-px bg-[var(--codex-border)]/80" />
+              {content}
+            </div>
           );
         })}
       </DropdownMenuContent>

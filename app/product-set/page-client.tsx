@@ -15,15 +15,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
+import { StudioPageShell } from "@/components/studio/StudioPageShell";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
@@ -257,6 +260,252 @@ export default function ProductSetPage() {
     title: t("moduleName"),
     defaultExpectedCount: Math.max(1, outputCount || genCount),
     applyPath: "/product-set",
+  });
+
+  // 后台轮询：useGenerationPolling 替代两处 inline for-loop（生成 + 单图重生成）
+  // product-set 的复杂度：module_results 多模块结算 + 30 分钟长轮询 + 后台模式 fallback
+  // 所以在 pollCtxRef 里塞：expectedResultCount / latestUrlsRef / completedWithoutResultsTicksRef
+  const productSetPollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    expectedResultCount: number;
+    taskInputThumbnails: string[];
+    currentPlan: ProductSetResolvedTemplate[];
+    latestUrlsRef: { current: string[] };
+    completedWithoutResultsTicksRef: { current: number };
+    /** 防止 onTick 完成分支执行后又被 onComplete 重复触发 */
+    alreadyFinalizedRef: { current: boolean };
+    setProgress: (p: number) => void;
+    setResultUrls: (updater: string[] | ((prev: string[]) => string[])) => void;
+    setResultPlan: (updater: ProductSetResolvedTemplate[] | ((prev: ProductSetResolvedTemplate[]) => ProductSetResolvedTemplate[])) => void;
+    setModuleResults: React.Dispatch<React.SetStateAction<ProductSetModuleResult[]>>;
+    setIsGenerating: (b: boolean) => void;
+    setError: (msg: string) => void;
+    setActiveQueueTask: (task: TaskQueueItem | null) => void;
+    refreshCredits: () => Promise<unknown>;
+    taskQueue: typeof taskQueue;
+    mode: "generate" | "regenerate";
+    regenerateIndex?: number;
+    setRegeneratingIndex: (idx: number | null) => void;
+  } | null>(null);
+
+  const { start: startProductSetPolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown };
+    module_results?: unknown;
+  }>({
+    id: "",
+    buildUrl: (id) => {
+      const ctx = productSetPollCtxRef.current;
+      return `/api/product-set?generation_id=${encodeURIComponent(ctx?.generationId ?? id)}`;
+    },
+    isTerminal: (state) => {
+      const ctx = productSetPollCtxRef.current;
+      if (state.status === "failed") return true;
+      // generate 模式完成分支已在 onTick 内 finalize；用 alreadyFinalizedRef 让 isTerminal 转 true 来终止 loop
+      if (ctx?.alreadyFinalizedRef.current) return true;
+      if (state.status === "completed" && ctx?.mode === "regenerate") return true;
+      return false;
+    },
+    intervalMs: 2000,
+    maxAttempts: 900,
+    onTick: (state) => {
+      const ctx = productSetPollCtxRef.current;
+      if (!ctx) return;
+
+      const nextUrls = Array.isArray(state.result_urls)
+        ? state.result_urls.filter((url: unknown): url is string => typeof url === "string" && url.length > 0)
+        : [];
+      const nextModules = readModuleResults(state.module_results);
+      const hasAllResults = nextModules.length
+        ? nextModules.every((item) => item.status === "completed" || item.status === "failed")
+        : nextUrls.length >= ctx.expectedResultCount;
+
+      const nextProgress = Number(state.progress);
+      if (Number.isFinite(nextProgress)) {
+        const rounded = Math.min(Math.max(Math.round(nextProgress), 0), 100);
+        const runningProgress = !hasAllResults && rounded >= 100 ? 99 : rounded;
+        ctx.setProgress(runningProgress);
+        const runningTask = ctx.taskQueue.markRunning(ctx.activeTaskId, {
+          expectedCount: ctx.expectedResultCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: ctx.latestUrlsRef.current,
+          resultCount: ctx.latestUrlsRef.current.length,
+          progress: runningProgress,
+          status: state.status,
+        });
+        ctx.setActiveQueueTask(runningTask);
+      }
+      if (nextModules.length) {
+        ctx.setModuleResults(nextModules);
+        const moduleUrls = urlsFromModules(nextModules, ctx.currentPlan);
+        if (moduleUrls.length) {
+          ctx.latestUrlsRef.current = moduleUrls;
+          ctx.setResultUrls(moduleUrls);
+        } else if (nextUrls.length) {
+          ctx.latestUrlsRef.current = nextUrls;
+          ctx.setResultUrls(nextUrls);
+        }
+      } else if (nextUrls.length) {
+        ctx.latestUrlsRef.current = nextUrls;
+        ctx.setResultUrls(nextUrls);
+      }
+
+      if (state.status === "completed" && ctx.mode === "generate" && !ctx.alreadyFinalizedRef.current) {
+        // worker 标完成但模块未全部结算：最多再等 10 tick（20s），超时按当前已有结果收尾
+        if (!hasAllResults) {
+          ctx.completedWithoutResultsTicksRef.current += 1;
+          if (ctx.completedWithoutResultsTicksRef.current < 10) return; // continue polling
+        }
+        // 完成分支：内联 finalizeGenerate
+        ctx.setProgress(100);
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { message?: unknown })
+          : null;
+        const failedModuleCount = nextModules.filter((item) => item.status === "failed").length;
+        const completedErrorSource = nextModules.find((item) => item.error)?.error || state.error || partialFailure?.message || "";
+        const completedError = completedErrorSource ? summarizeGenerationError(String(completedErrorSource)) : "";
+        if (nextModules.length) {
+          ctx.setModuleResults(nextModules);
+          const moduleUrls = urlsFromModules(nextModules, ctx.currentPlan);
+          const finalUrls = moduleUrls.length ? moduleUrls : nextUrls;
+          const finalResultCount = finalUrls.filter(Boolean).length;
+          ctx.latestUrlsRef.current = finalUrls;
+          ctx.setResultUrls(finalUrls);
+          const completedTask = ctx.taskQueue.markCompleted(ctx.activeTaskId, {
+            expectedCount: ctx.expectedResultCount,
+            inputThumbnails: ctx.taskInputThumbnails,
+            resultThumbnails: finalUrls,
+            resultCount: finalResultCount,
+            error: completedError,
+          });
+          ctx.setActiveQueueTask(completedTask);
+          if (failedModuleCount > 0 || finalResultCount < ctx.expectedResultCount || completedError) {
+            void ctx.refreshCredits();
+            toast.warning(buildPartialFailureDetail({
+              message: completedError || String(completedErrorSource),
+              failedCount: failedModuleCount || ctx.expectedResultCount - finalResultCount || 1,
+            }));
+          } else {
+            toast.success(t("generation.completed"));
+          }
+        } else {
+          ctx.latestUrlsRef.current = nextUrls;
+          ctx.setResultUrls(nextUrls);
+          const finalResultCount = nextUrls.filter(Boolean).length;
+          const completedTask = ctx.taskQueue.markCompleted(ctx.activeTaskId, {
+            expectedCount: ctx.expectedResultCount,
+            inputThumbnails: ctx.taskInputThumbnails,
+            resultThumbnails: nextUrls,
+            resultCount: finalResultCount,
+            error: completedError,
+          });
+          ctx.setActiveQueueTask(completedTask);
+          if (finalResultCount < ctx.expectedResultCount || completedError) {
+            void ctx.refreshCredits();
+            toast.warning(buildPartialFailureDetail({
+              message: completedError || String(completedErrorSource),
+              failedCount: ctx.expectedResultCount - finalResultCount || 1,
+            }));
+          } else {
+            toast.success(t("generation.completed"));
+          }
+        }
+        ctx.setIsGenerating(false);
+        ctx.alreadyFinalizedRef.current = true;
+        return;
+      }
+
+      if (state.status === "completed" && ctx.mode === "regenerate" && !ctx.alreadyFinalizedRef.current) {
+        const nextUrl = nextUrls.find((url) => typeof url === "string" && url.length > 0) || "";
+        const moduleUrl = nextModules.find((item) => item.resultUrl)?.resultUrl;
+        const failedModule = nextModules.find((item) => item.status === "failed");
+        if (failedModule && !moduleUrl && !nextUrl) {
+          // 错误情况：记到 setError + markFailed 然后终止
+          const message = failedModule.error || t("regenerate.failed");
+          ctx.setError(message);
+          ctx.alreadyFinalizedRef.current = true;
+          ctx.setRegeneratingIndex(null);
+          toast.error(message);
+          return;
+        }
+        if (moduleUrl || nextUrl) {
+          const finalUrl = (moduleUrl || nextUrl) as string;
+          ctx.setResultPlan((prev) => prev.length ? prev : ctx.currentPlan);
+          ctx.setResultUrls((prev) => {
+            const next = [...prev];
+            const idx = ctx.regenerateIndex ?? 0;
+            next[idx] = finalUrl;
+            return next;
+          });
+          if (state.status === "completed") {
+            toast.success(t("regenerate.done", { index: (ctx.regenerateIndex ?? 0) + 1 }));
+            ctx.setRegeneratingIndex(null);
+            ctx.alreadyFinalizedRef.current = true;
+          }
+        }
+        return;
+      }
+    },
+    onComplete: (state) => {
+      const ctx = productSetPollCtxRef.current;
+      if (!ctx) return;
+      // generate 模式的完成分支已 inlined 在 onTick，此处只处理 failed
+      if (state.status === "failed" && ctx.mode === "generate" && !ctx.alreadyFinalizedRef.current) {
+        const message = summarizeGenerationError(state.error || t("generation.failed"));
+        ctx.setError(message);
+        const failedTask = ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+          expectedCount: ctx.expectedResultCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: ctx.latestUrlsRef.current,
+        });
+        ctx.setActiveQueueTask(failedTask);
+        void ctx.refreshCredits();
+        ctx.setIsGenerating(false);
+        ctx.alreadyFinalizedRef.current = true;
+      }
+    },
+    onError: (error) => {
+      const ctx = productSetPollCtxRef.current;
+      if (!ctx) return;
+      if (ctx.alreadyFinalizedRef.current) return;
+      ctx.alreadyFinalizedRef.current = true;
+      if (ctx.mode === "regenerate") {
+        // regenerate 模式：超时 / 网络错误 → 后台模式
+        const message = summarizeGenerationError(error.message || t("regenerate.failed"));
+        toast.error(message);
+        ctx.setRegeneratingIndex(null);
+        return;
+      }
+      // generate 模式：timeout / network error → 后台 fallback (保留原 latestUrls)
+      const message = summarizeGenerationError(error.message || t("generation.timeout"));
+      ctx.setError(message);
+      if (ctx.latestUrlsRef.current.length > 0) {
+        ctx.setIsGenerating(false);
+        const backgroundTask = ctx.taskQueue.markRunning(ctx.activeTaskId, {
+          expectedCount: ctx.expectedResultCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: ctx.latestUrlsRef.current,
+          resultCount: ctx.latestUrlsRef.current.length,
+          progress: 99,
+        });
+        ctx.setActiveQueueTask(backgroundTask);
+        toast.info(t("generation.background"));
+        return;
+      }
+      // 完全没结果：标 failed
+      const failedTask = ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.expectedResultCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestUrlsRef.current,
+      });
+      ctx.setActiveQueueTask(failedTask);
+      void ctx.refreshCredits();
+      ctx.setIsGenerating(false);
+    },
   });
   useEffect(() => {
     const sourceImage = takeSourceImageFromLocation();
@@ -1060,7 +1309,6 @@ export default function ProductSetPage() {
     });
     setActiveQueueTask(provisionalTask);
     let activeTaskId = provisionalTask.id;
-    let latestUrls: string[] = [];
     try {
       const finalSettings = {
         ...settings,
@@ -1110,7 +1358,6 @@ export default function ProductSetPage() {
       if (initialModules.length) setModuleResults(initialModules);
       if (typeof data.generation_id === "string" && data.generation_id) {
         const initialUrls = urlsFromModules(initialModules, currentPlan);
-        latestUrls = initialUrls;
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
           expectedCount: expectedResultCount,
@@ -1124,134 +1371,36 @@ export default function ProductSetPage() {
         activeTaskId = serverTask.id;
       }
 
-      let completedWithoutAllResultsTicks = 0;
-      for (let attempts = 0; attempts < 900; attempts++) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const poll = await fetch(`/api/product-set?generation_id=${encodeURIComponent(data.generation_id)}`);
-        if (!poll.ok) continue;
-        const state = await poll.json();
-        const nextUrls = Array.isArray(state.result_urls)
-          ? state.result_urls.filter((url: unknown): url is string => typeof url === "string" && url.length > 0)
-          : [];
-        const nextModules = readModuleResults(state.module_results);
-        const hasAllResults = nextModules.length
-          ? nextModules.every((item) => item.status === "completed" || item.status === "failed")
-          : nextUrls.length >= expectedResultCount;
-        const nextProgress = Number(state.progress);
-        if (Number.isFinite(nextProgress)) {
-          const rounded = Math.min(Math.max(Math.round(nextProgress), 0), 100);
-          const runningProgress = !hasAllResults && rounded >= 100 ? 99 : rounded;
-          setProgress(runningProgress);
-          const runningTask = taskQueue.markRunning(activeTaskId, {
-            expectedCount: expectedResultCount,
-            inputThumbnails: taskInputThumbnails,
-            resultThumbnails: latestUrls,
-            resultCount: latestUrls.length,
-            progress: runningProgress,
-            status: state.status,
-          });
-          setActiveQueueTask(runningTask);
-        }
-        if (nextModules.length) {
-          setModuleResults(nextModules);
-          const moduleUrls = urlsFromModules(nextModules, currentPlan);
-          if (moduleUrls.length) {
-            latestUrls = moduleUrls;
-            setResultUrls(moduleUrls);
-          } else if (nextUrls.length) {
-            latestUrls = nextUrls;
-            setResultUrls(nextUrls);
-          }
-        } else if (nextUrls.length) {
-          latestUrls = nextUrls;
-          setResultUrls(nextUrls);
-        }
-        if (state.status === "completed") {
-          // worker 已标记完成但模块尚未全部结算：最多再等 10 个 tick（20 秒），
-          // 超时按当前已有结果收尾，避免旧逻辑挂满 30 分钟才报超时
-          if (!hasAllResults) {
-            completedWithoutAllResultsTicks += 1;
-            if (completedWithoutAllResultsTicks < 10) continue;
-          }
-          setProgress(100);
-          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
-            ? state.partial_failure as { message?: unknown }
-            : null;
-          const failedModuleCount = nextModules.filter((item) => item.status === "failed").length;
-          const completedErrorSource = nextModules.find((item) => item.error)?.error || state.error || partialFailure?.message || "";
-          const completedError = completedErrorSource ? summarizeGenerationError(completedErrorSource) : "";
-          if (nextModules.length) {
-            setModuleResults(nextModules);
-            const moduleUrls = urlsFromModules(nextModules, currentPlan);
-            const finalUrls = moduleUrls.length ? moduleUrls : nextUrls;
-            const finalResultCount = finalUrls.filter(Boolean).length;
-            latestUrls = finalUrls;
-            setResultUrls(finalUrls);
-            const completedTask = taskQueue.markCompleted(activeTaskId, {
-              expectedCount: expectedResultCount,
-              inputThumbnails: taskInputThumbnails,
-              resultThumbnails: finalUrls,
-              resultCount: finalResultCount,
-              error: completedError,
-            });
-            setActiveQueueTask(completedTask);
-            if (failedModuleCount > 0 || finalResultCount < expectedResultCount || completedError) {
-              await refreshCredits();
-              toast.warning(buildPartialFailureDetail({
-                message: completedError || completedErrorSource,
-                failedCount: failedModuleCount || expectedResultCount - finalResultCount || 1,
-              }));
-            } else {
-              toast.success(t("generation.completed"));
-            }
-          } else {
-            latestUrls = nextUrls;
-            setResultUrls(nextUrls);
-            const finalResultCount = nextUrls.filter(Boolean).length;
-            const completedTask = taskQueue.markCompleted(activeTaskId, {
-              expectedCount: expectedResultCount,
-              inputThumbnails: taskInputThumbnails,
-              resultThumbnails: nextUrls,
-              resultCount: finalResultCount,
-              error: completedError,
-            });
-            setActiveQueueTask(completedTask);
-            if (finalResultCount < expectedResultCount || completedError) {
-              await refreshCredits();
-              toast.warning(buildPartialFailureDetail({
-                message: completedError || completedErrorSource,
-                failedCount: expectedResultCount - finalResultCount || 1,
-              }));
-            } else {
-              toast.success(t("generation.completed"));
-            }
-          }
-          setIsGenerating(false);
-          return;
-        }
-        if (state.status === "failed") throw new Error(state.error || t("generation.failed"));
-      }
-      if (latestUrls.length > 0) {
-        setIsGenerating(false);
-        const backgroundTask = taskQueue.markRunning(activeTaskId, {
-          expectedCount: expectedResultCount,
-          inputThumbnails: taskInputThumbnails,
-          resultThumbnails: latestUrls,
-          resultCount: latestUrls.length,
-          progress: 99,
-        });
-        setActiveQueueTask(backgroundTask);
-        toast.info(t("generation.background"));
-        return;
-      }
-      throw new Error(t("generation.timeout"));
+      // 后台轮询：useGenerationPolling 替代原 inline for-loop
+      productSetPollCtxRef.current = {
+        activeTaskId,
+        generationId: typeof data.generation_id === "string" ? data.generation_id : "",
+        expectedResultCount,
+        taskInputThumbnails,
+        currentPlan,
+        latestUrlsRef: { current: [] },
+        completedWithoutResultsTicksRef: { current: 0 },
+        alreadyFinalizedRef: { current: false },
+        setProgress,
+        setResultUrls,
+        setResultPlan,
+        setModuleResults,
+        setIsGenerating,
+        setError,
+        setActiveQueueTask,
+        refreshCredits,
+        taskQueue,
+        mode: "generate",
+        setRegeneratingIndex: () => {},
+      };
+      startProductSetPolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generation.failed"));
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: expectedResultCount,
         inputThumbnails: taskInputThumbnails,
-        resultThumbnails: latestUrls,
+        resultThumbnails: productSetPollCtxRef.current?.latestUrlsRef.current ?? [],
       });
       setActiveQueueTask(failedTask);
       await refreshCredits();
@@ -1317,39 +1466,31 @@ export default function ProductSetPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
 
-      for (let attempts = 0; attempts < 240; attempts++) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const poll = await fetch(`/api/product-set?generation_id=${encodeURIComponent(data.generation_id)}`);
-        if (!poll.ok) continue;
-        const state = await poll.json();
-        const nextUrl = Array.isArray(state.result_urls)
-          ? state.result_urls.find((url: unknown): url is string => typeof url === "string" && url.length > 0)
-          : "";
-        const nextModules = readModuleResults(state.module_results);
-        if (nextModules.length) {
-          setModuleResults((prev) => mergeModuleResults(prev.length ? prev : createClientModuleResults(currentPlan), nextModules));
-        }
-        const moduleUrl = nextModules.find((item) => item.resultUrl)?.resultUrl;
-        const failedModule = nextModules.find((item) => item.status === "failed");
-        if (state.status === "completed" && failedModule && !moduleUrl && !nextUrl) {
-          throw new Error(failedModule.error || t("regenerate.failed"));
-        }
-        if (moduleUrl || nextUrl) {
-          const finalUrl = (moduleUrl || nextUrl) as string;
-          setResultPlan((prev) => prev.length ? prev : currentPlan);
-          setResultUrls((prev) => {
-            const next = [...prev];
-            next[index] = finalUrl;
-            return next;
-          });
-          if (state.status === "completed") {
-            toast.success(t("regenerate.done", { index: index + 1 }));
-            return;
-          }
-        }
-        if (state.status === "failed") throw new Error(state.error || t("regenerate.failed"));
-      }
-      toast.info(t("regenerate.background"));
+      // 后台轮询：useGenerationPolling 替代原 inline for-loop
+      productSetPollCtxRef.current = {
+        activeTaskId: "", // regenerate 模式不更新 taskQueue，activeTaskId 仅占位
+        generationId: typeof data.generation_id === "string" ? data.generation_id : "",
+        expectedResultCount: 1,
+        taskInputThumbnails,
+        currentPlan,
+        latestUrlsRef: { current: [] },
+        completedWithoutResultsTicksRef: { current: 0 },
+        alreadyFinalizedRef: { current: false },
+        setProgress: () => {},
+        setResultUrls,
+        setResultPlan,
+        setModuleResults,
+        setIsGenerating: () => {},
+        setError: () => {},
+        setActiveQueueTask: () => {},
+        refreshCredits,
+        taskQueue,
+        mode: "regenerate",
+        regenerateIndex: index,
+        setRegeneratingIndex,
+      };
+      startProductSetPolling();
+      return;
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("regenerate.failed"));
       await refreshCredits();
@@ -1466,31 +1607,39 @@ export default function ProductSetPage() {
   );
 
   return (
-    <div className="studio-workbench studio-product-set-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
-      <FeatureTabs active="productSet" />
-      <ModuleTaskRail
-        module="productSet"
-        moduleLabel={t("moduleName")}
-        onContinue={confirmContinueCreate}
-        onRunningTask={handleRunningTask}
-        onCompletedTask={handleCompletedTask}
-      />
-      <aside className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4">
+    <>
+    <StudioPageShell
+      activeFeature="productSet"
+      taskRail={(
+        <ModuleTaskRail
+          module="productSet"
+          moduleLabel={t("moduleName")}
+          onContinue={confirmContinueCreate}
+          onRunningTask={handleRunningTask}
+          onCompletedTask={handleCompletedTask}
+        />
+      )}
+      header={(
+        <>
           <ModuleHeader title={t("header.title")} tooltip={t("header.tooltip")} />
           <ProductModeTabs imageType={imageType} onChange={changeImageType} />
           <WorkflowStepper currentStep={workflowStep} />
+        </>
+      )}
+      controlPanel={(
+        <StudioControlPanel>
+          <div className="space-y-4">
 
           <section
             {...productImageDrag.dragHandlers}
-            className={`studio-stable-upload-boundary rounded-3xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] ${isDragging ? "border-[rgba(91,124,255,0.22)] ring-4 ring-[rgba(91,124,255,0.18)]" : "border-slate-100"}`}
+            className={`studio-stable-upload-boundary rounded-3xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] ${isDragging ? "border-[var(--codex-accent-22)] ring-4 ring-[var(--codex-accent-18)]" : "border-[var(--codex-border)]"}`}
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("productImages.title")}</h3>
-                <p className="mt-1 text-xs text-slate-400">{t("productImages.help")}</p>
+                <h3 className="text-sm font-black text-codex-ink">{t("productImages.title")}</h3>
+                <p className="mt-1 text-xs text-codex-faint">{t("productImages.help")}</p>
               </div>
-              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-[11px] font-bold text-[var(--codex-accent)]">{productImages.length}/3</span>
+              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[var(--codex-accent-10)] px-2.5 text-[11px] font-bold text-[var(--codex-accent)]">{productImages.length}/3</span>
             </div>
             <input
               ref={productInputRef}
@@ -1536,15 +1685,15 @@ export default function ProductSetPage() {
                 {productImages.map((item, index) => (
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
                     <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
-                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">{t("productImages.imageLabel", { index: index + 1 })}</span>
-                    <button type="button" aria-label={`${t("productImages.remove")}${item.name}`} onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 touch-manipulation items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2">
+                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-codex-muted dark:bg-white/10 dark:text-codex-muted">{t("productImages.imageLabel", { index: index + 1 })}</span>
+                    <button type="button" aria-label={`${t("productImages.remove")}${item.name}`} onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 touch-manipulation items-center justify-center rounded-full bg-codex-ink/85 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2">
                       <X aria-hidden="true" className="h-3 w-3" />
                     </button>
                   </div>
                 ))}
               </div>
                 <div className="mt-2 flex justify-end">
-                  <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full px-2 text-xs font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+                  <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full px-2 text-xs font-bold text-codex-faint transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
                     <Trash2 aria-hidden="true" className="h-3.5 w-3.5" /> {t("common.clear")}
                   </button>
                 </div>
@@ -1552,17 +1701,17 @@ export default function ProductSetPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+          <section className="rounded-3xl border border-[var(--codex-border)] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("analysisSection.title")}</h3>
-                <p className="mt-1 text-xs text-slate-400">{t("analysisSection.help")}</p>
+                <h3 className="text-sm font-black text-codex-ink">{t("analysisSection.title")}</h3>
+                <p className="mt-1 text-xs text-codex-faint">{t("analysisSection.help")}</p>
               </div>
               <button
                 type="button"
                 onClick={() => analyzeProductInfo()}
                 disabled={!canAnalyzeProduct}
-                className="inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border border-[var(--codex-accent-22)] bg-[var(--codex-accent-10)] px-3 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[var(--codex-accent-16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAnalyzing ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
                 {isAnalyzing ? t("analysisSection.analyzing") : hasAnalyzedProduct ? t("analysisSection.rewrite") : t("analysisSection.write")}
@@ -1587,9 +1736,9 @@ export default function ProductSetPage() {
                   }}
                   aria-label={t("analysisSection.ariaLabel")}
                   placeholder={t("analysisSection.placeholder")}
-                  className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 transition-colors focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:focus-visible:bg-white/10"
+                  className="min-h-40 w-full resize-none rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 py-3 text-sm leading-6 text-codex-ink transition-colors focus-visible:border-[var(--codex-accent-48)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-codex-ink dark:focus-visible:bg-white/10"
                 />
-                <div className="mt-2 flex items-center justify-between text-[12px] text-slate-400">
+                <div className="mt-2 flex items-center justify-between text-[12px] text-codex-faint">
                   <span>{productInfo ? t("analysisSection.keepTemplateHint") : t("analysisSection.optionalHint")}</span>
                   <span>{productInfo.length} / 2000</span>
                 </div>
@@ -1608,14 +1757,14 @@ export default function ProductSetPage() {
               type="button"
               onClick={() => analyzeProductInfo()}
               disabled={!canAnalyzeProduct}
-              className="mt-3 flex h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 flex h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-full bg-codex-ink text-sm font-black text-white shadow-lg shadow-[var(--codex-border)] transition-colors hover:bg-codex-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isAnalyzing ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Activity aria-hidden="true" className="h-4 w-4" />}
               {isAnalyzing ? t("analysisSection.analyzingProduct") : hasAnalyzedProduct ? t("analysisSection.rewriteInfo") : t("analysisSection.writeInfo")}
             </button>
 
             {!hasAnalyzedProduct && (
-              <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-stone-400">
+              <div className="mt-3 rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 py-3 text-xs leading-5 text-codex-muted dark:border-white/10 dark:bg-white/5 dark:text-codex-faint">
                 {t("analysisSection.planExplanation")}
               </div>
             )}
@@ -1649,16 +1798,16 @@ export default function ProductSetPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+          <section className="rounded-3xl border border-[var(--codex-border)] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("planSource.title")}</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-400">{t("planSource.help")}</p>
+                <h3 className="text-sm font-black text-codex-ink">{t("planSource.title")}</h3>
+                <p className="mt-1 text-xs leading-5 text-codex-faint">{t("planSource.help")}</p>
               </div>
-              {outputCount > 0 && <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)]">{outputCount} {imageType === "main" ? t("units.singleImage") : t("units.singleScreen")}</span>}
+              {outputCount > 0 && <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-[var(--codex-accent-10)] px-2.5 text-xs font-black text-[var(--codex-accent)]">{outputCount} {imageType === "main" ? t("units.singleImage") : t("units.singleScreen")}</span>}
             </div>
 
-            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
+            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-[var(--codex-surface-soft)] p-1 dark:bg-white/5">
               {([
                 { value: "smart" as const, label: "智能模式", labelKey: "planSource.modeSmart", desc: "需要智能分析", descKey: "planSource.modeSmartDesc" },
                 { value: "reference" as const, label: "参考图模式", labelKey: "planSource.modeReference", desc: "上传 / 预设", descKey: "planSource.modeReferenceDesc" },
@@ -1671,7 +1820,7 @@ export default function ProductSetPage() {
                     aria-pressed={active}
                     onClick={() => changePlanMode(tab.value)}
                     className={`min-h-12 touch-manipulation rounded-xl px-2 py-1.5 text-center transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 ${
-                      active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
+                      active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-codex-muted hover:bg-white/60 dark:text-codex-faint dark:hover:bg-white/5"
                     }`}
                   >
                     <span className="block truncate text-xs font-black">{tab.labelKey ? t(tab.labelKey) : tab.label}</span>
@@ -1682,7 +1831,7 @@ export default function ProductSetPage() {
             </div>
 
             {!isReferenceMode ? (
-              <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-3 text-xs leading-5 text-slate-500 dark:text-stone-300">
+              <div className="mt-3 rounded-2xl border border-[var(--codex-accent-22)] bg-[var(--codex-accent-10)] p-3 text-xs leading-5 text-codex-muted dark:text-codex-muted">
                 {hasAnalyzedProduct ? (
                   <PlanRecommendationCard recommendation={planRecommendation} imageType={imageType} compact />
                 ) : (
@@ -1691,7 +1840,7 @@ export default function ProductSetPage() {
               </div>
             ) : (
               <div className="mt-3 space-y-3">
-                <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
+                <div className="grid grid-cols-3 gap-1 rounded-2xl bg-[var(--codex-surface-soft)] p-1 dark:bg-white/5">
                   {PLAN_SOURCE_TABS.filter((tab) => tab.value !== "smart").map((tab) => {
                     const active = planSourceTab === tab.value;
                     return (
@@ -1701,7 +1850,7 @@ export default function ProductSetPage() {
                         aria-pressed={active}
                         onClick={() => changePlanSourceTab(tab.value)}
                         className={`min-h-11 touch-manipulation rounded-xl px-2 py-1.5 text-center transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 ${
-                          active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
+                          active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-codex-muted hover:bg-white/60 dark:text-codex-faint dark:hover:bg-white/5"
                         }`}
                       >
                         <span className="block truncate text-xs font-black">{tab.value === "preset" ? t("planSource.presetRef") : tab.value === "upload" ? t("planSource.uploadRef") : t("planSource.favorites")}</span>
@@ -1721,19 +1870,19 @@ export default function ProductSetPage() {
                         onClick={() => applyPresetPlan(plan.id)}
                         className={`flex min-h-[92px] touch-manipulation flex-col rounded-2xl border p-3 text-left transition-[border-color,background-color,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 ${
                           selectedPlanId === plan.id
-                            ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
-                            : "border-slate-100 bg-slate-50 text-slate-600 hover:border-[rgba(91,124,255,0.3)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)]"
+                            ? "border-[var(--codex-accent-22)] bg-[var(--codex-accent-10)] text-[var(--codex-accent)]"
+                            : "border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-codex-muted hover:border-[var(--codex-accent-30)] dark:border-white/10 dark:bg-white/5 dark:text-codex-muted dark:hover:border-[var(--codex-accent-45)]"
                         }`}
                       >
                         <span className="flex min-h-5 items-center justify-between gap-2">
                           <span className="min-w-0 truncate text-xs font-black">{plan.name}</span>
-                          {plan.scenario === "womenswear" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-black text-slate-600 dark:bg-white/10 dark:text-stone-300">{t("preset.womenswear")}</span>}
+                          {plan.scenario === "womenswear" && <span className="rounded-full bg-[var(--codex-surface-soft)] px-1.5 py-0.5 text-[11px] font-black text-codex-muted dark:bg-white/10 dark:text-codex-muted">{t("preset.womenswear")}</span>}
                         </span>
                         <span className="mt-1 block line-clamp-2 text-[12px] leading-4 opacity-75">{plan.description}</span>
                       </button>
                     ))}
                     {referenceStyleBrief && (
-                      <div className="col-span-2 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-3">
+                      <div className="col-span-2 rounded-2xl border border-[var(--codex-accent-22)] bg-[var(--codex-accent-10)] p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-xs font-black text-[var(--codex-accent)]">{t("preset.selectedStyle")}</p>
@@ -1745,7 +1894,7 @@ export default function ProductSetPage() {
                               setReferenceStyleDraft(referenceStyleBrief);
                               setShowReferenceStyleModal(true);
                             }}
-                            className="h-8 shrink-0 touch-manipulation rounded-full bg-white px-3 text-[12px] font-black text-[var(--codex-accent)] shadow-sm transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-white/10"
+                            className="h-8 shrink-0 touch-manipulation rounded-full bg-white px-3 text-[12px] font-black text-[var(--codex-accent)] shadow-sm transition-colors hover:bg-[var(--codex-accent-12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-white/10"
                           >
                             {t("common.edit")}
                           </button>
@@ -1794,7 +1943,7 @@ export default function ProductSetPage() {
                   />
                 )}
 
-                <button type="button" onClick={() => setShowTemplateModal(true)} className="flex h-10 w-full touch-manipulation items-center justify-center gap-1.5 rounded-2xl border border-slate-100 bg-white text-xs font-black text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-[rgba(91,140,255,0.18)]">
+                <button type="button" onClick={() => setShowTemplateModal(true)} className="flex h-10 w-full touch-manipulation items-center justify-center gap-1.5 rounded-2xl border border-[var(--codex-border)] bg-white text-xs font-black text-codex-muted transition-colors hover:border-[var(--codex-accent-30)] hover:bg-[var(--codex-accent-12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-codex-muted dark:hover:border-[var(--codex-accent-45)] dark:hover:bg-[var(--codex-accent-18)]">
                   <Layers3 aria-hidden="true" className="h-3.5 w-3.5" /> {t("planSource.openTemplateLibrary")}
                 </button>
                 {outputCount > 0 ? (
@@ -1808,17 +1957,17 @@ export default function ProductSetPage() {
             )}
           </section>
 
-          {outputCount > 0 && <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+          {outputCount > 0 && <section className="rounded-3xl border border-[var(--codex-border)] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">{t("generationPlan.title")}</h3>
-                <p className="mt-1 text-xs text-slate-400">{showFullPlan ? t("generationPlan.fullHint") : t("generationPlan.partialHint")}</p>
+                <h3 className="text-sm font-black text-codex-ink">{t("generationPlan.title")}</h3>
+                <p className="mt-1 text-xs text-codex-faint">{showFullPlan ? t("generationPlan.fullHint") : t("generationPlan.partialHint")}</p>
               </div>
               <button
                 type="button"
                 aria-expanded={showFullPlan}
                 onClick={() => setShowFullPlan((value) => !value)}
-                className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
+                className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full bg-[var(--codex-accent-10)] px-2.5 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[var(--codex-accent-12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
               >
                 {outputCount || 0} {imageType === "main" ? t("units.singleImage") : t("units.singleScreen")} · {showFullPlan ? t("common.collapse") : t("common.viewAll")}
               </button>
@@ -1832,12 +1981,12 @@ export default function ProductSetPage() {
               onRemove={removePlanModule}
             />
 
-            <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full touch-manipulation items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-left text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10">
+            <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full touch-manipulation items-center justify-between rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 py-3 text-left text-xs font-bold text-codex-muted transition-colors hover:border-[var(--codex-border-strong)] hover:bg-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-codex-muted dark:hover:border-[var(--codex-accent-45)] dark:hover:bg-white/10">
               <span className="flex min-w-0 items-center gap-2">
-                <Settings2 aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+                <Settings2 aria-hidden="true" className="h-4 w-4 shrink-0 text-codex-muted" />
                 <span className="truncate">{settingsSummary}</span>
               </span>
-              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" />
+              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-codex-faint" />
             </button>
           </section>}
 
@@ -1865,38 +2014,46 @@ export default function ProductSetPage() {
             </>
           )}
         </div>
-
-        <div className="studio-runbar studio-runbar-v2 border-t border-white/70 bg-white/90 px-3 py-3 backdrop-blur-xl sm:px-5">
-          <button
-            type="button"
-            onClick={generate}
-            disabled={!canGenerate}
-            className="flex h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isGenerating ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Activity aria-hidden="true" className="h-4 w-4" />}
-            {isGenerating ? t("run.generating") : outputCount > 0 ? t("run.generateCount", { count: Math.max(outputCount, 1), unit: outputUnit }) : mode === "smart" ? t("run.analyzeFirst") : t("run.selectReferenceFirst")}
-            {outputCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{cost} {t("common.lingpoints")}</span>}
-          </button>
-          {requiresProductConfirmation && (
-            <p className="mt-2 text-center text-[12px] font-bold text-amber-600">
-              {t("run.requiresConfirmation")}
-            </p>
-          )}
-          {mode === "custom" && outputCount <= 0 && (
-            <p className="mt-2 text-center text-[12px] font-bold text-amber-600">
-              {t("run.selectReferenceInMode")}
-            </p>
-          )}
-          {detailsResolutionWarning && !requiresProductConfirmation && (
-            <p className="mt-2 text-center text-[12px] font-bold text-[var(--codex-accent)]">
-              {t("run.detailsResolutionWarning")}
-            </p>
-          )}
-        </div>
-      </aside>
-
-      <ResultsCanvas
-        productImages={productImages}
+        </StudioControlPanel>
+      )}
+      runBar={(
+        <StudioRunBar
+          summary={
+            outputCount > 0
+              ? t("run.generateCount", { count: Math.max(outputCount, 1), unit: outputUnit })
+              : mode === "smart"
+                ? t("run.analyzeFirst")
+                : t("run.selectReferenceFirst")
+          }
+          costLabel={outputCount > 0 ? `${cost} ${t("common.lingpoints")}` : undefined}
+          primaryLabel={isGenerating ? t("run.generating") : t("run.generateCount", { count: Math.max(outputCount, 1), unit: outputUnit })}
+          disabled={!canGenerate}
+          isLoading={isGenerating}
+          onPrimaryAction={generate}
+          secondaryActions={
+            <>
+              {requiresProductConfirmation && (
+                <p className="text-center text-[12px] font-bold text-amber-600">
+                  {t("run.requiresConfirmation")}
+                </p>
+              )}
+              {mode === "custom" && outputCount <= 0 && (
+                <p className="text-center text-[12px] font-bold text-amber-600">
+                  {t("run.selectReferenceInMode")}
+                </p>
+              )}
+              {detailsResolutionWarning && !requiresProductConfirmation && (
+                <p className="text-center text-[12px] font-bold text-[var(--codex-accent)]">
+                  {t("run.detailsResolutionWarning")}
+                </p>
+              )}
+            </>
+          }
+        />
+      )}
+      canvas={(
+        <ResultsCanvas
+          productImages={productImages}
         fallbackImage={PRODUCT_SET_EXAMPLE_GROUPS[0].images[0]}
         genCount={genCount}
         outputCount={outputCount}
@@ -1928,10 +2085,11 @@ export default function ProductSetPage() {
         onPreviewIndexChange={setPreviewIndex}
         onRegenerate={(index) => { void regenerateResult(index); }}
         onDownload={(url, index) => { void downloadResult(url, index); }}
-      />
-
-      <>
-        {showSettingsModal && (
+        />
+      )}
+    />
+    <>
+      {showSettingsModal && (
           <SettingsModal
             settings={settings}
             onSettingChange={updateSetting}
@@ -2014,6 +2172,6 @@ export default function ProductSetPage() {
         />
         {confirmDialog}
       </>
-    </div>
+    </>
   );
 }

@@ -7,8 +7,9 @@ import type { TaskStatusGroup } from "@/lib/task-queue";
 /* ----------------------------------------------------------------------------
  * Token reference
  * Every color class below resolves to a CSS variable declared in
- * `app/styles/admin.css`. The variables swap automatically when the user
- * toggles the theme via the top-bar <ThemeToggle />.
+ * `app/globals.css` (consolidated from the former `app/styles/admin.css`).
+ * The variables swap automatically when the user toggles the theme via the
+ * top-bar <ThemeToggle />.
  * -------------------------------------------------------------------------- */
 const adminTextPrimary = "text-[var(--admin-fg)]";
 const adminTextMuted = "text-[var(--admin-muted)]";
@@ -26,7 +27,7 @@ type Tone = "success" | "warning" | "danger" | "info" | "neutral";
 
 function badgeToneClass(tone: Tone) {
   // Each variant reads from the matching --admin-{tone}-{border|soft|fg} trio
-  // declared in admin.css. Border + bg are pre-mixed rgba so the same class
+  // declared in globals.css. Border + bg are pre-mixed rgba so the same class
   // works on both light surface and dark surface tokens.
   switch (tone) {
     case "success":

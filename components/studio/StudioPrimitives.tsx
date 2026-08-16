@@ -95,3 +95,7 @@ export function StudioStatusBadge({
 }) {
   return <span className={cn("studio-status-badge", toneClasses[tone], className)}>{children}</span>;
 }
+
+// Re-export the shared StatusBadge primitive so new code can import
+// `@/components/studio/StudioPrimitives` without learning the new path.
+export { StatusBadge } from "@/components/ui/StatusBadge";

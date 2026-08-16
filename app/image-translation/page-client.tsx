@@ -33,6 +33,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { LanguagePickerModal } from "@/components/studio/LanguagePickerModal";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -59,6 +60,8 @@ import {
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession } from "@/lib/studio-image-preview";
+import { useStudioPreview } from "@/hooks/use-studio-preview";
+import { useHistoryApply } from "@/hooks/use-history-apply";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -213,6 +216,147 @@ export default function ImageTranslationPage() {
     applyPath: "/image-translation",
   });
 
+  // 后台轮询 generation 状态：useGenerationPolling 拿不到 attempts，所以把"transient-failed"
+  // 这条小语义折到 isTerminal 决策里——只要拿到部分结果就视为终态（partial-complete），
+  // 让原本的"attempts<60"近似成"任何一次响应里包含 result_urls"。
+  const pollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    displayExpectedCount: number;
+    retryPreviousResultUrls: string[];
+    retryResultIndex: number | null;
+    taskInputThumbnails: string[];
+    hasResultsRef: { current: boolean };
+    latestTaskResultUrlsRef: { current: string[] };
+    setProgress: (p: number) => void;
+    setResultUrls: (updater: (current: string[]) => string[]) => void;
+    setIsGenerating: (b: boolean) => void;
+    setError: (msg: string) => void;
+    refreshCredits: () => Promise<number | null | undefined>;
+    taskQueue: typeof taskQueue;
+  } | null>(null);
+
+  const { start: startImageTranslationPolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown };
+  }>({
+    id: "",
+    buildUrl: (id) => {
+      const ctx = pollCtxRef.current;
+      return `/api/image-translation?generation_id=${encodeURIComponent(ctx?.generationId ?? id)}`;
+    },
+    isTerminal: (state) => {
+      if (state.status === "completed") return true;
+      if (state.status === "failed") return true; // 包含部分成功 & 真正失败，统一在 onComplete 内分支
+      return false;
+    },
+    intervalMs: 2000,
+    maxAttempts: 180,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      // 终端态交给 onComplete，避免重复 setProgress
+      if (state.status === "completed" || state.status === "failed") return;
+
+      // 部分结果先合并 + 推 UI
+      if (Array.isArray(state.result_urls) && state.result_urls.length) {
+        const merged = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          state.result_urls,
+          ctx.displayExpectedCount
+        );
+        ctx.latestTaskResultUrlsRef.current = merged;
+        ctx.setResultUrls((current) => {
+          const next = [...merged];
+          return sameResultSlots(current, next) ? current : next;
+        });
+      }
+      ctx.hasResultsRef.current = ctx.latestTaskResultUrlsRef.current.filter(Boolean).length > 0;
+
+      const nextProgress = Number(state.progress);
+      const runningProgress = Number.isFinite(nextProgress)
+        ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+        : 24; // hook 拿不到 attempts，无法再做 25 + attempts*1.2 渐进
+      ctx.setProgress(runningProgress);
+      ctx.taskQueue.markRunning(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        progress: runningProgress,
+        status: state.status,
+      });
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+
+      // 分支 1：完成 或 失败但有部分结果 → 部分完成路径
+      if (state.status === "completed" || (state.status === "failed" && ctx.hasResultsRef.current)) {
+        const finalUrls = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          Array.isArray(state.result_urls) ? state.result_urls : ctx.latestTaskResultUrlsRef.current,
+          ctx.displayExpectedCount
+        );
+        const finalResultCount = finalUrls.filter(Boolean).length;
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { message?: unknown })
+          : null;
+        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        ctx.setProgress(100);
+        ctx.setResultUrls(() => finalUrls);
+        ctx.setIsGenerating(false);
+        ctx.taskQueue.markCompleted(ctx.activeTaskId, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+          error: completedError ? summarizeGenerationError(completedError) : "",
+        });
+        if (completedError || finalResultCount < ctx.displayExpectedCount) {
+          void ctx.refreshCredits();
+          toast.warning(t("partialComplete", { done: finalResultCount, expected: ctx.displayExpectedCount }));
+        } else {
+          toast.success(t("generateComplete"));
+        }
+        return;
+      }
+
+      // 分支 2：失败且无结果 → 真正的失败（原本 catch 处理的内容）
+      if (state.status === "failed") {
+        const message = summarizeGenerationError(state.error || t("generateFailed"));
+        ctx.setError(message);
+        ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        });
+        toast.error(message);
+        void ctx.refreshCredits();
+        ctx.setIsGenerating(false);
+        return;
+      }
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = summarizeGenerationError(error.message || t("generateTimeout"));
+      ctx.setError(message);
+      ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+      });
+      toast.error(message);
+      void ctx.refreshCredits();
+      ctx.setIsGenerating(false);
+    },
+  });
+
   // 拉取语言配置（无需鉴权，公开缓存）
   useEffect(() => {
     let cancelled = false;
@@ -254,22 +398,17 @@ export default function ImageTranslationPage() {
   }, []);
 
   // 历史任务回填
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const detail = await takeApplyDetail("imageTranslation");
-      if (cancelled || !detail) return;
-      applyHistoryPayload(detail.payload, detail.resultUrls, { silent: true });
-      if (isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row));
+  useHistoryApply({
+    kind: "imageTranslation",
+    apply: (payload, resultUrls, { row }) => {
+      applyHistoryPayload(payload, resultUrls, { silent: true });
+      if (isHistoryApplyRowFailed(row)) {
+        setError(getHistoryApplyFailureMessage(row));
       }
       toast.success(t("historyAppliedToast"));
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]);
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -392,30 +531,25 @@ export default function ImageTranslationPage() {
     : 0;
   const activeSourceUrl = sourceUrls[activeSourceIdx] || "";
 
-  const previewSession = useMemo(
-    () =>
-      createGenericImagePreviewSession({
-        module: "imageTranslation",
-        title: t("previewSessionTitle"),
-        urls: resultUrls,
-        expectedCount: activeResultExpectedCount,
-        isGenerating,
-        statusGroup: isGenerating ? "running" : undefined,
-        references: activeSourceUrl
-          ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? t("sourceImageIndexed", { index: activeSourceIdx + 1 }) : t("sourceImage"), role: "source" }]
-          : [],
-        promptText: userPrompt || undefined,
-        metaItems: [
-          { label: t("metaSourceCount"), value: sourceUrls.length },
-          { label: t("metaLanguages"), value: languageLabels.length ? languageLabels.join(" / ") : languages.join(" / ") },
-          { label: t("metaModel"), value: aiModel },
-          { label: t("metaResolution"), value: imageSize },
-          { label: t("metaPerGen"), value: genCount },
-        ],
-        resultTitlePrefix: t("resultTitlePrefix"),
-      }),
-    [activeResultExpectedCount, aiModel, genCount, imageSize, isGenerating, languageLabels, languages, resultUrls, sourceUrls, userPrompt, activeSourceUrl, activeSourceIdx, t]
-  );
+  const previewSession = useStudioPreview({
+    module: "imageTranslation",
+    title: t("previewSessionTitle"),
+    urls: resultUrls,
+    expectedCount: activeResultExpectedCount,
+    isGenerating,
+    references: activeSourceUrl
+      ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? t("sourceImageIndexed", { index: activeSourceIdx + 1 }) : t("sourceImage"), role: "source" }]
+      : [],
+    promptText: userPrompt || undefined,
+    metaItems: [
+      { label: t("metaSourceCount"), value: sourceUrls.length },
+      { label: t("metaLanguages"), value: languageLabels.length ? languageLabels.join(" / ") : languages.join(" / ") },
+      { label: t("metaModel"), value: aiModel },
+      { label: t("metaResolution"), value: imageSize },
+      { label: t("metaPerGen"), value: genCount },
+    ],
+    resultTitlePrefix: t("resultTitlePrefix"),
+  });
 
   function handleRunningTask(item: TaskQueueItem) {
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, MAX_IMAGE_TRANSLATION_IMAGES * MAX_IMAGE_TRANSLATION_LANGUAGES * 4));
@@ -510,7 +644,6 @@ export default function ImageTranslationPage() {
       progress: 10,
     });
     let activeTaskId = provisionalTask.id;
-    let latestTaskResultUrls: string[] = [];
 
     try {
       const res = await fetch("/api/image-translation", {
@@ -557,89 +690,31 @@ export default function ImageTranslationPage() {
         activeTaskId = serverTask.id;
       }
 
-      for (let attempts = 0; attempts < 180; attempts++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const poll = await fetch(`/api/image-translation?generation_id=${data.generation_id}`);
-        if (!poll.ok) continue;
-        const state = await poll.json();
-        if (Array.isArray(state.result_urls) && state.result_urls.length) {
-          latestTaskResultUrls = mergeRetryResultUrls(
-            retryPreviousResultUrls,
-            retryResultIndex,
-            state.result_urls,
-            displayExpectedCount
-          );
-          const nextResultUrls = [...latestTaskResultUrls];
-          setResultUrls((current) => sameResultSlots(current, nextResultUrls) ? current : nextResultUrls);
-        }
-        // 处理中如果状态短暂显示 failed 但已有部分结果 → 当作部分完成处理，不要 throw
-        const transientFailed = state.status === "failed";
-        const hasResultsSoFar = (latestTaskResultUrls.filter(Boolean).length) > 0;
-        if (transientFailed && hasResultsSoFar && attempts < 60) {
-          setProgress(Math.min(95, 60 + Math.round(attempts * 0.5)));
-          taskQueue.markRunning(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: runTaskInputThumbnails,
-            resultThumbnails: latestTaskResultUrls,
-            progress: Math.min(95, 60 + Math.round(attempts * 0.5)),
-            status: "running",
-          });
-          continue;
-        }
-        if (state.status === "completed" || (state.status === "failed" && hasResultsSoFar)) {
-          const finalUrls = mergeRetryResultUrls(
-            retryPreviousResultUrls,
-            retryResultIndex,
-            Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls,
-            displayExpectedCount
-          );
-          const finalResultCount = finalUrls.filter(Boolean).length;
-          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
-            ? (state.partial_failure as { message?: unknown })
-            : null;
-          const completedError = state.error || partialFailure?.message || "";
-          setProgress(100);
-          setResultUrls(finalUrls);
-          setIsGenerating(false);
-          taskQueue.markCompleted(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: runTaskInputThumbnails,
-            resultThumbnails: finalUrls,
-            resultCount: finalResultCount,
-            error: completedError ? summarizeGenerationError(completedError) : "",
-          });
-          if (completedError || finalResultCount < displayExpectedCount) {
-            void refreshCredits();
-            toast.warning(
-              t("partialComplete", { done: finalResultCount, expected: displayExpectedCount })
-            );
-          } else {
-            toast.success(t("generateComplete"));
-          }
-          return;
-        }
-        if (state.status === "failed") throw new Error(state.error || t("generateFailed"));
-        const nextProgress = Number(state.progress);
-        const runningProgress = Number.isFinite(nextProgress)
-          ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
-          : Math.min(25 + attempts * 1.2, 90);
-        setProgress(runningProgress);
-        taskQueue.markRunning(activeTaskId, {
-          expectedCount: displayExpectedCount,
-          inputThumbnails: runTaskInputThumbnails,
-          resultThumbnails: latestTaskResultUrls,
-          progress: runningProgress,
-          status: state.status,
-        });
-      }
-      throw new Error(t("generateTimeout"));
+      // 后台轮询：useGenerationPolling 替代原 inline for-loop + setTimeout + fetch
+      pollCtxRef.current = {
+        activeTaskId,
+        generationId: typeof data.generation_id === "string" ? data.generation_id : "",
+        displayExpectedCount,
+        retryPreviousResultUrls,
+        retryResultIndex,
+        taskInputThumbnails: runTaskInputThumbnails,
+        hasResultsRef: { current: false },
+        latestTaskResultUrlsRef: { current: [] },
+        setProgress,
+        setResultUrls,
+        setIsGenerating,
+        setError,
+        refreshCredits,
+        taskQueue,
+      };
+      startImageTranslationPolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
         inputThumbnails: runTaskInputThumbnails,
-        resultThumbnails: latestTaskResultUrls,
+        resultThumbnails: pollCtxRef.current?.latestTaskResultUrlsRef.current ?? [],
       });
       toast.error(message);
       void refreshCredits();
@@ -681,7 +756,7 @@ export default function ImageTranslationPage() {
             title={t("title")}
             tooltip={t("tooltip")}
             actions={(
-              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[11px] font-black text-[var(--codex-accent)]">
+              <span className="rounded-full bg-[var(--codex-accent-10)] px-2 py-0.5 text-[11px] font-black text-[var(--codex-accent)]">
                 NEW
               </span>
             )}
@@ -739,16 +814,16 @@ export default function ImageTranslationPage() {
 
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-codex-ink">
                 <LanguagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
-                {t("languageSectionTitle")} <span className="text-xs font-normal text-slate-400">· {t("languageMulti")}</span>
+                {t("languageSectionTitle")} <span className="text-xs font-normal text-codex-faint">· {t("languageMulti")}</span>
               </h3>
-              <span className="text-xs text-slate-400">{t("languageSelectedCount", { selected: languages.length, max: MAX_IMAGE_TRANSLATION_LANGUAGES })}</span>
+              <span className="text-xs text-codex-faint">{t("languageSelectedCount", { selected: languages.length, max: MAX_IMAGE_TRANSLATION_LANGUAGES })}</span>
             </div>
             <button
               type="button"
               onClick={() => setLanguageModalOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl border border-dashed border-violet-200 bg-[rgba(91,124,255,0.1)]/40 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-[rgba(91,124,255,0.1)]"
+              className="flex w-full items-center justify-between rounded-2xl border border-dashed border-violet-200 bg-[var(--codex-accent-10)]/40 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-[var(--codex-accent-10)]"
             >
               <span className="truncate">
                 {languageLabels.length
@@ -764,7 +839,7 @@ export default function ImageTranslationPage() {
                   return (
                     <span
                       key={code}
-                      className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700"
+                      className="inline-flex items-center gap-1 rounded-full bg-[var(--codex-accent-10)] px-2.5 py-1 text-[12px] font-semibold text-[var(--codex-accent)]"
                     >
                       {label}
                       <button
@@ -775,7 +850,7 @@ export default function ImageTranslationPage() {
                           setLanguageLabels((prev) => prev.filter((_, i) => i !== index));
                           setPromptOverride(null);
                         }}
-                        className="rounded-full p-0.5 hover:bg-violet-200"
+                        className="rounded-full p-0.5 hover:bg-[var(--codex-accent-20)]"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -787,9 +862,9 @@ export default function ImageTranslationPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink">
               <ImagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
-              {t("extraSectionTitle")} <span className="text-xs font-normal text-slate-400">· {t("extraOptional")}</span>
+              {t("extraSectionTitle")} <span className="text-xs font-normal text-codex-faint">· {t("extraOptional")}</span>
             </h3>
             <StudioPromptTextarea
               value={userPrompt}
@@ -800,13 +875,13 @@ export default function ImageTranslationPage() {
               rows={3}
               placeholder={t("extraPlaceholder")}
             />
-            <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
+            <p className="mt-2 text-[12px] leading-relaxed text-codex-faint">
               {t("extraHint")}
             </p>
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink">
               <Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />
               {t("modelSectionTitle")}
             </h3>
@@ -821,8 +896,8 @@ export default function ImageTranslationPage() {
 
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">{t("ratioSectionTitle")}</h3>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+              <h3 className="text-sm font-bold text-codex-ink">{t("ratioSectionTitle")}</h3>
+              <span className="rounded-full bg-[var(--codex-surface-soft)] px-2 py-0.5 text-[11px] font-semibold text-codex-faint">
                 {t("ratioDefaultLabel")}
               </span>
             </div>
@@ -836,7 +911,7 @@ export default function ImageTranslationPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-900">{t("resolutionSectionTitle")}</h3>
+            <h3 className="mb-3 text-sm font-bold text-codex-ink">{t("resolutionSectionTitle")}</h3>
             <StudioOptionGrid
               options={getSupportedImageSizes(aiModel, aspectRatio).map((size) => ({
                 value: size,
@@ -850,22 +925,22 @@ export default function ImageTranslationPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-900">{t("genCountSectionTitle")}</h3>
+            <h3 className="mb-3 text-sm font-bold text-codex-ink">{t("genCountSectionTitle")}</h3>
             <GenerationCountField value={genCount} onChange={setGenCount} ariaLabel={t("genCountAriaLabel")} summary="" />
-            <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
+            <p className="mt-2 text-[12px] leading-relaxed text-codex-faint">
               {t("genTotalHint", { count: sourceUrls.length * Math.max(languages.length, 1) * genCount })}
             </p>
           </section>
 
           {!isGenerating && !resultUrls.length && !error && primarySourceUrl ? (
-            <section className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-              <p className="mb-2 text-[12px] font-semibold text-slate-500">{t("previewNote")}</p>
-              <div className="relative overflow-hidden rounded-xl bg-white">
+            <section className="rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/70 p-3">
+              <p className="mb-2 text-[12px] font-semibold text-codex-faint">{t("previewNote")}</p>
+              <div className="relative overflow-hidden rounded-xl bg-codex-surface">
                 <RawPreviewImage src={primarySourceUrl} alt={t("previewImageAlt")} className="aspect-[3/4] w-full object-contain" />
                 <button
                   type="button"
                   onClick={() => setLightboxSrc(primarySourceUrl)}
-                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-500 shadow-sm hover:text-[var(--codex-accent)]"
+                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-codex-faint shadow-sm hover:text-[var(--codex-accent)]"
                   aria-label={t("previewZoomAria")}
                 >
                   <ZoomIn className="h-3.5 w-3.5" />

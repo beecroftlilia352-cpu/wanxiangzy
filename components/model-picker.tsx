@@ -61,7 +61,7 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
         >
             <SelectTrigger
                 className={cn(
-                    "canvas-composer-model-picker h-8 w-fit max-w-full gap-2 rounded-full border border-stone-500/70 bg-stone-900/10 px-3 text-sm font-normal shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] transition-colors hover:border-stone-400/80",
+                    "canvas-composer-model-picker h-8 w-fit max-w-full gap-2 rounded-full border border-stone-500/70 bg-stone-900/10 px-3 text-sm font-normal shadow-[inset_0_0_0_1px_var(--codex-surface-06)] transition-colors hover:border-stone-400/80",
                     fullWidth ? "w-full min-w-0 justify-start" : "min-w-[9rem] justify-start",
                     "data-[state=open]:border-stone-400 data-[state=open]:bg-stone-800/40 data-[state=open]:ring-2 data-[state=open]:ring-stone-500/45",
                     className,
@@ -75,7 +75,7 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
             </SelectTrigger>
             <SelectContent
                 data-canvas-no-zoom
-                className="z-[1200] w-[min(360px,calc(100vw-24px))] rounded-2xl border border-stone-700/80 bg-[#1f1f1f] p-2 text-stone-100 shadow-[0_14px_34px_rgba(0,0,0,0.34),inset_0_0_0_1px_rgba(255,255,255,0.04)] [&_[data-slot=select-viewport]]:!h-auto [&_[data-slot=select-viewport]]:!min-w-0 [&_[data-slot=select-viewport]]:!w-full"
+                className="z-[1200] w-[min(360px,calc(100vw-24px))] rounded-2xl border border-stone-700/80 bg-[#1f1f1f] p-2 text-stone-100 shadow-[0_14px_34px_rgba(0,0,0,0.34),inset_0_0_0_1px_var(--codex-surface-04)] [&_[data-slot=select-viewport]]:!h-auto [&_[data-slot=select-viewport]]:!min-w-0 [&_[data-slot=select-viewport]]:!w-full"
                 position="popper"
                 align="start"
                 side="bottom"

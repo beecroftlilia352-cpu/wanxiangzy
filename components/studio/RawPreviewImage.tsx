@@ -68,7 +68,7 @@ export function RawPreviewImage({ eager = false, ...props }: RawPreviewImageProp
       className={cn(
         // 加载中：透明 + 浅灰底；完成后 300ms 淡入并移除灰底
         "transition-opacity duration-300",
-        loaded ? "opacity-100" : "opacity-0 bg-slate-100/70",
+        loaded ? "opacity-100" : "opacity-0 bg-[var(--codex-surface-soft)]/70",
         failed && "cursor-pointer",
         props.className,
       )}

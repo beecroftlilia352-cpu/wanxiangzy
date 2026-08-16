@@ -874,13 +874,13 @@ export default function FaceSwapPage() {
               ariaLabel={t("modeSectionTitle")}
               onChange={(value) => setFaceSwapMode(normalizeFaceSwapMode(value))}
             />
-            <p className="mt-2 text-xs font-semibold leading-relaxed text-slate-500">
+            <p className="mt-2 text-xs font-semibold leading-relaxed text-codex-faint">
               {faceSwapModeNote}
             </p>
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-stone-100">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-codex-ink">
               <Activity className="h-4 w-4 text-[var(--codex-accent)]" />
               {t("modelSectionTitle")}
             </h3>
@@ -932,15 +932,15 @@ export default function FaceSwapPage() {
               onClick={() => setTextureEnhance((value) => !value)}
               aria-label={t("textureEnhanceAria")}
               aria-pressed={textureEnhance}
-              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-colors ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-[rgba(52,211,153,0.45)] dark:bg-[rgba(52,211,153,0.12)] dark:text-emerald-200" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:hover:border-white/20"}`}
+              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-colors ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-[rgba(52,211,153,0.45)] dark:bg-[rgba(52,211,153,0.12)] dark:text-emerald-200" : "border-[var(--codex-border)] bg-codex-surface text-codex-ink hover:border-[var(--codex-border)]"}`}
             >
               <span>
                 <span className="block text-sm font-black">{t("textureEnhanceLabel")}</span>
-                <span className="mt-1 block text-xs leading-relaxed text-slate-500">
+                <span className="mt-1 block text-xs leading-relaxed text-codex-faint">
                   {t("textureEnhanceDescription")}
                 </span>
               </span>
-              <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${textureEnhance ? "bg-emerald-600" : "bg-neutral-200"}`}>
+              <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${textureEnhance ? "bg-emerald-600" : "bg-[var(--codex-border)]"}`}>
                 <span className={`h-5 w-5 rounded-full bg-white shadow transition ${textureEnhance ? "translate-x-5" : "translate-x-0"}`} />
               </span>
             </button>
@@ -1011,8 +1011,8 @@ export default function FaceSwapPage() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500">
                   <X className="h-6 w-6" />
                 </div>
-                <h2 className="mt-4 text-lg font-black text-slate-950 dark:text-stone-100">{t("generationFailed")}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">{summarizeGenerationError(error)}</p>
+                <h2 className="mt-4 text-lg font-black text-codex-ink">{t("generationFailed")}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-codex-muted">{summarizeGenerationError(error)}</p>
                 <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
                   {FAILED_RETRY_NOTICE}
                 </p>
@@ -1135,7 +1135,7 @@ export default function FaceSwapPage() {
 }
 
 function PanelTitle({ title }: { title: string }) {
-  return <h2 className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">{title}</h2>;
+  return <h2 className="mb-3 text-sm font-black text-codex-ink">{title}</h2>;
 }
 
 

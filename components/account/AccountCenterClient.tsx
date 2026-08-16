@@ -455,11 +455,11 @@ export function AccountCenterClient() {
           DatePicker: { borderRadius: 10, controlHeight: 36 },
           Input: { borderRadius: 10, controlHeight: 36 },
           Select: { borderRadius: 10, controlHeight: 36 },
-          Table: { headerBg: "rgba(91,124,255,0.05)", rowHoverBg: "rgba(91,124,255,0.05)", cellPaddingBlockSM: 13, cellPaddingInlineSM: 12 },
+          Table: { headerBg: "var(--codex-accent-06)", rowHoverBg: "var(--codex-accent-06)", cellPaddingBlockSM: 13, cellPaddingInlineSM: 12 },
         },
       }}
     >
-      <main className="min-h-screen px-4 py-6 text-slate-950 sm:px-6 lg:px-10" style={{ backgroundImage: "var(--codex-gradient-page)", backgroundAttachment: "fixed" }}>
+      <main className="min-h-screen px-4 py-6 text-codex-ink sm:px-6 lg:px-10" style={{ backgroundImage: "var(--codex-gradient-page)", backgroundAttachment: "fixed" }}>
         <div className="mx-auto grid w-full max-w-[1360px] gap-6 lg:grid-cols-[206px_minmax(0,1fr)] lg:items-start">
           <AccountSidebar activeTab={activeTab} onSelect={selectTab} />
 
@@ -570,22 +570,22 @@ function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSele
           const expanded = group.children.some((item) => item.key === activeTab);
           const single = group.children.length === 1 && group.children[0].key === group.key;
           return (
-            <div key={group.key} className="border-b border-slate-200/80 py-2 last:border-b-0">
+            <div key={group.key} className="border-b border-[var(--codex-border)]/80 py-2 last:border-b-0">
               <button
                 type="button"
                 onClick={() => onSelect(group.children[0].key)}
                 className={cn(
                   "flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-[15px] font-medium transition-colors",
                   expanded
-                    ? "bg-white/90 text-slate-950 shadow-sm ring-1 ring-[rgba(91,124,255,0.28)]"
-                    : "text-slate-500 dark:text-stone-400 hover:bg-white/70 hover:text-slate-900",
+                    ? "bg-white/90 text-codex-ink shadow-sm ring-1 ring-[var(--codex-accent-28)]"
+                    : "text-codex-muted hover:bg-white/70 hover:text-codex-ink",
                 )}
                 aria-current={expanded && single ? "page" : undefined}
                 aria-expanded={group.children.length > 1 ? expanded : undefined}
               >
-                <Icon className={cn("h-4 w-4", expanded ? "text-[#5b7cff]" : "text-slate-500 dark:text-stone-400")} />
+                <Icon className={cn("h-4 w-4", expanded ? "text-[#5b7cff]" : "text-codex-muted")} />
                 <span className="flex-1">{group.labelKey ? tAny(group.labelKey) : group.label}</span>
-                {group.children.length > 1 ? <ChevronDown className={cn("h-4 w-4 text-slate-500 dark:text-stone-400 transition", expanded && "rotate-180 text-[#5b7cff]")} /> : null}
+                {group.children.length > 1 ? <ChevronDown className={cn("h-4 w-4 text-codex-muted transition", expanded && "rotate-180 text-[#5b7cff]")} /> : null}
               </button>
               {group.children.length > 1 && expanded ? (
                 <div className="mt-2 space-y-1 pl-7">
@@ -598,7 +598,7 @@ function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSele
                         "relative flex h-8 w-full items-center rounded-md px-4 text-left text-sm transition-colors",
                         activeTab === item.key
                           ? "bg-[#e9eeff] font-medium text-[#3154d4]"
-                          : "text-slate-500 dark:text-stone-400 hover:bg-white/70 hover:text-slate-900",
+                          : "text-codex-muted hover:bg-white/70 hover:text-codex-ink",
                       )}
                       aria-current={activeTab === item.key ? "page" : undefined}
                     >
@@ -645,9 +645,9 @@ function AccountInfoPanel({
   return (
     <div>
       <AccountAssetCard displayName={displayName} maskedAccount={maskedAccount} credits={credits} />
-      <div className="my-8 border-t border-slate-900" />
+      <div className="my-8 border-t border-codex-ink" />
       <section>
-        <h2 className="mb-6 border-l-4 border-[#5b7cff] pl-3 text-lg font-semibold text-slate-950">{t("panels.account.title")}</h2>
+        <h2 className="mb-6 border-l-4 border-[#5b7cff] pl-3 text-lg font-semibold text-codex-ink">{t("panels.account.title")}</h2>
         <div className="divide-y divide-slate-200">
           <InfoLine label={t("panels.account.userId")} value={shortUserId(userId, 12)} />
           <InfoLine label={t("panels.account.username")} value={displayName} hint={t("panels.account.usernameHint")} action={t("panels.account.usernameAction")} />
@@ -675,10 +675,10 @@ function AccountAssetCard({ displayName, maskedAccount, credits }: { displayName
         <span className="text-sm font-semibold">{maskedAccount || displayName}</span>
       </div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_332px]">
-        <div className="relative min-h-[128px] overflow-hidden rounded-xl bg-gradient-to-r from-[#edf4f4] to-[#dfe7e6] dark:from-stone-800 dark:to-stone-900 px-7 py-6">
+        <div className="relative min-h-[128px] overflow-hidden rounded-xl bg-gradient-to-r from-[#edf4f4] to-[#dfe7e6] dark:from-codex-muted dark:to-codex-ink px-7 py-6">
           <div className="pointer-events-none absolute right-16 top-[-20px] h-28 w-28 rounded-full bg-white/45 blur-xl" />
           <p className="text-lg font-semibold">{t("panels.account.freeTier")}</p>
-          <div className="mt-16 flex flex-wrap gap-5 text-sm text-slate-600">
+          <div className="mt-16 flex flex-wrap gap-5 text-sm text-codex-muted">
             <span>{t("panels.account.freeTierCredits")}</span>
             <span>{t("panels.account.freeTierFeatures")}</span>
           </div>
@@ -938,9 +938,9 @@ function HelpPanel() {
     <Panel title={t("panels.help.title")} description={t("panels.help.description")}>
       <div className="space-y-3">
         {helpItems.map((item) => (
-          <div key={item.title} className="rounded-md border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[var(--codex-surface)]">
+          <div key={item.title} className="rounded-md border border-[var(--codex-border)] bg-white p-4 dark:border-white/10 dark:bg-[var(--codex-surface)]">
             <p className="font-medium">{item.titleKey ? tAny(item.titleKey) : item.title}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-stone-400">{item.bodyKey ? t(item.bodyKey) : item.body}</p>
+            <p className="mt-2 text-sm leading-6 text-codex-muted">{item.bodyKey ? t(item.bodyKey) : item.body}</p>
           </div>
         ))}
       </div>
@@ -975,7 +975,7 @@ function MessagesPanel({ orders, tickets, ticketError }: { orders: BillingOrder[
               </span>
               <div>
                 <p className="font-medium">{message.title}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-stone-400">{message.text}</p>
+                <p className="mt-1 text-sm text-codex-muted">{message.text}</p>
               </div>
             </div>
           ))}
@@ -1038,10 +1038,10 @@ function ComingSoonPanel({ tab }: { tab: AccountTab }) {
   const item = content[tab] || content.api;
   return (
     <Panel title={item.title} description={item.description}>
-      <div className="flex min-h-[280px] flex-col items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
-        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500 dark:text-stone-400 shadow-sm">{item.icon}</span>
+      <div className="flex min-h-[280px] flex-col items-center justify-center rounded-md border border-dashed border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-center">
+        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-codex-muted shadow-sm">{item.icon}</span>
         <p className="font-medium">{t("panels.comingSoon.reserved")}</p>
-        <p className="mt-2 text-sm text-slate-500 dark:text-stone-400">{t("panels.comingSoon.reservedHint")}</p>
+        <p className="mt-2 text-sm text-codex-muted">{t("panels.comingSoon.reservedHint")}</p>
       </div>
     </Panel>
   );
@@ -1053,10 +1053,10 @@ function Panel({ title, description, children }: { title: string; description: s
       title={
         <div className="py-1">
           <div className="text-lg font-medium">{title}</div>
-          <div className="mt-1 text-sm font-normal text-slate-500 dark:text-stone-400">{description}</div>
+          <div className="mt-1 text-sm font-normal text-codex-muted">{description}</div>
         </div>
       }
-      className="border-slate-200"
+      className="border-[var(--codex-border)]"
     >
       {children}
     </Card>
@@ -1066,7 +1066,7 @@ function Panel({ title, description, children }: { title: string; description: s
 function FilterItem({ label, name, children }: { label: string; name: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[74px_minmax(0,1fr)] items-center gap-3">
-      <label className="whitespace-nowrap text-sm font-medium text-slate-950">{label}:</label>
+      <label className="whitespace-nowrap text-sm font-medium text-codex-ink">{label}:</label>
       <Form.Item name={name} noStyle>
         {children}
       </Form.Item>
@@ -1079,8 +1079,8 @@ function InfoLine({ label, value, hint, action }: { label: string; value: string
     <div className="grid gap-4 py-6 sm:grid-cols-[160px_minmax(0,1fr)_140px] sm:items-center">
       <div className="font-medium">{label}</div>
       <div className="min-w-0">
-        <p className="break-words text-slate-700">{value || "-"}</p>
-        {hint ? <p className="mt-1 text-sm text-slate-500 dark:text-stone-400">{hint}</p> : null}
+        <p className="break-words text-codex-ink">{value || "-"}</p>
+        {hint ? <p className="mt-1 text-sm text-codex-muted">{hint}</p> : null}
       </div>
       {action ? <Button>{action}</Button> : <span />}
     </div>
@@ -1089,7 +1089,7 @@ function InfoLine({ label, value, hint, action }: { label: string; value: string
 
 function SmallMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[var(--codex-surface)]">
+    <div className="rounded-md border border-[var(--codex-border)] bg-white px-4 py-3 dark:border-white/10 dark:bg-[var(--codex-surface)]">
       <Statistic title={label} value={value} styles={{ content: { fontSize: 18, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }} />
     </div>
   );
@@ -1110,7 +1110,7 @@ function FormLine({ label, required, children }: { label: string; required?: boo
 function PageHint({ pageInfo }: { pageInfo: PageInfo }) {
   const t = useTranslations("Account");
   if (!pageInfo.hasMore) return null;
-  return <p className="mt-2 text-right text-xs text-slate-400">{t("panels.common.moreRecords")}</p>;
+  return <p className="mt-2 text-right text-xs text-codex-faint">{t("panels.common.moreRecords")}</p>;
 }
 
 function StatusTag({ value, status }: { value: string; status: string }) {

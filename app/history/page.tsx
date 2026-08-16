@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Download, Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Play } from "lucide-react";
+import { Download, Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus } from "lucide-react";
 import { downloadImagesAsZip } from "@/lib/download-batch";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { inferMediaExtension, isLikelyVideoUrl } from "@/lib/media";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -38,8 +37,10 @@ import {
   PRODUCT_RETOUCH_MODE_OPTIONS,
   type ProductRetouchMode,
 } from "@/lib/product-retouch";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { HistoryFilterTabs } from "@/components/history/HistoryFilterTabs";
+import { HistoryLoadingSkeleton, HistoryCardSkeleton, DetailLoadingSkeleton, HistorySkeletonStyles } from "@/features/history/HistorySkeletons";
+import { HistoryFailureNotice } from "@/features/history/HistoryFailureNotice";
+import { HistoryMediaPreview } from "@/features/history/HistoryMediaPreview";
 
 const HISTORY_PAGE_SIZE = 12;
 
@@ -476,10 +477,10 @@ export default function HistoryPage() {
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-md rounded-[32px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-slate-300/40">
-          <ImageIcon className="h-7 w-7 text-slate-500" />
+          <ImageIcon className="h-7 w-7 text-codex-muted" />
         </div>
-        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">{t("loginTitle")}</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-500">{t("loginDesc")}</p>
+        <h1 className="text-2xl font-black text-codex-ink">{t("loginTitle")}</h1>
+        <p className="mt-3 text-sm leading-6 text-codex-muted">{t("loginDesc")}</p>
         <button type="button" onClick={openLogin} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">{t("loginAction")}</button>
       </div>
     </div>
@@ -489,18 +490,18 @@ export default function HistoryPage() {
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg rounded-[32px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <XCircle className="mx-auto mb-4 h-12 w-12 text-red-300" />
-        <h1 className="text-xl font-black text-slate-950 dark:text-stone-100">{t("loadErrorTitle")}</h1>
+        <h1 className="text-xl font-black text-codex-ink">{t("loadErrorTitle")}</h1>
         <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
           {filterState.summaryKey ? tAny(filterState.summaryKey, filterState.summaryParams) : filterState.summary}
         </p>
         <p className="mt-3 text-sm leading-6 text-red-500">{errMsg}</p>
-        <p className="mt-2 text-xs leading-5 text-slate-500">
+        <p className="mt-2 text-xs leading-5 text-codex-muted">
           {t("retryHint")}
         </p>
         <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-          <button type="button" onClick={retryHistoryLoad} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">{t("retry")}</button>
+          <button type="button" onClick={retryHistoryLoad} className="h-11 rounded-full border border-[var(--codex-border)] bg-white px-6 text-sm font-bold text-codex-ink shadow-sm hover:bg-[var(--codex-surface-soft)]">{t("retry")}</button>
           {filterState.isFiltered && (
-            <button onClick={clearFilters} className="h-11 rounded-full border border-slate-200 bg-slate-50 px-6 text-sm font-bold text-slate-600 hover:bg-white">
+            <button onClick={clearFilters} className="h-11 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-6 text-sm font-bold text-codex-muted hover:bg-white">
               {t("clearFilters")}
             </button>
           )}
@@ -512,19 +513,19 @@ export default function HistoryPage() {
   if (state === "empty") return (
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg rounded-[32px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
-        <Clock className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">{filterState.emptyTitleKey ? tAny(filterState.emptyTitleKey) : filterState.emptyTitle}</h1>
-        <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
+        <Clock className="mx-auto mb-4 h-12 w-12 text-codex-faint" />
+        <h1 className="text-2xl font-black text-codex-ink">{filterState.emptyTitleKey ? tAny(filterState.emptyTitleKey) : filterState.emptyTitle}</h1>
+        <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold leading-6 text-codex-ink">
           {filterState.summaryKey ? tAny(filterState.summaryKey, filterState.summaryParams) : filterState.summary}
         </p>
-        <p className="mt-3 text-sm leading-6 text-slate-500">{filterState.emptyMessageKey ? tAny(filterState.emptyMessageKey) : filterState.emptyMessage}</p>
+        <p className="mt-3 text-sm leading-6 text-codex-muted">{filterState.emptyMessageKey ? tAny(filterState.emptyMessageKey) : filterState.emptyMessage}</p>
         {filterState.isFiltered ? (
           <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
             <button onClick={clearFilters} className="gradient-brand inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">
               <X className="h-4 w-4" />
               {filterState.emptyActionLabelKey ? tAny(filterState.emptyActionLabelKey) : filterState.emptyActionLabel}
             </button>
-            <button type="button" onClick={openCreate} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+            <button type="button" onClick={openCreate} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[var(--codex-border)] bg-white px-6 text-sm font-bold text-codex-ink shadow-sm hover:bg-[var(--codex-surface-soft)]">
               <Plus className="h-4 w-4" />
               {t("startCreate")}
             </button>
@@ -548,7 +549,7 @@ export default function HistoryPage() {
             <h1 className="text-xl font-black text-[var(--codex-ink)]">{t("title")}</h1>
             <p className="mt-0.5 text-xs text-[var(--codex-faint)]">{t("titleCount", { count: filteredRows.length })}{filterState.activeDescriptionKey ? ` · ${tAny(filterState.activeDescriptionKey, filterState.activeDescriptionParams)}` : (filterState.activeDescription ? ` · ${filterState.activeDescription}` : "")}</p>
           </div>
-          <button type="button" onClick={openCreate} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_8px_20px_rgba(91,124,255,0.3)] transition hover:opacity-90">
+          <button type="button" onClick={openCreate} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_8px_20px_var(--codex-accent-30)] transition hover:opacity-90">
             <Plus className="h-4 w-4" />
             {t("newCreate")}
           </button>
@@ -605,14 +606,14 @@ export default function HistoryPage() {
                 type="button"
                 onClick={() => openDetail(g)}
                 aria-label={t("viewDetailsAria", { module: moduleLabel })}
-                className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100"
+                className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--codex-surface-soft)]"
               >
                 {coverUrl ? (
                   <HistoryMediaPreview url={coverUrl} variant="card" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]" alt={t("coverAlt")} />
                 ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-300">
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-codex-faint">
                     <ImageIcon className="h-9 w-9" />
-                    <span className="text-xs text-gray-400 dark:text-stone-500">{t("noResult")}</span>
+                    <span className="text-xs text-codex-faint">{t("noResult")}</span>
                   </div>
                 )}
                 <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-bold backdrop-blur ${getStatusClasses(g.status)}`}>
@@ -629,7 +630,7 @@ export default function HistoryPage() {
                     role="button"
                     tabIndex={-1}
                     onClick={(event) => { event.stopPropagation(); openDetail(g); }}
-                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
+                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur transition hover:bg-white"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     {t("viewDetail")}
@@ -638,7 +639,7 @@ export default function HistoryPage() {
                     role="button"
                     tabIndex={-1}
                     onClick={(event) => { event.stopPropagation(); applyHistoryRow(g); }}
-                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
+                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur transition hover:bg-white"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     {reuseLabel}
@@ -654,7 +655,7 @@ export default function HistoryPage() {
                         downloadHistoryResult(g, coverUrl, 0);
                       }
                     }}
-                    className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
+                    className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[12px] font-bold text-codex-ink shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
                   >
                     <Download className="h-3.5 w-3.5" />
                     {resultUrls.length > 1 ? t("downloadZip") : t("download")}
@@ -685,14 +686,14 @@ export default function HistoryPage() {
         })}
         {filteredRows.length === 0 && !loadingMore && (
           <div className="col-span-full rounded-3xl border border-white/80 bg-white/70 p-8 text-center shadow-[0_18px_54px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
-            <ImageIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-            <h2 className="text-base font-black text-slate-950 dark:text-stone-100">{t("noMatchTitle")}</h2>
-            <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/75 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
+            <ImageIcon className="mx-auto mb-3 h-10 w-10 text-codex-faint" />
+            <h2 className="text-base font-black text-codex-ink">{t("noMatchTitle")}</h2>
+            <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/75 px-4 py-3 text-sm font-bold leading-6 text-codex-ink">
               {filterState.summaryKey ? tAny(filterState.summaryKey, filterState.summaryParams) : filterState.summary}
             </p>
-            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{filterState.noMatchMessageKey ? tAny(filterState.noMatchMessageKey) : filterState.noMatchMessage}</p>
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-codex-muted">{filterState.noMatchMessageKey ? tAny(filterState.noMatchMessageKey) : filterState.noMatchMessage}</p>
             {filterState.isFiltered && (
-              <button onClick={clearFilters} className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-5 text-sm font-bold text-slate-600 hover:bg-white">
+              <button onClick={clearFilters} className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-5 text-sm font-bold text-codex-muted hover:bg-white">
                 <X className="h-4 w-4" />
                 {t("clearFilters")}
               </button>
@@ -711,13 +712,13 @@ export default function HistoryPage() {
             type="button"
             onClick={loadMore}
             disabled={loadingMore}
-            className="inline-flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-stone-300 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-sm font-medium text-codex-ink shadow-sm hover:bg-[var(--codex-surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
             {loadingMore ? t("loadingMore") : t("loadMore")}
           </button>
         ) : (
-          <p className="text-xs text-gray-400 dark:text-stone-500">{t("allLoaded")}</p>
+          <p className="text-xs text-codex-faint">{t("allLoaded")}</p>
         )}
       </div>
       <DetailLoadingSkeleton open={detailLoading} />
@@ -731,16 +732,16 @@ export default function HistoryPage() {
           <DialogContent
             showCloseButton={false}
             returnFocusRef={detailReturnFocusRef}
-            overlayClassName="z-[139] bg-slate-950/30 backdrop-blur-xl"
+            overlayClassName="z-[139] bg-codex-ink/30 backdrop-blur-xl"
             className="z-[140] flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-6xl flex-col gap-0 overflow-hidden rounded-3xl border border-white/70 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-6xl"
           >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 bg-white/70 px-4 py-3 backdrop-blur-xl sm:px-5">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <DialogTitle className="text-sm font-bold leading-5">{formatKind(t, detailPayload?.kind)}</DialogTitle>
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:text-stone-400">{formatStatus(t, detailRow.status)}</span>
+                  <span className="rounded-full bg-[var(--codex-surface-soft)] px-2 py-0.5 text-[11px] text-codex-muted">{formatStatus(t, detailRow.status)}</span>
                 </div>
-                <p className="text-[12px] text-gray-400 dark:text-stone-500 mt-0.5">{fmt(detailRow.created_at)}</p>
+                <p className="text-[12px] text-codex-faint mt-0.5">{fmt(detailRow.created_at)}</p>
                 <DialogDescription className="sr-only">
                   {t("detailDesc")}
                 </DialogDescription>
@@ -750,7 +751,7 @@ export default function HistoryPage() {
                   type="button"
                   onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
                   disabled={!selectedResultUrl}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/75 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-stone-300 shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-white/75 px-3 py-1.5 text-xs font-medium text-codex-ink shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
                   {t("download")}
@@ -767,7 +768,7 @@ export default function HistoryPage() {
                     {detailFailureCopy?.applyLabel || getHistoryReuseLabel(t, detailPayload)}
                   </button>
                 )}
-                <button type="button" onClick={closeDetail} className="rounded-full p-1.5 outline-none transition-[background-color,box-shadow] hover:bg-white/80 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" aria-label={t("closeDetailAria")}>
+                <button type="button" onClick={closeDetail} className="rounded-full p-1.5 outline-none transition-[background-color,box-shadow] hover:bg-white/80 focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2" aria-label={t("closeDetailAria")}>
                   <X aria-hidden="true" className="h-4 w-4" />
                 </button>
               </div>
@@ -790,30 +791,30 @@ export default function HistoryPage() {
                         alt={t("resultAlt", { index: selectedResultIndex + 1 })}
                         controls
                       />
-                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[12px] text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[12px] text-codex-ink opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                         <Maximize2 className="w-3 h-3" />
                         {t("enlarge")}
                       </span>
                     </button>
                   ) : (
-                    <div className="max-w-sm px-5 text-center text-sm text-gray-500 dark:text-stone-400">
+                    <div className="max-w-sm px-5 text-center text-sm text-codex-muted">
                       {detailFailureCopy ? (
                         <>
                           <p className="font-bold text-red-600">{detailFailureCopy.title}</p>
-                          <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-stone-400">{detailFailureCopy.recoveryHint}</p>
+                          <p className="mt-2 text-xs leading-5 text-codex-muted">{detailFailureCopy.recoveryHint}</p>
                         </>
                       ) : normalizeHistoryStatusFilter(detailRow.status) === "completed" ? t("noResultImages") : formatStatus(t, detailRow.status)}
                     </div>
                   )}
                   {detailResults.length > 0 && (
-                    <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[12px] font-medium text-gray-700 dark:text-stone-300 shadow-sm backdrop-blur">
+                    <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[12px] font-medium text-codex-ink shadow-sm backdrop-blur">
                       {selectedResultIndex + 1} / {detailResults.length}
                     </div>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center">
-                  <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-stone-400">
+                  <div className="flex items-center gap-2 text-xs font-medium text-codex-muted">
                     <ZoomOut className="h-4 w-4" />
                     <input
                       type="range"
@@ -826,12 +827,12 @@ export default function HistoryPage() {
                       aria-label={t("zoomAria")}
                     />
                     <ZoomIn className="h-4 w-4" />
-                    <span className="w-10 text-right tabular-nums text-gray-700 dark:text-stone-300">{detailZoom}%</span>
+                    <span className="w-10 text-right tabular-nums text-codex-ink">{detailZoom}%</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setDetailZoom(100)}
-                    className="rounded-full border border-gray-200/80 bg-white/50 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-stone-400 backdrop-blur hover:bg-white/80"
+                    className="rounded-full border border-[var(--codex-border)]/80 bg-white/50 px-3 py-1.5 text-xs font-medium text-codex-muted backdrop-blur hover:bg-white/80"
                   >
                     {t("reset")}
                   </button>
@@ -848,7 +849,7 @@ export default function HistoryPage() {
                           setDetailZoom(100);
                         }}
                         className={`h-20 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 bg-white shadow-sm transition ${
-                          selectedResultIndex === index ? "border-slate-900 ring-2 ring-slate-200" : "border-white/80 opacity-75 hover:opacity-100"
+                          selectedResultIndex === index ? "border-codex-ink ring-2 ring-[var(--codex-border)]" : "border-white/80 opacity-75 hover:opacity-100"
                         }`}
                       >
                         <HistoryMediaPreview url={url} variant="thumb" alt={t("resultThumbAlt", { index: index + 1 })} />
@@ -859,16 +860,16 @@ export default function HistoryPage() {
               </section>
 
               <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
-                <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{t("reuseParams")}</p>
-                  <h4 className="mt-1 text-sm font-black text-slate-950 dark:text-stone-100">{t("reuseThisWork")}</h4>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{t("reuseDesc")}</p>
+                <section className="rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/80 p-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-codex-muted">{t("reuseParams")}</p>
+                  <h4 className="mt-1 text-sm font-black text-codex-ink">{t("reuseThisWork")}</h4>
+                  <p className="mt-1 text-xs leading-5 text-codex-muted">{t("reuseDesc")}</p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                     {detailPayload && (
                       <button
                         type="button"
                         onClick={() => router.push(getApplyPath(detailPayload.kind, detailRow.id))}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-3 text-xs font-bold text-white shadow-sm hover:bg-slate-800"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-codex-ink px-3 text-xs font-bold text-white shadow-sm hover:bg-codex-muted"
                       >
                         <RotateCcw className="h-3.5 w-3.5" /> {detailFailureCopy?.applyLabel || getHistoryReuseLabel(t, detailPayload)}
                       </button>
@@ -877,7 +878,7 @@ export default function HistoryPage() {
                       type="button"
                       onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
                       disabled={!selectedResultUrl}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/80 bg-white/85 px-3 text-xs font-bold text-slate-700 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/80 bg-white/85 px-3 text-xs font-bold text-codex-ink shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Download className="h-3.5 w-3.5" /> {t("downloadSingle")}
                     </button>
@@ -889,7 +890,7 @@ export default function HistoryPage() {
                           filename: `pixel-diffusion-${detailRow.id.slice(0, 8)}`,
                           label: t("zipLabel"),
                         })}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[rgba(91,124,255,0.4)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-bold text-[var(--codex-accent)] shadow-sm transition hover:bg-[rgba(91,124,255,0.16)]"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--codex-accent-38)] bg-[var(--codex-accent-10)] px-3 text-xs font-bold text-[var(--codex-accent)] shadow-sm transition hover:bg-[var(--codex-accent-16)]"
                       >
                         <Download className="h-3.5 w-3.5" /> {t("downloadAllZip", { count: detailResults.length })}
                       </button>
@@ -898,12 +899,12 @@ export default function HistoryPage() {
                 </section>
 
                 <section>
-                  <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">{t("generateInfo")}</h4>
+                  <h4 className="mb-2 text-xs font-bold text-codex-ink">{t("generateInfo")}</h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     {getParameterItems(t, detailRow).map((item) => (
-                      <div key={item.label} className="min-w-0 border-b border-gray-100 pb-2">
-                        <p className="text-[11px] text-gray-400 dark:text-stone-500">{item.label}</p>
-                        <p className="mt-0.5 break-words text-xs font-medium text-gray-800">{item.value}</p>
+                      <div key={item.label} className="min-w-0 border-b border-[var(--codex-border)] pb-2">
+                        <p className="text-[11px] text-codex-faint">{item.label}</p>
+                        <p className="mt-0.5 break-words text-xs font-medium text-codex-ink">{item.value}</p>
                       </div>
                     ))}
                   </div>
@@ -917,29 +918,29 @@ export default function HistoryPage() {
 
                 {detailImages.length > 0 && (
                   <section>
-                    <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">{t("inputImages")}</h4>
+                    <h4 className="mb-2 text-xs font-bold text-codex-ink">{t("inputImages")}</h4>
                     <div className="grid grid-cols-3 gap-2">
                       {detailImages.map((image, index) => (
                         <button
                           type="button"
                           key={`${image.label}-${index}`}
                           onClick={() => openLightbox(image.url)}
-                          className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                          className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                         >
-                          <div className="relative h-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
+                          <div className="relative h-24 overflow-hidden rounded-xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
                             <HistoryMediaPreview
                               url={image.url}
                               variant="thumb"
                               className="transition duration-300 group-hover:scale-110 group-focus-visible:scale-110"
                               alt={image.label}
                             />
-                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition duration-200 group-hover:bg-slate-950/18 group-focus-visible:bg-slate-950/18">
-                              <span className="flex h-8 w-8 scale-90 items-center justify-center rounded-full border border-white/70 bg-white/85 text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition duration-200 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100">
+                            <div className="absolute inset-0 flex items-center justify-center bg-codex-ink/0 transition duration-200 group-hover:bg-codex-ink/18 group-focus-visible:bg-codex-ink/18">
+                              <span className="flex h-8 w-8 scale-90 items-center justify-center rounded-full border border-white/70 bg-white/85 text-codex-ink opacity-0 shadow-sm backdrop-blur transition duration-200 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100">
                                 <ZoomIn className="h-4 w-4" />
                               </span>
                             </div>
                           </div>
-                          <p className="mt-1 truncate text-[11px] text-gray-500 dark:text-stone-400">{image.label}</p>
+                          <p className="mt-1 truncate text-[11px] text-codex-muted">{image.label}</p>
                         </button>
                       ))}
                     </div>
@@ -973,233 +974,6 @@ export default function HistoryPage() {
         onClose={() => setLightboxSrc(null)}
       />
     </div>
-  );
-}
-
-function HistoryLoadingSkeleton() {
-  return (
-    <div className="studio-workbench history-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
-      <HistorySkeletonStyles />
-      <div className="mx-auto mb-5 max-w-7xl rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-2">
-            <SkeletonBlock className="h-5 w-28 rounded-full" />
-            <SkeletonBlock className="h-3 w-40 rounded-full" />
-          </div>
-          <SkeletonBlock className="h-9 w-24 rounded-full" />
-        </div>
-        <div className="mt-3 flex gap-2 border-t border-[var(--codex-border)] pt-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <SkeletonBlock key={index} className="h-8 w-16 rounded-full" />
-          ))}
-        </div>
-      </div>
-      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <HistoryCardSkeleton key={index} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HistoryCardSkeleton() {
-  return (
-    <article className="history-skeleton-card overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] shadow-sm">
-      <SkeletonBlock className="aspect-[3/4] rounded-none" />
-      <div className="flex items-center justify-between gap-2 px-3 py-3">
-        <div className="min-w-0 flex-1 space-y-2">
-          <SkeletonBlock className="h-3.5 w-24 rounded-full" />
-          <SkeletonBlock className="h-2.5 w-32 rounded-full" />
-        </div>
-        <SkeletonBlock className="h-5 w-12 rounded-full" />
-      </div>
-    </article>
-  );
-}
-
-function DetailLoadingSkeleton({ open }: { open: boolean }) {
-  const t = useTranslations("History");
-  return (
-    <Dialog open={open}>
-      <DialogContent
-        showCloseButton={false}
-        overlayClassName="z-[119] bg-slate-950/25 backdrop-blur-xl"
-        className="z-[120] grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-5xl gap-0 overflow-y-auto rounded-3xl border border-white/75 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl [overscroll-behavior:contain] sm:max-w-5xl lg:grid-cols-[minmax(0,1.2fr)_340px] lg:overflow-hidden"
-        onEscapeKeyDown={(event) => event.preventDefault()}
-        onInteractOutside={(event) => event.preventDefault()}
-        aria-busy="true"
-      >
-        <DialogTitle className="sr-only">{t("detailLoadingTitle")}</DialogTitle>
-        <DialogDescription className="sr-only">{t("detailLoadingDesc")}</DialogDescription>
-        <div className="bg-[#eef0f3] p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <SkeletonBlock className="h-4 w-20 rounded-full" />
-            <SkeletonBlock className="h-8 w-24 rounded-full" />
-          </div>
-          <SkeletonBlock className="h-[52vh] min-h-72 rounded-3xl" />
-          <div className="mt-4 flex items-center gap-3">
-            <SkeletonBlock className="h-2 flex-1 rounded-full" />
-            <SkeletonBlock className="h-8 w-16 rounded-full" />
-          </div>
-        </div>
-        <div className="space-y-5 bg-white/75 p-5">
-          <div className="space-y-3">
-            <SkeletonBlock className="h-4 w-20 rounded-full" />
-            <div className="grid grid-cols-2 gap-3">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <div key={index} className="space-y-2 border-b border-gray-100 pb-2">
-                  <SkeletonBlock className="h-3 w-12 rounded-full" />
-                  <SkeletonBlock className="h-4 w-16 rounded-full" />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-3">
-            <SkeletonBlock className="h-4 w-20 rounded-full" />
-            <div className="grid grid-cols-3 gap-2">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <SkeletonBlock key={index} className="h-24 rounded-xl" />
-              ))}
-            </div>
-          </div>
-          <SkeletonBlock className="h-32 rounded-xl" />
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function SkeletonBlock({ className }: { className: string }) {
-  return <div className={`history-skeleton ${className}`} />;
-}
-
-function HistoryFailureNotice({ copy }: { copy: HistoryFailureRecoveryCopy }) {
-  const tAny = useTranslations(); // 数据键全路径（LibShared.history.*）
-  return (
-    <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs leading-5 text-red-700">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="font-bold">{copy.titleKey ? tAny(copy.titleKey) : copy.title}</p>
-        <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-bold text-red-500">
-          {copy.applyLabelKey ? tAny(copy.applyLabelKey) : copy.applyLabel}
-        </span>
-      </div>
-      <dl className="mt-2 space-y-1.5">
-        <div>
-          <dt className="text-[11px] font-black uppercase text-red-400">{copy.reasonLabelKey ? tAny(copy.reasonLabelKey) : copy.reasonLabel}</dt>
-          <dd className="mt-0.5 font-medium text-red-700">{copy.reasonKey ? tAny(copy.reasonKey) : copy.reason}</dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-black uppercase text-red-400">{copy.recoveryLabelKey ? tAny(copy.recoveryLabelKey) : copy.recoveryLabel}</dt>
-          <dd className="mt-0.5 text-red-600">{copy.recoveryHintKey ? tAny(copy.recoveryHintKey, copy.recoveryHintParams) : copy.recoveryHint}</dd>
-        </div>
-      </dl>
-    </div>
-  );
-}
-
-function HistoryMediaPreview({
-  url,
-  variant,
-  className = "",
-  alt,
-  style,
-  controls = false,
-}: {
-  url: string;
-  variant: "card" | "thumb" | "preview";
-  className?: string;
-  alt: string;
-  style?: CSSProperties;
-  controls?: boolean;
-}) {
-  const isVideo = isLikelyVideoUrl(url);
-  const mediaClass = `${variant === "preview" ? "max-h-full max-w-full object-contain" : "h-full w-full object-cover"} ${className}`.trim();
-
-  if (isVideo) {
-    return (
-      <span className={`relative block overflow-hidden bg-black ${variant === "preview" ? "max-h-full max-w-full" : "h-full w-full"}`}>
-        <video
-          src={url}
-          className={mediaClass}
-          style={style}
-          controls={controls}
-          muted={!controls}
-          playsInline
-          preload="metadata"
-          onClick={(event) => {
-            if (controls) event.stopPropagation();
-          }}
-        />
-        {!controls && (
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 text-white">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/58 shadow-sm backdrop-blur">
-              <Play className="h-3.5 w-3.5 fill-current" />
-            </span>
-          </span>
-        )}
-      </span>
-    );
-  }
-
-  return <RawPreviewImage src={getImageVariantUrl(url, variant)} className={mediaClass} style={style} alt={alt} />;
-}
-
-function HistorySkeletonStyles() {
-  return (
-    <style>{`
-      .history-skeleton {
-        position: relative;
-        overflow: hidden;
-        background: linear-gradient(110deg, #eef1f5 8%, #f8fafc 18%, #e7ebf1 33%);
-        background-size: 220% 100%;
-        animation: history-skeleton-sweep 1.35s ease-in-out infinite;
-      }
-
-      .history-skeleton::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        transform: translateX(-120%);
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
-        animation: history-skeleton-glow 1.6s ease-in-out infinite;
-      }
-
-      .history-skeleton-card {
-        animation: history-skeleton-float 2.8s ease-in-out infinite;
-      }
-
-      .history-skeleton-card:nth-child(2n) {
-        animation-delay: 0.16s;
-      }
-
-      .history-skeleton-card:nth-child(3n) {
-        animation-delay: 0.28s;
-      }
-
-      @keyframes history-skeleton-sweep {
-        0% { background-position: 120% 0; }
-        100% { background-position: -120% 0; }
-      }
-
-      @keyframes history-skeleton-glow {
-        0% { transform: translateX(-120%); }
-        55%, 100% { transform: translateX(120%); }
-      }
-
-      @keyframes history-skeleton-float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-3px); }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .history-skeleton,
-        .history-skeleton::after,
-        .history-skeleton-card {
-          animation: none;
-        }
-      }
-    `}</style>
   );
 }
 
@@ -1259,8 +1033,8 @@ function getStatusClasses(status: string) {
   if (normalizedStatus === "completed") return "bg-emerald-50 text-emerald-700";
   if (normalizedStatus === "failed") return "bg-red-50 text-red-600";
   if (normalizedStatus === "processing") return "bg-amber-50 text-amber-700";
-  if (normalizedStatus === "pending") return "bg-sky-50 text-sky-700";
-  return "bg-gray-100 text-gray-600 dark:text-stone-400";
+  if (normalizedStatus === "pending") return "bg-[var(--codex-accent-08)] text-[var(--codex-accent)]";
+  return "bg-[var(--codex-surface-soft)] text-codex-muted";
 }
 
 class HistoryAuthError extends Error {}

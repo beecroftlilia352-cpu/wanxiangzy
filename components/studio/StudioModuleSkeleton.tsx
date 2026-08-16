@@ -23,7 +23,7 @@ function Block({ className, rounded = "rounded-md" }: { className?: string; roun
 
 function SkeletonPanelSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#1c1c1e]">
+    <div className="rounded-2xl border border-[var(--codex-border)] bg-codex-surface p-3 shadow-sm dark:border-white/10">
       {title ? <Block className="mb-3 h-3 w-24" /> : null}
       {children}
     </div>
@@ -46,7 +46,7 @@ export function StudioModuleSkeleton({
       aria-label={t("loadingModule")}
     >
       {/* Feature tabs sidebar — 40px slim rail */}
-      <div className="hidden w-10 shrink-0 flex-col items-center gap-4 border-r border-slate-200 bg-slate-50/70 py-3 lg:flex dark:border-white/5 dark:bg-[#161618]">
+      <div className="hidden w-10 shrink-0 flex-col items-center gap-4 border-r border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/70 py-3 lg:flex dark:border-white/5 dark:bg-[#161618]">
         {Array.from({ length: 6 }).map((_, i) => (
           <Block key={i} className="h-8 w-8" rounded="rounded-lg" />
         ))}
@@ -114,7 +114,7 @@ export function StudioModuleSkeleton({
         </div>
 
         {/* Runbar — mirrors StudioRunBar */}
-        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#1c1c1e]">
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--codex-border)] bg-codex-surface px-4 py-3 dark:border-white/10">
           <div className="flex flex-col gap-1">
             <Block className="h-3 w-32" />
             <Block className="h-2.5 w-20" />
@@ -133,14 +133,14 @@ export function StudioModuleSkeleton({
       </div>
 
       {/* Task rail — mirrors ModuleTaskRail (288px) */}
-      <div className="hidden w-[288px] shrink-0 flex-col border-l border-slate-200 bg-slate-50/70 p-3 lg:flex dark:border-white/5 dark:bg-[#161618]">
+      <div className="hidden w-[288px] shrink-0 flex-col border-l border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/70 p-3 lg:flex dark:border-white/5 dark:bg-[#161618]">
         <div className="mb-3 flex items-center justify-between">
           <Block className="h-4 w-20" />
           <Block className="h-7 w-7" rounded="rounded-lg" />
         </div>
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-lg bg-white p-2 shadow-sm dark:bg-[#1c1c1e]">
+            <div key={i} className="flex items-center gap-2 rounded-lg bg-codex-surface p-2 shadow-sm dark:bg-[#1c1c1e]">
               <Block className="h-10 w-10 shrink-0" rounded="rounded-lg" />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <Block className="h-2.5 w-3/4" />

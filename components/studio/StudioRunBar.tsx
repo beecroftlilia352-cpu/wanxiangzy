@@ -32,8 +32,8 @@ export function StudioRunBar({
     <div className="studio-runbar studio-runbar-v2" aria-busy={isLoading || undefined}>
       <div className="flex min-w-0 items-start justify-between gap-3 text-xs">
         <div className="min-w-0 space-y-0.5">
-          <div className="text-slate-500">{summary}</div>
-          {estimateLabel && <div className="text-slate-400">{estimateLabel}</div>}
+          <div className="text-codex-muted">{summary}</div>
+          {estimateLabel && <div className="text-codex-faint">{estimateLabel}</div>}
         </div>
         {costLabel && <div className="shrink-0 text-right font-black text-amber-600">{costLabel}</div>}
       </div>

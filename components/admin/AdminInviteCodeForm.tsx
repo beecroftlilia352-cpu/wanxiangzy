@@ -149,7 +149,7 @@ export function AdminInviteCodeForm() {
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {generatedCodes.map((item) => (
-              <code key={item.id || item.code} className="rounded-md bg-[var(--admin-surface)] px-2 py-1 font-mono text-sm font-black text-[var(--admin-fg)] ring-1 ring-slate-200">
+              <code key={item.id || item.code} className="rounded-md bg-[var(--admin-surface)] px-2 py-1 font-mono text-sm font-black text-[var(--admin-fg)] ring-1 ring-[var(--codex-border)]">
                 {item.code}
               </code>
             ))}

@@ -73,7 +73,7 @@ export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | 
             className={cn(
               "flex items-center justify-between rounded-md px-2.5 py-1.5 text-left text-[13px] transition",
               option.value === locale
-                ? "bg-[rgba(91,124,255,0.1)] font-bold text-[var(--codex-accent)]"
+                ? "bg-[var(--codex-accent-10)] font-bold text-[var(--codex-accent)]"
                 : "font-medium text-codex-muted hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink",
             )}
             aria-current={option.value === locale ? "true" : undefined}
@@ -122,7 +122,7 @@ export function LanguageSwitcher({ variant = "header" }: { variant?: "header" | 
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition",
                   option.value === locale
-                    ? "bg-[rgba(91,124,255,0.1)] font-black text-[var(--codex-accent)]"
+                    ? "bg-[var(--codex-accent-10)] font-black text-[var(--codex-accent)]"
                     : "font-semibold text-[var(--codex-muted)] hover:bg-[var(--codex-surface-soft)] hover:text-[var(--codex-ink)]",
                 )}
               >

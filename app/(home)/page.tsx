@@ -138,8 +138,8 @@ const footerGroups = [
 export default async function HomePage() {
   const t = await getTranslations("Home");
   return (
-    <div className="home-marketing-page min-h-screen bg-white text-[#050505] dark:bg-[#07080d] dark:text-stone-100">
-      <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505] dark:bg-[#07080d] dark:text-stone-100">
+    <div className="home-marketing-page min-h-screen bg-codex-surface text-codex-ink">
+      <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-codex-ink">
         {/* P2.1 hero video: preload=metadata saves bandwidth, hidden on mobile,
             poster fallback so reduced-motion / mobile users see a still frame. */}
         <video className="home-hero-video-bg hidden md:block" autoPlay muted loop playsInline preload="metadata" poster="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a-poster.jpg" aria-hidden="true">
@@ -158,13 +158,13 @@ export default async function HomePage() {
             <Image src="/gemini-icon.png" alt="" width={52} height={52} className="h-[52px] w-[52px] object-contain" priority />
           </div>
 
-          <h1 className="mt-8 text-[48px] font-semibold leading-[0.98] tracking-[-0.022em] text-[#050505] sm:text-[52px] lg:text-[56px] dark:text-white">
+          <h1 className="mt-8 text-[48px] font-semibold leading-[0.98] tracking-[-0.022em] text-codex-ink sm:text-[52px] lg:text-[56px]">
             {codexTheme.brand.name}
           </h1>
-          <p className="mt-7 max-w-[720px] text-[18px] font-semibold leading-8 text-[#111827]/84 sm:text-[20px] dark:text-stone-200/85">
+          <p className="mt-7 max-w-[720px] text-[18px] font-semibold leading-8 text-codex-ink/84 sm:text-[20px]">
             {t("heroSubtitle")}
           </p>
-          <p className="mt-3 max-w-[760px] text-[15px] leading-7 text-[#1f2937]/68 dark:text-stone-400/70">
+          <p className="mt-3 max-w-[760px] text-[15px] leading-7 text-codex-muted/68">
             {t("heroDesc")}
           </p>
 
@@ -178,7 +178,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <p className="mt-8 text-[13px] font-semibold text-[#29354d]/58 dark:text-stone-400/60">
+          <p className="mt-8 text-[13px] font-semibold text-[#29354d]/58 dark:text-codex-faint/60">
             {t("heroCapabilities")}
           </p>
 
@@ -186,7 +186,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <main className="bg-white text-[#050505] dark:bg-[#07080d] dark:text-stone-100">
+      <main className="bg-codex-surface text-codex-ink">
         <section id="partners" className="home-partner-band" aria-label={t("partnersAria")}>
           {partnerLogos.map((partner) => (
             <div key={partner.name} className="home-partner-item" aria-label={partner.name}>
@@ -209,7 +209,7 @@ export default async function HomePage() {
         <section id="same-agent" className="mx-auto max-w-[1440px] px-5 pb-24 sm:px-8 lg:px-10">
           <div className="mx-auto max-w-[760px] text-center">
             <h2 className="text-[32px] font-semibold leading-tight tracking-[-0.014em] sm:text-[36px]">{t("sameAgentTitle")}</h2>
-            <p className="mt-5 text-[15px] leading-7 text-[#4b5563] dark:text-stone-400">
+            <p className="mt-5 text-[15px] leading-7 text-codex-muted">
               {t("sameAgentDesc")}
             </p>
             <Link href="/create" className="home-button home-button-dark mt-8">
@@ -238,7 +238,7 @@ export default async function HomePage() {
                 </div>
                 <div className="p-6">
                   <h3 className="text-[20px] font-semibold leading-tight">{t(`sceneTitle.${index}`)}</h3>
-                  <p className="mt-3 text-[14px] leading-6 text-[#5f6673] dark:text-stone-400">{t(`sceneDesc.${index}`)}</p>
+                  <p className="mt-3 text-[14px] leading-6 text-codex-muted">{t(`sceneDesc.${index}`)}</p>
                 </div>
               </Link>
             ))}
@@ -258,8 +258,8 @@ export default async function HomePage() {
                   className="home-testimonial-avatar"
                   aria-hidden="true"
                 />
-                <p className="mt-12 text-[18px] font-medium leading-8 text-[#111827] dark:text-stone-200">“{t("testimonialQuote", { count: index })}”</p>
-                <p className="mt-16 text-[14px] font-semibold text-[#6b7280] dark:text-stone-400">{t("testimonialName", { count: index })}</p>
+                <p className="mt-12 text-[18px] font-medium leading-8 text-codex-ink">“{t("testimonialQuote", { count: index })}”</p>
+                <p className="mt-16 text-[14px] font-semibold text-codex-faint">{t("testimonialName", { count: index })}</p>
               </article>
             ))}
           </div>
@@ -270,9 +270,9 @@ export default async function HomePage() {
             <source src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
           </video>
           <div className="home-final-video-scrim" aria-hidden="true" />
-          <div className="relative z-[3] mx-auto flex min-h-[475px] max-w-[1440px] flex-col items-center justify-center px-5 py-20 text-center text-[#050505] sm:px-8 lg:px-10">
+          <div className="relative z-[3] mx-auto flex min-h-[475px] max-w-[1440px] flex-col items-center justify-center px-5 py-20 text-center text-codex-ink sm:px-8 lg:px-10">
             <h2 className="text-[32px] font-semibold leading-tight tracking-[-0.014em] sm:text-[40px]">{t("finalCtaTitle")}</h2>
-            <p className="mt-6 max-w-[660px] text-[16px] font-medium leading-7 text-[#111827]/84">
+            <p className="mt-6 max-w-[660px] text-[16px] font-medium leading-7 text-codex-ink/84">
               {t("finalCtaDesc")}
             </p>
             <Link href="/create" className="home-button home-button-dark mt-9">
@@ -324,8 +324,8 @@ function FeatureStrip({
       <div className="home-feature-copy-panel">
         <div className="max-w-[460px]">
           <p className="text-[13px] font-semibold text-[#3f5dff]">{t(`featureEyebrow.${index}`)}</p>
-          <h2 className="mt-5 text-[30px] font-semibold leading-tight text-[#050505] sm:text-[38px]">{t(`featureTitle.${index}`)}</h2>
-          <p className="mt-7 text-[15px] font-medium leading-7 text-[#4b5563]">{t(`featureBody.${index}`)}</p>
+          <h2 className="mt-5 text-[30px] font-semibold leading-tight text-codex-ink sm:text-[38px]">{t(`featureTitle.${index}`)}</h2>
+          <p className="mt-7 text-[15px] font-medium leading-7 text-codex-muted">{t(`featureBody.${index}`)}</p>
         </div>
       </div>
     </article>
@@ -386,21 +386,21 @@ function MacWindowShell({ children, className = "" }: { children: ReactNode; cla
 
 function Footer({ t }: { t: (key: string) => string }) {
   return (
-    <footer className="border-t border-[#ececec] bg-white text-[#050505]">
+    <footer className="border-t border-[var(--codex-border)] bg-codex-surface text-codex-ink">
       <div className="mx-auto grid max-w-[1440px] gap-12 px-5 py-16 sm:px-8 md:grid-cols-[1.1fr_repeat(4,1fr)] lg:px-10">
         <div>
-          <p className="text-[18px] font-semibold text-[#050505]">Pixel Diffusion</p>
-          <p className="mt-4 max-w-[260px] text-[14px] leading-7 text-[#6b7280]">
+          <p className="text-[18px] font-semibold text-codex-ink">Pixel Diffusion</p>
+          <p className="mt-4 max-w-[260px] text-[14px] leading-7 text-codex-muted">
             {t("footNote")}
           </p>
         </div>
         {footerGroups.map((group, index) => (
           <div key={index}>
-            <h3 className="text-[13px] font-semibold text-[#777]">{t(`footerGroupTitle.${index}`)}</h3>
+            <h3 className="text-[13px] font-semibold text-codex-faint">{t(`footerGroupTitle.${index}`)}</h3>
             <ul className="mt-5 space-y-3">
               {group.links.filter(([, href]) => href !== "/agent").map(([labelKey, href]) => (
                 <li key={labelKey}>
-                  <Link href={href} className="inline-flex items-center gap-1 py-1.5 text-[14px] font-semibold text-[#111] transition hover:text-[#555]">
+                  <Link href={href} className="inline-flex items-center gap-1 py-1.5 text-[14px] font-semibold text-codex-ink transition hover:text-codex-muted">
                     {t(`footerLink.${labelKey}`)}
                     {href !== "/" && <ExternalLink aria-hidden="true" className="h-3 w-3" />}
                   </Link>

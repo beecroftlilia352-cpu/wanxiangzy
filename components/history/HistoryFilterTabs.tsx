@@ -29,7 +29,7 @@ export function HistoryFilterTabs<T extends string>({
       <div className="relative min-w-0">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white to-transparent sm:hidden dark:from-stone-900"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white to-transparent sm:hidden dark:from-codex-ink"
         />
         <div
           role="group"
@@ -46,10 +46,10 @@ export function HistoryFilterTabs<T extends string>({
                 aria-pressed={active}
                 onClick={() => onChange(item.value)}
                 className={cn(
-                  "btn-press h-8 flex-none snap-start rounded-full px-3 text-xs font-bold outline-none transition-[color,background-color,border-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.5)] focus-visible:ring-offset-2",
+                  "btn-press h-8 flex-none snap-start rounded-full px-3 text-xs font-bold outline-none transition-[color,background-color,border-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-48)] focus-visible:ring-offset-2",
                   active
-                    ? "border border-[rgba(91,124,255,0.35)] bg-[rgba(91,124,255,0.12)] text-[var(--codex-accent)] shadow-[0_2px_8px_rgba(91,124,255,0.14)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#aeb8ff]"
-                    : "border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-[var(--codex-muted)] hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-ink)] dark:hover:text-stone-100"
+                    ? "border border-[var(--codex-accent-35)] bg-[var(--codex-accent-12)] text-[var(--codex-accent)] shadow-[0_2px_8px_var(--codex-accent-14)] dark:bg-[var(--codex-accent-18)] dark:text-[#aeb8ff]"
+                    : "border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-[var(--codex-muted)] hover:border-[var(--codex-accent-30)] hover:text-[var(--codex-ink)] dark:hover:text-white"
                 )}
               >
                 {item.label}

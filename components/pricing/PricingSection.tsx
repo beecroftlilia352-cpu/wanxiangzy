@@ -303,31 +303,31 @@ export function PricingSection() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
           <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">{t("eyebrow")}</p>
-          <h1 id="pricing-title" className="mb-4 text-4xl font-black tracking-tight text-zinc-900 dark:text-stone-100" style={{ textWrap: "balance" }}>
+          <h1 id="pricing-title" className="mb-4 text-4xl font-black tracking-tight text-codex-ink" style={{ textWrap: "balance" }}>
             {t("heroTitle")}
           </h1>
-          <p className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-1 text-base font-medium leading-relaxed text-zinc-700 dark:text-stone-300">
+          <p className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-1 text-base font-medium leading-relaxed text-codex-muted">
             <span>{t("heroServed")}</span>
-            <span className="text-2xl font-black leading-none text-zinc-900 dark:text-stone-100">{t("heroCount")}</span>
+            <span className="text-2xl font-black leading-none text-codex-ink">{t("heroCount")}</span>
             <span>{t("heroServedTail")}</span>
           </p>
         </div>
 
-        <div className="mx-auto mb-12 grid h-14 w-full max-w-sm grid-cols-2 rounded-2xl bg-zinc-100 dark:bg-stone-800 p-1">
+        <div className="mx-auto mb-12 grid h-14 w-full max-w-sm grid-cols-2 rounded-2xl bg-[var(--codex-surface-soft)] p-1">
           <button
             type="button"
             aria-pressed={mode === "credits"}
             onClick={() => setMode("credits")}
             className={cn(
-              "group order-1 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold text-zinc-700 dark:text-stone-300 transition-[background-color,color,box-shadow] duration-150",
-              mode === "credits" && "bg-white text-zinc-900 dark:text-stone-100 shadow-sm"
+              "group order-1 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold text-codex-muted transition-[background-color,color,box-shadow] duration-150",
+              mode === "credits" && "bg-codex-surface text-codex-ink shadow-sm"
             )}
           >
             <Zap className="h-4 w-4" aria-hidden="true" />
             <span>{t("buyCredits")}</span>
             <span
               className={cn(
-                "ml-1 inline-flex items-center gap-1.5 border-l border-zinc-200 pl-2 transition-opacity",
+                "ml-1 inline-flex items-center gap-1.5 border-l border-[var(--codex-border)] pl-2 transition-opacity",
                 mode === "credits" ? "opacity-95" : "opacity-60"
               )}
             >
@@ -340,8 +340,8 @@ export function PricingSection() {
             aria-pressed={mode === "subscription"}
             onClick={() => setMode("subscription")}
             className={cn(
-              "order-2 inline-flex items-center justify-center rounded-xl text-sm font-bold text-zinc-700 dark:text-stone-300 transition-[background-color,color,box-shadow] duration-150",
-              mode === "subscription" && "bg-white text-zinc-900 dark:text-stone-100 shadow-sm"
+              "order-2 inline-flex items-center justify-center rounded-xl text-sm font-bold text-codex-muted transition-[background-color,color,box-shadow] duration-150",
+              mode === "subscription" && "bg-codex-surface text-codex-ink shadow-sm"
             )}
           >
             <Crown className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -397,17 +397,17 @@ export function PricingSection() {
           ))}
         </div>
 
-        <div className="mt-12 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[var(--codex-surface)]">
+        <div className="mt-12 rounded-2xl border border-[var(--codex-border)] bg-codex-surface p-6 shadow-sm">
           <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-center">
             <div>
               <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">{t("usageTitle")}</p>
-              <h2 className="text-xl font-black tracking-tight text-zinc-900 dark:text-stone-100">{t("usageHint")}</h2>
+              <h2 className="text-xl font-black tracking-tight text-codex-ink">{t("usageHint")}</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {usageRules.map((rule) => (
-                <div key={rule.id} className="rounded-xl bg-zinc-50 p-4 dark:bg-[var(--codex-surface)]">
-                  <p className="mb-2 text-lg font-black tabular-nums text-zinc-900 dark:text-stone-100">{t(rule.valueKey, rule.valueVars)}</p>
-                  <p className="text-xs font-medium leading-relaxed text-zinc-700 dark:text-stone-300">{t(rule.labelKey)}</p>
+                <div key={rule.id} className="rounded-xl bg-[var(--codex-surface-soft)] p-4">
+                  <p className="mb-2 text-lg font-black tabular-nums text-codex-ink">{t(rule.valueKey, rule.valueVars)}</p>
+                  <p className="text-xs font-medium leading-relaxed text-codex-muted">{t(rule.labelKey)}</p>
                 </div>
               ))}
             </div>
@@ -437,13 +437,13 @@ function PlanCard({
   return (
     <article
       className={cn(
-        "relative flex min-h-[534px] flex-col rounded-2xl border bg-white p-6 transition-[box-shadow,border-color,transform] duration-200",
-        plan.featured ? "border-zinc-900 shadow-lg ring-1 ring-zinc-900" : "border-zinc-200 shadow-sm"
+        "relative flex min-h-[534px] flex-col rounded-2xl border bg-codex-surface p-6 transition-[box-shadow,border-color,transform] duration-200",
+        plan.featured ? "border-[var(--codex-ink)] shadow-lg ring-1 ring-[var(--codex-ink)]" : "border-[var(--codex-border)] shadow-sm"
       )}
     >
       {plan.featured ? (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="rounded-full bg-zinc-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
+          <span className="rounded-full bg-[var(--codex-ink)] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
             {t("mostPopular")}
           </span>
         </div>
@@ -453,12 +453,12 @@ function PlanCard({
         <div
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-            plan.featured ? "bg-zinc-900 text-white" : "bg-zinc-100 dark:bg-stone-800 text-zinc-600"
+            plan.featured ? "bg-[var(--codex-ink)] text-white" : "bg-[var(--codex-surface-soft)] text-codex-muted"
           )}
         >
           <CircleDollarSign className="h-5 w-5" aria-hidden="true" />
         </div>
-        <h3 className="flex-1 text-xl font-bold text-zinc-900 dark:text-stone-100">{t(plan.titleKey)}</h3>
+        <h3 className="flex-1 text-xl font-bold text-codex-ink">{t(plan.titleKey)}</h3>
         {plan.savings ? (
           <span className="ml-auto inline-flex h-14 w-14 shrink-0 rotate-[-12deg] flex-col items-center justify-center rounded-full border-2 border-dashed border-amber-300 bg-amber-50 text-amber-700">
             <span className="text-[11px] font-bold leading-none">{t("saveBadge")}</span>
@@ -468,14 +468,14 @@ function PlanCard({
       </div>
 
       <div className="mb-6 flex items-baseline gap-1">
-        <span className="text-4xl font-black tabular-nums text-zinc-900 dark:text-stone-100">¥{formatNumber(plan.price)}</span>
-        {mode === "subscription" ? <span className="text-sm font-medium text-zinc-700 dark:text-stone-300">{t("perMonth")}</span> : null}
+        <span className="text-4xl font-black tabular-nums text-codex-ink">¥{formatNumber(plan.price)}</span>
+        {mode === "subscription" ? <span className="text-sm font-medium text-codex-muted">{t("perMonth")}</span> : null}
       </div>
 
       <ul className="mb-8 flex-1 space-y-3">
         {features.map((feature, index) => (
-          <li key={index} className="flex items-center gap-2 text-zinc-700 dark:text-stone-300">
-            <Check className={cn("h-4 w-4 shrink-0", feature.primary ? "text-zinc-900 dark:text-stone-100" : "text-zinc-300")} aria-hidden="true" />
+          <li key={index} className="flex items-center gap-2 text-codex-muted">
+            <Check className={cn("h-4 w-4 shrink-0", feature.primary ? "text-codex-ink" : "text-codex-faint")} aria-hidden="true" />
             <span className={cn(feature.primary ? "text-sm font-semibold" : "font-medium")}>{feature.content}</span>
           </li>
         ))}
@@ -495,8 +495,8 @@ function PlanCard({
         className={cn(
           "inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 text-[15px] font-bold transition-[background-color,border-color,color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-60",
           plan.featured
-            ? "bg-zinc-900 text-white shadow-md hover:bg-zinc-800"
-            : "border-2 border-zinc-100 bg-white text-zinc-900 dark:text-stone-100 hover:border-zinc-200 hover:bg-zinc-50"
+            ? "bg-[var(--codex-ink)] text-white shadow-md hover:opacity-90"
+            : "border-2 border-[var(--codex-border)] bg-codex-surface text-codex-ink hover:bg-[var(--codex-surface-soft)]"
         )}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}

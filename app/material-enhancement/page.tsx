@@ -20,6 +20,7 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -135,6 +136,132 @@ export default function MaterialEnhancementPage() {
     title: t("moduleName"),
     defaultExpectedCount: genCount,
     applyPath: "/material-enhancement",
+  });
+
+  // 轮询 context：pollCtxRef.current 由调用方在 start 前赋值；
+  // buildUrl / onTick / onComplete / onError 都从 ref 读 identity，绕过
+  // "useGenerationPolling 的 id 字段在 render 时被冻结" 的问题。
+  const pollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    displayExpectedCount: number;
+    taskInputThumbnails: string[];
+    retryPreviousResultUrls: string[];
+    retryResultIndex: number | null;
+    runTotalCost: number;
+    latestResultUrlsRef: { current: string[] };
+  } | null>(null);
+  const { start: startMaterialEnhancementPolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown };
+  }>({
+    id: "",
+    buildUrl: () => {
+      const id = pollCtxRef.current?.generationId ?? "";
+      return `/api/material-enhancement?generation_id=${encodeURIComponent(id)}`;
+    },
+    isTerminal: (state) => state.status === "completed" || state.status === "failed",
+    intervalMs: 2000,
+    maxAttempts: 120,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      if (Array.isArray(state.result_urls) && state.result_urls.length) {
+        const merged = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          state.result_urls,
+          ctx.displayExpectedCount,
+        );
+        ctx.latestResultUrlsRef.current = merged;
+        setResultUrls(merged);
+      }
+      const nextProgress = Number(state.progress);
+      const runningProgress = Number.isFinite(nextProgress)
+        ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+        : 25;
+      setProgress(runningProgress);
+      taskQueue.markRunning(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestResultUrlsRef.current,
+        resultCount: ctx.latestResultUrlsRef.current.filter(Boolean).length,
+        progress: runningProgress,
+        status: state.status || "processing",
+      });
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const finalUrls = mergeRetryResultUrls(
+        ctx.retryPreviousResultUrls,
+        ctx.retryResultIndex,
+        Array.isArray(state.result_urls) ? state.result_urls : ctx.latestResultUrlsRef.current,
+        ctx.displayExpectedCount,
+      );
+      ctx.latestResultUrlsRef.current = finalUrls;
+      const finalResultCount = finalUrls.filter(Boolean).length;
+      if (state.status === "completed") {
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { message?: unknown })
+          : null;
+        const completedError = state.error || partialFailure?.message || "";
+        setProgress(100);
+        setResultUrls(finalUrls);
+        setIsGenerating(false);
+        taskQueue.markCompleted(ctx.activeTaskId, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+          error: completedError ? summarizeGenerationError(completedError) : "",
+        });
+        if (completedError || finalResultCount < ctx.displayExpectedCount) {
+          void refreshCredits();
+          toast.warning(t("generation.partialComplete", { done: finalResultCount, expected: ctx.displayExpectedCount }));
+        } else {
+          toast.success(t("generation.completed"));
+        }
+      } else {
+        const message = state.error || t("generation.failed");
+        setError(message);
+        taskQueue.markFailed(ctx.activeTaskId, message, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+        });
+        if (credits !== null && credits < ctx.runTotalCost) {
+          showInsufficientCreditsToast({ required: ctx.runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+        } else {
+          toast.error(message);
+        }
+        void refreshCredits();
+        setIsGenerating(false);
+      }
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = error.message || t("generation.timeout");
+      setError(message);
+      taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestResultUrlsRef.current,
+        resultCount: ctx.latestResultUrlsRef.current.filter(Boolean).length,
+      });
+      if (credits !== null && credits < ctx.runTotalCost) {
+        showInsufficientCreditsToast({ required: ctx.runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+      } else {
+        toast.error(message);
+      }
+      void refreshCredits();
+      setIsGenerating(false);
+    },
   });
 
   const finalPrompt = useMemo(() => buildMaterialEnhancementPrompt({
@@ -389,71 +516,18 @@ export default function MaterialEnhancementPage() {
         });
         activeTaskId = serverTask.id;
       }
-
-      let attempts = 0;
-      while (attempts < 120) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        attempts++;
-        const fallbackProgress = Math.min(18 + attempts * 1.6, 92);
-        let runningProgress = fallbackProgress;
-        setProgress(fallbackProgress);
-
-        const poll = await fetch(`/api/material-enhancement?generation_id=${data.generation_id}`);
-        if (!poll.ok) continue;
-        const pollData = await poll.json();
-        if (Array.isArray(pollData.result_urls) && pollData.result_urls.length) {
-          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, pollData.result_urls, displayExpectedCount);
-          setResultUrls(latestTaskResultUrls);
-        }
-        const nextProgress = Number(pollData.progress);
-        if (Number.isFinite(nextProgress)) {
-          runningProgress = Math.min(Math.max(Math.round(nextProgress), 0), 99);
-          setProgress(runningProgress);
-        }
-        taskQueue.markRunning(activeTaskId, {
-          expectedCount: displayExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          resultThumbnails: latestTaskResultUrls,
-          resultCount: latestTaskResultUrls.filter(Boolean).length,
-          progress: runningProgress,
-          status: pollData.status || "processing",
-        });
-
-        if (pollData.status === "completed") {
-          const finalUrls = mergeRetryResultUrls(
-            retryPreviousResultUrls,
-            retryResultIndex,
-            Array.isArray(pollData.result_urls) ? pollData.result_urls : latestTaskResultUrls,
-            displayExpectedCount
-          );
-          latestTaskResultUrls = finalUrls;
-          const finalResultCount = finalUrls.filter(Boolean).length;
-          const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
-            ? pollData.partial_failure as { message?: unknown }
-            : null;
-          const completedError = pollData.error || partialFailure?.message || "";
-          setProgress(100);
-          setResultUrls(finalUrls);
-          taskQueue.markCompleted(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: taskInputThumbnails,
-            resultThumbnails: finalUrls,
-            resultCount: finalResultCount,
-            error: completedError ? summarizeGenerationError(completedError) : "",
-          });
-          if (completedError || finalResultCount < displayExpectedCount) {
-            void refreshCredits();
-            toast.warning(t("generation.partialComplete", { done: finalResultCount, expected: displayExpectedCount }));
-          } else {
-            toast.success(t("generation.completed"));
-          }
-          return;
-        }
-        if (pollData.status === "failed") {
-          throw new Error(pollData.error || t("generation.failed"));
-        }
-      }
-      throw new Error(t("generation.timeout"));
+      // 启动后台轮询：catch 只处理 submit 错误，poll 失败由 hook 的 onError 处理。
+      pollCtxRef.current = {
+        activeTaskId,
+        generationId: data.generation_id,
+        displayExpectedCount,
+        taskInputThumbnails,
+        retryPreviousResultUrls,
+        retryResultIndex,
+        runTotalCost,
+        latestResultUrlsRef: { current: latestTaskResultUrls },
+      };
+      startMaterialEnhancementPolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generation.operationFailed"));
       setError(message);

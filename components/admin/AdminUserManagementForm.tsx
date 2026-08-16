@@ -221,7 +221,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
           </label>
         </div>
         <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm font-bold text-[var(--admin-fg)]">
-          <input name="generateEnabled" type="checkbox" defaultChecked={profile.generateEnabled} className="h-4 w-4 rounded border-slate-300" />
+          <input name="generateEnabled" type="checkbox" defaultChecked={profile.generateEnabled} className="h-4 w-4 rounded border-[var(--codex-border-strong)]" />
           允许继续生成
         </label>
         <label className="block space-y-1.5">
@@ -296,7 +296,7 @@ function SubmitButton({ loading, icon, label }: { loading: boolean; icon: ReactN
     <button
       type="submit"
       disabled={loading}
-      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white transition-colors hover:bg-codex-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : icon}
       {label}

@@ -127,11 +127,11 @@ export function GroupedResultGrid({
             className="flex items-center justify-center gap-1.5 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] backdrop-blur"
           >
             <div className="min-w-0 text-center">
-              <div className="truncate text-[13px] font-black text-slate-900" title={target.label}>
+              <div className="truncate text-[13px] font-black text-codex-ink" title={target.label}>
                 {target.label}
               </div>
               {target.sublabel ? (
-                <div className="truncate text-[10px] font-semibold text-slate-400" title={target.sublabel}>
+                <div className="truncate text-[10px] font-semibold text-codex-faint" title={target.sublabel}>
                   {target.sublabel}
                 </div>
               ) : null}
@@ -269,8 +269,8 @@ const ResultCellView = memo(function ResultCellView({
         "group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow",
         completed && "border-emerald-200 hover:shadow-md",
         failed && "border-rose-200 bg-rose-50/40",
-        running && "border-violet-300 bg-[rgba(91,124,255,0.1)]/30 shadow-[0_0_0_1px_rgba(91,124,255,0.18)]",
-        !completed && !failed && !running && "border-slate-200 bg-slate-50/40"
+        running && "border-violet-300 bg-[var(--codex-accent-10)]/30 shadow-[0_0_0_1px_var(--codex-accent-18)]",
+        !completed && !failed && !running && "border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/40"
       )}
       style={cellStyle}
     >
@@ -331,10 +331,10 @@ const ResultCellView = memo(function ResultCellView({
             </>
           ) : (
             <>
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-200/70 text-slate-400">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--codex-border)]/70 text-codex-faint">
                 <ZoomIn className="h-4 w-4" />
               </span>
-              <p className="text-[12px] font-semibold text-slate-400">{t("waitingToGenerate")}</p>
+              <p className="text-[12px] font-semibold text-codex-faint">{t("waitingToGenerate")}</p>
             </>
           )}
         </div>

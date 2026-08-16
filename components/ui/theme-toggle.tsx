@@ -109,10 +109,10 @@ export function ThemeToggle({ className, onToggle, onClick, ...props }: ThemeTog
       data-theme-toggle=""
       data-mounted={mounted ? "true" : "false"}
       className={cn(
-        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors",
-        "hover:bg-slate-100 hover:text-slate-950",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.5)] focus-visible:ring-offset-2 focus-visible:ring-offset-white",
-        "dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white dark:focus-visible:ring-offset-stone-950",
+        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-codex-ink transition-colors",
+        "hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-48)] focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+        "dark:text-codex-muted dark:hover:bg-[var(--codex-surface-strong)] dark:hover:text-white dark:focus-visible:ring-offset-codex-ink",
         "active:scale-[0.96]",
         className,
       )}

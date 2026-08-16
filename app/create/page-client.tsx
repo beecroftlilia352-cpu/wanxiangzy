@@ -116,6 +116,7 @@ import {
   type GarmentDetailReferenceGroup,
 } from "@/lib/garment-detail-references";
 import { createGenericImagePreviewSession } from "@/lib/studio-image-preview";
+import { useStudioPreview } from "@/hooks/use-studio-preview";
 import type { ReferenceImage } from "@/types";
 import {
   activeTryOnStatusWatchers,
@@ -182,6 +183,16 @@ import {
   TryOnReferenceAnalysisStatus,
   TryOnRulePopover,
 } from "@/features/tryon/create/presentation";
+import {
+  ROLE_I18N_KEYS,
+  canApplyVisualAudienceSuggestion,
+  formatVisualAudienceSuggestion,
+  getVisualAudienceSuggestion,
+} from "@/features/tryon/create/visual-audience";
+import { AudienceAgePanel } from "@/features/tryon/create/AudienceAgePanel";
+import { PromptStyleSection } from "@/features/tryon/create/PromptStyleSection";
+import { ResolutionSection } from "@/features/tryon/create/ResolutionSection";
+import { ModelSelectorSection } from "@/features/tryon/create/ModelSelectorSection";
 import type {
   ClothingAnalysisCacheEntry,
   ClothingItemState,
@@ -194,40 +205,11 @@ import type {
   TryOnHistoryPayload,
 } from "@/features/tryon/create/types";
 
-const VISUAL_AUDIENCE_AUTO_CONFIDENCE = 0.86;
-
-function getVisualAudienceSuggestion(analysis: TryOnClothingAnalysis | null | undefined) {
-  if (!analysis || analysis.confidence < VISUAL_AUDIENCE_AUTO_CONFIDENCE) {
-    return { audience: null, ageGroup: null } as const;
-  }
-
-  return {
-    audience: analysis.genderType === "women" || analysis.genderType === "men" ? analysis.genderType : null,
-    ageGroup: analysis.ageRange && analysis.ageRange !== "all" ? analysis.ageRange : null,
-  } as const;
-}
-
-function canApplyVisualAudienceSuggestion(source: ClothingAnalysisCacheEntry["source"] | null) {
-  return source === "yunwu" || source === "cache";
-}
-
-function formatVisualAudienceSuggestion(audience: TryOnGarmentAudience | null, ageGroup: TryOnAgeGroup | null) {
-  return [
-    audience ? TRYON_GARMENT_AUDIENCE_LABELS[audience] : "",
-    ageGroup ? TRYON_AGE_GROUP_LABELS[ageGroup] : "",
-  ].filter(Boolean).join(" ");
-}
-
 export default function CreatePage() {
   const t = useTranslations("Create");
   const locale = useLocale();
   // 服装角色分类标签键（lib TRYON_CLOTHING_ROLE_LABELS 为中文兜底）
-  const ROLE_LABEL_KEYS: Record<string, string> = {
-    single: "clothing.roleSingle",
-    upper: "clothing.roleUpper",
-    lower: "clothing.roleLower",
-    extra: "clothing.roleExtra",
-  };
+  const ROLE_LABEL_KEYS = ROLE_I18N_KEYS;
   const router = useRouter();
   const store = useTryOnStore();
   const {
@@ -2410,34 +2392,31 @@ export default function CreatePage() {
     )),
     [activeResultExpectedCount, displayedResultUrls, hasCompletedPartialResults, partialFailureMessage]
   );
-  const tryonPreviewSession = useMemo(
-    () => createGenericImagePreviewSession({
-      module: "tryon",
-      title: t("tryon.title"),
-      taskId: activeQueueTask?.id,
-      createdAt: activeQueueTask?.createdAt,
-      statusGroup: activeQueueTask?.statusGroup || (store.isGenerating ? "running" : undefined),
-      urls: store.resultUrls,
-      expectedCount: activeResultExpectedCount,
-      isGenerating: store.isGenerating,
-      references: tryonPreviewReferences,
-      promptText: customStyle,
-      errors: tryonPreviewErrors,
-      metaItems: [
-        { label: t("meta.clothingMode"), value: t("clothing.modeLabel", { mode: clothingMode === "single" ? t("clothing.modeSingle") : t("clothing.modeMulti") }) },
-        { label: t("meta.sceneMode"), value: SCENE_MODE_LABELS[sceneMode] },
-        { label: t("meta.audience"), value: TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience] },
-        { label: t("meta.age"), value: TRYON_AGE_GROUP_LABELS[ageGroup] },
-        { label: t("meta.model"), value: aiModel },
-        { label: t("meta.ratio"), value: aspectRatio },
-        { label: t("meta.resolution"), value: imageSize },
-        { label: t("meta.genCount"), value: activeResultExpectedCount },
-      ],
-      resultTitlePrefix: t("tryon.resultPrefix"),
-      aspectRatio,
-    }),
-    [activeQueueTask, activeResultExpectedCount, ageGroup, aiModel, aspectRatio, clothingMode, customStyle, garmentAudience, imageSize, sceneMode, store.isGenerating, store.resultUrls, tryonPreviewErrors, tryonPreviewReferences]
-  );
+  const tryonPreviewSession = useStudioPreview({
+    module: "tryon",
+    title: t("tryon.title"),
+    taskId: activeQueueTask?.id,
+    createdAt: activeQueueTask?.createdAt,
+    statusGroup: activeQueueTask?.statusGroup || (store.isGenerating ? "running" : undefined),
+    urls: store.resultUrls,
+    expectedCount: activeResultExpectedCount,
+    isGenerating: store.isGenerating,
+    references: tryonPreviewReferences,
+    promptText: customStyle,
+    errors: tryonPreviewErrors,
+    metaItems: [
+      { label: t("meta.clothingMode"), value: t("clothing.modeLabel", { mode: clothingMode === "single" ? t("clothing.modeSingle") : t("clothing.modeMulti") }) },
+      { label: t("meta.sceneMode"), value: SCENE_MODE_LABELS[sceneMode] },
+      { label: t("meta.audience"), value: TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience] },
+      { label: t("meta.age"), value: TRYON_AGE_GROUP_LABELS[ageGroup] },
+      { label: t("meta.model"), value: aiModel },
+      { label: t("meta.ratio"), value: aspectRatio },
+      { label: t("meta.resolution"), value: imageSize },
+      { label: t("meta.genCount"), value: activeResultExpectedCount },
+    ],
+    resultTitlePrefix: t("tryon.resultPrefix"),
+    aspectRatio,
+  });
   const resultStatus: StudioResultStatus = store.error
       ? "error"
       : store.isGenerating || store.resultUrls.length > 0
@@ -2673,16 +2652,16 @@ export default function CreatePage() {
               </div>
             )}
 
-            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-slate-100 bg-white/70 px-3 py-2 text-xs text-slate-700 transition-colors hover:border-[rgba(91,124,255,0.3)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-stone-200 dark:hover:border-[rgba(167,139,250,0.45)]">
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-[var(--codex-border)] bg-white/70 px-3 py-2 text-xs text-codex-ink transition-colors hover:border-[var(--codex-accent-30)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-codex-muted dark:hover:border-[rgba(167,139,250,0.45)]">
               <input
                 type="checkbox"
                 checked={isIntimateGarment}
                 onChange={(event) => updateIntimateGarment(event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[var(--codex-accent)] accent-[var(--codex-accent)] focus:ring-violet-500 dark:border-stone-600 dark:bg-stone-800"
+                className="mt-0.5 h-4 w-4 rounded border-[var(--codex-border-strong)] text-[var(--codex-accent)] accent-[var(--codex-accent)] focus:ring-[var(--codex-accent)] dark:border-white/15 dark:bg-white/10"
               />
               <span>
                 <span className="font-semibold">{t("clothing.intimateLabel")}</span>
-                <span className="mt-0.5 block text-[12px] leading-4 text-slate-400">
+                <span className="mt-0.5 block text-[12px] leading-4 text-codex-faint">
                   {t("clothing.intimateHint")}
                 </span>
               </span>
@@ -2712,67 +2691,20 @@ export default function CreatePage() {
           </StudioSection>
 
           {/* ---- 服装人群 ---- */}
-          <section className="rounded-2xl border border-violet-100 bg-white/78 p-3 shadow-sm dark:border-white/10 dark:bg-[#1c1c1e]">
-            <div className="mb-2.5 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-[13px] font-bold text-slate-900 dark:text-stone-100">
-                  {t("audience.title")} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
-                </h3>
-                <p className="mt-1 truncate text-[12px] text-slate-400 dark:text-stone-500">
-                  {t("audience.description")}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[11px] font-medium text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
-                {t("audience.badge")}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {GARMENT_AUDIENCE_OPTIONS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => updateGarmentAudience(value)}
-                  aria-pressed={garmentAudience === value}
-                  className={`rounded-lg border px-2 py-1.5 text-[12px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
-                    garmentAudience === value
-                      ? "border-violet-400 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
-                  }`}
-                >
-                  {t(`audience.garment.${value}`)}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
-              {AGE_GROUP_OPTIONS.map((value) => {
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => updateAgeGroup(value)}
-                    aria-pressed={ageGroup === value}
-                    className={`rounded-lg border px-1.5 py-1.5 text-[12px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
-                      ageGroup === value
-                        ? "border-violet-400 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
-                    }`}
-                  >
-                    {t(`audience.age.${value}`)}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          <AudienceAgePanel
+            garmentAudience={garmentAudience}
+            ageGroup={ageGroup}
+            onChangeAudience={updateGarmentAudience}
+            onChangeAge={updateAgeGroup}
+          />
 
           {/* ---- 参考图（整个区域可拖拽） ---- */}
           <section
             {...referenceDrag.dragHandlers}
-            className={`studio-stable-upload-boundary relative rounded-xl transition-[box-shadow] ${isDraggingRef ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-[box-shadow] ${isDraggingRef ? "ring-2 ring-[var(--codex-accent-38)] ring-offset-2" : ""}`}
           >
             {isDraggingRef && (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.58)] bg-[rgba(91,124,255,0.12)]">
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--codex-accent-58)] bg-[var(--codex-accent-12)]">
                 <div className="text-center">
                   <Upload className="mx-auto mb-1 h-7 w-7 text-[var(--codex-accent)]" />
                   <p className="text-xs font-semibold text-[var(--codex-accent)]">{t("reference.dropHint")}</p>
@@ -2784,10 +2716,10 @@ export default function CreatePage() {
                 <h3 className="font-bold text-sm flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-[var(--codex-accent)]" /> {t("reference.title")}
                 </h3>
-                <p className="mt-1 text-[12px] text-gray-400">{t("reference.description")}</p>
+                <p className="mt-1 text-[12px] text-codex-faint">{t("reference.description")}</p>
               </div>
               {sceneMode !== "auto_design" && (
-                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[11px] font-semibold text-[var(--codex-accent)]">
+                <span className="rounded-full bg-[var(--codex-accent-10)] px-2 py-1 text-[11px] font-semibold text-[var(--codex-accent)]">
                   {t("common.maxCount", { count: MAX_TRYON_REFERENCE_IMAGES })}
                 </span>
               )}
@@ -2806,7 +2738,7 @@ export default function CreatePage() {
             />
 
             {false && sceneMode === "system_reference" && (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 dark:border-white/10 dark:bg-white/5">
+              <div className="rounded-xl border border-dashed border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/70 p-3 dark:border-white/10 dark:bg-white/5">
                 {selectedReferenceImages.length === 0 ? (
                   <button
                     type="button"
@@ -2815,10 +2747,10 @@ export default function CreatePage() {
                       setActiveReferenceSceneUrl((prev) => prev || recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || null);
                       setIsReferenceScenePanelOpen(true);
                     }}
-                    className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white/80 p-3 text-left transition hover:border-[var(--codex-accent)] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    className="group flex w-full items-center gap-3 rounded-xl border border-[var(--codex-border)] bg-white/80 p-3 text-left transition hover:border-[var(--codex-accent)] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                     aria-label={t("reference.openSystemScene")}
                   >
-                    <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100 shadow-sm">
+                    <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-[var(--codex-surface-soft)] shadow-sm">
                       <ImgSkeleton
                         src={recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || ""}
                         alt={t("reference.recommendedAlt")}
@@ -2826,7 +2758,7 @@ export default function CreatePage() {
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-slate-900">{t("reference.select")} <span className="font-medium text-slate-400">{t("reference.multiSelect")}</span></p>
+                      <p className="text-sm font-bold text-codex-ink">{t("reference.select")} <span className="font-medium text-codex-faint">{t("reference.multiSelect")}</span></p>
                       <p className="mt-2 inline-flex max-w-full rounded-lg bg-orange-50 px-2 py-1 text-[12px] font-medium text-orange-600">
                         {t("reference.selectTip")}
                       </p>
@@ -2840,7 +2772,7 @@ export default function CreatePage() {
                         </p>
                       )}
                     </div>
-                    <ChevronRight className="h-7 w-7 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-[var(--codex-accent)]" />
+                    <ChevronRight className="h-7 w-7 shrink-0 text-codex-faint transition group-hover:translate-x-0.5 group-hover:text-[var(--codex-accent)]" />
                   </button>
                 ) : (
                   <div className="grid grid-cols-4 gap-2">
@@ -2849,7 +2781,7 @@ export default function CreatePage() {
                         key={ref.url}
                         type="button"
                         onClick={() => openLightbox(ref.url, ref.label || t("common.referenceImage"))}
-                        className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                         aria-label={t("reference.previewSelected", { label: ref.label })}
                       >
                         <RawPreviewImage eager src={ref.url} alt={ref.label || t("common.referenceImage")} className="aspect-[3/4] w-full object-cover" />
@@ -2864,7 +2796,7 @@ export default function CreatePage() {
                           setActiveReferenceSceneUrl((prev) => prev || recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || null);
                           setIsReferenceScenePanelOpen(true);
                         }}
-                        className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-white text-slate-400 transition hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.1)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300"
+                        className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-[var(--codex-border)] bg-white text-codex-faint transition hover:border-[var(--codex-accent)] hover:bg-[var(--codex-accent-10)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-codex-faint dark:hover:bg-[var(--codex-accent-10)]/15 dark:hover:text-violet-300"
                         aria-label={t("reference.addSystemScene")}
                       >
                         <ChevronRight className="mb-1 h-6 w-6" />
@@ -2878,7 +2810,7 @@ export default function CreatePage() {
             )}
 
             {sceneMode === "upload_reference" && (
-              <div className={`studio-reference-upload-panel transition-colors ${isDraggingRef ? "rounded-xl ring-2 ring-[rgba(91,124,255,0.36)] ring-offset-2" : ""}`}>
+              <div className={`studio-reference-upload-panel transition-colors ${isDraggingRef ? "rounded-xl ring-2 ring-[var(--codex-accent-36)] ring-offset-2" : ""}`}>
                 <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" aria-label={t("reference.uploadAriaLabel")} onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
                 <TryOnReferenceAnalysisStatus
                   status={referenceAnalysisStatus}
@@ -2915,12 +2847,12 @@ export default function CreatePage() {
                         <button
                           type="button"
                           onClick={() => openLightbox(ref.url, ref.label || t("common.referenceImage"))}
-                          className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                          className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                           aria-label={t("reference.preview", { label: ref.label })}
                         >
                           <RawPreviewImage eager src={ref.url} alt={t("reference.previewAlt", { label: ref.label })} className="aspect-[3/4] w-full object-cover" />
-                          <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 opacity-0 transition group-hover:bg-slate-950/18 group-hover:opacity-100 group-focus-within:bg-slate-950/18 group-focus-within:opacity-100">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow-sm">
+                          <span className="absolute inset-0 flex items-center justify-center bg-codex-ink/0 opacity-0 transition group-hover:bg-codex-ink/18 group-hover:opacity-100 group-focus-within:bg-codex-ink/18 group-focus-within:opacity-100">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-codex-ink shadow-sm">
                               <ZoomIn className="h-4 w-4" />
                             </span>
                           </span>
@@ -2931,7 +2863,7 @@ export default function CreatePage() {
                         <button
                           type="button"
                           onClick={() => setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url))}
-                          className="absolute left-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-600 shadow-sm transition-colors duration-150 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[rgba(91,124,255,0.55)]"
+                          className="absolute left-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-codex-muted shadow-sm transition-colors duration-150 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--codex-accent-55)]"
                           aria-label={t("reference.remove", { label: ref.label })}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -2939,7 +2871,7 @@ export default function CreatePage() {
                       </div>
                     ))}
                     {visibleCustomRefUploads.map((item) => (
-                      <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-white dark:border-white/10 dark:bg-white/5">
+                      <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-[var(--codex-border)] bg-white dark:border-white/10 dark:bg-white/5">
                         <RawPreviewImage eager src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
                         <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[11px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
                           {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
@@ -2949,7 +2881,7 @@ export default function CreatePage() {
                           <button
                             type="button"
                             onClick={() => setCustomRefUploads((prev) => prev.filter((upload) => upload.id !== item.id))}
-                            className="absolute right-1 top-1 z-[2] inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
+                            className="absolute right-1 top-1 z-[2] inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-codex-muted shadow-sm transition hover:text-red-500"
                             aria-label={t("reference.removeFailed", { label: item.label })}
                             title={item.error || t("common.uploadFailed")}
                           >
@@ -2962,7 +2894,7 @@ export default function CreatePage() {
                       type="button"
                       onClick={() => customRefInputRef.current?.click()}
                       disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
-                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-[color,background-color,border-color,box-shadow] hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.1)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] dark:bg-[rgba(91,124,255,0.1)]0/20" : "border-gray-200 dark:border-white/10"}`}
+                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-codex-faint transition-[color,background-color,border-color,box-shadow] hover:border-[var(--codex-accent)] hover:bg-[var(--codex-accent-10)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-codex-faint dark:hover:bg-[var(--codex-accent-10)]/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-[var(--codex-accent-10)] text-[var(--codex-accent)] dark:bg-[var(--codex-accent-10)]/20" : "border-[var(--codex-border)] dark:border-white/10"}`}
                       aria-label={t("reference.uploadAriaLabel")}
                     >
                       <ChevronRight className="mb-1 h-6 w-6" />
@@ -2975,9 +2907,9 @@ export default function CreatePage() {
             )}
 
             {sceneMode === "auto_design" && (
-              <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+              <div className="space-y-4 rounded-xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/70 p-3">
                 <div>
-                  <p className="mb-2 text-xs font-bold text-gray-800">{t("autoDesign.platform")}</p>
+                  <p className="mb-2 text-xs font-bold text-codex-ink">{t("autoDesign.platform")}</p>
                   <StudioOptionGrid
                     options={AUTO_DESIGN_PLATFORMS.map((item) => ({
                       value: item.value,
@@ -2994,7 +2926,7 @@ export default function CreatePage() {
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-bold text-gray-800">{t("autoDesign.framing")}</p>
+                  <p className="mb-2 text-xs font-bold text-codex-ink">{t("autoDesign.framing")}</p>
                   <StudioOptionGrid
                     options={AUTO_DESIGN_FRAMINGS.map((item) => ({
                       value: item.value,
@@ -3010,7 +2942,7 @@ export default function CreatePage() {
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-bold text-gray-800">{t("autoDesign.background")}</p>
+                  <p className="mb-2 text-xs font-bold text-codex-ink">{t("autoDesign.background")}</p>
                   <StudioOptionGrid
                     options={autoDesignBackgroundOptions.map((item) => ({
                       value: item.value,
@@ -3029,28 +2961,28 @@ export default function CreatePage() {
             )}
 
             {sceneMode === "favorites" && (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 dark:border-white/10 dark:bg-white/5">
+              <div className="rounded-xl border border-dashed border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/70 p-3 dark:border-white/10 dark:bg-white/5">
                 {authIsAnonymous ? (
-                  <div className="py-8 text-center text-xs text-gray-400">{t("favorite.anonView")}</div>
+                  <div className="py-8 text-center text-xs text-codex-faint">{t("favorite.anonView")}</div>
                 ) : isLoadingFavoriteReferences ? (
-                  <div className="py-8 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                  <div className="py-8 text-center text-xs text-codex-faint flex items-center justify-center gap-2">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     {t("favorite.loading")}
                   </div>
                 ) : favoriteReferences.length === 0 && referenceTemplates.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-gray-400">{t("favorite.empty")}</div>
+                  <div className="py-8 text-center text-xs text-codex-faint">{t("favorite.empty")}</div>
                 ) : (
                   <div className="space-y-3">
                     {referenceTemplates.length > 0 && (
                       <div>
-                        <p className="mb-2 text-[12px] font-bold text-slate-600">{t("favorite.templates")}</p>
+                        <p className="mb-2 text-[12px] font-bold text-codex-muted">{t("favorite.templates")}</p>
                         <div className="grid grid-cols-2 gap-2">
                           {referenceTemplates.map((template) => (
                             <button
                               key={template.id}
                               type="button"
                               onClick={() => applyReferenceTemplate(template)}
-                              className="group overflow-hidden rounded-lg border-2 border-transparent bg-white text-left transition hover:border-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                              className="group overflow-hidden rounded-lg border-2 border-transparent bg-white text-left transition hover:border-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                               aria-label={t("favorite.applyTemplate", { name: template.name })}
                             >
                               <div className="relative aspect-[4/3] overflow-hidden">
@@ -3060,7 +2992,7 @@ export default function CreatePage() {
                                 </span>
                               </div>
                               <div className="px-2 py-1">
-                                <p className="truncate text-[11px] font-bold text-slate-700">{template.name}</p>
+                                <p className="truncate text-[11px] font-bold text-codex-ink">{template.name}</p>
                               </div>
                             </button>
                           ))}
@@ -3069,7 +3001,7 @@ export default function CreatePage() {
                     )}
                     {favoriteReferences.length > 0 && (
                       <div>
-                        <p className="mb-2 text-[12px] font-bold text-slate-600">{t("favorite.single")}</p>
+                        <p className="mb-2 text-[12px] font-bold text-codex-muted">{t("favorite.single")}</p>
                         <div className="grid grid-cols-3 gap-2">
                     {favoriteReferences.map((ref) => {
                       const selected = isReferenceSelected(ref.url);
@@ -3084,8 +3016,8 @@ export default function CreatePage() {
                           if (!switchSceneMode("favorites")) return;
                           toggleReferenceImage(toFavoriteReference(ref));
                         })}
-                        className={`group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-white transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
-                          selected ? "border-[var(--codex-accent)] ring-1 ring-blue-200" : "border-transparent hover:border-gray-300"
+                        className={`group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-white transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 ${
+                          selected ? "border-[var(--codex-accent)] ring-1 ring-blue-200" : "border-transparent hover:border-[var(--codex-border-strong)]"
                         }`}>
                         <ImgSkeleton src={ref.url} alt={t("favorite.imageAlt", { label: ref.label })} className="w-full aspect-[3/4] object-cover" />
                         {selected && (
@@ -3097,21 +3029,21 @@ export default function CreatePage() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); openLightbox(ref.url, t("favorite.previewLabel", { label: ref.label })); }}
                           onKeyDown={(e) => { e.stopPropagation(); }}
-                          className="absolute left-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          className="absolute left-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                           aria-label={t("favorite.preview", { label: ref.label })}
                           title={t("favorite.preview", { label: ref.label })}
                         >
-                          <ZoomIn className="w-3 h-3 text-gray-500" />
+                          <ZoomIn className="w-3 h-3 text-codex-muted" />
                         </button>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeFavoriteReference(ref.id); }}
                           onKeyDown={(e) => { e.stopPropagation(); }}
-                          className="absolute right-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          className="absolute right-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                           aria-label={t("favorite.remove", { label: ref.label })}
                           title={t("favorite.remove", { label: ref.label })}
                         >
-                          <X className="w-3 h-3 text-gray-500" />
+                          <X className="w-3 h-3 text-codex-muted" />
                         </button>
                         <div className="p-1 text-center"><span className="text-[11px] font-medium">{ref.label}</span></div>
                       </div>
@@ -3129,10 +3061,10 @@ export default function CreatePage() {
           {/* ---- 模特（整个区域可拖拽·可选） ---- */}
           <section
             {...modelDrag.dragHandlers}
-            className={`studio-stable-upload-boundary relative rounded-xl transition-[box-shadow] ${isDraggingModel ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-[box-shadow] ${isDraggingModel ? "ring-2 ring-[var(--codex-accent-38)] ring-offset-2" : ""}`}
           >
             {isDraggingModel && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--codex-accent-48)] bg-[var(--codex-accent-10)] pointer-events-none">
                 <div className="text-center">
                   <Upload className="w-8 h-8 mx-auto text-[var(--codex-accent)] mb-1" />
                   <p className="text-sm font-medium text-[var(--codex-accent)]">{t("model.dropHint")}</p>
@@ -3141,14 +3073,14 @@ export default function CreatePage() {
             )}
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h3 className="flex items-center gap-2 text-[13px] font-bold text-slate-900 dark:text-stone-100">
+                <h3 className="flex items-center gap-2 text-[13px] font-bold text-codex-ink">
                   <UserRound className="h-4 w-4 text-[var(--codex-accent)]" />
                   {t("model.title")}
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">{t("common.optional")}</span>
+                  <span className="rounded-full bg-[var(--codex-surface-soft)] px-1.5 py-0.5 text-[11px] font-medium text-codex-faint dark:bg-white/10 dark:text-codex-faint">{t("common.optional")}</span>
                 </h3>
-                <p className="mt-1 text-[12px] text-gray-400 dark:text-stone-500">{t("model.description")}</p>
+                <p className="mt-1 text-[12px] text-codex-faint">{t("model.description")}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[11px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
+              <span className="shrink-0 rounded-full bg-[var(--codex-accent-10)] px-2 py-1 text-[11px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
                 {t("model.dragBadge")}
               </span>
             </div>
@@ -3165,21 +3097,21 @@ export default function CreatePage() {
                   toast.success(t("model.noReplaceSet"));
                 }}
                 disabled={isModelUploadBusy}
-                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#1c1c1e] ${
+                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#1c1c1e] ${
                   !store.selectedModel
-                    ? "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.10)] dark:bg-[rgba(91,124,255,0.18)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
-                    : "border-slate-200 dark:border-white/10 hover:border-[rgba(91,124,255,0.34)] hover:bg-[rgba(91,124,255,0.1)]/30 dark:hover:bg-[rgba(91,140,255,0.10)]"
+                    ? "border-[var(--codex-accent)] bg-[var(--codex-accent-10)] dark:bg-[var(--codex-accent-18)] shadow-sm ring-1 ring-blue-100 dark:ring-[var(--codex-accent-45)]"
+                    : "border-[var(--codex-border)] dark:border-white/10 hover:border-[var(--codex-accent-34)] hover:bg-[var(--codex-accent-10)]/30 dark:hover:bg-[var(--codex-accent-10)]"
                 }`}
               >
                 <span className="flex aspect-[4/5] items-center justify-center">
                   <span className="flex flex-col items-center gap-2">
-                    <UserRound className={`h-7 w-7 ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-slate-300 dark:text-stone-500"}`} />
-                    <span className={`text-[13px] font-bold ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-slate-400 dark:text-stone-400"}`}>
+                    <UserRound className={`h-7 w-7 ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-codex-faint"}`} />
+                    <span className={`text-[13px] font-bold ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-codex-faint"}`}>
                       {t("model.noSelectionDefault")}
                     </span>
                   </span>
                 </span>
-                <span className={`block border-t px-2 py-2 text-[12px] font-semibold ${!store.selectedModel ? "border-[rgba(91,124,255,0.12)] text-[var(--codex-accent)]" : "border-slate-100 dark:border-white/10 text-slate-500 dark:text-stone-400"}`}>
+                <span className={`block border-t px-2 py-2 text-[12px] font-semibold ${!store.selectedModel ? "border-[var(--codex-accent-12)] text-[var(--codex-accent)]" : "border-[var(--codex-border)] dark:border-white/10 text-codex-muted"}`}>
                   {t("model.noReplace")}
                 </span>
               </button>
@@ -3207,12 +3139,12 @@ export default function CreatePage() {
                     store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   })}
-                  className={`group relative overflow-hidden rounded-xl border bg-white transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:bg-[#1c1c1e] ${
+                  className={`group relative overflow-hidden rounded-xl border bg-white transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-[#1c1c1e] ${
                     isModelUploadBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                   } ${
                     store.selectedModel?.id === m.id
-                      ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
-                      : "border-slate-200 dark:border-white/10 hover:border-[rgba(91,124,255,0.34)] hover:shadow-sm"
+                      ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100 dark:ring-[var(--codex-accent-45)]"
+                      : "border-[var(--codex-border)] dark:border-white/10 hover:border-[var(--codex-accent-34)] hover:shadow-sm"
                   }`}>
                   <ImgSkeleton src={m.image_url} alt={t("model.imageAlt", { name: m.name })} className="aspect-[4/5] w-full object-cover" />
                   {store.selectedModel?.id === m.id && (
@@ -3220,20 +3152,20 @@ export default function CreatePage() {
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                   )}
-                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-[background-color,opacity] sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
+                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end bg-codex-ink/0 p-2 opacity-100 transition-[background-color,opacity] sm:opacity-0 sm:group-hover:bg-codex-ink/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-codex-ink/10 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); openLightbox(m.image_url, t("model.imageAlt", { name: m.name })); }}
                       onKeyDown={(e) => { e.stopPropagation(); }}
-                      className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                       aria-label={t("model.preview", { name: m.name })}
                       title={t("model.preview", { name: m.name })}
                     >
-                      <ZoomIn className="h-4 w-4 text-gray-600" />
+                      <ZoomIn className="h-4 w-4 text-codex-muted" />
                     </button>
                   </div>
-                  <div className={`border-t px-2 py-2 text-center ${store.selectedModel?.id === m.id ? "border-[rgba(91,124,255,0.12)] bg-blue-50 dark:bg-[rgba(91,140,255,0.18)] dark:border-[rgba(91,140,255,0.32)]" : "border-slate-100 dark:border-white/10"}`}>
-                    <span className="block truncate text-[12px] font-bold text-slate-800 dark:text-stone-200">{m.name}</span>
+                  <div className={`border-t px-2 py-2 text-center ${store.selectedModel?.id === m.id ? "border-[var(--codex-accent-12)] bg-blue-50 dark:bg-[var(--codex-accent-18)] dark:border-[var(--codex-accent-32)]" : "border-[var(--codex-border)] dark:border-white/10"}`}>
+                    <span className="block truncate text-[12px] font-bold text-codex-ink">{m.name}</span>
                   </div>
                 </div>
               ))}
@@ -3242,24 +3174,24 @@ export default function CreatePage() {
                 tabIndex={0}
                 onClick={() => customModelInputRef.current?.click()}
                 onKeyDown={(event) => handlePreviewKeyDown(event, () => customModelInputRef.current?.click())}
-                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:bg-[#1c1c1e] ${
+                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-[#1c1c1e] ${
                   isModelUploadBusy ? "cursor-not-allowed opacity-80" : "cursor-pointer"
                 } ${
                   isCustomModelSelected
-                    ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
-                    : "border-dashed border-slate-200 hover:border-[rgba(91,124,255,0.38)] hover:bg-[rgba(91,124,255,0.1)]/30"
+                    ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100 dark:ring-[var(--codex-accent-45)]"
+                    : "border-dashed border-[var(--codex-border)] hover:border-[var(--codex-accent-38)] hover:bg-[var(--codex-accent-10)]/30"
                 }`}
                 aria-label={customModelImageUrl ? t("model.replaceUpload") : t("model.uploadAriaLabel")}
               >
-                <span className="flex aspect-[4/5] items-center justify-center overflow-hidden bg-slate-50 dark:bg-white/5">
+                <span className="flex aspect-[4/5] items-center justify-center overflow-hidden bg-[var(--codex-surface-soft)] dark:bg-white/5">
                   {customModelImageUrl
                     ? <RawPreviewImage src={customModelImageUrl} alt={t("model.uploadedAlt")} className="h-full w-full object-cover" />
                     : (
-                      <span className="flex flex-col items-center gap-2 px-3 text-slate-400 dark:text-stone-500">
+                      <span className="flex flex-col items-center gap-2 px-3 text-codex-faint">
                         <Camera className="h-7 w-7" />
-                        <span className="text-[13px] font-bold text-slate-500 dark:text-stone-300">{t("model.uploadFace")}</span>
-                        <span className="text-[11px] leading-4 text-slate-400 dark:text-stone-500">{t("model.faceOnly")}</span>
-                        <span className="text-[11px] text-slate-300 dark:text-stone-600">≤{MAX_FILE_SIZE_MB}MB</span>
+                        <span className="text-[13px] font-bold text-codex-muted">{t("model.uploadFace")}</span>
+                        <span className="text-[11px] leading-4 text-codex-faint">{t("model.faceOnly")}</span>
+                        <span className="text-[11px] text-codex-faint">≤{MAX_FILE_SIZE_MB}MB</span>
                       </span>
                     )
                   }
@@ -3270,7 +3202,7 @@ export default function CreatePage() {
                   </span>
                 )}
                 {customModelImageUrl && (
-                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-[background-color,opacity] sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
+                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end bg-codex-ink/0 p-2 opacity-100 transition-[background-color,opacity] sm:opacity-0 sm:group-hover:bg-codex-ink/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-codex-ink/10 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={(event) => {
@@ -3278,16 +3210,16 @@ export default function CreatePage() {
                         openLightbox(customModelImageUrl, t("model.uploadedAlt"));
                       }}
                       onKeyDown={(event) => { event.stopPropagation(); }}
-                      className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                       aria-label={t("model.previewUpload")}
                       title={t("model.previewUpload")}
                     >
-                      <ZoomIn className="h-4 w-4 text-gray-600" />
+                      <ZoomIn className="h-4 w-4 text-codex-muted" />
                     </button>
                   </div>
                 )}
                 <span className={`block truncate border-t px-2 py-2 text-[12px] font-bold ${
-                  isCustomModelSelected ? "border-[rgba(91,124,255,0.12)] bg-blue-50 dark:bg-[rgba(91,140,255,0.18)] dark:border-[rgba(91,140,255,0.32)] text-slate-800 dark:text-stone-200" : "border-slate-100 dark:border-white/10 text-slate-500 dark:text-stone-400"
+                  isCustomModelSelected ? "border-[var(--codex-accent-12)] bg-blue-50 dark:bg-[var(--codex-accent-18)] dark:border-[var(--codex-accent-32)] text-codex-ink" : "border-[var(--codex-border)] dark:border-white/10 text-codex-muted"
                 }`}>
                   {customModelImageUrl ? t("common.uploaded") : t("common.upload")}
                 </span>
@@ -3303,34 +3235,19 @@ export default function CreatePage() {
           </section>
 
           {/* ---- 生成模型 ---- */}
-          <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
-              <Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("model.sectionTitle")}
-            </h3>
-            <StudioModelSelector
-              models={selectableModels}
-              value={aiModel}
-              onChange={(value) => {
-                if (hasModelFace && isNanoBananaModel(value)) {
-                  toast.info(TRYON_FACE_MODEL_BANANA_NOTICE);
-                }
-                setAiModel(value);
-              }}
-              ariaLabel={t("model.sectionTitle")}
-              getMeta={(model) => (
-                hasModelFace && isNanoBananaModel(model.value)
-                  ? t("model.faceFusionWarning")
-                  : t("model.costMeta", { desc: model.desc, cost: getCreditCost(model.value, imageSize, aspectRatio) })
-              )}
-            />
-            {hasModelFace && (
-              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-800">
-                {t("model.bananaWarning")}
-                <a href="/face-swap" className="mx-1 font-bold text-amber-900 underline decoration-amber-400 underline-offset-2">{t("model.swapModule")}</a>
-                {t("model.swapFace")}
-              </div>
-            )}
-          </section>
+          <ModelSelectorSection
+            models={selectableModels}
+            value={aiModel}
+            imageSize={imageSize}
+            aspectRatio={aspectRatio}
+            hasModelFace={hasModelFace}
+            onChange={(value) => {
+              if (hasModelFace && isNanoBananaModel(value)) {
+                toast.info(TRYON_FACE_MODEL_BANANA_NOTICE);
+              }
+              setAiModel(value);
+            }}
+          />
 
           {/* ---- 比例 ---- */}
           <section>
@@ -3345,48 +3262,24 @@ export default function CreatePage() {
 
           {/* ---- 分辨率 ---- */}
           {imageSizes.length > 1 && (
-            <section>
-              <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution.title")}</h3>
-              <StudioOptionGrid
-                options={imageSizeOptions}
-                value={imageSize}
-                onChange={setImageSize}
-                ariaLabel={t("resolution.title")}
-              />
-            </section>
+            <ResolutionSection
+              imageSize={imageSize}
+              imageSizeOptions={imageSizeOptions}
+              onChangeImageSize={setImageSize}
+            />
           )}
 
           {/* ---- 细节补充 + 智能整理 ---- */}
-          <section>
-            <StudioPromptTextarea
-              title={t("prompt.title")}
-              badge={t("common.optional")}
-              value={customStyle}
-              onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); store.setPromptUsed(""); }}
-              placeholder={t("prompt.placeholder")}
-              aria-label={t("prompt.title")}
-              rows={4}
-              action={(
-                <button
-                  type="button"
-                  onClick={handleOptimizePrompt}
-                  disabled={optimizing || !customStyle.trim()}
-                  className="studio-prompt-icon-action"
-                  title={t("prompt.optimizeTitle")}
-                >
-                  {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                </button>
-              )}
-            />
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {STYLE_PRESETS.map((s, i) => (
-                <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); store.setPromptUsed(""); }}
-                  aria-pressed={customStyle === s}
-                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[11px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300">{t(`stylePreset.${i}`)}</button>
-              ))}
-            </div>
-
-          </section>
+          <PromptStyleSection
+            customStyle={customStyle}
+            optimizing={optimizing}
+            onChangeStyle={(value) => {
+              setCustomStyle(value);
+              setPromptOverride(null);
+              store.setPromptUsed("");
+            }}
+            onOptimize={handleOptimizePrompt}
+          />
 
           {/* ---- 生成数量 ---- */}
           <StudioSection title={t("genCount.title")} description={t("genCount.description")} icon={<Images className="h-4 w-4" />}>
@@ -3462,14 +3355,14 @@ export default function CreatePage() {
                       <button
                         type="button"
                         onClick={() => openClothingPicker(clothingMode === "multi" ? "upper" : "single")}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-codex-ink px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-codex-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-border-strong)] focus-visible:ring-offset-2"
                       >
                         <Upload className="h-3.5 w-3.5" /> {t("guide.uploadClothing")}
                       </button>
                       <button
                         type="button"
                         onClick={() => sourceLibrary.open(clothingMode === "multi" ? "upper" : "single")}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 dark:border-white/15 dark:bg-[#26262a] dark:text-stone-200 dark:hover:border-white/30 dark:hover:text-white"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-white px-4 py-2 text-xs font-semibold text-codex-muted transition-colors hover:border-[var(--codex-border-strong)] hover:text-codex-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-border-strong)] focus-visible:ring-offset-2 dark:border-white/15 dark:bg-[#26262a] dark:text-codex-muted dark:hover:border-white/30 dark:hover:text-white"
                       >
                         <FolderOpen className="h-3.5 w-3.5" /> {t("guide.selectFromLibrary")}
                       </button>

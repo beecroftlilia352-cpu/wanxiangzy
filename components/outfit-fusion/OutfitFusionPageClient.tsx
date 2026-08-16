@@ -1,29 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  ChevronDown,
-  Clapperboard,
-  Copy,
-  Download,
-  Eye,
-  Loader2,
-  PenLine,
-  RefreshCw,
-  Trash2,
-  WandSparkles,
-} from "lucide-react";
 import { toast } from "sonner";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { OutfitFusionComposer } from "@/components/outfit-fusion/OutfitFusionComposer";
 import { OutfitFusionExampleGallery } from "@/components/outfit-fusion/OutfitFusionExampleGallery";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
@@ -49,24 +35,16 @@ import {
   type OutfitFusionConfig,
   type OutfitFusionTemplate,
 } from "@/lib/outfit-fusion";
-import { buildSourceImageHref, createGenericImagePreviewSession, createImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
-
-type OutfitFusionTask = {
-  id: string;
-  remoteId?: string | null;
-  taskNo: string;
-  templateId?: string | null;
-  createdAt: string;
-  statusGroup: TaskStatusGroup;
-  progress: number;
-  prompt: string;
-  requestPrompt: string;
-  inputAssets: OutfitFusionAsset[];
-  config: OutfitFusionConfig;
-  expectedCount: number;
-  resultUrls: string[];
-  error?: string | null;
-};
+import { createGenericImagePreviewSession, createImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { OutfitFusionTaskCard, type OutfitFusionTask } from "@/features/outfit-fusion/OutfitFusionTaskCard";
+import { OutfitFusionFocusAction } from "@/features/outfit-fusion/OutfitFusionFocusAction";
+import { TaskInputReuseStack } from "@/features/outfit-fusion/TaskInputReuseStack";
+import { LoadableResultImage } from "@/features/outfit-fusion/LoadableResultImage";
+import {
+  getOutfitFusionRoleLabelKey,
+  getIndexedAssetLabel,
+  getOutfitFusionTaskGridClass,
+} from "@/features/outfit-fusion/task-card-helpers";
 
 const PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -79,6 +57,25 @@ const PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "regenerateAll", label: "重新创作" },
   { kind: "feedback", label: "反馈" },
 ];
+
+/** /api/general-image 轮询返回的强类型：除 status 外都容错。 */
+type PollState = {
+  status: string;
+  progress?: number;
+  result_urls?: unknown;
+  error?: unknown;
+};
+
+function extractPollResultUrls(state: PollState): string[] {
+  if (!Array.isArray(state.result_urls)) return [];
+  return state.result_urls.filter((url: unknown): url is string => typeof url === "string" && url.trim().length > 0);
+}
+
+function clampPollProgress(state: PollState, fallback = 24): number {
+  const parsed = Number(state.progress);
+  if (Number.isFinite(parsed)) return Math.min(Math.max(Math.round(parsed), 24), 99);
+  return fallback;
+}
 
 export function OutfitFusionPageClient() {
   const t = useTranslations("OutfitFusion");
@@ -121,6 +118,93 @@ export function OutfitFusionPageClient() {
     title: t("moduleName"),
     defaultExpectedCount: DEFAULT_OUTFIT_FUSION_CONFIG.genCount,
     applyPath: "/outfit-fusion",
+  });
+
+  // 每次生成触发一次轮询：pollCtxRef.current 由调用方先赋值，startPolling() 立刻开始。
+  // buildUrl / onTick / onComplete / onError 都从 ref 里读取 identity（hook 只在 start 时
+  // 读取 configRef.current，id 字段用 ref 绕过"config 在 render 时被冻结"的问题）。
+  const pollCtxRef = useRef<{
+    taskId: string;
+    remoteId: string;
+    expectedCount: number;
+    inputThumbnails: string[];
+  } | null>(null);
+  const { start: startPolling } = useGenerationPolling<PollState>({
+    id: "",
+    buildUrl: () => {
+      const id = pollCtxRef.current?.remoteId ?? "";
+      return `/api/general-image?generation_id=${encodeURIComponent(id)}`;
+    },
+    isTerminal: (state) => state.status === "completed" || state.status === "failed",
+    intervalMs: 2000,
+    maxAttempts: 90,
+    maxConsecutiveServerErrors: 5,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const latestUrls = extractPollResultUrls(state);
+      const nextProgress = clampPollProgress(state);
+      updateTask(ctx.taskId, {
+        statusGroup: state.status === "completed" ? "completed" : state.status === "failed" ? "failed" : "running",
+        progress: state.status === "completed" ? 100 : nextProgress,
+        resultUrls: latestUrls,
+        expectedCount: ctx.expectedCount,
+        error: typeof state.error === "string" ? state.error : null,
+      });
+      taskQueue.markRunning(ctx.remoteId, {
+        expectedCount: ctx.expectedCount,
+        inputThumbnails: ctx.inputThumbnails,
+        resultThumbnails: latestUrls,
+        resultCount: latestUrls.length,
+        progress: nextProgress,
+        status: "processing",
+      });
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const finalUrls = extractPollResultUrls(state);
+      updateTask(ctx.taskId, {
+        statusGroup: state.status === "completed" ? "completed" : "failed",
+        progress: state.status === "completed" ? 100 : 100,
+        resultUrls: finalUrls,
+        expectedCount: ctx.expectedCount,
+        error: typeof state.error === "string" ? state.error : null,
+      });
+      if (state.status === "completed") {
+        taskQueue.markCompleted(ctx.remoteId, {
+          expectedCount: ctx.expectedCount,
+          inputThumbnails: ctx.inputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalUrls.length,
+        });
+        toast.success(t("toast.generateComplete"));
+      } else {
+        const message = typeof state.error === "string" ? state.error : t("toast.generateFailed");
+        taskQueue.markFailed(ctx.remoteId, message, {
+          expectedCount: ctx.expectedCount,
+          inputThumbnails: ctx.inputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalUrls.length,
+        });
+      }
+      taskQueue.refresh();
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = error.message || t("toast.pollTimeout");
+      taskQueue.markFailed(ctx.remoteId, message, {
+        expectedCount: ctx.expectedCount,
+        inputThumbnails: ctx.inputThumbnails,
+      });
+      updateTask(ctx.taskId, {
+        error: message,
+        progress: 100,
+        statusGroup: "failed",
+      });
+      taskQueue.refresh();
+    },
   });
 
   useEffect(() => {
@@ -351,7 +435,7 @@ export function OutfitFusionPageClient() {
   function applyTemplate(template: OutfitFusionTemplate) {
     const namedAssets = template.assets.map((asset, index) => ({
       ...asset,
-      name: asset.name || getTemplateAssetName(template.assets, asset, index),
+      name: asset.name || getIndexedAssetLabel(asset, index),
     }));
     setSelectedTemplate(template);
     setAssets(namedAssets);
@@ -599,18 +683,8 @@ export function OutfitFusionPageClient() {
           applyUrl: `/outfit-fusion?task=${encodeURIComponent(remoteId)}`,
         });
         taskQueue.refresh();
-        void pollGeneration(taskId, remoteId, expectedCount, inputThumbnails).catch(async (error) => {
-          taskQueue.markFailed(remoteId, error instanceof Error ? error.message : t("toast.pollTimeout"), {
-            expectedCount,
-            inputThumbnails,
-          });
-          updateTask(taskId, {
-            error: error instanceof Error ? error.message : t("toast.pollTimeout"),
-            progress: 100,
-            statusGroup: "failed",
-          });
-          taskQueue.refresh();
-        });
+        pollCtxRef.current = { taskId, remoteId, expectedCount, inputThumbnails };
+        startPolling();
       } else {
         taskQueue.markFailed(taskId, t("toast.submitNoTaskId"), {
           expectedCount,
@@ -673,56 +747,6 @@ export function OutfitFusionPageClient() {
     };
   }
 
-  async function pollGeneration(taskId: string, remoteId: string, expectedCount: number, inputThumbnails: string[]) {
-    let latestUrls: string[] = [];
-    for (let attempt = 0; attempt < 90; attempt++) {
-      await wait(2000);
-      const response = await fetch(`/api/general-image?generation_id=${encodeURIComponent(remoteId)}`);
-      if (!response.ok) continue;
-      const state = await response.json();
-      const progress = Number(state.progress);
-      const nextProgress = Number.isFinite(progress) ? Math.min(Math.max(Math.round(progress), 24), 99) : Math.min(24 + attempt * 3, 92);
-      if (Array.isArray(state.result_urls) && state.result_urls.length) {
-        latestUrls = state.result_urls.filter((url: unknown): url is string => typeof url === "string" && url.trim().length > 0);
-      }
-      updateTask(taskId, {
-        statusGroup: state.status === "completed" ? "completed" : state.status === "failed" ? "failed" : "running",
-        progress: state.status === "completed" ? 100 : nextProgress,
-        resultUrls: latestUrls,
-        expectedCount,
-        error: typeof state.error === "string" ? state.error : null,
-      });
-      if (state.status === "completed") {
-        taskQueue.markCompleted(remoteId, {
-          expectedCount,
-          inputThumbnails,
-          resultThumbnails: latestUrls,
-          resultCount: latestUrls.length,
-        });
-        toast.success(t("toast.generateComplete"));
-        taskQueue.refresh();
-        return;
-      }
-      if (state.status === "failed") {
-        taskQueue.markFailed(remoteId, typeof state.error === "string" ? state.error : t("toast.generateFailed"), {
-          expectedCount,
-          inputThumbnails,
-          resultThumbnails: latestUrls,
-          resultCount: latestUrls.length,
-        });
-        throw new Error(typeof state.error === "string" ? state.error : t("toast.generateFailed"));
-      }
-      taskQueue.markRunning(remoteId, {
-        expectedCount,
-        inputThumbnails,
-        resultThumbnails: latestUrls,
-        resultCount: latestUrls.length,
-        progress: nextProgress,
-        status: "processing",
-      });
-    }
-    throw new Error(t("toast.generateTimeout"));
-  }
 
   function updateTask(id: string, patch: Partial<OutfitFusionTask>) {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
@@ -903,7 +927,7 @@ export function OutfitFusionPageClient() {
         style={{ paddingBottom: composerBottomReserve }}
       >
         <section className="px-4 pb-8 pt-10 sm:px-6 lg:px-10">
-          <div className="mx-auto mb-5 w-full max-w-[1120px] text-[12px] leading-5 tracking-normal text-slate-400 dark:text-stone-500">
+          <div className="mx-auto mb-5 w-full max-w-[1120px] text-[12px] leading-5 tracking-normal text-codex-faint dark:text-codex-muted">
             {t("disclaimer")}
           </div>
 
@@ -920,13 +944,14 @@ export function OutfitFusionPageClient() {
                   onRegenerate={() => void handleRegenerate(task)}
                   onCopy={() => void handleCopyTask(task)}
                   onDelete={() => handleDeleteTask(task.id)}
+                  formatTaskTime={formatTaskTime}
                 />
               ))}
             </div>
           </div>
 
           <div className={cn("animate-fade-in motion-reduce:animate-none", tasks.length > 0 && "mt-8")}>
-            <h1 className="mb-6 text-center text-[24px] font-semibold leading-[34px] tracking-normal text-slate-900 dark:text-stone-100">{t("heroTitle")}</h1>
+            <h1 className="mb-6 text-center text-[24px] font-semibold leading-[34px] tracking-normal text-codex-ink dark:text-white">{t("heroTitle")}</h1>
             <OutfitFusionExampleGallery
               templates={OUTFIT_FUSION_TEMPLATES}
               activeTemplateId={selectedTemplate?.id || null}
@@ -1010,280 +1035,6 @@ export function OutfitFusionPageClient() {
   );
 }
 
-function getOutfitFusionTaskGridClass(count: number) {
-  if (count <= 1) return "max-w-[min(340px,100%)] grid-cols-1";
-  if (count === 2) return "max-w-[min(700px,100%)] grid-cols-1 sm:grid-cols-2";
-  if (count === 3) return "max-w-[min(1048px,100%)] grid-cols-1 sm:grid-cols-3";
-  return "max-w-[min(1396px,100%)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-}
-
-function OutfitFusionTaskCard({
-  task,
-  index,
-  onPreview,
-  onReedit,
-  onReuseInputs,
-  onRegenerate,
-  onCopy,
-  onDelete,
-}: {
-  task: OutfitFusionTask;
-  index: number;
-  onPreview: (index: number) => void;
-  onReedit: () => void;
-  onReuseInputs: () => void;
-  onRegenerate: () => void;
-  onCopy: () => void;
-  onDelete: () => void;
-}) {
-  const t = useTranslations("OutfitFusion");
-  const router = useRouter();
-  const running = task.statusGroup === "running" || task.statusGroup === "queued";
-  const failed = task.statusGroup === "failed";
-  const slots = Math.max(task.expectedCount, task.resultUrls.length, 1);
-  const displaySlots = slots;
-  const [promptExpanded, setPromptExpanded] = useState(false);
-  const canExpandPrompt = task.prompt.length > 64;
-  const openImageRepair = (url: string) => {
-    router.push(buildSourceImageHref("/general-image/image-to-image", url));
-  };
-  const openAiVideo = (url: string) => {
-    router.push(buildSourceImageHref("/video", url));
-  };
-  const downloadResult = (url: string, slotIndex: number) => {
-    void downloadImage(url, generateDownloadFilename("outfit-fusion", slotIndex, "png"));
-  };
-
-  return (
-    <article
-      className="animate-slide-up rounded-[8px] bg-white dark:bg-[var(--codex-surface)] p-3 shadow-sm ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
-      style={{ animationDelay: `${Math.min(index * 40, 160)}ms` }}
-    >
-      <div className="flex items-start gap-1.5">
-        <TaskInputReuseStack assets={task.inputAssets} onReuse={onReuseInputs} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-1.5">
-            <p className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words text-[14px] leading-[23px] tracking-normal text-slate-900 dark:text-stone-100", !promptExpanded && "line-clamp-2")}>{task.prompt}</p>
-            {canExpandPrompt ? (
-              <button
-                type="button"
-                onClick={() => setPromptExpanded((value) => !value)}
-                className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium text-[var(--codex-accent)] transition hover:bg-[rgba(91,124,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
-                aria-expanded={promptExpanded}
-              >
-                {promptExpanded ? t("collapsePrompt") : t("expandPrompt")}
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", promptExpanded && "rotate-180")} />
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <TooltipProvider delayDuration={120}>
-        <div className={cn("mt-3 grid w-full gap-3 sm:gap-4", getOutfitFusionTaskGridClass(displaySlots))}>
-          {Array.from({ length: displaySlots }, (_, index) => {
-            const url = task.resultUrls[index];
-            return url ? (
-              <div
-                key={`${task.id}-${index}`}
-                role="button"
-                tabIndex={0}
-                aria-label={t("previewResult", { index: index + 1 })}
-                title={t("previewResult", { index: index + 1 })}
-                onClick={() => onPreview(index)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter" && event.key !== " ") return;
-                  event.preventDefault();
-                  onPreview(index);
-                }}
-                className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded bg-[#f4f6fa] text-sm text-slate-400 dark:text-stone-500 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
-              >
-                <LoadableResultImage src={url} alt={t("resultImageAlt", { index: index + 1 })} />
-                <span className="pointer-events-none absolute left-2 top-2 rounded bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
-                  {index + 1}/{slots}
-                </span>
-                <div className="studio-result-focus-layer" aria-hidden={false}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="studio-result-focus-view inline-flex h-8 items-center gap-1.5 px-3"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onPreview(index);
-                    }}
-                    onKeyDown={(event) => event.stopPropagation()}
-                  >
-                    <Eye className="h-4 w-4" />
-                    {t("view")}
-                  </Button>
-                  <div className="studio-result-focus-actions">
-                    <OutfitFusionFocusAction label={t("previewActions.repair")} onClick={() => openImageRepair(url)} icon={<WandSparkles className="h-3.5 w-3.5" />} />
-                    <OutfitFusionFocusAction label={t("previewActions.aiVideo")} onClick={() => openAiVideo(url)} icon={<Clapperboard className="h-3.5 w-3.5" />} />
-                    <OutfitFusionFocusAction label={t("download")} onClick={() => downloadResult(url, index)} icon={<Download className="h-3.5 w-3.5" />} />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                key={`${task.id}-${index}`}
-                role="status"
-                aria-live="polite"
-                className="studio-result-card group/slot relative aspect-[3/4] overflow-hidden bg-white dark:bg-[var(--codex-surface)] text-sm text-white"
-              >
-                <div className={cn("gen-card studio-result-pending-card outfit-fusion-pending-card relative z-[1] flex h-full w-full flex-col items-center justify-center gap-2", failed && "studio-result-pending-card-failed")}>
-                  {failed ? (
-                    <span className="text-xs font-semibold text-red-50">{t("taskGenerateFailed")}</span>
-                  ) : (
-                    <>
-                      <div className="relative flex h-14 w-14 items-center justify-center">
-                        <span className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
-                        <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">
-                          <Loader2 className="h-6 w-6 animate-spin text-white" />
-                        </div>
-                      </div>
-                      <p className="relative z-[1] text-xs font-semibold text-white/90">{t("generatingWait")}</p>
-                      <p className="relative z-[1] text-[11px] font-medium text-white/80">{t("generatingIndex", { index: index + 1 })}</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </TooltipProvider>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs leading-5 text-slate-400 dark:text-stone-500">
-        <div className="flex flex-wrap items-center gap-2">
-          <span>{formatTaskTime(task.createdAt)}</span>
-          <span>|</span>
-          <span>{t("taskLabel", { id: task.remoteId || task.taskNo })}</span>
-          <button
-            type="button"
-            onClick={onCopy}
-            className="rounded p-0.5 text-slate-400 dark:text-stone-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
-            aria-label={t("copyTaskId")}
-          >
-            <Copy className="h-3.5 w-3.5" />
-          </button>
-          {running ? <span className="text-[var(--codex-accent)]">{task.progress}%</span> : null}
-        </div>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
-            <PenLine className="h-3.5 w-3.5" />
-            {t("reedit")}
-          </button>
-          <button
-            type="button"
-            onClick={onRegenerate}
-            disabled={running}
-            className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300 dark:text-stone-500"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            {t("regenerate")}
-          </button>
-          <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-slate-500 dark:text-stone-400 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
-            <Trash2 className="h-3.5 w-3.5" />
-            {t("delete")}
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function OutfitFusionFocusAction({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="studio-result-focus-action"
-          onClick={(event) => {
-            event.stopPropagation();
-            onClick();
-          }}
-          onKeyDown={(event) => event.stopPropagation()}
-          aria-label={label}
-        >
-          {icon}
-          <span>{label}</span>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[]; onReuse: () => void }) {
-  const t = useTranslations("OutfitFusion");
-  const displayAssets = assets.slice(0, 3);
-  const hiddenCount = Math.max(assets.length - displayAssets.length, 0);
-  const hasHiddenAssets = hiddenCount > 0;
-
-  return (
-    <div className="hidden w-[68px] shrink-0 sm:block">
-      <TooltipProvider delayDuration={120}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={onReuse}
-              className="group/reuse relative h-[54px] w-[68px] rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.45)] focus-visible:ring-offset-2"
-              aria-label={t("reuseImages")}
-            >
-              {displayAssets.map((asset, index) => {
-                const label = t("imageNumber", { index: index + 1 });
-                const roleLabel = t(getOutfitFusionRoleLabelKey(asset.role));
-                return (
-                  <span
-                    key={asset.id}
-                    className={cn(
-                      "absolute top-1 h-11 w-8 overflow-hidden rounded border border-white bg-white dark:bg-[var(--codex-surface)] shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
-                      index === 0 && "left-0 -rotate-6",
-                      index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
-                      index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")
-                    )}
-                    title={`${label} · ${roleLabel}`}
-                  >
-                    <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[10px] font-semibold leading-none text-white">
-                      {label}
-                    </span>
-                    <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="h-full w-full object-cover" />
-                  </span>
-                );
-              })}
-              {hasHiddenAssets ? (
-                <span className="absolute right-0 top-1 z-[4] flex h-11 w-8 rotate-6 items-center justify-center overflow-hidden rounded border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[11px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
-                  +{hiddenCount}
-                </span>
-              ) : null}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" align="center" sideOffset={6} className="rounded bg-slate-950 px-2.5 py-1 text-xs font-medium text-white">
-            {t("reuseImages")}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  );
-}
-
-function LoadableResultImage({ src, alt }: { src: string; alt: string }) {
-  const [loaded, setLoaded] = useState(false);
-
-  // RawPreviewImage 自带 complete 检查、失败重试与淡入；
-  // 外层再叠一层 loaded/onLoad 会覆盖其内部状态，导致缓存命中时
-  // onLoad 丢失、骨架常驻（图片白屏，点开才可见）。
-  return (
-    <RawPreviewImage
-      eager
-      src={src}
-      alt={alt}
-      className="h-full w-full object-contain transition duration-300 group-hover/slot:scale-[1.012]"
-    />
-  );
-}
 
 function getTemplateAssetName(_assets: OutfitFusionAsset[], asset: OutfitFusionAsset, index: number) {
   return getIndexedAssetLabel(asset, index);
@@ -1331,11 +1082,6 @@ function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"
   return value === "auto" ? (t ? t("smartAspect") : "智能") : value;
 }
 
-function getOutfitFusionRoleLabelKey(role: OutfitFusionAssetRole) {
-  if (role === "reference") return "roles.reference";
-  if (role === "model") return "roles.model";
-  return "roles.outfit";
-}
 
 function normalizeOutfitFusionAssetRole(value: unknown): OutfitFusionAssetRole | null {
   if (value === "reference" || value === "model" || value === "outfit") return value;
@@ -1354,11 +1100,6 @@ function getUploadedAssetName(role: OutfitFusionAssetRole, existing: OutfitFusio
   return `${getOutfitFusionRoleLabel(role)}${index}`;
 }
 
-function getIndexedAssetLabel(asset: Pick<OutfitFusionAsset, "role">, index: number) {
-  if (asset.role === "reference") return `参考图${index + 1}`;
-  if (asset.role === "model") return `模特图${index + 1}`;
-  return `搭配图${index + 1}`;
-}
 
 function buildPromptDraft(inputAssets: OutfitFusionAsset[], fallbackRole: OutfitFusionAssetRole) {
   const assets = inputAssets.length ? inputAssets : [{ role: fallbackRole } as OutfitFusionAsset];
@@ -1410,9 +1151,6 @@ function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
 
 function limitComposerPrompt(value: string) {
   return value.slice(0, 800);

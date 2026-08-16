@@ -223,7 +223,7 @@ export function MacAssetCard({
   return (
     <article className={cn("mac-asset-card", selected && "mac-asset-card-selected")}>
       <button type="button" onClick={onClick} className="mac-asset-card-preview" disabled={!onClick}>
-        {imageUrl ? <RawPreviewImage src={imageUrl} alt="" /> : <ImageIcon className="h-6 w-6 text-slate-400" />}
+        {imageUrl ? <RawPreviewImage src={imageUrl} alt="" /> : <ImageIcon className="h-6 w-6 text-codex-faint" />}
         {selected && (
           <span className="mac-asset-selected-mark">
             <Check className="h-3.5 w-3.5" />

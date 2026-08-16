@@ -104,7 +104,15 @@ export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "works", href: "/history", label: "作品库", labelKey: "Header.modules.works", icon: GalleryHorizontalEnd },
 ];
 
-export const VISIBLE_TOP_MODULES: TopModuleNavItem[] = TOP_MODULES.filter((item) => item.key !== "assistant");
+/**
+ * 主导航上展示的"3 个工作场景 + 1 个作品库"。
+ * - 3 个场景按使用顺序排列：aiShoots → productImages → aiVideo
+ * - 作品库（works）独立成一类，与"做"分离
+ * - home 通过 logo 访问；tools（素材生成）只走 URL，不再占主导航位
+ */
+export const VISIBLE_TOP_MODULES: TopModuleNavItem[] = TOP_MODULES.filter(
+  (item) => item.key !== "home" && item.key !== "tools" && item.key !== "assistant",
+);
 
 export const FEATURE_ITEMS: FeatureNavItem[] = [
   {

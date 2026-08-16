@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PricingLoading() {
   return (
-    <section className="min-h-screen bg-zinc-50 px-4 py-16 sm:px-6" aria-busy="true">
+    <section className="min-h-screen bg-[var(--codex-surface-soft)] px-4 py-16 sm:px-6" aria-busy="true">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto mb-12 max-w-2xl space-y-4 text-center">
           <Skeleton className="mx-auto h-4 w-24 rounded-full" />
@@ -22,7 +22,7 @@ export default function PricingLoading() {
 
 function PricingCardSkeleton() {
   return (
-    <div className="rounded-lg border border-border bg-white p-5 shadow-sm">
+    <div className="rounded-lg border border-[var(--codex-border)] bg-codex-surface p-5 shadow-sm">
       <Skeleton className="h-5 w-24 rounded-md" />
       <Skeleton className="mt-3 h-4 w-full rounded-md" />
       <Skeleton className="mt-6 h-9 w-32 rounded-md" />

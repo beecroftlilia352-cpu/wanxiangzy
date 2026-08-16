@@ -235,82 +235,82 @@ export default function ApiPlatformTestPage() {
 
             <div className="space-y-4">
               <label className="block">
-                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-codex-ink">
                   <Server className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> API URL
                 </span>
                 <input
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                   placeholder="https://yunwu.ai"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-codex-ink">
                   <KeyRound className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> API Key
                 </span>
                 <input
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   type="password"
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                   placeholder="sk-…"
                 />
               </label>
 
-              <div className="rounded-lg border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-2 text-xs text-[var(--codex-accent)]">
+              <div className="rounded-lg border border-[var(--codex-accent-22)] bg-[var(--codex-accent-10)] px-3 py-2 text-xs text-[var(--codex-accent)]">
                 {t("field.callModeHint")}
               </div>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.model")}</span>
+                <span className="mb-1.5 block text-xs font-bold text-codex-ink">{t("field.model")}</span>
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                 >
                   {MODEL_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.customModel")}</span>
+                <span className="mb-1.5 block text-xs font-bold text-codex-ink">{t("field.customModel")}</span>
                 <input
                   value={customModel}
                   onChange={(e) => setCustomModel(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                   placeholder={t("field.customModelPlaceholder")}
                 />
               </label>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.aspect")}</span>
+                  <span className="mb-1.5 block text-xs font-bold text-codex-ink">{t("field.aspect")}</span>
                   <select
                     value={aspectRatio}
                     onChange={(e) => setAspectRatio(e.target.value)}
-                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                   >
                     {ASPECT_OPTIONS.map((item) => <option key={item.value} value={item.value}>{"labelKey" in item && item.labelKey ? t(item.labelKey) : item.label}</option>)}
                   </select>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.imageSize")}</span>
+                  <span className="mb-1.5 block text-xs font-bold text-codex-ink">{t("field.imageSize")}</span>
                   <select
                     value={imageSize}
                     onChange={(e) => setImageSize(e.target.value as ImageSize)}
-                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                   >
                     {IMAGE_SIZE_OPTIONS.map((item) => <option key={item}>{item}</option>)}
                   </select>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.quality")}</span>
+                  <span className="mb-1.5 block text-xs font-bold text-codex-ink">{t("field.quality")}</span>
                   <select
                     value={quality}
                     onChange={(e) => setQuality(e.target.value as ImageQuality)}
-                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                   >
                     {QUALITY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.labelKey ? t(item.labelKey) : item.label}</option>)}
                   </select>
@@ -318,18 +318,18 @@ export default function ApiPlatformTestPage() {
               </div>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.prompt")}</span>
+                <span className="mb-1.5 block text-xs font-bold text-codex-ink">{t("field.prompt")}</span>
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="h-28 w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
+                  className="h-28 w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
                 />
               </label>
 
               <div>
-                <span className="mb-1.5 block text-xs font-bold text-gray-700">{t("field.referenceImages")}</span>
-                <label className="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-xs text-gray-500 hover:border-[rgba(91,124,255,0.3)]">
-                  <ImagePlus className="mb-2 h-6 w-6 text-gray-300" />
+                <span className="mb-1.5 block text-xs font-bold text-codex-ink">{t("field.referenceImages")}</span>
+                <label className="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-xs text-codex-muted hover:border-[var(--codex-accent-30)]">
+                  <ImagePlus className="mb-2 h-6 w-6 text-codex-faint" />
                   {t("field.selectReference")}
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} />
                 </label>
@@ -337,7 +337,7 @@ export default function ApiPlatformTestPage() {
                 {inputImages.length > 0 && (
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {inputImages.map((image) => (
-                      <div key={image.id} className="relative overflow-hidden rounded-lg border bg-gray-50">
+                      <div key={image.id} className="relative overflow-hidden rounded-lg border bg-[var(--codex-surface-soft)]">
                         <RawPreviewImage src={image.dataUrl} className="h-24 w-full object-cover" alt={image.name} />
                         <div className={`absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${
                           image.status === "uploaded"
@@ -356,7 +356,7 @@ export default function ApiPlatformTestPage() {
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
-                        <p className="truncate border-t bg-white px-1.5 py-1 text-[10px] text-gray-500" title={image.url || image.name}>
+                        <p className="truncate border-t bg-white px-1.5 py-1 text-[10px] text-codex-muted" title={image.url || image.name}>
                           {image.status === "uploaded" ? image.url : image.name}
                         </p>
                       </div>
@@ -368,7 +368,7 @@ export default function ApiPlatformTestPage() {
               <button
                 onClick={runTest}
                 disabled={isLoading || isUploading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-slate-700 to-slate-950 py-3 text-sm font-bold text-white shadow-lg shadow-slate-300/40 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-codex-muted to-codex-ink py-3 text-sm font-bold text-white shadow-lg shadow-[var(--codex-border)]/40 disabled:opacity-50"
               >
                 {isLoading || isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {isUploading ? t("button.uploading") : isLoading ? t("button.testing") : t("button.start")}
@@ -379,8 +379,8 @@ export default function ApiPlatformTestPage() {
           <section className="studio-glass-card min-h-[560px] min-w-0 rounded-2xl p-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-gray-950">{t("preview.title")}</h2>
-                <p className="mt-1 text-xs text-gray-500">
+                <h2 className="text-sm font-bold text-codex-ink">{t("preview.title")}</h2>
+                <p className="mt-1 text-xs text-codex-muted">
                   {result?.elapsed_ms
                     ? t("preview.elapsedInfo", { seconds: (result.elapsed_ms / 1000).toFixed(1), model: result.model || activeModel })
                     : t("preview.emptyHint")}
@@ -398,11 +398,11 @@ export default function ApiPlatformTestPage() {
                   <div className="studio-glass-card mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-3xl">
                     <ImagePlus className="h-10 w-10 text-[var(--codex-accent)]" />
                   </div>
-                  <p className="text-sm font-bold text-gray-900">{t("preview.waitingTitle")}</p>
-                  <p className="mt-2 text-xs leading-6 text-gray-500">
+                  <p className="text-sm font-bold text-codex-ink">{t("preview.waitingTitle")}</p>
+                  <p className="mt-2 text-xs leading-6 text-codex-muted">
                     {t("preview.waitingHint")}
                   </p>
-                  <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-gray-500">
+                  <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-codex-muted">
                     <span className="rounded-full border bg-white/75 px-3 py-1">{activeModel}</span>
                     <span className="rounded-full border bg-white/75 px-3 py-1">{aspectRatio}</span>
                     <span className="rounded-full border bg-white/75 px-3 py-1">{imageSize}</span>
@@ -416,7 +416,7 @@ export default function ApiPlatformTestPage() {
                 {outputImages.map((url, index) => (
                   <a key={index} href={url} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-3xl border border-white/70 bg-white/75 shadow-xl shadow-slate-200/60 transition hover:-translate-y-0.5 hover:shadow-2xl">
                     <RawPreviewImage src={url} className="h-[420px] w-full object-contain" alt={t("preview.resultAlt", { index: index + 1 })} />
-                    <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-gray-500 group-hover:text-[var(--codex-accent)]">{t("preview.openOriginal")}</div>
+                    <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-codex-muted group-hover:text-[var(--codex-accent)]">{t("preview.openOriginal")}</div>
                   </a>
                 ))}
               </div>
@@ -432,22 +432,22 @@ export default function ApiPlatformTestPage() {
             )}
 
             {!isLoading && result && !result.error && outputImages.length === 0 && (
-              <pre className="max-h-[520px] overflow-auto rounded-xl border bg-gray-50 p-3 text-xs text-gray-700">
+              <pre className="max-h-[520px] overflow-auto rounded-xl border bg-[var(--codex-surface-soft)] p-3 text-xs text-codex-ink">
                 {result.content || result.raw_preview || t("preview.noImageParsed")}
               </pre>
             )}
 
             {!isLoading && Boolean(result?.request_body) && (
               <details className="mt-4 rounded-2xl border border-white/70 bg-white/72 p-3 shadow-sm">
-                <summary className="cursor-pointer text-xs font-bold text-gray-700">{t("preview.requestBody")}</summary>
-                <pre className="mt-3 max-h-64 overflow-auto text-xs text-gray-600">{JSON.stringify(result?.request_body, null, 2)}</pre>
+                <summary className="cursor-pointer text-xs font-bold text-codex-ink">{t("preview.requestBody")}</summary>
+                <pre className="mt-3 max-h-64 overflow-auto text-xs text-codex-muted">{JSON.stringify(result?.request_body, null, 2)}</pre>
               </details>
             )}
 
             {!isLoading && result?.raw_preview && (
               <details className="mt-4 rounded-2xl border border-white/70 bg-white/72 p-3 shadow-sm">
-                <summary className="cursor-pointer text-xs font-bold text-gray-700">{t("preview.rawPreview")}</summary>
-                <pre className="mt-3 max-h-64 overflow-auto text-xs text-gray-600">{result.raw_preview}</pre>
+                <summary className="cursor-pointer text-xs font-bold text-codex-ink">{t("preview.rawPreview")}</summary>
+                <pre className="mt-3 max-h-64 overflow-auto text-xs text-codex-muted">{result.raw_preview}</pre>
               </details>
             )}
           </section>

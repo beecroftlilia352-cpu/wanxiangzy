@@ -92,7 +92,7 @@ export function LanguagePickerModal({
         role="dialog"
         aria-modal="true"
         aria-label={resolvedTitle}
-        className="fixed inset-0 z-[260] flex items-end justify-center bg-slate-950/45 px-3 py-6 backdrop-blur-md sm:items-center sm:px-6"
+        className="fixed inset-0 z-[260] flex items-end justify-center bg-codex-ink/45 px-3 py-6 backdrop-blur-md sm:items-center sm:px-6"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) onClose();
         }}
@@ -101,10 +101,10 @@ export function LanguagePickerModal({
           className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--codex-border)] px-5 py-4">
             <div className="min-w-0">
-              <h2 className="text-base font-black text-slate-900">{resolvedTitle}</h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <h2 className="text-base font-black text-codex-ink">{resolvedTitle}</h2>
+              <p className="mt-1 text-xs text-codex-faint">
                 {description || t("languageDescription")}
               </p>
               <p className="mt-1 text-[11px] font-semibold text-[var(--codex-accent)]">
@@ -115,21 +115,21 @@ export function LanguagePickerModal({
               type="button"
               onClick={onClose}
               aria-label={t("close")}
-              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-full p-2 text-codex-faint transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="border-b border-slate-100 px-5 py-3">
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-inner focus-within:border-[rgba(91,124,255,0.45)] focus-within:ring-2 focus-within:ring-[rgba(91,124,255,0.15)]">
-              <Search className="h-4 w-4 text-slate-400" />
+          <div className="border-b border-[var(--codex-border)] px-5 py-3">
+            <div className="flex items-center gap-2 rounded-full border border-[var(--codex-border)] bg-codex-surface px-4 py-2 text-sm shadow-inner focus-within:border-[var(--codex-accent-45)] focus-within:ring-2 focus-within:ring-[var(--codex-accent-14)]">
+              <Search className="h-4 w-4 text-codex-faint" />
               <input
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("searchTargetLanguage")}
-                className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                className="flex-1 bg-transparent text-sm text-codex-ink outline-none placeholder:text-codex-faint"
                 aria-label={t("searchTargetLanguage")}
               />
             </div>
@@ -138,7 +138,7 @@ export function LanguagePickerModal({
           <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarGutter: "stable" as const }}>
             {!normalizedQuery && visibleCommon.length > 0 ? (
               <section className="mb-5">
-                <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{t("commonRecommend")}</h3>
+                <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-codex-faint">{t("commonRecommend")}</h3>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                   {visibleCommon.map((lang) => {
                     const checked = selected.includes(lang.code);
@@ -158,7 +158,7 @@ export function LanguagePickerModal({
                   <button
                     type="button"
                     onClick={() => setCollapsed((prev) => ({ ...prev, [region.label]: !prev[region.label] }))}
-                    className="mb-2 flex w-full items-center justify-between text-left text-[11px] font-black uppercase tracking-[0.16em] text-slate-500"
+                    className="mb-2 flex w-full items-center justify-between text-left text-[11px] font-black uppercase tracking-[0.16em] text-codex-faint"
                   >
                     <span>{region.label}</span>
                     <ChevronDown
@@ -197,12 +197,12 @@ export function LanguagePickerModal({
             })}
 
             {filteredRegions.length === 0 ? (
-              <p className="py-10 text-center text-sm text-slate-400">{t("noLanguageMatch")}</p>
+              <p className="py-10 text-center text-sm text-codex-faint">{t("noLanguageMatch")}</p>
             ) : null}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-5 py-3">
-            <p className="text-xs text-slate-500">{t("languageFooter", { max: max || "20" })}</p>
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/80 px-5 py-3">
+            <p className="text-xs text-codex-faint">{t("languageFooter", { max: max || "20" })}</p>
             <button
               type="button"
               onClick={onClose}
@@ -237,17 +237,17 @@ function LanguageChip({
       className={cn(
         "group relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl border px-3 py-2 text-center transition",
         checked
-          ? "border-violet-500 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm ring-1 ring-violet-200"
-          : "border-slate-200 bg-white text-slate-700 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.1)]/40",
-        disabled && "cursor-not-allowed opacity-40 hover:border-slate-200 hover:bg-white"
+          ? "border-[var(--codex-accent)] bg-[var(--codex-accent-10)] text-[var(--codex-accent)] shadow-sm ring-1 ring-[var(--codex-accent-25)]"
+          : "border-[var(--codex-border)] bg-codex-surface text-codex-ink hover:border-[var(--codex-accent-30)] hover:bg-[var(--codex-accent-10)]/40",
+        disabled && "cursor-not-allowed opacity-40 hover:border-[var(--codex-border)] hover:bg-codex-surface"
       )}
     >
       <span className="text-sm font-black leading-tight">{lang.label}</span>
-      <span className="truncate text-[10px] font-medium text-slate-400" title={lang.enLabel}>
+      <span className="truncate text-[10px] font-medium text-codex-faint" title={lang.enLabel}>
         {lang.enLabel}
       </span>
       {checked ? (
-        <span className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)]0 text-white">
+        <span className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--codex-accent-10)]0 text-white">
           <Check className="h-3 w-3" />
         </span>
       ) : null}

@@ -33,8 +33,8 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
             aria-pressed={selected}
             className={`group relative min-h-[92px] overflow-hidden rounded-2xl border p-2.5 text-left transition-[background-color,border-color,box-shadow] duration-150 ${
               selected
-                ? "border-[rgba(91,124,255,0.22)] bg-white shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-1 ring-[rgba(91,124,255,0.18)]"
-                : "border-slate-200/80 bg-white/78 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:shadow-[0_14px_32px_rgba(15,23,42,0.06)]"
+                ? "border-[var(--codex-accent-22)] bg-white shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-1 ring-[var(--codex-accent-18)]"
+                : "border-[var(--codex-border)]/80 bg-white/78 hover:border-[var(--codex-accent-30)] hover:bg-white hover:shadow-[0_14px_32px_rgba(15,23,42,0.06)]"
             }`}
           >
             {selected && (
@@ -42,9 +42,9 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
             )}
             <div className="relative flex h-full items-stretch gap-2">
               {style.imageUrl ? (
-                <span className="relative flex h-[64px] w-[52px] shrink-0 overflow-hidden rounded-2xl border border-white bg-slate-100 shadow-sm">
+                <span className="relative flex h-[64px] w-[52px] shrink-0 overflow-hidden rounded-2xl border border-white bg-[var(--codex-surface-soft)] shadow-sm">
                   <RawPreviewImage src={style.imageUrl} alt={style.label} className="h-full w-full object-cover" loading="lazy" />
-                  <span className="absolute inset-0 bg-gradient-to-t from-slate-950/24 via-transparent to-white/8" />
+                  <span className="absolute inset-0 bg-gradient-to-t from-codex-ink/24 via-transparent to-white/8" />
                   <span className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-0.5">
                     {swatches.slice(0, 3).map((swatch, swatchIndex) => (
                       <span
@@ -62,7 +62,7 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
                   }`}
                   style={{ background: moodBackground }}
                 >
-                  <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.78),transparent_34%),linear-gradient(160deg,rgba(255,255,255,0.28),rgba(15,23,42,0.10))]" />
+                  <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,var(--codex-surface-soft),transparent_34%),linear-gradient(160deg,rgba(255,255,255,0.28),rgba(15,23,42,0.10))]" />
                   <span className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1">
                     {swatches.slice(0, 3).map((swatch, swatchIndex) => (
                       <span
@@ -75,11 +75,11 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
                 </span>
               )}
               <span className="flex min-w-0 flex-1 flex-col justify-center pr-5">
-                <span className="block break-words text-[12.5px] font-black leading-tight text-slate-950">{style.label}</span>
-                <span className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-500">{style.desc}</span>
+                <span className="block break-words text-[12.5px] font-black leading-tight text-codex-ink">{style.label}</span>
+                <span className="mt-1 line-clamp-3 text-[10px] leading-snug text-codex-muted">{style.desc}</span>
               </span>
               {selected && (
-                <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] text-white shadow-[0_8px_18px_rgba(124,58,237,0.28)]">
+                <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--codex-accent-10)] text-white shadow-[0_8px_18px_rgba(124,58,237,0.28)]">
                   <Check className="h-3 w-3" aria-hidden="true" />
                 </span>
               )}

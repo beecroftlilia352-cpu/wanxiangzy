@@ -400,17 +400,17 @@ export function StudioTaskRail({
       <div className="flex h-full min-h-0 flex-col">
         <div
           className={cn(
-            "flex items-center justify-between border-b border-slate-100 py-3",
+            "flex items-center justify-between border-b border-[var(--codex-border)] py-3",
             expanded ? "gap-2 px-3" : "gap-0.5 px-1.5"
           )}
         >
           <div className={cn("min-w-0 flex-1", !expanded && "flex justify-center")}>
-            <div className={cn("flex items-center font-black text-slate-900", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[12px] leading-4")}>
+            <div className={cn("flex items-center font-black text-codex-ink", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[12px] leading-4")}>
               {expanded && <History className="h-4 w-4 text-blue-500" />}
               <span className="whitespace-nowrap">{expanded ? t("allTasks") : t("recentTasks")}</span>
             </div>
             {expanded && (
-              <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-codex-faint">
                 {moduleOnly ? resolvedModuleLabel : t("allModules")} · {t("taskCountSuffix", { count: summary.totalTaskNum })}
               </p>
             )}
@@ -419,7 +419,7 @@ export function StudioTaskRail({
             <button
               type="button"
               onClick={() => setExpanded(false)}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-codex-muted transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink"
               aria-label={t("collapseAllTasks")}
               title={t("collapseAllTasks")}
             >
@@ -429,13 +429,13 @@ export function StudioTaskRail({
         </div>
 
         {expanded ? (
-          <div className="space-y-3 border-b border-slate-100 px-3 py-3">
-            <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-500 transition focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-100 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:focus-within:border-[rgba(91,140,255,0.55)] dark:focus-within:ring-[rgba(91,140,255,0.18)]">
+          <div className="space-y-3 border-b border-[var(--codex-border)] px-3 py-3">
+            <label className="flex h-9 items-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white px-2 text-xs text-codex-muted transition focus-within:border-[var(--codex-accent-45)] focus-within:ring-2 focus-within:ring-[var(--codex-accent-18)] dark:border-white/10 dark:bg-white/5 dark:text-codex-faint dark:focus-within:border-[var(--codex-accent-55)] dark:focus-within:ring-[var(--codex-accent-18)]">
               <Search className="h-3.5 w-3.5" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="min-w-0 flex-1 bg-transparent font-semibold text-slate-700 outline-none placeholder:text-slate-300 dark:text-stone-200 dark:placeholder:text-stone-500"
+                className="min-w-0 flex-1 bg-transparent font-semibold text-codex-ink outline-none placeholder:text-codex-faint dark:text-codex-muted dark:placeholder:text-codex-faint"
                 placeholder={t("searchTaskPlaceholder")}
               />
             </label>
@@ -491,12 +491,12 @@ export function StudioTaskRail({
                   aria-hidden={!autoLoadStarted}
                 >
                   {autoLoadStarted ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-codex-faint">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       {t("loadingMore")}
                     </span>
                   ) : (
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-codex-faint">
                       {t("scrollToLoadMore")}
                     </span>
                   )}
@@ -511,12 +511,12 @@ export function StudioTaskRail({
           )}
         </div>
 
-        <div className="border-t border-slate-100 px-3 py-3">
+        <div className="border-t border-[var(--codex-border)] px-3 py-3">
           {expanded ? (
             <div className="space-y-2">
               <Progress
                 value={loadProgress}
-                className="h-1 bg-slate-100"
+                className="h-1 bg-[var(--codex-surface-soft)]"
                 aria-label={t("loadedProgress", { loaded: totalLoaded, total: totalAvailable })}
               />
               <div className="flex items-center justify-between gap-2">
@@ -526,7 +526,7 @@ export function StudioTaskRail({
                   ) : (
                     <Check className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden="true" />
                   )}
-                  <span className="truncate text-[11px] font-black text-slate-600">
+                  <span className="truncate text-[11px] font-black text-codex-muted">
                     {totalAvailable > 0
                       ? t("loadedSummary", { loaded: totalLoaded, total: totalAvailable, percent: loadProgress })
                       : t("loadedCount", { loaded: totalLoaded })}
@@ -535,7 +535,7 @@ export function StudioTaskRail({
                 <button
                   type="button"
                   onClick={() => void loadQueue({ force: true })}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-codex-muted transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
                   {t("refresh")}
@@ -571,7 +571,7 @@ export function StudioTaskRail({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="inline-flex h-9 w-full items-center justify-center gap-0.5 whitespace-nowrap rounded-lg px-1 text-[12px] font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-9 w-full items-center justify-center gap-0.5 whitespace-nowrap rounded-lg px-1 text-[12px] font-black text-codex-ink transition hover:bg-[var(--codex-surface-soft)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t("allTasks")}
               <ChevronRight className="h-3 w-3" />
@@ -591,9 +591,9 @@ function ContinueCard({ selected, disabled = false, onClick }: { selected: boole
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "group relative flex h-[68px] w-full items-center justify-center rounded border bg-white px-1 text-center text-[12px] font-medium leading-4 text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10",
+        "group relative flex h-[68px] w-full items-center justify-center rounded border bg-white px-1 text-center text-[12px] font-medium leading-4 text-codex-muted transition hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/10 dark:bg-white/5 dark:text-codex-muted dark:hover:border-[var(--codex-accent-45)] dark:hover:bg-white/10",
         disabled && "cursor-not-allowed opacity-55",
-        selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)] dark:border-[rgba(91,140,255,0.55)] dark:bg-[rgba(91,140,255,0.18)]" : "border-slate-100 dark:border-white/10"
+        selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)] dark:border-[var(--codex-accent-55)] dark:bg-[var(--codex-accent-18)]" : "border-[var(--codex-border)] dark:border-white/10"
       )}
     >
       <span className="max-w-[3.5em] whitespace-normal break-keep">{t("continueCreate")}</span>
@@ -624,7 +624,7 @@ function SegmentButton({
         "inline-flex h-8 min-w-0 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-55",
         active
           ? "border-blue-300 bg-blue-50 text-blue-700"
-          : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200 hover:text-slate-800"
+          : "border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-codex-muted hover:border-[var(--codex-border-strong)] hover:text-codex-ink"
       )}
     >
       {icon}
@@ -671,7 +671,7 @@ function TaskCard({
           "studio-task-card group relative flex h-[68px] w-full items-center justify-center rounded border bg-white p-1 text-left transition hover:border-blue-300 hover:bg-blue-50/40",
           running && "border-blue-100 bg-blue-50/45",
           applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
-          selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-slate-100"
+          selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-[var(--codex-border)]"
         )}
         title={item.title || item.id}
       >
@@ -689,7 +689,7 @@ function TaskCard({
       className={cn(
         "studio-task-card studio-task-card-expanded group w-full rounded-lg border bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/35",
         applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
-        selected ? "border-blue-400 ring-2 ring-blue-100" : "border-slate-100",
+        selected ? "border-blue-400 ring-2 ring-blue-100" : "border-[var(--codex-border)]",
         failed && "border-red-200 bg-red-50/60"
       )}
     >
@@ -698,8 +698,8 @@ function TaskCard({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-slate-900">{item.title}</p>
-              <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{item.id}</p>
+              <p className="truncate text-sm font-black text-codex-ink">{item.title}</p>
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-codex-faint">{item.id}</p>
             </div>
             {applying ? (
               <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 text-[10px] font-black text-blue-600">
@@ -710,7 +710,7 @@ function TaskCard({
               <StatusPill item={item} />
             )}
           </div>
-          <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
+          <p className="mt-1 line-clamp-1 text-xs font-semibold text-codex-muted">
             {failed ? item.error || t("taskFailedRetry") : getTaskMeta(item, progress, t)}
           </p>
           <TaskPreviewStrip item={item} displayMode={displayMode} />
@@ -765,7 +765,7 @@ function TaskThumb({
           />
         )
       ) : (
-        <span className="relative z-[1] flex h-full w-full items-center justify-center text-slate-300">
+        <span className="relative z-[1] flex h-full w-full items-center justify-center text-codex-faint">
           <ImageIcon className="h-4 w-4" />
         </span>
       )}
@@ -810,7 +810,7 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
             key={`${slot.url || slot.kind}-${index}`}
             className={cn(
               "relative h-9 w-9 shrink-0 overflow-hidden rounded-md border",
-              slot.kind === "input" ? "border-slate-200" : "border-blue-100"
+              slot.kind === "input" ? "border-[var(--codex-border)]" : "border-blue-100"
             )}
           >
             {slot.url ? (
@@ -834,7 +834,7 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
   return (
     <div className="mt-2 grid grid-cols-4 gap-1">
       {slots.slice(0, 4).map((url, index) => (
-        <span key={`${url || "pending"}-${index}`} className="aspect-square w-full overflow-hidden rounded-md border border-slate-100 bg-slate-50">
+        <span key={`${url || "pending"}-${index}`} className="aspect-square w-full overflow-hidden rounded-md border border-[var(--codex-border)] bg-[var(--codex-surface-soft)]">
           {url ? <TaskStripImage url={url} /> : <span className="studio-task-placeholder-thumb block h-full w-full" />}
         </span>
       ))}
@@ -932,14 +932,14 @@ function TaskRailEmpty({
   return (
     <div
       className={cn(
-        "studio-task-rail-empty flex flex-col items-center justify-center rounded-lg border border-dashed border-[rgba(91,124,255,0.2)] bg-white/70 text-center text-xs font-semibold text-codex-faint",
+        "studio-task-rail-empty flex flex-col items-center justify-center rounded-lg border border-dashed border-[var(--codex-accent-20)] bg-white/70 text-center text-xs font-semibold text-codex-faint",
         compact ? "min-h-[92px] px-1 py-3" : "min-h-32 px-4 py-5"
       )}
     >
       {failed ? <RefreshCw className="mb-2 h-5 w-5 text-amber-500" /> : <Clock3 className="mb-2 h-5 w-5 text-[var(--codex-accent)]" />}
       <span>{failed ? (compact ? t("retry") : t("taskLoadFailed")) : compact ? t("noTasks") : t("noModuleTasks", { label: resolvedModuleLabel })}</span>
       {!compact && (
-        <span className="mt-1 text-[11px] font-medium text-slate-400">
+        <span className="mt-1 text-[11px] font-medium text-codex-faint">
           {failed ? t("networkRetryHint") : t("appearAfterGenerate")}
         </span>
       )}

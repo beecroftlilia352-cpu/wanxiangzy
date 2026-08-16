@@ -24,6 +24,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -45,9 +46,11 @@ import {
   type GrassTemplateId,
 } from "@/lib/grass-planting";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { useHistoryApply } from "@/hooks/use-history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -208,34 +211,30 @@ export default function GrassPage() {
       toastMessage: t("retryPendingToast", { index: index + 1 }),
     });
   }
-  const previewSession = useMemo(
-    () => createGenericImagePreviewSession({
-      module: "grass",
-      title: t("title"),
-      urls: resultUrls,
-      expectedCount: activeResultExpectedCount,
-      isGenerating,
-      statusGroup: isGenerating ? "running" : undefined,
-      references: promptImages.map((item) => ({
-        url: item.url,
-        label: item.imageNumber === 1 ? t("garmentReferenceLabel") : effectiveReferenceName,
-        role: item.imageNumber === 1 ? "garment" : "reference",
-      })),
-      promptText: activePrompt,
-      metaItems: [
-        { label: t("metaSceneMode"), value: sceneMode === "system_reference" ? t("sceneModeSystem") : sceneMode === "upload_reference" ? t("sceneModeUpload") : t("sceneModeCustom") },
-        { label: t("metaSceneControl"), value: sceneMode === "custom_prompt" ? null : sceneBackgroundMode === "reference_scene" ? t("sceneBgReferenceScene") : t("sceneBgSimilarStyle") },
-        { label: t("metaTemplate"), value: selectedTemplate.name },
-        { label: t("metaModel"), value: aiModel },
-        { label: t("metaRatio"), value: aspectRatio },
-        { label: t("metaResolution"), value: imageSize },
-        { label: t("metaGenCount"), value: genCount },
-      ],
-      resultTitlePrefix: t("resultTitlePrefix"),
-      aspectRatio,
-    }),
-    [activePrompt, activeResultExpectedCount, aiModel, aspectRatio, effectiveReferenceName, genCount, imageSize, isGenerating, promptImages, resultUrls, sceneBackgroundMode, sceneMode, selectedTemplate.name, t]
-  );
+  const previewSession = useStudioPreview({
+    module: "grass",
+    title: t("title"),
+    urls: resultUrls,
+    expectedCount: activeResultExpectedCount,
+    isGenerating,
+    references: promptImages.map((item) => ({
+      url: item.url,
+      label: item.imageNumber === 1 ? t("garmentReferenceLabel") : effectiveReferenceName,
+      role: item.imageNumber === 1 ? "garment" : "reference",
+    })),
+    promptText: activePrompt,
+    metaItems: [
+      { label: t("metaSceneMode"), value: sceneMode === "system_reference" ? t("sceneModeSystem") : sceneMode === "upload_reference" ? t("sceneModeUpload") : t("sceneModeCustom") },
+      { label: t("metaSceneControl"), value: sceneMode === "custom_prompt" ? null : sceneBackgroundMode === "reference_scene" ? t("sceneBgReferenceScene") : t("sceneBgSimilarStyle") },
+      { label: t("metaTemplate"), value: selectedTemplate.name },
+      { label: t("metaModel"), value: aiModel },
+      { label: t("metaRatio"), value: aspectRatio },
+      { label: t("metaResolution"), value: imageSize },
+      { label: t("metaGenCount"), value: genCount },
+    ],
+    resultTitlePrefix: t("resultTitlePrefix"),
+    aspectRatio,
+  });
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const cost = costPerImage * genCount;
@@ -244,6 +243,121 @@ export default function GrassPage() {
     title: t("taskQueueTitle"),
     defaultExpectedCount: genCount,
     applyPath: "/grass",
+  });
+
+  // 轮询 context：pollCtxRef.current 由调用方在 start 前赋值；
+  // buildUrl / onTick / onComplete / onError 都从 ref 读 identity，绕过
+  // "useGenerationPolling 的 id 字段在 render 时被冻结" 的问题。
+  const pollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    displayExpectedCount: number;
+    taskInputThumbnails: string[];
+    retryPreviousResultUrls: string[];
+    retryResultIndex: number | null;
+    latestResultUrlsRef: { current: string[] };
+  } | null>(null);
+  const { start: startGrassPolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown };
+  }>({
+    id: "",
+    buildUrl: () => {
+      const id = pollCtxRef.current?.generationId ?? "";
+      return `/api/grass?generation_id=${encodeURIComponent(id)}`;
+    },
+    isTerminal: (state) => state.status === "completed" || state.status === "failed",
+    intervalMs: 2000,
+    maxAttempts: 120,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      if (Array.isArray(state.result_urls) && state.result_urls.length) {
+        const merged = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          state.result_urls,
+          ctx.displayExpectedCount,
+        );
+        ctx.latestResultUrlsRef.current = merged;
+        setResultUrls(merged);
+      }
+      const nextProgress = Number(state.progress);
+      const runningProgress = Number.isFinite(nextProgress)
+        ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+        : 25;
+      setProgress(runningProgress);
+      taskQueue.markRunning(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestResultUrlsRef.current,
+        progress: runningProgress,
+        status: state.status,
+      });
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const finalUrls = mergeRetryResultUrls(
+        ctx.retryPreviousResultUrls,
+        ctx.retryResultIndex,
+        Array.isArray(state.result_urls) ? state.result_urls : ctx.latestResultUrlsRef.current,
+        ctx.displayExpectedCount,
+      );
+      ctx.latestResultUrlsRef.current = finalUrls;
+      const finalResultCount = finalUrls.filter(Boolean).length;
+      if (state.status === "completed") {
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { message?: unknown })
+          : null;
+        const completedError = state.error || partialFailure?.message || "";
+        setProgress(100);
+        setResultUrls(finalUrls);
+        setIsGenerating(false);
+        taskQueue.markCompleted(ctx.activeTaskId, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+          error: completedError ? summarizeGenerationError(completedError) : "",
+        });
+        if (completedError || finalResultCount < ctx.displayExpectedCount) {
+          void refreshCredits();
+          toast.warning(t("partialDoneToast", { done: finalResultCount, total: ctx.displayExpectedCount }));
+        } else {
+          toast.success(t("garmentGrassDone"));
+        }
+      } else {
+        const message = state.error || t("generationFailed");
+        setError(message);
+        taskQueue.markFailed(ctx.activeTaskId, message, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+        });
+        toast.error(message);
+        void refreshCredits();
+        setIsGenerating(false);
+      }
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = error.message || t("generationTimeout");
+      setError(message);
+      taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestResultUrlsRef.current,
+      });
+      toast.error(message);
+      void refreshCredits();
+      setIsGenerating(false);
+    },
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !garmentUrl
@@ -285,42 +399,11 @@ export default function GrassPage() {
     if (!options?.silent) toast.success(t("historyParamsApplied"));
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-    const detail = await takeApplyDetail("grass");
-    const payload = detail?.payload;
-    if (cancelled || !payload) return;
-    setGarmentUrl(payload.garmentUrl);
-    setTemplateId(normalizeGrassTemplate(payload.templateId));
-    const nextSceneMode = normalizeGrassSceneMode(payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "system_reference"));
-    setSceneMode(nextSceneMode);
-    setSceneBackgroundMode(normalizeGrassSceneBackgroundMode(payload.sceneBackgroundMode));
-    setUploadedReferenceUrl(payload.referenceUrl || "");
-    setUploadedReferenceName(payload.referenceUrl ? t("historyReference") : "");
-    setChangeModel(payload.changeModel);
-    if (nextSceneMode === "custom_prompt") {
-      setUserPrompt(payload.userPrompt || "");
-      setSupplementPrompt("");
-    } else {
-      setSupplementPrompt(payload.userPrompt || "");
-    }
-    setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio);
-    setImageSize(payload.imageSize);
-    setGenCount(payload.genCount);
-    setPromptOverride(payload.prompt);
-    setRunningExpectedCount(null);
-    setResultUrls(detail.resultUrls);
-    setIsGenerating(false);
-    setProgress(detail.resultUrls.length ? 100 : 0);
-    setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
-    toast.success(t("historyParamsApplied"));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useHistoryApply({
+    kind: "grass",
+    apply: (payload, resultUrls) => applyGrassHistoryPayload(payload, resultUrls, { silent: true }),
+    onError: (err) => toast.error(err.message),
+  });
 
   async function handleFile(file?: File) {
     if (!file) return;
@@ -460,60 +543,17 @@ export default function GrassPage() {
         });
         activeTaskId = serverTask.id;
       }
-      for (let attempts = 0; attempts < 120; attempts++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const poll = await fetch(`/api/grass?generation_id=${data.generation_id}`);
-        if (!poll.ok) continue;
-        const state = await poll.json();
-        if (Array.isArray(state.result_urls) && state.result_urls.length) {
-          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
-          setResultUrls(latestTaskResultUrls);
-        }
-        if (state.status === "completed") {
-          const finalUrls = mergeRetryResultUrls(
-            retryPreviousResultUrls,
-            retryResultIndex,
-            Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls,
-            displayExpectedCount
-          );
-          const finalResultCount = finalUrls.filter(Boolean).length;
-          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
-            ? state.partial_failure as { message?: unknown }
-            : null;
-          const completedError = state.error || partialFailure?.message || "";
-          setProgress(100);
-          setResultUrls(finalUrls);
-          setIsGenerating(false);
-          taskQueue.markCompleted(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: taskInputThumbnails,
-            resultThumbnails: finalUrls,
-            resultCount: finalResultCount,
-            error: completedError ? summarizeGenerationError(completedError) : "",
-          });
-          if (completedError || finalResultCount < displayExpectedCount) {
-            void refreshCredits();
-            toast.warning(t("partialDoneToast", { done: finalResultCount, total: displayExpectedCount }));
-          } else {
-            toast.success(t("garmentGrassDone"));
-          }
-          return;
-        }
-        if (state.status === "failed") throw new Error(state.error || t("generationFailed"));
-        const nextProgress = Number(state.progress);
-        const runningProgress = Number.isFinite(nextProgress)
-          ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
-          : Math.min(25 + attempts * 1.5, 90);
-        setProgress(runningProgress);
-        taskQueue.markRunning(activeTaskId, {
-          expectedCount: displayExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          resultThumbnails: latestTaskResultUrls,
-          progress: runningProgress,
-          status: state.status,
-        });
-      }
-      throw new Error(t("generationTimeout"));
+      // 启动后台轮询：catch 只处理 submit 错误，poll 失败由 hook 的 onError 处理。
+      pollCtxRef.current = {
+        activeTaskId,
+        generationId: data.generation_id,
+        displayExpectedCount,
+        taskInputThumbnails,
+        retryPreviousResultUrls,
+        retryResultIndex,
+        latestResultUrlsRef: { current: latestTaskResultUrls },
+      };
+      startGrassPolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generationFailed"));
       setError(message);
@@ -646,7 +686,7 @@ export default function GrassPage() {
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="font-bold text-sm">{t("referenceSceneSection")}</h3>
-              <span className="rounded-full bg-purple-50 px-2 py-1 text-[11px] font-bold text-purple-600">
+              <span className="rounded-full bg-[var(--codex-accent-08)] px-2 py-1 text-[11px] font-bold text-[var(--codex-accent)]">
                 {sceneMode === "custom_prompt" ? t("promptPriority") : effectiveReferenceName}
               </span>
             </div>
@@ -664,27 +704,27 @@ export default function GrassPage() {
             />
 
             {sceneMode === "system_reference" && (
-              <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white/55 p-3">
+              <div className="mt-3 rounded-2xl border border-dashed border-[var(--codex-border)] bg-white/55 p-3">
                 <div className="grid grid-cols-3 gap-2">
                   {GRASS_TEMPLATES.map((tpl) => (
                     <div
                       key={tpl.id}
-                      className={`group relative overflow-hidden rounded-xl border bg-white text-center shadow-sm transition ${templateId === tpl.id ? "border-purple-500 ring-2 ring-purple-100" : "border-slate-100 hover:shadow-md"}`}
+                      className={`group relative overflow-hidden rounded-xl border bg-codex-surface text-center shadow-sm transition ${templateId === tpl.id ? "border-[var(--codex-accent)] ring-2 ring-[var(--codex-accent-25)]" : "border-[var(--codex-border)] hover:shadow-md"}`}
                     >
                       <button
                         type="button"
                         onClick={() => { setTemplateId(tpl.id); setPromptOverride(null); }}
                         className="block w-full text-center"
                       >
-                        <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
+                        <div className="relative aspect-[3/4] overflow-hidden bg-[var(--codex-surface-soft)]">
                           <RawPreviewImage src={tpl.imageUrl} alt={tpl.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                         </div>
-                        <p className="truncate px-1.5 py-1.5 text-[12px] font-bold text-slate-800">{tpl.name}</p>
+                        <p className="truncate px-1.5 py-1.5 text-[12px] font-bold text-codex-ink">{tpl.name}</p>
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(tpl.imageUrl); }}
-                        className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)] max-lg:opacity-100"
+                        className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-codex-muted opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)] max-lg:opacity-100"
                         title={t("zoomPreview")}
                       >
                         <ZoomIn className="h-3.5 w-3.5" />
@@ -701,7 +741,7 @@ export default function GrassPage() {
             {sceneMode === "upload_reference" && (
               <div
                 {...referenceDrag.dragHandlers}
-                className={`studio-stable-upload-boundary mt-3 rounded-2xl border border-dashed bg-white/70 p-3 transition ${isDraggingReference ? "border-[rgba(91,124,255,0.48)] ring-2 ring-[rgba(91,124,255,0.16)]" : "border-slate-200"}`}
+                className={`studio-stable-upload-boundary mt-3 rounded-2xl border border-dashed bg-white/70 p-3 transition ${isDraggingReference ? "border-[var(--codex-accent-48)] ring-2 ring-[var(--codex-accent-16)]" : "border-[var(--codex-border)]"}`}
               >
                 <input
                   ref={referenceInputRef}
@@ -716,15 +756,15 @@ export default function GrassPage() {
                   }}
                 />
                 {uploadedReferenceUrl ? (
-                  <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
+                  <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-[var(--codex-surface-soft)]" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
                     <RawPreviewImage src={uploadedReferenceUrl} alt={t("uploadedReferenceAlt")} className="h-full w-full object-contain p-2" />
                     <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
-                      <span className="truncate rounded-full bg-white dark:bg-white/10/90 px-2.5 py-1 text-[12px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || t("uploadedReferenceBadge")}</span>
+                      <span className="truncate rounded-full bg-codex-surface px-2.5 py-1 text-[12px] font-medium text-codex-muted shadow-sm">{uploadedReferenceName || t("uploadedReferenceBadge")}</span>
                       <span className="flex gap-1">
                         <button
                           type="button"
                           onClick={() => setLightboxSrc(uploadedReferenceUrl)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)] max-lg:opacity-100"
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-codex-muted opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-white hover:text-[var(--codex-accent)] max-lg:opacity-100"
                           title={t("zoomPreview")}
                         >
                           <ZoomIn className="h-3.5 w-3.5" />
@@ -732,7 +772,7 @@ export default function GrassPage() {
                         <button
                           type="button"
                           onClick={() => { setUploadedReferenceUrl(""); setUploadedReferenceName(""); setPromptOverride(null); }}
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-white/10/90 text-slate-600 shadow-sm hover:bg-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-white/10/90 text-codex-muted shadow-sm hover:bg-white"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -744,7 +784,7 @@ export default function GrassPage() {
                     type="button"
                     onClick={() => referenceInputRef.current?.click()}
                     disabled={isUploadingReference}
-                    className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-6 text-center hover:bg-slate-100"
+                    className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl bg-[var(--codex-surface-soft)] px-4 py-6 text-center hover:bg-[var(--codex-surface-soft)]"
                     style={{ "--studio-fixed-upload-height": "160px" } as CSSProperties}
                   >
                     {isUploadingReference ? (
@@ -752,8 +792,8 @@ export default function GrassPage() {
                     ) : (
                       <Upload className="mb-3 h-7 w-7 text-violet-400" />
                     )}
-                    <span className="text-sm font-semibold text-slate-800">{isUploadingReference ? t("uploadingDots") : t("uploadReferenceHint")}</span>
-                    <span className="mt-1 text-[12px] text-slate-400">{t("uploadReferenceSub")}</span>
+                    <span className="text-sm font-semibold text-codex-ink">{isUploadingReference ? t("uploadingDots") : t("uploadReferenceHint")}</span>
+                    <span className="mt-1 text-[12px] text-codex-faint">{t("uploadReferenceSub")}</span>
                   </button>
                 )}
               </div>
@@ -768,17 +808,17 @@ export default function GrassPage() {
                   className="studio-prompt-textarea-compact"
                 />
                 <div>
-                  <p className="mb-2 text-[12px] font-bold text-slate-500">{t("referencePromptsLabel")}</p>
+                  <p className="mb-2 text-[12px] font-bold text-codex-faint">{t("referencePromptsLabel")}</p>
                   <div className="space-y-2">
                     {GRASS_PROMPT_REFERENCES.map((item) => (
                       <button
                         key={item.title}
                         type="button"
                         onClick={() => applyPromptReference(item.text)}
-                        className="w-full rounded-xl border border-slate-100 bg-white/80 px-3 py-2 text-left transition hover:bg-purple-50/40 hover:text-purple-700"
+                        className="w-full rounded-xl border border-[var(--codex-border)] bg-white/80 px-3 py-2 text-left transition hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)]"
                       >
-                        <p className="text-xs font-bold text-slate-800">{item.title}</p>
-                        <p className="mt-1 text-[12px] leading-4 text-slate-500">{item.text}</p>
+                        <p className="text-xs font-bold text-codex-ink">{item.title}</p>
+                        <p className="mt-1 text-[12px] leading-4 text-codex-faint">{item.text}</p>
                       </button>
                     ))}
                   </div>
@@ -803,9 +843,9 @@ export default function GrassPage() {
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold">{t("personControlTitle")}</h3>
-                <span className="text-[12px] text-slate-400">{t("personControlSub")}</span>
+                <span className="text-[12px] text-codex-faint">{t("personControlSub")}</span>
               </div>
-              <p className="mb-3 text-[12px] leading-5 text-slate-500">
+              <p className="mb-3 text-[12px] leading-5 text-codex-faint">
                 {t("personControlDesc")}
               </p>
               <StudioOptionGrid
@@ -825,9 +865,9 @@ export default function GrassPage() {
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold">{t("sceneControlTitle")}</h3>
-                <span className="text-[12px] text-slate-400">{t("sceneControlSub")}</span>
+                <span className="text-[12px] text-codex-faint">{t("sceneControlSub")}</span>
               </div>
-              <p className="mb-3 text-[12px] leading-5 text-slate-500">
+              <p className="mb-3 text-[12px] leading-5 text-codex-faint">
                 {t("sceneControlDesc")}
               </p>
               <StudioOptionGrid
@@ -844,7 +884,7 @@ export default function GrassPage() {
           )}
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("generationModelTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-codex-ink"><Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("generationModelTitle")}</h3>
             <StudioModelSelector models={modelOptions} value={aiModel} onChange={setAiModel} ariaLabel={t("generationModelAria")} />
           </section>
 
@@ -853,7 +893,7 @@ export default function GrassPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("resolutionTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("resolutionTitle")}</h3>
             <StudioOptionGrid
               options={useImageSizeOptions(imageSizes, (s) => getCreditCost(aiModel, s, aspectRatio), t("resolutionCreditUnit"))}
               value={imageSize}
@@ -862,7 +902,7 @@ export default function GrassPage() {
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("genCountTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("genCountTitle")}</h3>
             <GenerationCountField
               value={genCount}
               onChange={setGenCount}

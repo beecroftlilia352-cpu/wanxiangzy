@@ -34,6 +34,7 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -46,6 +47,8 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem, type Tas
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { applyGenerationResponseStatus } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { useStudioPreview } from "@/hooks/use-studio-preview";
+import { useHistoryApply } from "@/hooks/use-history-apply";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -98,7 +101,7 @@ const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string; descKey?: string
 
 const BACKGROUND_SOURCE_OPTIONS: BackgroundSourceMode[] = ["preset", "upload", "text"];
 const CARD_ZOOM_BUTTON_CLASS =
-  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-[var(--codex-accent)] focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 max-lg:opacity-100";
+  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-codex-muted opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-[var(--codex-accent)] focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 max-lg:opacity-100";
 
 type ModelBackgroundPreviewAction = ImagePreviewAction & { labelKey?: string };
 
@@ -233,39 +236,35 @@ export default function ModelBackgroundPage() {
     : 0;
   const activeSourceUrl = sourceUrls[activeSourceIdx] || "";
 
-  const previewSession = useMemo(
-    () => createGenericImagePreviewSession({
-      module: "modelBackground",
-      title: t("title"),
-      urls: resultUrls,
-      expectedCount: activeResultExpectedCount,
-      isGenerating,
-      statusGroup: isGenerating ? "running" : undefined,
-      references: [
-        ...(activeSourceUrl ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? t("sourceIndexed", { index: activeSourceIdx + 1 }) : t("source"), role: "source" as const }] : []),
-        ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: t("modelReference"), role: "model" as const }] : []),
-        ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: t("backgroundReference"), role: "background" as const }] : []),
-      ],
-      promptText: [
-        mode !== "model_only" && backgroundSource === "text" && backgroundText.trim() !== DEFAULT_BACKGROUND_TEXT
-          ? t("backgroundDescription", { text: backgroundText })
-          : "",
-        userPrompt,
-      ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
-      metaItems: [
-        { label: t("meta.mode"), value: t(`mode.${mode}`) },
-        { label: t("meta.backgroundSource"), value: mode === "model_only" ? null : t(`sourceMode.${backgroundSource}`) },
-        { label: t("meta.backgroundTemplate"), value: backgroundSource === "preset" && mode !== "model_only" ? selectedBackgroundPreset.name : null },
-        { label: t("meta.model"), value: aiModel },
-        { label: t("meta.aspectRatio"), value: aspectRatio },
-        { label: t("meta.resolution"), value: imageSize },
-        { label: t("meta.genCount"), value: genCount },
-      ],
-      resultTitlePrefix: t("resultTitlePrefix"),
-      aspectRatio,
-    }),
-    [activeResultExpectedCount, aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, resultUrls, selectedBackgroundPreset.name, userPrompt, activeSourceUrl, activeSourceIdx, t]
-  );
+  const previewSession = useStudioPreview({
+    module: "modelBackground",
+    title: t("title"),
+    urls: resultUrls,
+    expectedCount: activeResultExpectedCount,
+    isGenerating,
+    references: [
+      ...(activeSourceUrl ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? t("sourceIndexed", { index: activeSourceIdx + 1 }) : t("source"), role: "source" as const }] : []),
+      ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: t("modelReference"), role: "model" as const }] : []),
+      ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: t("backgroundReference"), role: "background" as const }] : []),
+    ],
+    promptText: [
+      mode !== "model_only" && backgroundSource === "text" && backgroundText.trim() !== DEFAULT_BACKGROUND_TEXT
+        ? t("backgroundDescription", { text: backgroundText })
+        : "",
+      userPrompt,
+    ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
+    metaItems: [
+      { label: t("meta.mode"), value: t(`mode.${mode}`) },
+      { label: t("meta.backgroundSource"), value: mode === "model_only" ? null : t(`sourceMode.${backgroundSource}`) },
+      { label: t("meta.backgroundTemplate"), value: backgroundSource === "preset" && mode !== "model_only" ? selectedBackgroundPreset.name : null },
+      { label: t("meta.model"), value: aiModel },
+      { label: t("meta.aspectRatio"), value: aspectRatio },
+      { label: t("meta.resolution"), value: imageSize },
+      { label: t("meta.genCount"), value: genCount },
+    ],
+    resultTitlePrefix: t("resultTitlePrefix"),
+    aspectRatio,
+  });
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const unitCost = getCreditCost(aiModel, imageSize, aspectRatio);
   const cost = unitCost * requestedResultCount;
@@ -274,6 +273,139 @@ export default function ModelBackgroundPage() {
     title: t("title"),
     defaultExpectedCount: requestedResultCount,
     applyPath: "/model-background",
+  });
+
+  // 后台轮询：useGenerationPolling 替代 inline for-loop + setTimeout + fetch
+  // 关键 trick：服务端 status="completed" 但 result_urls 仍 < expectedCount 时
+  // 原逻辑是 continue（让后台继续投递），所以 isTerminal 里要核对该条件 + partialFailure.failedCount
+  const pollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    displayExpectedCount: number;
+    retryPreviousResultUrls: string[];
+    retryResultIndex: number | null;
+    taskInputThumbnails: string[];
+    latestTaskResultUrlsRef: { current: string[] };
+    setProgress: (p: number) => void;
+    setResultUrls: (urls: string[]) => void;
+    setIsGenerating: (b: boolean) => void;
+    setError: (msg: string) => void;
+    refreshCredits: () => Promise<number | null | undefined>;
+    taskQueue: typeof taskQueue;
+  } | null>(null);
+
+  const { start: startModelBackgroundPolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown; expectedCount?: number; resultCount?: number; failedCount?: number };
+  }>({
+    id: "",
+    buildUrl: (id) => {
+      const ctx = pollCtxRef.current;
+      return `/api/model-background?generation_id=${encodeURIComponent(ctx?.generationId ?? id)}`;
+    },
+    isTerminal: (state) => {
+      const ctx = pollCtxRef.current;
+      if (state.status === "failed") return true;
+      if (state.status === "completed") {
+        const count = Array.isArray(state.result_urls) ? state.result_urls.length : 0;
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { failedCount?: number })
+          : null;
+        const serverReportedPartialFailure = Boolean(
+          state.error || (partialFailure && (partialFailure.failedCount || 0) > 0)
+        );
+        if (serverReportedPartialFailure) return true;
+        if (!ctx) return count > 0; // 兜底
+        return count >= ctx.displayExpectedCount;
+      }
+      return false;
+    },
+    intervalMs: 2000,
+    maxAttempts: 120,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+
+      // 先把 result_urls 推到 UI（即便后面要走"继续 running"分支，也要先展示）
+      if (Array.isArray(state.result_urls) && state.result_urls.length) {
+        ctx.latestTaskResultUrlsRef.current = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          state.result_urls,
+          ctx.displayExpectedCount
+        );
+        ctx.setResultUrls(ctx.latestTaskResultUrlsRef.current);
+      }
+
+      // 终端态交给 onComplete
+      if (state.status === "completed" || state.status === "failed") return;
+
+      const nextProgress = Number(state.progress);
+      const runningProgress = Number.isFinite(nextProgress)
+        ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+        : 24; // hook 拿不到 attempts，原 25 + attempts*1.5 渐进 fallback 改为 24
+      ctx.setProgress(runningProgress);
+      ctx.taskQueue.markRunning(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        progress: runningProgress,
+        status: state.status,
+      });
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+
+      const finalUrls = mergeRetryResultUrls(
+        ctx.retryPreviousResultUrls,
+        ctx.retryResultIndex,
+        Array.isArray(state.result_urls) ? state.result_urls : ctx.latestTaskResultUrlsRef.current,
+        ctx.displayExpectedCount
+      );
+      const finalResultCount = finalUrls.filter(Boolean).length;
+      const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+        ? (state.partial_failure as { message?: unknown; expectedCount?: number; resultCount?: number; failedCount?: number })
+        : null;
+      const completedError = state.error || partialFailure?.message || "";
+
+      // "completed 但 result_count < expected 且服务端没明确说失败" 的情况不会走到这里
+      // （isTerminal 已把它判为 false，等下一轮结果补齐才会 isTerminal=true）。
+      ctx.latestTaskResultUrlsRef.current = finalUrls;
+      ctx.setResultUrls(finalUrls);
+      ctx.setProgress(100);
+      ctx.setIsGenerating(false);
+      ctx.taskQueue.markCompleted(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: finalUrls,
+        resultCount: finalResultCount,
+        error: completedError ? summarizeGenerationError(completedError) : "",
+      });
+      if (completedError || finalResultCount < ctx.displayExpectedCount) {
+        void ctx.refreshCredits();
+        toast.warning(t("partialComplete", { count: finalResultCount, expected: ctx.displayExpectedCount }));
+      } else {
+        toast.success(t("generateComplete"));
+      }
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = summarizeGenerationError(error.message || t("generateTimeout"));
+      ctx.setError(message);
+      ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+      });
+      toast.error(message);
+      void ctx.refreshCredits();
+      ctx.setIsGenerating(false);
+    },
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = sourceUrls.length === 0
@@ -323,39 +455,17 @@ export default function ModelBackgroundPage() {
     if (!options?.silent) toast.success(t("historyApplied"));
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-    const detail = await takeApplyDetail("modelBackground");
-    const payload = detail?.payload;
-    if (cancelled || !payload) return;
-    const nextSource = normalizeBackgroundSourceMode(payload.backgroundSource);
-    const nextPreset = normalizeBackgroundPreset(payload.templateId);
-    setSourceUrls(normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl));
-    setModelReferenceUrl(payload.modelReferenceUrl || "");
-    setModelReferenceName(payload.modelReferenceUrl ? t("historyModel") : "");
-    setBackgroundReferenceUrl(payload.backgroundReferenceUrl || getBackgroundPreset(nextPreset).imageUrl);
-    setMode(normalizeModelBackgroundMode(payload.mode));
-    setBackgroundSource(nextSource === "auto" ? "preset" : nextSource);
-    setBackgroundPresetId(nextPreset);
-    setBackgroundText(payload.backgroundText || DEFAULT_BACKGROUND_TEXT);
-    setUserPrompt(payload.userPrompt || "");
-    setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio);
-    setImageSize(payload.imageSize);
-    setGenCount(payload.genCount);
-    setPromptOverride(payload.prompt);
-    setRunningExpectedCount(null);
-    setResultUrls(detail?.resultUrls || []);
-    setIsGenerating(false);
-    setProgress(detail?.resultUrls.length ? 100 : 0);
-    setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
-    toast.success(t("historyApplied"));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useHistoryApply({
+    kind: "modelBackground",
+    apply: (payload, resultUrls, { row }) => {
+      applyModelBackgroundHistoryPayload(payload, resultUrls, { silent: true });
+      if (isHistoryApplyRowFailed(row)) {
+        setError(getHistoryApplyFailureMessage(row));
+      }
+      toast.success(t("historyApplied"));
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   async function handleUpload(files: File[], target: UploadTarget) {
     const validFiles = files.filter((file) => {
@@ -459,7 +569,6 @@ export default function ModelBackgroundPage() {
       progress: 10,
     });
     let activeTaskId = provisionalTask.id;
-    let latestTaskResultUrls: string[] = [];
 
     try {
       const res = await fetch("/api/model-background", {
@@ -511,88 +620,30 @@ export default function ModelBackgroundPage() {
         });
         activeTaskId = serverTask.id;
       }
-      for (let attempts = 0; attempts < 120; attempts++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const poll = await fetch(`/api/model-background?generation_id=${data.generation_id}`);
-        if (!poll.ok) continue;
-        const state = await poll.json();
-        if (Array.isArray(state.result_urls) && state.result_urls.length) {
-          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
-          setResultUrls(latestTaskResultUrls);
-        }
-        if (state.status === "completed") {
-          const finalUrls = mergeRetryResultUrls(
-            retryPreviousResultUrls,
-            retryResultIndex,
-            Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls,
-            displayExpectedCount
-          );
-          const finalResultCount = finalUrls.filter(Boolean).length;
-          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
-            ? state.partial_failure as { message?: unknown; expectedCount?: number; resultCount?: number; failedCount?: number }
-            : null;
-          const completedError = state.error || partialFailure?.message || "";
-          // 同 face-swap：只有服务端给出 partialFailure / error_message 时才把空槽标失败；
-          // 否则保持 running，让后台继续投递的 url 能填进去。
-          const serverReportedPartialFailure = Boolean(
-            completedError
-            || (partialFailure && (partialFailure.failedCount || 0) > 0)
-          );
-          if (!serverReportedPartialFailure && finalResultCount < displayExpectedCount) {
-            latestTaskResultUrls = finalUrls;
-            setResultUrls(finalUrls);
-            const runningProgress = Math.min(99, 25 + attempts * 1.5);
-            setProgress(runningProgress);
-            taskQueue.markRunning(activeTaskId, {
-              expectedCount: displayExpectedCount,
-              inputThumbnails: runTaskInputThumbnails,
-              resultThumbnails: finalUrls,
-              resultCount: finalResultCount,
-              progress: runningProgress,
-              status: "processing",
-            });
-            continue;
-          }
-          setProgress(100);
-          setResultUrls(finalUrls);
-          setIsGenerating(false);
-          taskQueue.markCompleted(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: runTaskInputThumbnails,
-            resultThumbnails: finalUrls,
-            resultCount: finalResultCount,
-            error: completedError ? summarizeGenerationError(completedError) : "",
-          });
-          if (completedError || finalResultCount < displayExpectedCount) {
-            void refreshCredits();
-            toast.warning(t("partialComplete", { count: finalResultCount, expected: displayExpectedCount }));
-          } else {
-            toast.success(t("generateComplete"));
-          }
-          return;
-        }
-        if (state.status === "failed") throw new Error(state.error || t("generateFailed"));
-        const nextProgress = Number(state.progress);
-        const runningProgress = Number.isFinite(nextProgress)
-          ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
-          : Math.min(25 + attempts * 1.5, 90);
-        setProgress(runningProgress);
-        taskQueue.markRunning(activeTaskId, {
-          expectedCount: displayExpectedCount,
-          inputThumbnails: runTaskInputThumbnails,
-          resultThumbnails: latestTaskResultUrls,
-          progress: runningProgress,
-          status: state.status,
-        });
-      }
-      throw new Error(t("generateTimeout"));
+      // 后台轮询：useGenerationPolling 替代原 inline for-loop
+      pollCtxRef.current = {
+        activeTaskId,
+        generationId: typeof data.generation_id === "string" ? data.generation_id : "",
+        displayExpectedCount,
+        retryPreviousResultUrls,
+        retryResultIndex,
+        taskInputThumbnails: runTaskInputThumbnails,
+        latestTaskResultUrlsRef: { current: [] },
+        setProgress,
+        setResultUrls,
+        setIsGenerating,
+        setError,
+        refreshCredits,
+        taskQueue,
+      };
+      startModelBackgroundPolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
         inputThumbnails: runTaskInputThumbnails,
-        resultThumbnails: latestTaskResultUrls,
+        resultThumbnails: pollCtxRef.current?.latestTaskResultUrlsRef.current ?? [],
       });
       toast.error(message);
       void refreshCredits();
@@ -728,7 +779,7 @@ export default function ModelBackgroundPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> {t("operationMode")}</h3>
+            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-codex-ink"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> {t("operationMode")}</h3>
             <StudioOptionGrid
               options={MODE_OPTIONS.map((item) => ({
                 value: item.value,
@@ -745,10 +796,10 @@ export default function ModelBackgroundPage() {
           {mode !== "background_only" ? (
             <section>
               <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
-                <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> {t("modelReference")} <span className="text-purple-400 font-normal text-xs">· {t("required")}</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[11px]">{t("pleaseSelect")}</span>
+                <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> {t("modelReference")} <span className="text-[var(--codex-accent-72)] font-normal text-xs">· {t("required")}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-[var(--codex-accent-10)] text-[var(--codex-accent)] text-[11px]">{t("pleaseSelect")}</span>
               </h3>
-              <p className="text-[12px] text-gray-400 mb-3">
+              <p className="text-[12px] text-codex-faint mb-3">
                 {mode === "model_only" ? t("modelOnlyDesc") : t("modelBackgroundDesc")}
               </p>
               <input
@@ -768,7 +819,7 @@ export default function ModelBackgroundPage() {
                 {PRESET_BACKGROUND_MODELS.map((model) => (
                   <div
                     key={model.id}
-                    className={`group relative overflow-hidden rounded-lg border-2 transition-shadow ${modelReferenceUrl === model.imageUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:shadow-md"}`}
+                    className={`group relative overflow-hidden rounded-lg border-2 transition-shadow ${modelReferenceUrl === model.imageUrl ? "border-[var(--codex-accent)] ring-1 ring-[var(--codex-accent-25)]" : "border-transparent hover:shadow-md"}`}
                   >
                     <button
                       type="button"
@@ -793,11 +844,11 @@ export default function ModelBackgroundPage() {
                     {modelReferenceUrl === model.imageUrl ? <CheckCircle2 className="absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-white dark:bg-white/10 text-emerald-500" /> : null}
                   </div>
                 ))}
-                <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-colors ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:bg-purple-50/40"}`}>
+                <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-colors ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-[var(--codex-accent-55)] bg-[var(--codex-accent-08)]" : "border-[var(--codex-border)] hover:bg-[var(--codex-accent-08)]"}`}>
                   <button type="button" onClick={() => modelInputRef.current?.click()} className="flex aspect-square w-full flex-col items-center justify-center">
                     {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl)
                       ? <RawPreviewImage src={modelReferenceUrl} alt={modelReferenceName || t("customModel")} className="h-full w-full rounded-lg object-contain p-1" />
-                      : <><Camera className="w-5 h-5 text-gray-300" /><span className="mt-1 text-[11px] text-gray-400">{t("clickToUpload")}</span></>
+                      : <><Camera className="w-5 h-5 text-codex-faint" /><span className="mt-1 text-[11px] text-codex-faint">{t("clickToUpload")}</span></>
                     }
                   </button>
                   {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? (
@@ -817,10 +868,10 @@ export default function ModelBackgroundPage() {
 
           {mode !== "model_only" ? (
             <section>
-              <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100">
+              <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-codex-ink">
                 <Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("referenceScene")}
               </h3>
-              <p className="mb-3 text-[12px] text-slate-400">{t("referenceSceneHint")}</p>
+              <p className="mb-3 text-[12px] text-codex-faint">{t("referenceSceneHint")}</p>
               <div className="mb-3">
                 <StudioOptionGrid
                   options={BACKGROUND_SOURCE_OPTIONS.map((item) => ({
@@ -856,11 +907,11 @@ export default function ModelBackgroundPage() {
                 }}
               />
               {backgroundSource === "preset" ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/55 p-3">
-                  <p className="mb-3 text-[12px] text-slate-500">{t("presetSelectHint")}</p>
+                <div className="rounded-2xl border border-dashed border-[var(--codex-border)] bg-white/55 p-3">
+                  <p className="mb-3 text-[12px] text-codex-faint">{t("presetSelectHint")}</p>
                   <div className="grid grid-cols-3 gap-2">
                     {BACKGROUND_PRESETS.map((item) => (
-                      <div key={item.id} className={`group relative overflow-hidden rounded-xl border bg-white text-center shadow-sm transition-shadow ${backgroundPresetId === item.id ? "border-purple-500 ring-2 ring-purple-100" : "border-slate-100 hover:shadow-md"}`}>
+                      <div key={item.id} className={`group relative overflow-hidden rounded-xl border bg-codex-surface text-center shadow-sm transition-shadow ${backgroundPresetId === item.id ? "border-[var(--codex-accent)] ring-2 ring-[var(--codex-accent-25)]" : "border-[var(--codex-border)] hover:shadow-md"}`}>
                         <button
                           type="button"
                           onClick={() => {
@@ -870,10 +921,10 @@ export default function ModelBackgroundPage() {
                           }}
                           className="block w-full"
                         >
-                          <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
+                          <div className="relative aspect-[3/4] overflow-hidden bg-[var(--codex-surface-soft)]">
                             <RawPreviewImage src={item.imageUrl} alt={item.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                           </div>
-                          <p className="truncate px-1.5 py-1.5 text-[12px] font-bold text-slate-800">{item.name}</p>
+                          <p className="truncate px-1.5 py-1.5 text-[12px] font-bold text-codex-ink">{item.name}</p>
                         </button>
                         <button
                           type="button"
@@ -889,7 +940,7 @@ export default function ModelBackgroundPage() {
                   </div>
                 </div>
               ) : backgroundSource === "upload" ? (
-                <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone studio-fixed-upload-slot flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 p-3 text-center transition hover:bg-purple-50/40" style={{ "--studio-fixed-upload-height": "328px" } as CSSProperties}>
+                <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone studio-fixed-upload-slot flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[var(--codex-border)] p-3 text-center transition hover:bg-[var(--codex-accent-08)]" style={{ "--studio-fixed-upload-height": "328px" } as CSSProperties}>
                   {backgroundReferenceUrl ? (
                     <div className="studio-fixed-upload-preview studio-checkerboard relative mb-2 overflow-hidden rounded-xl" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
                       <RawPreviewImage src={backgroundReferenceUrl} alt={t("backgroundReference")} className="h-full w-full object-contain p-2" />
@@ -904,19 +955,19 @@ export default function ModelBackgroundPage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-codex-surface shadow-sm">
                       <Images className="h-7 w-7 text-[var(--codex-accent)]" />
                     </div>
                   )}
-                  <span className="text-sm font-semibold text-slate-800">{backgroundReferenceUrl ? t("changeBackgroundReference") : t("uploadBackgroundReference")}</span>
-                  <span className="mt-1 block text-xs leading-relaxed text-slate-500">{t("uploadBackgroundHint")}</span>
+                  <span className="text-sm font-semibold text-codex-ink">{backgroundReferenceUrl ? t("changeBackgroundReference") : t("uploadBackgroundReference")}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-codex-faint">{t("uploadBackgroundHint")}</span>
                 </button>
               ) : (
                 <div className="space-y-3">
                 <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder={t("backgroundTextPlaceholder")} />
                   <div className="flex flex-wrap gap-2">
                     {BACKGROUND_TEXT_PRESETS.map((preset) => (
-                      <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="inline-flex min-h-9 items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] text-slate-600 transition-colors duration-150 hover:border-[rgba(91,124,255,0.45)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300">
+                      <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="inline-flex min-h-9 items-center rounded-full border border-[var(--codex-border)] bg-codex-surface px-3 py-1.5 text-[12px] text-codex-muted transition-colors duration-150 hover:border-[var(--codex-accent-45)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-white/5 dark:text-codex-muted">
                         {preset}
                       </button>
                     ))}
@@ -936,7 +987,7 @@ export default function ModelBackgroundPage() {
           />
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genModel")}</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genModel")}</h3>
             <StudioModelSelector
               models={modelOptions}
               value={aiModel}
@@ -951,7 +1002,7 @@ export default function ModelBackgroundPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution")}</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> {t("resolution")}</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
@@ -964,7 +1015,7 @@ export default function ModelBackgroundPage() {
             />
           </section>
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genCount")}</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genCount")}</h3>
             <GenerationCountField
               value={genCount}
               onChange={setGenCount}

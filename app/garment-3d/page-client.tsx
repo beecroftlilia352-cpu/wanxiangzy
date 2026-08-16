@@ -21,6 +21,7 @@ import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -33,6 +34,8 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { useStudioPreview } from "@/hooks/use-studio-preview";
+import { useHistoryApply } from "@/hooks/use-history-apply";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -158,6 +161,127 @@ export default function Garment3dPage() {
     applyPath: "/garment-3d",
   });
 
+  // 后台轮询：useGenerationPolling 替代 inline while-loop
+  const pollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    displayExpectedCount: number;
+    retryPreviousResultUrls: string[];
+    retryResultIndex: number | null;
+    taskInputThumbnails: string[];
+    latestTaskResultUrlsRef: { current: string[] };
+    setProgress: (p: number) => void;
+    setResultUrls: (urls: string[]) => void;
+    setIsGenerating: (b: boolean) => void;
+    setError: (msg: string) => void;
+    refreshCredits: () => Promise<number | null | undefined>;
+    taskQueue: typeof taskQueue;
+  } | null>(null);
+
+  const { start: startGarment3dPolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown };
+  }>({
+    id: "",
+    buildUrl: (id) => {
+      const ctx = pollCtxRef.current;
+      return `/api/garment-3d?generation_id=${encodeURIComponent(ctx?.generationId ?? id)}`;
+    },
+    isTerminal: (state) => state.status === "completed" || state.status === "failed",
+    intervalMs: 2000,
+    maxAttempts: 120,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      if (state.status === "completed" || state.status === "failed") return;
+
+      if (Array.isArray(state.result_urls) && state.result_urls.length) {
+        ctx.latestTaskResultUrlsRef.current = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          state.result_urls,
+          ctx.displayExpectedCount
+        );
+        ctx.setResultUrls(ctx.latestTaskResultUrlsRef.current);
+      }
+      const nextProgress = Number(state.progress);
+      if (Number.isFinite(nextProgress)) {
+        ctx.setProgress(Math.min(Math.max(Math.round(nextProgress), 0), 99));
+      }
+      ctx.taskQueue.markRunning(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
+        progress: Number.isFinite(nextProgress) ? Math.min(Math.max(Math.round(nextProgress), 0), 99) : 24,
+        status: state.status || "processing",
+      });
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      if (state.status === "completed") {
+        const finalUrls = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          Array.isArray(state.result_urls) ? state.result_urls : ctx.latestTaskResultUrlsRef.current,
+          ctx.displayExpectedCount
+        );
+        ctx.latestTaskResultUrlsRef.current = finalUrls;
+        const finalResultCount = finalUrls.filter(Boolean).length;
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { message?: unknown })
+          : null;
+        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        ctx.setProgress(100);
+        ctx.setResultUrls(finalUrls);
+        ctx.taskQueue.markCompleted(ctx.activeTaskId, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+          error: completedError ? summarizeGenerationError(completedError) : "",
+        });
+        if (completedError || finalResultCount < ctx.displayExpectedCount) {
+          void ctx.refreshCredits();
+          toast.warning(t("partialCompleteToast", { done: finalResultCount, total: ctx.displayExpectedCount }));
+        } else {
+          toast.success(t("generationComplete"));
+        }
+        return;
+      }
+      if (state.status === "failed") {
+        const message = summarizeGenerationError(state.error || t("generationFailed"));
+        ctx.setError(message);
+        ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+          resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
+        });
+        toast.error(message);
+        void ctx.refreshCredits();
+      }
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = summarizeGenerationError(error.message || t("generationTimeout"));
+      ctx.setError(message);
+      ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
+      });
+      toast.error(message);
+      void ctx.refreshCredits();
+    },
+  });
+
   const builtPrompt = useMemo(() => {
     return buildGarment3dPrompt({
       garmentType: garmentType === "其他" ? customGarmentType || "其他服装" : garmentType,
@@ -191,33 +315,29 @@ export default function Garment3dPage() {
       toastMessage: t("retryMissingToast", { index: index + 1 }),
     });
   }
-  const previewSession = useMemo(
-    () => createGenericImagePreviewSession({
-      module: "garment3d",
-      title: t("moduleLabel"),
-      urls: resultUrls,
-      expectedCount: activeResultExpectedCount,
-      isGenerating,
-      statusGroup: isGenerating ? "running" : undefined,
-      references: [
-        ...(garmentUrl ? [{ url: garmentUrl, label: t("referenceGarmentLabel"), role: "garment" as const }] : []),
-        ...(outputMode === "reference" && activeReferenceUrl ? [{ url: activeReferenceUrl, label: customReferenceUrl ? t("referenceCustomLabel") : (selectedReference.labelKey ? t(selectedReference.labelKey) : selectedReference.label), role: "reference" as const }] : []),
-      ],
-      promptText: prompt.trim() && prompt.trim() !== DEFAULT_PROMPT ? prompt : "",
-      metaItems: [
-        { label: t("metaGarmentType"), value: garmentType === "其他" ? customGarmentType : translateGarmentType(t, garmentType) },
-        { label: t("metaOutputMode"), value: outputMode === "reference" ? t("outputModeReferenceValue") : t("outputModePromptValue") },
-        { label: t("metaDisplayStyle"), value: displayStyleLabel },
-        { label: t("metaModel"), value: aiModel },
-        { label: t("metaAspect"), value: aspectRatio },
-        { label: t("metaResolution"), value: imageSize },
-        { label: t("metaCount"), value: genCount },
-      ],
-      resultTitlePrefix: t("resultTitlePrefix"),
-      aspectRatio,
-    }),
-    [activeReferenceUrl, activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, customReferenceUrl, displayStyleLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, outputMode, prompt, resultUrls, selectedReference.label]
-  );
+  const previewSession = useStudioPreview({
+    module: "garment3d",
+    title: t("moduleLabel"),
+    urls: resultUrls,
+    expectedCount: activeResultExpectedCount,
+    isGenerating,
+    references: [
+      ...(garmentUrl ? [{ url: garmentUrl, label: t("referenceGarmentLabel"), role: "garment" as const }] : []),
+      ...(outputMode === "reference" && activeReferenceUrl ? [{ url: activeReferenceUrl, label: customReferenceUrl ? t("referenceCustomLabel") : (selectedReference.labelKey ? t(selectedReference.labelKey) : selectedReference.label), role: "reference" as const }] : []),
+    ],
+    promptText: prompt.trim() && prompt.trim() !== DEFAULT_PROMPT ? prompt : "",
+    metaItems: [
+      { label: t("metaGarmentType"), value: garmentType === "其他" ? customGarmentType : translateGarmentType(t, garmentType) },
+      { label: t("metaOutputMode"), value: outputMode === "reference" ? t("outputModeReferenceValue") : t("outputModePromptValue") },
+      { label: t("metaDisplayStyle"), value: displayStyleLabel },
+      { label: t("metaModel"), value: aiModel },
+      { label: t("metaAspect"), value: aspectRatio },
+      { label: t("metaResolution"), value: imageSize },
+      { label: t("metaCount"), value: genCount },
+    ],
+    resultTitlePrefix: t("resultTitlePrefix"),
+    aspectRatio,
+  });
   const runDisabledReason = !garmentUrl
     ? t("garmentReadyRequired")
     : credits !== null && credits < totalCost
@@ -259,20 +379,16 @@ export default function Garment3dPage() {
     if (!options?.silent) toast.success(t("historyApplySuccess"));
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const detail = await takeApplyDetail("garment3d");
-      if (cancelled || !detail) return;
-      applyGarment3dHistoryPayload(detail.payload, detail.resultUrls);
-      if (isHistoryApplyRowFailed(detail.row)) {
-        setError(getHistoryApplyFailureMessage(detail.row));
+  useHistoryApply({
+    kind: "garment3d",
+    apply: (payload, resultUrls, { row }) => {
+      applyGarment3dHistoryPayload(payload, resultUrls, { silent: true });
+      if (isHistoryApplyRowFailed(row)) {
+        setError(getHistoryApplyFailureMessage(row));
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   async function handleGarmentFiles(files: FileList | File[]) {
     const file = Array.from(files)[0];
@@ -422,7 +538,6 @@ export default function Garment3dPage() {
       progress: 12,
     });
     let activeTaskId = provisionalTask.id;
-    let latestTaskResultUrls: string[] = [];
 
     try {
       const submittedFinalPrompt = typeof finalPromptForRun === "string" ? finalPromptForRun : finalPrompt;
@@ -489,7 +604,6 @@ export default function Garment3dPage() {
           Array.isArray(data.result_urls) ? data.result_urls : [],
           displayExpectedCount
         );
-        latestTaskResultUrls = finalUrls;
         const finalResultCount = finalUrls.filter(Boolean).length;
         const completedError = data.error || "";
         setProgress(100);
@@ -510,78 +624,31 @@ export default function Garment3dPage() {
         return;
       }
 
-      let attempts = 0;
-      while (attempts < 120) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        attempts++;
-        const fallbackProgress = Math.min(18 + attempts * 1.6, 92);
-        let runningProgress = fallbackProgress;
-        setProgress(fallbackProgress);
-
-        const poll = await fetch(`/api/garment-3d?generation_id=${data.generation_id}`);
-        if (!poll.ok) continue;
-        const pollData = await poll.json();
-        if (Array.isArray(pollData.result_urls) && pollData.result_urls.length) {
-          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, pollData.result_urls, displayExpectedCount);
-          setResultUrls(latestTaskResultUrls);
-        }
-        const nextProgress = Number(pollData.progress);
-        if (Number.isFinite(nextProgress)) {
-          runningProgress = Math.min(Math.max(Math.round(nextProgress), 0), 99);
-          setProgress(runningProgress);
-        }
-        taskQueue.markRunning(activeTaskId, {
-          expectedCount: displayExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          resultThumbnails: latestTaskResultUrls,
-          resultCount: latestTaskResultUrls.filter(Boolean).length,
-          progress: runningProgress,
-          status: pollData.status || "processing",
-        });
-
-        if (pollData.status === "completed") {
-          const finalUrls = mergeRetryResultUrls(
-            retryPreviousResultUrls,
-            retryResultIndex,
-            Array.isArray(pollData.result_urls) ? pollData.result_urls : latestTaskResultUrls,
-            displayExpectedCount
-          );
-          latestTaskResultUrls = finalUrls;
-          const finalResultCount = finalUrls.filter(Boolean).length;
-          const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
-            ? pollData.partial_failure as { message?: unknown }
-            : null;
-          const completedError = pollData.error || partialFailure?.message || "";
-          setProgress(100);
-          setResultUrls(finalUrls);
-          taskQueue.markCompleted(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: taskInputThumbnails,
-            resultThumbnails: finalUrls,
-            resultCount: finalResultCount,
-            error: completedError ? summarizeGenerationError(completedError) : "",
-          });
-          if (completedError || finalResultCount < displayExpectedCount) {
-            void refreshCredits();
-            toast.warning(t("partialCompleteToast", { done: finalResultCount, total: displayExpectedCount }));
-          } else {
-            toast.success(t("generationComplete"));
-          }
-          return;
-        }
-        if (pollData.status === "failed") {
-          throw new Error(pollData.error || t("generationFailed"));
-        }
-      }
-      throw new Error(t("generationTimeout"));
+      // 后台轮询：useGenerationPolling 替代原 inline while-loop
+      pollCtxRef.current = {
+        activeTaskId,
+        generationId: typeof data.generation_id === "string" ? data.generation_id : "",
+        displayExpectedCount,
+        retryPreviousResultUrls,
+        retryResultIndex,
+        taskInputThumbnails,
+        latestTaskResultUrlsRef: { current: [] },
+        setProgress,
+        setResultUrls,
+        setIsGenerating,
+        setError,
+        refreshCredits,
+        taskQueue,
+      };
+      startGarment3dPolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("operationFailed"));
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
-        resultThumbnails: latestTaskResultUrls,
-        resultCount: latestTaskResultUrls.filter(Boolean).length,
+        resultThumbnails: pollCtxRef.current?.latestTaskResultUrlsRef.current ?? [],
+        resultCount: pollCtxRef.current?.latestTaskResultUrlsRef.current.filter(Boolean).length ?? 0,
       });
       toast.error(message);
       void refreshCredits();
@@ -725,7 +792,7 @@ export default function Garment3dPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("garmentTypeSectionTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("garmentTypeSectionTitle")}</h3>
             <StudioOptionGrid
               options={GARMENT_TYPE_OPTIONS.map((type) => ({
                 value: type,
@@ -747,7 +814,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("outputModeSectionTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("outputModeSectionTitle")}</h3>
             <StudioOptionGrid
               options={[
                 { value: "reference" as const, label: t("outputModeReference") },
@@ -771,8 +838,8 @@ export default function Garment3dPage() {
                   {REFERENCE_PRESETS.map((ref) => (
                     <div
                       key={ref.id}
-                      className={`group relative aspect-square rounded-lg overflow-hidden border bg-gray-50 dark:bg-white/4 ${
-                        !customReferenceUrl && selectedReference.id === ref.id ? "border-purple-500 ring-2 ring-purple-100" : "border-gray-200"
+                      className={`group relative aspect-square rounded-lg overflow-hidden border bg-[var(--codex-surface-soft)] dark:bg-white/4 ${
+                        !customReferenceUrl && selectedReference.id === ref.id ? "border-[var(--codex-accent)] ring-2 ring-[var(--codex-accent-25)]" : "border-[var(--codex-border)]"
                       }`}
                     >
                       <button
@@ -789,7 +856,7 @@ export default function Garment3dPage() {
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(ref.url); }}
                         aria-label={t("zoomPreview")}
                         title={t("zoomPreview")}
-                        className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 dark:bg-white/5 text-gray-700 shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center hover:bg-white"
+                        className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 dark:bg-white/5 text-codex-ink shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center hover:bg-white"
                       >
                         <ZoomIn className="w-3.5 h-3.5" />
                       </button>
@@ -798,11 +865,11 @@ export default function Garment3dPage() {
                   <button
                     onClick={() => referenceInputRef.current?.click()}
                     className={`aspect-square rounded-lg border-2 border-dashed flex items-center justify-center ${
-                      customReferenceUrl ? "border-purple-500 bg-purple-50" : "border-gray-200"
+                      customReferenceUrl ? "border-[var(--codex-accent)] bg-[var(--codex-accent-08)]" : "border-[var(--codex-border)]"
                     }`}
                     title={t("uploadReference")}
                   >
-                    <Plus className="w-5 h-5 text-gray-400 dark:text-stone-500" />
+                    <Plus className="w-5 h-5 text-codex-faint" />
                   </button>
                 </div>
                 <input
@@ -817,12 +884,12 @@ export default function Garment3dPage() {
                     });
                   }}
                 />
-                <p className="text-[11px] text-gray-400 dark:text-stone-500">{t("referenceHint")}</p>
+                <p className="text-[11px] text-codex-faint">{t("referenceHint")}</p>
               </div>
             )}
 
             <div className="mt-3">
-              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("displayStyleSectionTitle")}</h3>
+              <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("displayStyleSectionTitle")}</h3>
               <StudioOptionGrid
                 options={GARMENT_3D_DISPLAY_STYLES.map((style) => ({
                   value: style.value,
@@ -837,7 +904,7 @@ export default function Garment3dPage() {
                 columns={2}
                 ariaLabel={t("displayStyleSectionTitle")}
               />
-              <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-stone-500">
+              <p className="mt-2 text-[11px] leading-relaxed text-codex-faint">
                 {t("displayStyleHint")}
               </p>
             </div>
@@ -871,7 +938,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("modelSectionTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("modelSectionTitle")}</h3>
             <StudioModelSelector
               models={modelOptions}
               value={aiModel}
@@ -881,7 +948,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("aspectSectionTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("aspectSectionTitle")}</h3>
             <StudioOptionGrid
               options={[
                 { value: "auto", label: t("aspectAuto") },
@@ -896,7 +963,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("sizeSectionTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("sizeSectionTitle")}</h3>
             <StudioOptionGrid
               options={useImageSizeOptions(imageSizes, (size) => getCreditCost(aiModel, size, aspectRatio), t("sizeUnit"))}
               value={imageSize}
@@ -906,7 +973,7 @@ export default function Garment3dPage() {
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("countSectionTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("countSectionTitle")}</h3>
             <GenerationCountField
               value={genCount}
               onChange={setGenCount}

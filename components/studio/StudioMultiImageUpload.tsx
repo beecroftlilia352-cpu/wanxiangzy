@@ -226,7 +226,7 @@ export function StudioMultiImageUpload({
 
       {loading && (
         <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/62 backdrop-blur-[2px]">
-          <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-slate-700 shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
+          <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-codex-ink shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
             <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" />
             <span>{t("uploadingDots")}</span>
           </div>

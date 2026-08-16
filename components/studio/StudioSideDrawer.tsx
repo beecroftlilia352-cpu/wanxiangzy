@@ -67,8 +67,8 @@ export function StudioSideDrawer({
           onPointerUp={onPointerUp}
         />
         <SheetHeader className="studio-side-drawer-header pr-14 text-left">
-          <SheetTitle className="truncate text-lg font-black text-slate-950">{title}</SheetTitle>
-          <SheetDescription className={cn("text-xs font-semibold leading-5 text-slate-500", !description && "sr-only")}>
+          <SheetTitle className="truncate text-lg font-black text-codex-ink">{title}</SheetTitle>
+          <SheetDescription className={cn("text-xs font-semibold leading-5 text-codex-muted", !description && "sr-only")}>
             {description || ariaLabel || `${title}${t("drawerSuffix")}`}
           </SheetDescription>
         </SheetHeader>

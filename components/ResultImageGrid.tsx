@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Clapperboard, Download, Eye, Loader2, RotateCcw, WandSparkles, XCircle } from "lucide-react";
+import { Clapperboard, Download, Eye, Loader2, RotateCcw, Sparkles, WandSparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -48,6 +48,12 @@ type ResultImageGridProps = {
   cellLabels?: string[];
   tileAspectRatio?: string;
   reducePendingMotion?: boolean;
+  /**
+   * Best-pick index — if provided, the corresponding slot gets a "最佳" badge
+   * (i18n key `Shared.bestPick`) and a subtle accent ring. Use to surface
+   * the highest-confidence result when results finish streaming.
+   */
+  bestPickIndex?: number | null;
 };
 
 export type ResultInputReference = {
@@ -103,6 +109,7 @@ export function ResultImageGrid({
   cellLabels,
   tileAspectRatio,
   reducePendingMotion = false,
+  bestPickIndex = null,
 }: ResultImageGridProps) {
   const t = useTranslations("Shared");
   const resolvedImageAltPrefix = imageAltPrefix ?? t("resultImageAlt");
@@ -127,6 +134,36 @@ export function ResultImageGrid({
     ].join("::"),
     [createdAt, expectedCount, renderKey, statusGroup, urls]
   );
+
+  // Track which slots transitioned from null → URL on this render. The set
+  // is committed in an effect (avoids setState-during-render) and the slot
+  // is removed after the pulse animation completes (~1.4s) so the
+  // className doesn't keep re-applying the keyframe.
+  const previousUrlsRef = useRef<string[]>(urls);
+  const [newResultIndexes, setNewResultIndexes] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (reducePendingMotion) return;
+    const prev = previousUrlsRef.current;
+    const additions: number[] = [];
+    for (let index = 0; index < urls.length; index += 1) {
+      if (urls[index] && !prev[index]) additions.push(index);
+    }
+    previousUrlsRef.current = urls;
+    if (!additions.length) return;
+    setNewResultIndexes((current) => {
+      const next = new Set(current);
+      additions.forEach((idx) => next.add(idx));
+      return next;
+    });
+    const timer = setTimeout(() => {
+      setNewResultIndexes((current) => {
+        const next = new Set(current);
+        additions.forEach((idx) => next.delete(idx));
+        return next;
+      });
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [urls, reducePendingMotion]);
   const previousGeneratingRef = useRef(false);
   const [referenceSnapshot, setReferenceSnapshot] = useState<{ key: string; items: ResultInputReference[] } | null>(null);
 
@@ -198,6 +235,8 @@ export function ResultImageGrid({
                   failureActionDisabled={missingFailureActionDisabled}
                   cellLabel={cellLabels?.[index]}
                   tileAspectRatio={tileAspectRatio}
+                  isNew={newResultIndexes.has(index)}
+                  isBestPick={bestPickIndex === index}
                 />
               );
             })}
@@ -235,6 +274,8 @@ export function ResultImageGrid({
             onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
             failureActionDisabled={missingFailureActionDisabled}
             tileAspectRatio={tileAspectRatio}
+            isNew={newResultIndexes.has(index)}
+            isBestPick={bestPickIndex === index}
           />
         );
       })}
@@ -275,6 +316,12 @@ type ResultCardProps = {
   failureActionDisabled?: boolean;
   cellLabel?: string;
   tileAspectRatio?: string;
+  /** True when the slot transitioned from null → URL on this render. Drives
+   *  the "new result" pulse animation. */
+  isNew?: boolean;
+  /** True when this slot is the module's best-pick. Drives the 最佳 badge
+   *  and an accent ring. */
+  isBestPick?: boolean;
 };
 
 const ResultCard = memo(function ResultCard({
@@ -297,6 +344,8 @@ const ResultCard = memo(function ResultCard({
   failureActionDisabled,
   cellLabel,
   tileAspectRatio,
+  isNew = false,
+  isBestPick = false,
 }: ResultCardProps) {
   const t = useTranslations("Shared");
   const router = useRouter();
@@ -319,8 +368,18 @@ const ResultCard = memo(function ResultCard({
   return (
     <TooltipProvider>
       <div
-        className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${isSingle ? "mx-auto max-w-full" : ""}`}
+        className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${isSingle ? "mx-auto max-w-full" : ""} ${isNew ? "studio-result-card-new" : ""} ${isBestPick ? "studio-result-card-best" : ""}`}
       >
+        {isBestPick && (
+          <span
+            aria-label={t("bestPick")}
+            title={t("bestPick")}
+            className="studio-result-best-pick-badge pointer-events-none absolute right-1.5 top-1.5 z-[3] inline-flex items-center gap-1 rounded-full bg-[var(--codex-accent)] px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm"
+          >
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            {t("bestPick")}
+          </span>
+        )}
         {url ? (
           <button
             type="button"
@@ -334,7 +393,7 @@ const ResultCard = memo(function ResultCard({
         ) : null}
         {cellLabel ? (
           <span
-            className="pointer-events-none absolute left-1.5 top-1.5 z-[2] inline-flex max-w-[calc(100%-12px)] items-center gap-1 rounded-full bg-slate-900/82 px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm backdrop-blur"
+            className="pointer-events-none absolute left-1.5 top-1.5 z-[2] inline-flex max-w-[calc(100%-12px)] items-center gap-1 rounded-full bg-codex-ink/82 px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm backdrop-blur"
             title={cellLabel}
           >
             <span className="truncate">{cellLabel}</span>
@@ -347,9 +406,9 @@ const ResultCard = memo(function ResultCard({
               alt={`${imageAltPrefix} ${index + 1}`}
             />
           ) : completedMissing ? (
-            <div className="studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-100/70 text-slate-500 dark:bg-slate-800/40 dark:text-slate-300">
+            <div className="studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-1 bg-[var(--codex-surface-soft)]/70 text-codex-muted dark:bg-[var(--codex-surface-strong)]/40 dark:text-codex-faint">
               <p className="text-xs font-semibold">{t("completedMissing")}</p>
-              <p className="px-4 text-center text-[11px] leading-4 text-slate-400 dark:text-slate-500">{t("noImageResult")}</p>
+              <p className="px-4 text-center text-[11px] leading-4 text-codex-faint dark:text-codex-muted">{t("noImageResult")}</p>
             </div>
           ) : (
             <PendingResultSlot
@@ -427,7 +486,9 @@ function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
     prev.onFailureAction === next.onFailureAction &&
     prev.failureActionDisabled === next.failureActionDisabled &&
     prev.cellLabel === next.cellLabel &&
-    prev.completedMissing === next.completedMissing
+    prev.completedMissing === next.completedMissing &&
+    prev.isNew === next.isNew &&
+    prev.isBestPick === next.isBestPick
   );
 }
 

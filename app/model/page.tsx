@@ -22,6 +22,7 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
@@ -29,10 +30,12 @@ import { MAX_FILE_SIZE_MB, isLikelyImageFile, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { useHistoryApply } from "@/hooks/use-history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, referencesFromUrls, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -49,6 +52,15 @@ import {
   type ModelShootStyle,
 } from "@/lib/module-style-presets";
 import { MODEL_UPLOAD_RULE, type ModelRuleDemo } from "@/lib/model-upload-rules";
+import {
+  MODEL_ASPECTS,
+  MODEL_HAIR_COLORS,
+  MODEL_HAIR_STYLES,
+  MODEL_PREVIEW_ACTIONS,
+  type ModelPreviewAction,
+} from "@/lib/model-presets";
+import { buildModelDefaultPrompt } from "@/lib/model-default-prompt";
+import { HairStyleSection } from "@/features/model/HairStyleSection";
 
 type Gender = "female" | "male";
 type ModelGenerateOptions = {
@@ -59,50 +71,6 @@ type ModelGenerateOptions = {
 };
 
 type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
-
-const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
-  { value: "auto", label: "智能", labelKey: "Model.aspects.auto" },
-  { value: "3:4", label: "3:4 竖版", labelKey: "Model.aspects.portrait34" },
-  { value: "1:1", label: "1:1 头像", labelKey: "Model.aspects.square11" },
-  { value: "4:3", label: "4:3 横版", labelKey: "Model.aspects.landscape43" },
-];
-
-type ModelPreviewAction = ImagePreviewAction & { labelKey?: string };
-
-const MODEL_PREVIEW_ACTIONS: ModelPreviewAction[] = [
-  { kind: "download", label: "下载图片", labelKey: "Model.previewActions.download" },
-  { kind: "copy", label: "复制链接", labelKey: "Model.previewActions.copy" },
-  { kind: "repair", label: "AI修图", labelKey: "Model.previewActions.repair" },
-  { kind: "aiVideo", label: "AI视频", labelKey: "Model.previewActions.aiVideo" },
-  { kind: "modelBackground", label: "换背景", labelKey: "Model.previewActions.modelBackground" },
-  { kind: "pose", label: "姿势裂变", labelKey: "Model.previewActions.pose" },
-  { kind: "productSet", label: "商品套图", labelKey: "Model.previewActions.productSet" },
-  { kind: "regenerateAll", label: "重新创作", labelKey: "Model.previewActions.regenerateAll" },
-  { kind: "feedback", label: "反馈", labelKey: "Model.previewActions.feedback" },
-];
-
-const HAIR_STYLES = {
-  female: [
-    { value: "自然黑长直发，偏分，发丝顺滑垂落", label: "黑长直", labelKey: "hairStyles.female.blackLong", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
-    { value: "齐肩短波波头，空气刘海，发尾内扣", label: "短波波", labelKey: "hairStyles.female.shortBob", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-short-bob.png" },
-    { value: "高丸子头，干净利落，露出脸部轮廓", label: "丸子头", labelKey: "hairStyles.female.highBun", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-high-bun.png" },
-    { value: "侧边低马尾，柔和自然，发束垂在肩侧", label: "侧马尾", labelKey: "hairStyles.female.sidePonytail", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-side-ponytail.png" },
-    { value: "长卷发，大波浪，发丝蓬松有层次", label: "大波浪", labelKey: "hairStyles.female.wavy", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-wavy.png" },
-  ],
-  male: [
-    { value: "短寸头，清爽硬朗，发际线自然", label: "寸头", labelKey: "hairStyles.male.buzzCut", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-buzz-cut.png" },
-    { value: "短碎发，顶部自然蓬松，干净少年感", label: "短碎发", labelKey: "hairStyles.male.shortTextured", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-short-textured.png" },
-    { value: "蓬松微卷短发，前额自然碎刘海", label: "微卷发", labelKey: "hairStyles.male.wavyVolume", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-wavy-volume.png" },
-  ],
-};
-
-const HAIR_COLORS = [
-  { value: "自然黑色", label: "黑色", labelKey: "hairColors.black", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
-  { value: "深棕色", label: "深棕", labelKey: "hairColors.darkBrown", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-brown-straight.png" },
-  { value: "冷灰色", label: "灰色", labelKey: "hairColors.coolGray", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-gray-long.png" },
-  { value: "铂金白色", label: "白金", labelKey: "hairColors.platinum", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-platinum-long.png" },
-  { value: "柔粉色", label: "粉色", labelKey: "hairColors.pink", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-pink-long.png" },
-];
 
 export default function ModelPage() {
   const t = useTranslations("Model");
@@ -166,7 +134,15 @@ export default function ModelPage() {
       ? t("insufficientCredits", { totalCost })
       : undefined;
   const defaultPrompt = useMemo(
-    () => buildDefaultPrompt(referenceUrls.length || 1, gender, hairStyle, hairColor, !!hairReferenceUrl, !!hairColorReferenceUrl, modelStyle),
+    () => buildModelDefaultPrompt({
+      refCount: referenceUrls.length || 1,
+      gender,
+      hairStyle,
+      hairColor,
+      hasHairReference: !!hairReferenceUrl,
+      hasHairColorReference: !!hairColorReferenceUrl,
+      modelStyle,
+    }),
     [referenceUrls.length, gender, hairStyle, hairColor, hairReferenceUrl, hairColorReferenceUrl, modelStyle]
   );
   const taskInputThumbnails = useMemo(
@@ -199,47 +175,161 @@ export default function ModelPage() {
       toastMessage: t("retryBackfillToast", { index: index + 1 }),
     });
   }
-  const previewSession = useMemo(
-    () => createGenericImagePreviewSession({
-      module: "model",
-      title: t("title"),
-      urls: resultUrls,
-      expectedCount: activeResultExpectedCount,
-      isGenerating,
-      statusGroup: isGenerating ? "running" : undefined,
-      createdAt: activeResultMeta?.createdAt,
-      references: previewReferences,
-      promptText: userExtraPrompt,
-      metaItems: [
-        { label: t("meta.gender"), value: gender === "female" ? t("genderModel.female") : t("genderModel.male") },
-        { label: t("meta.shootStyle"), value: modelStyle },
-        { label: t("meta.model"), value: aiModel },
-        { label: t("meta.aspectRatio"), value: aspectRatio },
-        { label: t("meta.resolution"), value: imageSize },
-        { label: t("meta.genCount"), value: genCount },
-      ],
-      resultTitlePrefix: t("resultTitlePrefix"),
-      aspectRatio,
-    }),
-    [activeResultExpectedCount, activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, userExtraPrompt, t]
-  );
-  const referencePreviewSession = useMemo(
-    () => createGenericImagePreviewSession({
-      module: "model",
-      title: t("referenceTitle"),
-      urls: referenceUrls,
-      expectedCount: Math.max(referenceUrls.length, 1),
-      references: referencesFromUrls(referenceUrls, "reference", t("referenceImage")),
-      resultTitlePrefix: t("referenceImage"),
-      aspectRatio: "auto",
-    }),
-    [referenceUrls, t]
-  );
+  const previewSession = useStudioPreview({
+    module: "model",
+    title: t("title"),
+    urls: resultUrls,
+    expectedCount: activeResultExpectedCount,
+    isGenerating,
+    createdAt: activeResultMeta?.createdAt,
+    references: previewReferences,
+    promptText: userExtraPrompt,
+    metaItems: [
+      { label: t("meta.gender"), value: gender === "female" ? t("genderModel.female") : t("genderModel.male") },
+      { label: t("meta.shootStyle"), value: modelStyle },
+      { label: t("meta.model"), value: aiModel },
+      { label: t("meta.aspectRatio"), value: aspectRatio },
+      { label: t("meta.resolution"), value: imageSize },
+      { label: t("meta.genCount"), value: genCount },
+    ],
+    resultTitlePrefix: t("resultTitlePrefix"),
+    aspectRatio,
+  });
+  const referencePreviewSession = useStudioPreview({
+    module: "model",
+    title: t("referenceTitle"),
+    urls: referenceUrls,
+    expectedCount: Math.max(referenceUrls.length, 1),
+    references: referencesFromUrls(referenceUrls, "reference", t("referenceImage")),
+    resultTitlePrefix: t("referenceImage"),
+    aspectRatio: "auto",
+  });
   const taskQueue = useTaskQueueGeneration({
     module: "model",
     title: t("title"),
     defaultExpectedCount: genCount,
     applyPath: "/model",
+  });
+
+  // 后台轮询：useGenerationPolling 替代 inline while-loop + setTimeout + fetch。
+  // useGenerationPolling 自带 4xx/5xx/maxAttempts 保护（hooks/use-generation-polling.ts runLoop）
+  const pollCtxRef = useRef<{
+    activeTaskId: string;
+    generationId: string;
+    displayExpectedCount: number;
+    retryPreviousResultUrls: string[];
+    retryResultIndex: number | null;
+    taskInputThumbnails: string[];
+    latestTaskResultUrlsRef: { current: string[] };
+    setResultUrls: (urls: string[]) => void;
+    setIsGenerating: (b: boolean) => void;
+    setError: (msg: string) => void;
+    refreshCredits: () => Promise<number | null | undefined>;
+    taskQueue: typeof taskQueue;
+  } | null>(null);
+
+  const { start: startModelPolling } = useGenerationPolling<{
+    status: string;
+    progress?: number;
+    result_urls?: unknown;
+    error?: string;
+    partial_failure?: { message?: unknown };
+  }>({
+    id: "",
+    buildUrl: (id) => {
+      const ctx = pollCtxRef.current;
+      return `/api/model?generation_id=${encodeURIComponent(ctx?.generationId ?? id)}`;
+    },
+    isTerminal: (state) => state.status === "completed" || state.status === "failed",
+    intervalMs: 2000,
+    maxAttempts: 120,
+    onTick: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      if (state.status === "completed" || state.status === "failed") return;
+
+      // 处理中：推结果 + 进度
+      if (Array.isArray(state.result_urls) && state.result_urls.length) {
+        ctx.latestTaskResultUrlsRef.current = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          state.result_urls,
+          ctx.displayExpectedCount
+        );
+        ctx.setResultUrls(ctx.latestTaskResultUrlsRef.current);
+      }
+      const nextProgress = Number(state.progress);
+      const runningProgress = Number.isFinite(nextProgress)
+        ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+        : 24; // hook 拿不到 attempts，原 25 + attempts*1.5 渐进 fallback 改为 24
+      ctx.taskQueue.markRunning(ctx.activeTaskId, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        progress: runningProgress,
+        status: state.status,
+      });
+    },
+    onComplete: (state) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      if (state.status === "completed") {
+        const finalUrls = mergeRetryResultUrls(
+          ctx.retryPreviousResultUrls,
+          ctx.retryResultIndex,
+          Array.isArray(state.result_urls) ? state.result_urls : ctx.latestTaskResultUrlsRef.current,
+          ctx.displayExpectedCount
+        );
+        ctx.latestTaskResultUrlsRef.current = finalUrls;
+        const finalResultCount = finalUrls.filter(Boolean).length;
+        const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+          ? (state.partial_failure as { message?: unknown })
+          : null;
+        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        ctx.setResultUrls(finalUrls);
+        ctx.setIsGenerating(false);
+        ctx.taskQueue.markCompleted(ctx.activeTaskId, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalResultCount,
+          error: completedError ? summarizeGenerationError(completedError) : "",
+        });
+        if (completedError || finalResultCount < ctx.displayExpectedCount) {
+          void ctx.refreshCredits();
+          toast.warning(t("partialComplete", { count: finalResultCount, expected: ctx.displayExpectedCount }));
+        } else {
+          toast.success(t("generateComplete"));
+        }
+        return;
+      }
+      if (state.status === "failed") {
+        const message = summarizeGenerationError(state.error || t("generateFailed"));
+        ctx.setError(message);
+        ctx.setIsGenerating(false);
+        ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+          expectedCount: ctx.displayExpectedCount,
+          inputThumbnails: ctx.taskInputThumbnails,
+          resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+        });
+        toast.error(message);
+        void ctx.refreshCredits();
+      }
+    },
+    onError: (error) => {
+      const ctx = pollCtxRef.current;
+      if (!ctx) return;
+      const message = summarizeGenerationError(error.message || t("generateTimeout"));
+      ctx.setError(message);
+      ctx.setIsGenerating(false);
+      ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
+        expectedCount: ctx.displayExpectedCount,
+        inputThumbnails: ctx.taskInputThumbnails,
+        resultThumbnails: ctx.latestTaskResultUrlsRef.current,
+      });
+      toast.error(message);
+      void ctx.refreshCredits();
+    },
   });
 
   useEffect(() => {
@@ -253,7 +343,7 @@ export default function ModelPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
-  function applyModelHistoryPayload(payload: ModelHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
+  function applyModelHistoryPayload(payload: ModelHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean; row?: { status?: string | null; error_message?: string | null } }) {
     const normalizedStyle = normalizeModelShootStyle(payload.modelStyle);
     setReferenceUrls(payload.referenceUrls);
     setHairReferenceUrl(payload.hairReferenceUrl || null);
@@ -274,66 +364,28 @@ export default function ModelPage() {
     // `modelStyle` after applying history.
     setPromptTouched(false);
     setPrompt(
-      buildDefaultPrompt(
-        payload.referenceUrls.length || 1,
-        payload.gender || "female",
-        payload.hairStyle || null,
-        payload.hairColor || null,
-        !!payload.hairReferenceUrl,
-        !!payload.hairColorReferenceUrl,
-        normalizedStyle,
-      ),
+      buildModelDefaultPrompt({
+        refCount: payload.referenceUrls.length || 1,
+        gender: payload.gender || "female",
+        hairStyle: payload.hairStyle || null,
+        hairColor: payload.hairColor || null,
+        hasHairReference: !!payload.hairReferenceUrl,
+        hasHairColorReference: !!payload.hairColorReferenceUrl,
+        modelStyle: normalizedStyle,
+      }),
     );
     setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
-    setError("");
+    setError(options?.row && isHistoryApplyRowFailed(options.row) ? getHistoryApplyFailureMessage(options.row) : "");
     if (!options?.silent) toast.success(t("historyApplied"));
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-    const detail = await takeApplyDetail("model");
-    const payload = detail?.payload;
-    if (cancelled || !payload) return;
-
-    const normalizedStyle = normalizeModelShootStyle(payload.modelStyle);
-    setReferenceUrls(payload.referenceUrls);
-    setHairReferenceUrl(payload.hairReferenceUrl || null);
-    setHairColorReferenceUrl(payload.hairColorReferenceUrl || null);
-    setGender(payload.gender || "female");
-    setModelStyle(normalizedStyle);
-    setHairStyle(payload.hairStyle || null);
-    setHairColor(payload.hairColor || null);
-    setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio);
-    setImageSize(payload.imageSize);
-    setGenCount(payload.genCount);
-    // See applyModelHistoryPayload — rebuild from the restored inputs
-    // so historical style prose doesn't leak into a future re-run.
-    setPromptTouched(false);
-    setPrompt(
-      buildDefaultPrompt(
-        payload.referenceUrls.length || 1,
-        payload.gender || "female",
-        payload.hairStyle || null,
-        payload.hairColor || null,
-        !!payload.hairReferenceUrl,
-        !!payload.hairColorReferenceUrl,
-        normalizedStyle,
-      ),
-    );
-    setRunningExpectedCount(null);
-    setResultUrls(detail?.resultUrls || []);
-    setIsGenerating(false);
-    setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
-    toast.success(t("historyApplied"));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useHistoryApply({
+    kind: "model",
+    apply: (payload, resultUrls) => applyModelHistoryPayload(payload, resultUrls, { silent: true }),
+    onError: (err) => toast.error(err.message),
+  });
 
   async function addFiles(files?: FileList | File[]) {
     if (!files) return;
@@ -504,7 +556,6 @@ export default function ModelPage() {
       progress: 10,
     });
     let activeTaskId = provisionalTask.id;
-    let latestTaskResultUrls: string[] = [];
 
     try {
       const res = await fetch("/api/model", {
@@ -563,85 +614,22 @@ export default function ModelPage() {
       });
       activeTaskId = serverTask.id;
 
-      let attempts = 0;
-      // Track consecutive 5xx failures so a persistent server outage
-      // surfaces immediately instead of burning the full 4-minute budget.
-      // 4xx responses (e.g. invalid id, bad auth) are non-recoverable and
-      // bail out on the first occurrence with an actionable error.
-      let consecutiveServerErrors = 0;
-      const MAX_CONSECUTIVE_SERVER_ERRORS = 5;
-      while (attempts < 120) {
-        await new Promise((r) => setTimeout(r, 2000));
-        attempts++;
-        const poll = await fetch(`/api/model?generation_id=${encodeURIComponent(generationId)}`);
-        if (!poll.ok) {
-          if (poll.status >= 400 && poll.status < 500) {
-            // Non-recoverable client error (missing/invalid id, auth,
-            // rate limit). Bail immediately with the server's message.
-            let message = t("serviceReturnedStatus", { status: poll.status });
-            try {
-              const errBody = await poll.json();
-              if (errBody && typeof errBody.error === "string") message = errBody.error;
-            } catch {
-              // ignore JSON parse error
-            }
-            throw new Error(message);
-          }
-          consecutiveServerErrors += 1;
-          if (consecutiveServerErrors >= MAX_CONSECUTIVE_SERVER_ERRORS) {
-            throw new Error(t("serviceUnavailable"));
-          }
-          continue;
-        }
-        consecutiveServerErrors = 0;
-        const state = await poll.json();
-        if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
-          if (Array.isArray(state.result_urls) && state.result_urls.length) {
-            const nextResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
-            latestTaskResultUrls = nextResultUrls;
-            setResultUrls(nextResultUrls);
-          }
-          const nextProgress = Number(state.progress);
-          const runningProgress = Number.isFinite(nextProgress)
-            ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
-            : Math.min(25 + attempts * 1.5, 90);
-          taskQueue.markRunning(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: taskInputThumbnails,
-            resultThumbnails: latestTaskResultUrls,
-            progress: runningProgress,
-            status: state.status,
-          });
-        } else if (state.status === "completed") {
-          const rawFinalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
-          const finalUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, rawFinalUrls, displayExpectedCount);
-          latestTaskResultUrls = finalUrls;
-          const finalResultCount = finalUrls.filter(Boolean).length;
-          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
-            ? state.partial_failure as { message?: unknown }
-            : null;
-          const completedError = state.error || partialFailure?.message || "";
-          setResultUrls(finalUrls);
-          setIsGenerating(false);
-          taskQueue.markCompleted(activeTaskId, {
-            expectedCount: displayExpectedCount,
-            inputThumbnails: taskInputThumbnails,
-            resultThumbnails: finalUrls,
-            resultCount: finalResultCount,
-            error: completedError ? summarizeGenerationError(completedError) : "",
-          });
-          if (completedError || finalResultCount < displayExpectedCount) {
-            void refreshCredits();
-            toast.warning(t("partialComplete", { count: finalResultCount, expected: displayExpectedCount }));
-          } else {
-            toast.success(t("generateComplete"));
-          }
-          return;
-        } else if (state.status === "failed") {
-          throw new Error(state.error || t("generateFailed"));
-        }
-      }
-      throw new Error(t("generateTimeout"));
+      // 后台轮询：useGenerationPolling 自带 4xx/5xx/maxAttempts 处理
+      pollCtxRef.current = {
+        activeTaskId,
+        generationId,
+        displayExpectedCount,
+        retryPreviousResultUrls,
+        retryResultIndex,
+        taskInputThumbnails,
+        latestTaskResultUrlsRef: { current: [] },
+        setResultUrls,
+        setIsGenerating,
+        setError,
+        refreshCredits,
+        taskQueue,
+      };
+      startModelPolling();
     } catch (err: unknown) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
@@ -649,7 +637,7 @@ export default function ModelPage() {
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
-        resultThumbnails: latestTaskResultUrls,
+        resultThumbnails: pollCtxRef.current?.latestTaskResultUrlsRef.current ?? [],
       });
       toast.error(message);
       void refreshCredits();
@@ -801,7 +789,7 @@ export default function ModelPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("modelStyle")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("modelStyle")}</h3>
             <StudioOptionGrid
               options={MODEL_SHOOT_STYLES.map((style) => ({
                 value: style.value,
@@ -813,13 +801,13 @@ export default function ModelPage() {
               columns={2}
               ariaLabel={t("modelStyle")}
             />
-            <p className="mt-2 text-[12px] leading-relaxed text-gray-400 dark:text-stone-500">
+            <p className="mt-2 text-[12px] leading-relaxed text-codex-faint">
               {t("modelStyleHint")}
             </p>
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("gender")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("gender")}</h3>
             <StudioOptionGrid<Gender>
               options={[
                 { value: "female", label: t("genderFemale") },
@@ -832,84 +820,26 @@ export default function ModelPage() {
             />
           </section>
 
-          <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("hairStyleRef")}</h3>
-            <input
-              ref={hairInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const input = event.currentTarget;
-                const files = Array.from(input.files || []);
-                void uploadHairReference(files).finally(() => {
-                  input.value = "";
-                });
-              }}
-            />
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                onClick={() => { setHairStyle(null); setHairReferenceUrl(null); }}
-                className={`rounded-lg border p-2 text-center transition-colors aspect-[3/4] flex flex-col items-center justify-center ${
-                  !hairStyle && !hairReferenceUrl ? "border-purple-500 bg-purple-50 text-purple-600 ring-1 ring-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-500/40" : "border-gray-100 dark:border-white/10 bg-white dark:bg-[#26262a] text-gray-500 dark:text-stone-400 hover:border-gray-300 dark:hover:border-white/20"
-                }`}
-              >
-                <UserRound className="w-5 h-5 mb-1" />
-                <span className="text-[11px] font-medium">{t("noDefault")}</span>
-              </button>
-              {HAIR_STYLES[gender].map((item) => (
-                <button key={item.value} onClick={() => { setHairStyle(item.value); setHairReferenceUrl(null); }}
-                  className={`rounded-lg overflow-hidden border text-left transition-colors ${
-                    hairStyle === item.value && !hairReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
-                  }`}>
-                  <RawPreviewImage src={item.image} alt={item.labelKey ? t(item.labelKey) : item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
-                  <div className="px-1 py-1 text-[11px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
-                </button>
-              ))}
-              <button
-                onClick={() => hairInputRef.current?.click()}
-                className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-[background-color,border-color,box-shadow,color] aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
-                  hairReferenceUrl
-                    ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
-                    : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-[var(--codex-accent)]"
-                }`}
-              >
-                {hairReferenceUrl ? (
-                  <>
-                    <RawPreviewImage src={hairReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairRef")} />
-                    <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
-                    <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-white/5 text-emerald-500 shadow">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </span>
-                    <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
-                      <span className="block text-[11px] font-bold text-purple-700">{t("uploadedHairRef")}</span>
-                      <span className="block truncate text-[12px] text-slate-400 dark:text-stone-500">{t("hairOutlineOnly")}</span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-5 h-5 mb-1.5" />
-                    <span className="text-[11px] font-bold">{t("uploadHairRef")}</span>
-                    <span className="mt-1 max-w-[78px] text-[12px] leading-snug text-slate-400 dark:text-stone-500">
-                      {t("hairOnlyNoFace")}
-                    </span>
-                    <span className="mt-1 text-[11px] text-slate-400">≤15MB</span>
-                  </>
-                )}
-              </button>
-            </div>
-            {hairReferenceUrl && (
-              <button
-                onClick={() => setHairReferenceUrl(null)}
-                className="mt-2 text-xs text-gray-400 dark:text-stone-500 hover:text-red-500"
-              >
-                {t("removeHairRef")}
-              </button>
-            )}
-          </section>
+          <HairStyleSection
+            gender={gender}
+            hairStyle={hairStyle}
+            hairReferenceUrl={hairReferenceUrl}
+            hairInputRef={hairInputRef}
+            onSelectPreset={(value) => {
+              setHairStyle(value);
+              setHairReferenceUrl(null);
+            }}
+            onClear={() => {
+              setHairStyle(null);
+              setHairReferenceUrl(null);
+            }}
+            onUpload={uploadHairReference}
+            onRemoveUpload={() => setHairReferenceUrl(null)}
+            onPickFile={() => hairInputRef.current?.click()}
+          />
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("hairColorRef")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("hairColorRef")}</h3>
             <input
               ref={hairColorInputRef}
               type="file"
@@ -927,18 +857,18 @@ export default function ModelPage() {
               <button
                 onClick={() => { setHairColor(null); setHairColorReferenceUrl(null); }}
                 className={`rounded-lg border p-2 text-center transition-colors aspect-[3/4] flex flex-col items-center justify-center ${
-                  !hairColor && !hairColorReferenceUrl ? "border-purple-500 bg-purple-50 text-purple-600 ring-1 ring-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-500/40" : "border-gray-100 dark:border-white/10 bg-white dark:bg-[#26262a] text-gray-500 dark:text-stone-400 hover:border-gray-300 dark:hover:border-white/20"
+                  !hairColor && !hairColorReferenceUrl ? "border-[var(--codex-accent)] bg-[var(--codex-accent-08)] text-[var(--codex-accent)] ring-1 ring-[var(--codex-accent-25)] dark:bg-[var(--codex-accent-14)] dark:text-[var(--codex-accent)] dark:ring-[var(--codex-accent-38)]" : "border-[var(--codex-border)] dark:border-white/10 bg-codex-surface dark:bg-[#26262a] text-codex-faint dark:text-codex-faint hover:border-[var(--codex-border-strong)] dark:hover:border-white/20"
                 }`}
               >
                 <UserRound className="w-5 h-5 mb-1" />
                 <span className="text-[11px] font-medium">{t("noDefault")}</span>
               </button>
-              {HAIR_COLORS.map((item) => (
+              {MODEL_HAIR_COLORS.map((item) => (
                 <button key={item.value} onClick={() => { setHairColor(item.value); setHairColorReferenceUrl(null); }}
                   className={`rounded-lg overflow-hidden border text-left transition-colors ${
-                    hairColor === item.value && !hairColorReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
+                    hairColor === item.value && !hairColorReferenceUrl ? "border-[var(--codex-accent)] ring-1 ring-[var(--codex-accent-25)]" : "border-[var(--codex-border)] dark:border-white/10 hover:border-[var(--codex-border-strong)] dark:hover:border-white/20 bg-codex-surface dark:bg-[#26262a] text-codex-ink dark:text-codex-muted"
                   }`}>
-                  <RawPreviewImage src={item.image} alt={item.labelKey ? t(item.labelKey) : item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
+                  <RawPreviewImage src={item.image} alt={item.labelKey ? t(item.labelKey) : item.label} className="w-full aspect-[3/4] object-cover bg-[var(--codex-surface-soft)] dark:bg-white/4" />
                   <div className="px-1 py-1 text-[11px] text-center font-medium">{item.labelKey ? t(item.labelKey) : item.label}</div>
                 </button>
               ))}
@@ -946,30 +876,30 @@ export default function ModelPage() {
                 onClick={() => hairColorInputRef.current?.click()}
                 className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-[background-color,border-color,box-shadow,color] aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
                   hairColorReferenceUrl
-                    ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
-                    : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-[var(--codex-accent)]"
+                    ? "studio-checkerboard border-[var(--codex-accent)] text-[var(--codex-accent)] ring-2 ring-[var(--codex-accent-25)] shadow-[0_14px_34px_var(--codex-accent-18)]"
+                    : "border-[var(--codex-border)] dark:border-white/10 bg-[var(--codex-surface-soft)]/70 dark:bg-white/4 text-codex-faint dark:text-codex-faint hover:border-[var(--codex-accent-35)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)]"
                 }`}
               >
                 {hairColorReferenceUrl ? (
                   <>
                     <RawPreviewImage src={hairColorReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairColorRef")} />
-                    <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
+                    <span className="absolute inset-0 bg-gradient-to-t from-codex-ink/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-white/5 text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                     <span className="absolute bottom-0 left-0 right-0 bg-white/94 dark:bg-white/5 px-1.5 py-1 text-center backdrop-blur">
-                      <span className="block text-[11px] font-bold text-purple-700">{t("uploadedHairColorRef")}</span>
-                      <span className="block truncate text-[12px] text-slate-400 dark:text-stone-500">{t("hairColorToneOnly")}</span>
+                      <span className="block text-[11px] font-bold text-[var(--codex-accent)]">{t("uploadedHairColorRef")}</span>
+                      <span className="block truncate text-[12px] text-codex-faint">{t("hairColorToneOnly")}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5 mb-1.5" />
                     <span className="text-[11px] font-bold">{t("uploadHairColorRef")}</span>
-                    <span className="mt-1 max-w-[78px] text-[12px] leading-snug text-slate-400 dark:text-stone-500">
+                    <span className="mt-1 max-w-[78px] text-[12px] leading-snug text-codex-faint">
                       {t("hairColorNoIdentity")}
                     </span>
-                    <span className="mt-1 text-[11px] text-slate-400">≤15MB</span>
+                    <span className="mt-1 text-[11px] text-codex-faint">≤15MB</span>
                   </>
                 )}
               </button>
@@ -977,7 +907,7 @@ export default function ModelPage() {
             {hairColorReferenceUrl && (
               <button
                 onClick={() => setHairColorReferenceUrl(null)}
-                className="mt-2 text-xs text-gray-400 dark:text-stone-500 hover:text-red-500"
+                className="mt-2 text-xs text-codex-faint hover:text-red-500"
               >
                 {t("removeHairColorRef")}
               </button>
@@ -985,7 +915,7 @@ export default function ModelPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-codex-ink">
               <Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("genModel")}
             </h3>
             <StudioModelSelector
@@ -999,7 +929,7 @@ export default function ModelPage() {
 
           <section>
             <AspectRatioSelector
-              options={ASPECTS}
+              options={MODEL_ASPECTS}
               value={aspectRatio}
               onChange={setAspectRatio}
               ariaLabel={t("aspectRatio")}
@@ -1008,7 +938,7 @@ export default function ModelPage() {
 
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("resolution")}</h3>
+              <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("resolution")}</h3>
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,
@@ -1034,7 +964,7 @@ export default function ModelPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("genCount")}</h3>
+            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("genCount")}</h3>
             <GenerationCountField
               value={genCount}
               onChange={setGenCount}
@@ -1161,26 +1091,4 @@ export default function ModelPage() {
 
     </div>
   );
-}
-
-function buildDefaultPrompt(
-  refCount: number,
-  gender: Gender,
-  hairStyle: string | null,
-  hairColor: string | null,
-  hasHairReference: boolean,
-  hasHairColorReference: boolean,
-  modelStyle: ModelShootStyle
-) {
-  const hairImageIndex = refCount + 1;
-  const hairColorImageIndex = refCount + (hasHairReference ? 2 : 1);
-  return enforceModelPromptRequirements({
-    prompt: buildModelShootStylePrompt(modelStyle),
-    referenceCount: refCount,
-    gender,
-    hairStyle,
-    hairColor,
-    hairReferenceIndex: hasHairReference ? hairImageIndex : null,
-    hairColorReferenceIndex: hasHairColorReference ? hairColorImageIndex : null,
-  });
 }

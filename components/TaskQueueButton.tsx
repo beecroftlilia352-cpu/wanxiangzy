@@ -177,9 +177,9 @@ export function TaskQueueButton() {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="mac-button inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-[var(--mac-accent)]"
+          className="mac-button inline-flex h-9 items-center gap-2 rounded-xl border border-[var(--codex-border)] bg-white px-3 text-xs font-black text-codex-ink shadow-sm transition hover:border-[var(--codex-border-strong)] hover:text-[var(--codex-accent)]"
         >
-          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--mac-accent)] motion-reduce:animate-none" aria-hidden="true" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--codex-accent)] motion-reduce:animate-none" aria-hidden="true" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
           {buttonLabel}
         </button>
       </DropdownMenu.Trigger>
@@ -187,20 +187,20 @@ export function TaskQueueButton() {
         <DropdownMenu.Content
           align="end"
           sideOffset={10}
-          className="mac-surface z-[90] w-[min(320px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_90px_rgba(15,23,42,0.18)]"
+          className="mac-surface z-[90] w-[min(320px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-white p-3 shadow-[0_24px_90px_rgba(15,23,42,0.18)]"
         >
-          <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
+          <div className="grid grid-cols-2 rounded-xl bg-[var(--codex-surface-soft)] p-1">
             <button
               type="button"
               onClick={() => setActiveTab("finished")}
-              className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "finished" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
+              className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "finished" ? "bg-white text-codex-ink shadow-sm" : "text-codex-muted"}`}
             >
               {t("finishedTabCount", { count: finishedCount })}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("running")}
-              className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "running" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
+              className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "running" ? "bg-white text-codex-ink shadow-sm" : "text-codex-muted"}`}
             >
               {t("runningTabCount", { count: runningCount })}
             </button>
@@ -208,25 +208,25 @@ export function TaskQueueButton() {
 
           <div className="mt-3 max-h-[360px] space-y-1 overflow-y-auto">
             {loading && !detailsLoaded ? (
-              <div className="flex h-28 items-center justify-center text-xs font-semibold text-slate-400">
+              <div className="flex h-28 items-center justify-center text-xs font-semibold text-codex-faint">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 {t("loadingTasks")}
               </div>
             ) : activeRows.length ? (
               groupedRows.map((group) => (
                 <div key={group.label}>
-                  <div className="px-2 pb-1 pt-2 text-[11px] font-bold text-slate-400">{group.label}</div>
+                  <div className="px-2 pb-1 pt-2 text-[11px] font-bold text-codex-faint">{group.label}</div>
                   <div className="space-y-1">
                     {group.rows.map((item) => (
                       <DropdownMenu.Item key={item.id} asChild>
                         <Link
                           href={getTaskQueueHref(item)}
-                          className="flex items-center gap-3 rounded-xl px-2 py-2 outline-none transition hover:bg-slate-50"
+                          className="flex items-center gap-3 rounded-xl px-2 py-2 outline-none transition hover:bg-[var(--codex-surface-soft)]"
                         >
                           <StatusDot item={item} />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-slate-800">{item.title}</p>
-                            <p className="mt-0.5 line-clamp-1 break-words text-xs text-slate-400">{item.error || getQueueMeta(item)}</p>
+                            <p className="truncate text-sm font-semibold text-codex-ink">{item.title}</p>
+                            <p className="mt-0.5 line-clamp-1 break-words text-xs text-codex-faint">{item.error || getQueueMeta(item)}</p>
                           </div>
                           <ThumbnailStack urls={item.thumbnails} />
                         </Link>
@@ -236,24 +236,24 @@ export function TaskQueueButton() {
                 </div>
               ))
             ) : (
-              <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-slate-400">
+              <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-codex-faint">
                 <Clock3 className="mb-2 h-5 w-5" aria-hidden="true" />
                 {activeTab === "running" ? t("noRunningTasks") : t("noFinishedTasks")}
               </div>
             )}
           </div>
 
-          <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+          <div className="mt-3 flex items-center justify-between border-t border-[var(--codex-border)] pt-3">
             <button
               type="button"
               onClick={() => void loadQueue(true)}
-              className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+              className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold text-codex-muted hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
               {t("refresh")}
             </button>
             <DropdownMenu.Item asChild>
-              <Link href="/history" className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-bold text-white outline-none">
+              <Link href="/history" className="rounded-full bg-codex-ink px-3 py-1.5 text-xs font-bold text-white outline-none">
                 {t("viewAllTasks")}
               </Link>
             </DropdownMenu.Item>
@@ -268,7 +268,7 @@ function ThumbnailStack({ urls }: { urls: unknown }) {
   const safeUrls = safeTaskUrls(urls).slice(0, 2);
   if (!safeUrls.length) {
     return (
-      <span className="flex h-10 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-[10px] font-black text-slate-300">
+      <span className="flex h-10 w-8 items-center justify-center rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-[10px] font-black text-codex-faint">
         <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
     );
@@ -284,7 +284,7 @@ function ThumbnailStack({ urls }: { urls: unknown }) {
           height={40}
           loading="lazy"
           decoding="async"
-          className="h-10 w-8 rounded-lg border border-white bg-slate-100 object-cover shadow-sm"
+          className="h-10 w-8 rounded-lg border border-white bg-[var(--codex-surface-soft)] object-cover shadow-sm"
         />
       ))}
     </span>
@@ -304,10 +304,10 @@ function StatusDot({ item }: { item: TaskQueueItem }) {
   if (isTaskRunning(item)) {
     const progress = clampProgress(item.progress);
     return (
-      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-[var(--mac-accent-soft)] text-[var(--mac-accent)]">
+      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-[var(--codex-accent-14)] text-[var(--codex-accent)]">
         <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         {progress > 0 && (
-          <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[10px] font-black leading-3 text-[var(--mac-accent)] shadow-sm">
+          <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[10px] font-black leading-3 text-[var(--codex-accent)] shadow-sm">
             {progress}
           </span>
         )}

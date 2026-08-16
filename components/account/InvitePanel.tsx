@@ -117,7 +117,7 @@ export function InvitePanel() {
 
   if (error || !info) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-white/10 dark:bg-[var(--codex-surface)]">
+      <div className="rounded-2xl border border-[var(--codex-border)] bg-white p-10 text-center dark:border-white/10 dark:bg-[var(--codex-surface)]">
         <p className="text-sm font-bold text-red-500">{error || t("loadFailed")}</p>
         <Button className="mt-4" onClick={() => void load()}>
           {t("retry")}
@@ -213,9 +213,9 @@ function InviteStatsRow({ info }: { info: InviteInfo }) {
   return (
     <div className="grid gap-3 sm:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.label} className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[var(--codex-surface)]">
-          <p className="text-xs text-slate-500 dark:text-stone-400">{stat.label}</p>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-stone-100">{stat.value}</p>
+        <div key={stat.label} className="rounded-md border border-[var(--codex-border)] bg-white px-4 py-3 dark:border-white/10 dark:bg-[var(--codex-surface)]">
+          <p className="text-xs text-codex-muted">{stat.label}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-codex-ink">{stat.value}</p>
         </div>
       ))}
     </div>
@@ -232,15 +232,15 @@ function RewardRulesCard({ info }: { info: InviteInfo }) {
       title={
         <div className="py-1">
           <div className="text-lg font-medium">{t("rulesTitle")}</div>
-          <div className="mt-1 text-sm font-normal text-slate-500 dark:text-stone-400">{t("rulesDesc")}</div>
+          <div className="mt-1 text-sm font-normal text-codex-muted">{t("rulesDesc")}</div>
         </div>
       }
-      className="border-slate-200"
+      className="border-[var(--codex-border)]"
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-4">
-          <div className="flex items-start gap-3 rounded-xl bg-[#f3f6ff] px-4 py-3.5 dark:bg-stone-800">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#5b7cff] shadow-sm dark:bg-stone-700">
+          <div className="flex items-start gap-3 rounded-xl bg-[#f3f6ff] px-4 py-3.5 dark:bg-codex-surface">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#5b7cff] shadow-sm dark:bg-[var(--codex-surface-strong)]">
               <Gift className="h-4 w-4" aria-hidden="true" />
             </span>
             <div>
@@ -248,11 +248,11 @@ function RewardRulesCard({ info }: { info: InviteInfo }) {
                 {t("rulesInviter")}{" "}
                 <span className="font-bold text-[#5b7cff]">{t("unitCredits", { count: formatNumber(info.rules.inviterCredits) })}</span>
               </p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-stone-400">{t("rulesInviterNote")}</p>
+              <p className="mt-1 text-sm text-codex-muted">{t("rulesInviterNote")}</p>
             </div>
           </div>
-          <div className="flex items-start gap-3 rounded-xl bg-[#f0f7f3] px-4 py-3.5 dark:bg-stone-800">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm dark:bg-stone-700">
+          <div className="flex items-start gap-3 rounded-xl bg-[#f0f7f3] px-4 py-3.5 dark:bg-codex-surface">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm dark:bg-[var(--codex-surface-strong)]">
               <UserPlus className="h-4 w-4" aria-hidden="true" />
             </span>
             <div>
@@ -260,7 +260,7 @@ function RewardRulesCard({ info }: { info: InviteInfo }) {
                 {t("rulesInvitee")}{" "}
                 <span className="font-bold text-emerald-600">{t("unitCredits", { count: formatNumber(info.rules.inviteeCredits) })}</span>
               </p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-stone-400">{t("rulesInviteeNote")}</p>
+              <p className="mt-1 text-sm text-codex-muted">{t("rulesInviteeNote")}</p>
             </div>
           </div>
         </div>
@@ -268,8 +268,8 @@ function RewardRulesCard({ info }: { info: InviteInfo }) {
         <div className="space-y-5">
           <ol className="space-y-3">
             {steps.map((step, index) => (
-              <li key={step} className="flex items-center gap-3 text-sm text-slate-700 dark:text-stone-200">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eef1ff] text-xs font-bold text-[#5b7cff] dark:bg-stone-700">
+              <li key={step} className="flex items-center gap-3 text-sm text-codex-ink">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eef1ff] text-xs font-bold text-[#5b7cff] dark:bg-[var(--codex-surface-strong)]">
                   {index + 1}
                 </span>
                 {step}
@@ -277,7 +277,7 @@ function RewardRulesCard({ info }: { info: InviteInfo }) {
             ))}
           </ol>
           <div>
-            <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-stone-400">
+            <div className="mb-1.5 flex items-center justify-between text-xs text-codex-muted">
               <span>{t("progressLabel")}</span>
               <span className="tabular-nums">
                 {formatNumber(info.usedCount)} / {formatNumber(info.maxUses)}
@@ -337,12 +337,12 @@ function InviteRecordsCard({
       title={
         <div className="py-1">
           <div className="text-lg font-medium">{t("recordsTitle")}</div>
-          <div className="mt-1 text-sm font-normal text-slate-500 dark:text-stone-400">
+          <div className="mt-1 text-sm font-normal text-codex-muted">
             {t("recordsDesc", { total: formatNumber(info.usages.length), rewarded: formatNumber(info.rewardedCount) })}
           </div>
         </div>
       }
-      className="border-slate-200"
+      className="border-[var(--codex-border)]"
     >
       <Table<InviteUsage>
         size="small"

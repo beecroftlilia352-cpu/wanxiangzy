@@ -53,18 +53,32 @@ import type {
 import { getProductSetModuleQualityLabel } from "@/lib/product-set";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
-
-type StepKey = "input" | "analyzing" | "planning" | "generating" | "done";
+import { cn } from "@/lib/utils";
+import {
+  buildResultSlots,
+  DETAILS_ASPECTS,
+  getAspectRatioLabel,
+  getProgressMessage,
+  MAIN_ASPECTS,
+  STEPS,
+  type PlanningModule,
+  type StepKey,
+} from "@/features/all-category-product-image/shared";
+import { AiWritingModal } from "@/features/all-category-product-image/AiWritingModal";
+import { EditField } from "@/features/all-category-product-image/EditField";
+import { EmptyState } from "@/features/all-category-product-image/EmptyState";
+import { GenerationSkeleton } from "@/features/all-category-product-image/GenerationSkeleton";
+import { IconButton } from "@/features/all-category-product-image/IconButton";
+import { PlanningPreview } from "@/features/all-category-product-image/PlanningPreview";
+import { ProgressLine } from "@/features/all-category-product-image/ProgressLine";
+import { ResultGrid } from "@/features/all-category-product-image/ResultGrid";
+import { SelectField } from "@/features/all-category-product-image/SelectField";
+import { StepBar } from "@/features/all-category-product-image/StepBar";
 
 type ProductImage = {
   url: string;
   name: string;
   uploadedUrl?: string;
-};
-
-type PlanningModule = AllCategoryImagePlanItem & {
-  aspectRatio: AspectRatio;
-  expanded: boolean;
 };
 
 type ProductSetAnalysisDetail = {
@@ -118,13 +132,6 @@ type GenerationResponse = {
   error?: string;
 };
 
-const STEPS: Array<{ key: StepKey; label: string }> = [
-  { key: "input", label: "输入" },
-  { key: "analyzing", label: "分析中" },
-  { key: "planning", label: "确认规划" },
-  { key: "generating", label: "生成中" },
-  { key: "done", label: "完成" },
-];
 const MAX_PRODUCT_UPLOADS = 6;
 const API_PRODUCT_IMAGE_LIMIT = 3;
 
@@ -133,9 +140,6 @@ const MODELS: Array<{ value: LingyaModel; label: string; badge?: string; badgeKe
   { value: "gpt-image-2", label: "GPT Image 2", badge: "高质感", badgeKey: "AllCategoryProduct.models.badgeHighQuality" },
   { value: "nano-banana-pro", label: "Nano Banana Pro", badge: "质感", badgeKey: "AllCategoryProduct.models.badgeTexture" },
 ];
-
-const MAIN_ASPECTS: AspectRatio[] = ["auto", "1:1", "3:4", "4:3"];
-const DETAILS_ASPECTS: AspectRatio[] = ["auto", "3:4", "4:5", "4:3", "1:1"];
 
 const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -147,10 +151,6 @@ const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "productSet", label: "商品套图" },
   { kind: "feedback", label: "反馈" },
 ];
-
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -228,33 +228,6 @@ function readModuleResults(value: unknown): ProductSetModuleResult[] {
   return Array.isArray(value)
     ? value.filter((item): item is ProductSetModuleResult => Boolean(item && typeof item === "object" && "moduleKey" in item))
     : [];
-}
-
-function getResultForModule(results: ProductSetModuleResult[], module: PlanningModule, index: number) {
-  return results.find((item) => item.templateId === module.id || item.index === index + 1);
-}
-
-function buildResultSlots(modules: PlanningModule[], moduleResults: ProductSetModuleResult[], resultUrls: string[]) {
-  return modules.map((module, index) => {
-    const result = getResultForModule(moduleResults, module, index);
-    return {
-      module,
-      result,
-      url: result?.resultUrl || resultUrls[index],
-      status: result?.status || (resultUrls[index] ? "completed" : "queued"),
-      progress: result?.progress || 0,
-      error: result?.error,
-    };
-  });
-}
-
-function getProgressMessage(t: (key: string) => string, step: StepKey, progress: number) {
-  const messages = step === "generating"
-    ? [t("generateProgress1"), t("generateProgress2"), t("generateProgress3"), t("generateProgress4"), t("generateProgress5"), t("generateProgress6")]
-    : [t("analyzeProgress1"), t("analyzeProgress2"), t("analyzeProgress3")];
-  const normalizedProgress = Math.min(Math.max(progress || 0, 0), 99);
-  const index = Math.min(messages.length - 1, Math.floor(normalizedProgress / (100 / messages.length)));
-  return messages[index];
 }
 
 export default function AllCategoryProductImagePage() {
@@ -669,12 +642,12 @@ export default function AllCategoryProductImagePage() {
       <main className="min-w-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1160px]">
           <header className="text-center">
-            <div className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm">
+            <div className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--codex-border)] bg-white px-4 text-sm font-semibold text-codex-ink shadow-sm">
               <PackageCheck aria-hidden="true" className="h-4 w-4" />
               {t("moduleLabel")}
             </div>
-            <h1 className="mt-6 text-[30px] font-black tracking-normal text-slate-950 sm:text-[34px]" style={{ textWrap: "balance" }}>{t("heroTitle")}</h1>
-            <p className="mx-auto mt-3 max-w-3xl text-base leading-7 text-slate-500">
+            <h1 className="mt-6 text-[30px] font-black tracking-normal text-codex-ink sm:text-[34px]" style={{ textWrap: "balance" }}>{t("heroTitle")}</h1>
+            <p className="mx-auto mt-3 max-w-3xl text-base leading-7 text-codex-muted">
               {t("heroSubtitle")}
             </p>
           </header>
@@ -685,7 +658,7 @@ export default function AllCategoryProductImagePage() {
 
           <div className="mt-4 grid items-start gap-8 lg:grid-cols-[350px_minmax(0,760px)]">
             <aside className="space-y-5">
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-[var(--codex-border)] bg-white p-6 shadow-sm">
                 <input
                   ref={inputRef}
                   type="file"
@@ -700,27 +673,27 @@ export default function AllCategoryProductImagePage() {
                 />
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] text-codex-muted">
                       <ImagePlus aria-hidden="true" className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-sm font-black text-slate-950">{t("productImagesTitle")}</h2>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">{t("productImagesSubtitle")}</p>
+                      <h2 className="text-sm font-black text-codex-ink">{t("productImagesTitle")}</h2>
+                      <p className="mt-1 text-xs leading-5 text-codex-muted">{t("productImagesSubtitle")}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold text-slate-500">{productImages.length}/{MAX_PRODUCT_UPLOADS}</span>
+                  <span className="text-xs font-semibold text-codex-muted">{productImages.length}/{MAX_PRODUCT_UPLOADS}</span>
                 </div>
 
                 {productImages.length ? (
                   <div className="mt-5 grid grid-cols-3 gap-2">
                     {productImages.map((item, index) => (
-                      <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-lg border border-slate-200">
+                      <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-lg border border-[var(--codex-border)]">
                         <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1" />
-                        <span className="absolute bottom-1 left-1 rounded bg-slate-950/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span>
+                        <span className="absolute bottom-1 left-1 rounded bg-codex-ink/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span>
                         <button
                           type="button"
                           onClick={() => removeProductImage(index)}
-                          className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-slate-950/65 text-white group-hover:flex group-focus-within:flex focus-visible:flex"
+                          className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-codex-ink/65 text-white group-hover:flex group-focus-within:flex focus-visible:flex"
                           aria-label={t("deleteImage", { index: index + 1 })}
                         >
                           <X aria-hidden="true" className="h-3.5 w-3.5" />
@@ -731,7 +704,7 @@ export default function AllCategoryProductImagePage() {
                       <button
                         type="button"
                         onClick={() => inputRef.current?.click()}
-                        className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-400 hover:bg-white"
+                        className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-[var(--codex-border-strong)] bg-[var(--codex-surface-soft)] text-codex-muted hover:border-[var(--codex-border-strong)] hover:bg-white"
                       >
                         {isUploading ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <ImagePlus aria-hidden="true" className="h-6 w-6" />}
                       </button>
@@ -741,12 +714,12 @@ export default function AllCategoryProductImagePage() {
                   <button
                     type="button"
                     onClick={() => inputRef.current?.click()}
-                    className="mt-5 flex h-[132px] w-full flex-col items-center justify-center rounded-[14px] border border-dashed border-slate-300 bg-white text-center transition hover:border-slate-400 hover:bg-slate-50"
+                    className="mt-5 flex h-[132px] w-full flex-col items-center justify-center rounded-[14px] border border-dashed border-[var(--codex-border-strong)] bg-white text-center transition hover:border-[var(--codex-border-strong)] hover:bg-[var(--codex-surface-soft)]"
                   >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] text-codex-muted">
                       {isUploading ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Upload aria-hidden="true" className="h-5 w-5" />}
                     </span>
-                    <span className="mt-4 max-w-[230px] text-xs font-semibold leading-5 text-slate-950">
+                    <span className="mt-4 max-w-[230px] text-xs font-semibold leading-5 text-codex-ink">
                       {t("multiUploadHint")}
                     </span>
                   </button>
@@ -757,7 +730,7 @@ export default function AllCategoryProductImagePage() {
                     <button
                       type="button"
                       onClick={() => inputRef.current?.click()}
-                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white hover:bg-slate-800"
+                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-codex-ink px-3 text-sm font-black text-white hover:bg-codex-muted"
                     >
                       <Upload aria-hidden="true" className="h-4 w-4" />
                       {t("uploadProduct")}
@@ -765,7 +738,7 @@ export default function AllCategoryProductImagePage() {
                     <button
                       type="button"
                       onClick={() => setProductImages([])}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--codex-border)] text-codex-muted"
                       aria-label={t("clearImages")}
                     >
                       <Trash2 aria-hidden="true" className="h-4 w-4" />
@@ -774,7 +747,7 @@ export default function AllCategoryProductImagePage() {
                 )}
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-[var(--codex-border)] bg-white p-6 shadow-sm">
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { value: "main", label: t("mainImage") },
@@ -785,7 +758,7 @@ export default function AllCategoryProductImagePage() {
                       type="button"
                       onClick={() => changeImageType(item.value as ProductSetImageType)}
                       aria-pressed={imageType === item.value}
-                      className={cn("h-10 rounded-lg border text-sm font-black transition", imageType === item.value ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}
+                      className={cn("h-10 rounded-lg border text-sm font-black transition", imageType === item.value ? "border-codex-ink bg-codex-ink text-white shadow-sm" : "border-[var(--codex-border)] bg-white text-codex-ink hover:bg-[var(--codex-surface-soft)]")}
                     >
                       {item.label}
                     </button>
@@ -795,20 +768,20 @@ export default function AllCategoryProductImagePage() {
                 <div className="mt-5 grid gap-4">
                   <SelectField icon={<MonitorSmartphone aria-hidden="true" className="h-4 w-4" />} label={t("targetPlatform")} value={platform} options={ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS} onChange={(value) => { setPlatform(value as AllCategoryProductImagePlatform); resetOutput(); }} />
                   <label className="block">
-                    <span className="mb-2 block text-xs font-semibold text-slate-500">{imageType === "main" ? t("mainRequirement") : t("detailRequirement")}</span>
+                    <span className="mb-2 block text-xs font-semibold text-codex-muted">{imageType === "main" ? t("mainRequirement") : t("detailRequirement")}</span>
                     <div className="relative">
                       <textarea
                         value={userBrief}
                         onChange={(event) => { setUserBrief(event.target.value); resetOutput(); }}
                         placeholder={t("briefPlaceholder")}
                         aria-label={imageType === "main" ? t("mainRequirementAria") : t("detailRequirementAria")}
-                        className="h-[118px] w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 pr-28 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400"
+                        className="h-[118px] w-full resize-none rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 py-3 pr-28 text-sm leading-6 text-codex-ink outline-none transition focus:border-[var(--codex-border-strong)]"
                       />
                       <button
                         type="button"
                         onClick={() => void openAiWritingPlans()}
                         disabled={!productImages.length || isAnalyzing || isGenerating}
-                        className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                        className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-white px-3 text-xs font-black text-codex-ink shadow-sm hover:bg-[var(--codex-surface-soft)] disabled:opacity-50"
                       >
                         <Brush aria-hidden="true" className="h-3.5 w-3.5" />
                         {t("aiAssist")}
@@ -823,7 +796,7 @@ export default function AllCategoryProductImagePage() {
                   <div className="grid grid-cols-2 gap-3">
                     <SelectField label={t("quality")} value={imageSize} options={supportedSizes} onChange={(value) => { setImageSize(value as ImageSize); resetOutput(); }} />
                     <div>
-                      <span className="mb-2 block text-xs font-semibold text-slate-500">{t("genCount")}</span>
+                      <span className="mb-2 block text-xs font-semibold text-codex-muted">{t("genCount")}</span>
                       <GenerationCountField
                         value={imageCount}
                         onChange={changeCount}
@@ -839,33 +812,33 @@ export default function AllCategoryProductImagePage() {
                 type="button"
                 onClick={() => activeStepIndex >= stepIndex("planning") ? void submitGeneration() : void runAnalyze()}
                 disabled={!canAnalyze && !canGenerate}
-                className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-[#929292] disabled:text-white disabled:opacity-100"
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-codex-ink text-base font-black text-white shadow-sm transition hover:bg-codex-muted disabled:cursor-not-allowed disabled:bg-[#929292] disabled:text-white disabled:opacity-100"
               >
                 {isAnalyzing || isGenerating ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : activeStepIndex >= stepIndex("planning") ? <PackageCheck aria-hidden="true" className="h-5 w-5" /> : <Brush aria-hidden="true" className="h-5 w-5" />}
                 {isAnalyzing ? t("analyzingDots") : isGenerating ? t("generatingDots") : activeStepIndex >= stepIndex("planning") ? t("confirmGenerate", { count: modules.length }) : t("analyzeProduct")}
               </button>
             </aside>
 
-            <section className="min-h-[820px] rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="min-h-[820px] rounded-2xl border border-[var(--codex-border)] bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] text-codex-muted">
                       <PackageCheck aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black text-slate-950">{activeStep === "done" ? t("generationDone") : activeStep === "generating" ? t("generatingDots") : activeStep === "analyzing" ? t("analyzingDots") : activeStep === "planning" ? t("designPreview") : t("generationResult")}</h2>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                    <h2 className="text-sm font-black text-codex-ink">{activeStep === "done" ? t("generationDone") : activeStep === "generating" ? t("generatingDots") : activeStep === "analyzing" ? t("analyzingDots") : activeStep === "planning" ? t("designPreview") : t("generationResult")}</h2>
+                    <p className="mt-1 text-xs leading-5 text-codex-muted">
                       {activeStep === "input" ? t("inputStepHint") : activeStep === "planning" ? t("planningStepHint") : activeStep === "done" ? t("doneStepHint") : getProgressMessage(t, activeStep, progress)}
                     </p>
                   </div>
                 </div>
                 {activeStep !== "input" && (
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => void openAiWritingPlans()} disabled={!productImages.length || isAnalyzing || isGenerating} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                  <button type="button" onClick={() => void openAiWritingPlans()} disabled={!productImages.length || isAnalyzing || isGenerating} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white px-3 text-sm font-black text-codex-ink hover:bg-[var(--codex-surface-soft)] disabled:opacity-50">
                     <Bot aria-hidden="true" className="h-4 w-4" />
                     {t("aiAssist")}
                   </button>
-                  <button type="button" onClick={() => void runAnalyze()} disabled={!canAnalyze} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                  <button type="button" onClick={() => void runAnalyze()} disabled={!canAnalyze} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white px-3 text-sm font-black text-codex-ink hover:bg-[var(--codex-surface-soft)] disabled:opacity-50">
                     <RefreshCw aria-hidden="true" className="h-4 w-4" />
                     {t("reanalyze")}
                   </button>
@@ -967,365 +940,3 @@ export default function AllCategoryProductImagePage() {
   );
 }
 
-function StepBar({ activeIndex }: { activeIndex: number }) {
-  const t = useTranslations("AllCategoryProduct");
-  const stepLabels: Record<StepKey, string> = {
-    input: t("stepInput"),
-    analyzing: t("stepAnalyzing"),
-    planning: t("stepPlanning"),
-    generating: t("stepGenerating"),
-    done: t("stepDone"),
-  };
-  return (
-    <div className="mx-auto flex max-w-[620px] items-center justify-center gap-2">
-      {STEPS.map((step, index) => {
-        const isActive = index === activeIndex;
-        const isDone = index < activeIndex;
-        return (
-          <div key={step.key} className="flex items-center gap-2">
-            <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-xs font-black", isDone || isActive ? "bg-slate-950 text-white" : "bg-transparent text-slate-500")}>
-              {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
-            </span>
-            <span className={cn("hidden text-xs font-semibold sm:inline", isActive || isDone ? "text-slate-950" : "text-slate-500")}>{stepLabels[step.key]}</span>
-            {index < STEPS.length - 1 && <span className="h-px w-8 bg-slate-300 sm:w-10" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function SelectField({
-  icon,
-  label,
-  value,
-  options,
-  labels,
-  disabled,
-  onChange,
-}: {
-  icon?: ReactNode;
-  label: string;
-  value: string;
-  options: readonly string[];
-  labels?: Record<string, string>;
-  disabled?: boolean;
-  onChange: (value: string) => void;
-}) {
-  const t = useTranslations("AllCategoryProduct");
-  return (
-    <label className="block">
-      <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-        {icon}
-        {label}
-      </span>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {labels?.[option] || getAspectRatioLabel(option, t)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function getAspectRatioLabel(value: string, t?: (key: string) => string) {
-  return value === "auto" ? (t ? t("aspectAuto") : "智能") : value;
-}
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="flex min-h-[680px] items-center justify-center px-6 text-center">
-      <div>
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-          <PackageCheck aria-hidden="true" className="h-8 w-8" />
-        </div>
-        <h3 className="mt-5 text-sm font-semibold leading-6 text-slate-600">{title}</h3>
-        <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-slate-500">{description}</p>
-      </div>
-    </div>
-  );
-}
-
-function ProgressLine({ value, label }: { value: number; label: string }) {
-  const display = Math.min(Math.max(Math.round(value), 0), 100);
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-      <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
-        <span>{label}</span>
-        <span>{display}%</span>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-white/10">
-        <div className="h-full rounded-full bg-slate-950 transition-[width] duration-500" style={{ width: `${Math.max(display, 4)}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function PlanningPreview({
-  productName,
-  designSpec,
-  editingDesignSpec,
-  modules,
-  imageType,
-  canGenerate,
-  onEditDesignSpec,
-  onDesignSpecChange,
-  onModuleChange,
-  onGenerate,
-}: {
-  productName: string;
-  designSpec: string;
-  editingDesignSpec: boolean;
-  modules: PlanningModule[];
-  imageType: ProductSetImageType;
-  canGenerate: boolean;
-  onEditDesignSpec: () => void;
-  onDesignSpecChange: (value: string) => void;
-  onModuleChange: (id: string, patch: Partial<PlanningModule>) => void;
-  onGenerate: () => void;
-}) {
-  const t = useTranslations("AllCategoryProduct");
-  return (
-    <div className="mt-5 space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-              <BadgeCheck aria-hidden="true" className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-sm font-black text-slate-950">{t("overallPlanPreview")}</h3>
-              <p className="truncate text-xs text-slate-500">{t("allFollowSameStandard", { name: productName })}</p>
-            </div>
-          </div>
-          <button type="button" onClick={onEditDesignSpec} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-black text-slate-600 hover:bg-slate-50">
-            <Edit3 aria-hidden="true" className="h-3.5 w-3.5" />
-            {editingDesignSpec ? t("previewMode") : t("editMode")}
-          </button>
-        </div>
-        <div className="p-4">
-          {editingDesignSpec ? (
-            <textarea value={designSpec} onChange={(event) => onDesignSpecChange(event.target.value)} className="min-h-[300px] w-full resize-y rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-6 text-slate-800 outline-none focus:border-slate-400" />
-          ) : (
-            <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm leading-7 text-slate-700">{designSpec}</pre>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-sm font-black text-slate-950">{t("imagePlan")}</h3>
-            <p className="mt-1 text-xs text-slate-500">{t("imagePlanSub", { count: modules.length })}</p>
-          </div>
-          <button type="button" onClick={onGenerate} disabled={!canGenerate} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
-            <PackageCheck aria-hidden="true" className="h-4 w-4" />
-            {t("confirmGenerateBtn", { count: modules.length })}
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {modules.map((module, index) => (
-            <article key={module.id} className="rounded-lg border border-slate-200">
-              <button type="button" onClick={() => onModuleChange(module.id, { expanded: !module.expanded })} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
-                <span className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-black text-slate-700">{index + 1}</span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-black text-slate-950">{module.title}</span>
-                    <span className="block truncate text-xs text-slate-500">{module.description}</span>
-                  </span>
-                </span>
-                <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition", module.expanded && "rotate-180")} />
-              </button>
-              {module.expanded && (
-                <div className="grid gap-3 border-t border-slate-100 bg-slate-50 p-4 md:grid-cols-2">
-                  <EditField label={t("editTitle")} value={module.title} onChange={(value) => onModuleChange(module.id, { title: value })} />
-                  <SelectField label={t("imageRatio")} value={module.aspectRatio} options={imageType === "main" ? MAIN_ASPECTS : DETAILS_ASPECTS} onChange={(value) => onModuleChange(module.id, { aspectRatio: value as AspectRatio })} />
-                  <EditField label={t("editDescription")} value={module.description} onChange={(value) => onModuleChange(module.id, { description: value })} textarea />
-                  <EditField label={t("editDetailRules")} value={module.detailPrompt} onChange={(value) => onModuleChange(module.id, { detailPrompt: value })} textarea />
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GenerationSkeleton({ title, progress }: { title: string; progress: number }) {
-  const t = useTranslations("AllCategoryProduct");
-  return (
-    <div className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white dark:bg-white/10 text-slate-500 shadow-sm">
-        <PackageCheck aria-hidden="true" className="h-6 w-6" />
-      </div>
-      <p className="mt-4 text-sm font-black text-slate-700">{title}</p>
-      <p className="mt-1 px-4 text-xs text-slate-500">{getProgressMessage(t, "generating", progress)}</p>
-      <p className="mt-1 text-[11px] font-semibold text-slate-400">{progress ? `${progress}%` : t("waitingRender")}</p>
-    </div>
-  );
-}
-
-function ResultGrid({
-  slots,
-  regeneratingIndex,
-  onPreview,
-  onDownload,
-  onRegenerate,
-}: {
-  slots: ReturnType<typeof buildResultSlots>;
-  regeneratingIndex: number | null;
-  onPreview: (url: string, title: string, index: number) => void;
-  onDownload: (url: string, index: number) => void;
-  onRegenerate: (index: number) => void;
-}) {
-  const t = useTranslations("AllCategoryProduct");
-  return (
-    <div className="mt-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-black text-slate-950">{t("generationDoneTitle")}</h3>
-          <p className="mt-1 text-xs text-slate-500">{t("generationDoneSub")}</p>
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {slots.map((slot, index) => (
-          <article key={`${slot.module.id}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <div className="relative aspect-[3/4] bg-slate-50">
-              {slot.url ? (
-                <RawPreviewImage src={getImageVariantUrl(slot.url, "card")} alt={slot.module.title} className="h-full w-full object-contain" />
-              ) : slot.status === "failed" ? (
-                <div className="flex h-full flex-col items-center justify-center px-6 text-center text-red-500">
-                  <X aria-hidden="true" className="h-7 w-7" />
-                  <p className="mt-3 text-sm font-black">{t("generationFailedTitle")}</p>
-                  <p className="mt-1 text-xs leading-5">{slot.error || t("trySingleRegenerate")}</p>
-                </div>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-slate-500">
-                  <Loader2 aria-hidden="true" className="h-6 w-6 animate-spin" />
-                  <p className="mt-3 text-sm font-black">{t("waitingResult")}</p>
-                </div>
-              )}
-              {slot.url && (
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-950/0 opacity-0 transition hover:bg-slate-950/35 hover:opacity-100">
-                  <IconButton label={t("previewMode")} onClick={() => onPreview(slot.url!, slot.module.title, index)} icon={<ZoomIn aria-hidden="true" className="h-4 w-4" />} />
-                  <IconButton label={t("actionDownload")} onClick={() => onDownload(slot.url!, index)} icon={<Download aria-hidden="true" className="h-4 w-4" />} />
-                  <IconButton label={t("regenerate")} onClick={() => onRegenerate(index)} icon={regeneratingIndex === index ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />} />
-                </div>
-              )}
-            </div>
-            <div className="p-3">
-              <h4 className="truncate text-sm font-black text-slate-950">{slot.module.title}</h4>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{slot.url ? t("regenerated") : slot.status === "failed" ? t("failedStatus") : t("generatingStatus")} · {getAspectRatioLabel(slot.module.aspectRatio, t)}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function IconButton({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} title={label} aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-white/10 text-slate-700 shadow-lg hover:bg-slate-100">
-      {icon}
-    </button>
-  );
-}
-
-function EditField({ label, value, onChange, textarea }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean }) {
-  return (
-    <label className="block text-xs font-black text-slate-500">
-      {label}
-      {textarea ? (
-        <textarea value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-[96px] w-full resize-y rounded-lg border border-slate-200 bg-white p-2 text-sm font-medium leading-6 text-slate-900 outline-none focus:border-slate-400" />
-      ) : (
-        <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-medium text-slate-900 outline-none focus:border-slate-400" />
-      )}
-    </label>
-  );
-}
-
-function AiWritingModal({
-  open,
-  returnFocusRef,
-  plans,
-  selectedIndex,
-  onSelect,
-  onConfirm,
-  onRefresh,
-  onClose,
-}: {
-  open: boolean;
-  returnFocusRef: RefObject<HTMLElement | null>;
-  plans: string[];
-  selectedIndex: number;
-  onSelect: (index: number) => void;
-  onConfirm: () => void;
-  onRefresh: () => void;
-  onClose: () => void;
-}) {
-  const t = useTranslations("AllCategoryProduct");
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose();
-      }}
-    >
-      <DialogContent
-        returnFocusRef={returnFocusRef}
-        overlayClassName="z-[149] bg-slate-950/45"
-        className="z-[150] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl flex-col gap-0 overflow-hidden rounded-lg bg-white p-0 shadow-2xl sm:max-w-3xl"
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 pr-14">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-              <Brush aria-hidden="true" className="h-5 w-5 text-slate-700" />
-            </span>
-            <div>
-              <DialogTitle className="text-base font-black leading-6 text-slate-950">{t("aiWritingPlanTitle")}</DialogTitle>
-              <DialogDescription className="mt-1 text-xs text-slate-500">{t("aiWritingPlanDesc")}</DialogDescription>
-            </div>
-          </div>
-        </div>
-        <div className="border-b border-slate-100 px-5 py-3" role="group" aria-label={t("aiWritingPlanGroup")}>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {plans.map((_, index) => (
-              <button
-                key={index}
-                type="button"
-                aria-pressed={selectedIndex === index}
-                onClick={() => onSelect(index)}
-                className={cn("h-9 shrink-0 rounded-full border px-4 text-sm font-black outline-none transition-[color,background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2", selectedIndex === index ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400")}
-              >
-                {t("planN", { index: index + 1 })}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-5 [overscroll-behavior:contain]">
-          <pre className="min-h-64 whitespace-pre-wrap rounded-lg bg-white p-4 text-sm leading-7 text-slate-800 shadow-sm sm:min-h-[360px]">{plans[selectedIndex] || t("noPlan")}</pre>
-        </div>
-        <div className="flex flex-col gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-between">
-          <button type="button" onClick={onRefresh} className="inline-flex h-11 touch-manipulation items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-600 outline-none transition-[color,background-color,border-color,box-shadow] hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
-            <RefreshCw aria-hidden="true" className="h-4 w-4" />
-            {t("rewrite")}
-          </button>
-          <button type="button" onClick={onConfirm} className="inline-flex h-11 touch-manipulation items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 text-sm font-black text-white outline-none transition-[background-color,box-shadow] hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
-            <Check aria-hidden="true" className="h-4 w-4" />
-            {t("confirmSelect")}
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}

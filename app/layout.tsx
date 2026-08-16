@@ -7,7 +7,6 @@ import "./globals.css";
 import "./styles/shared-components.css";
 import "./styles/studio-primitives.css";
 import "./styles/studio.css";
-import "./styles/studio-overrides.css";
 import "./styles/i18n.css";
 import "./styles/artistry.css";
 import "./styles/motion.css";

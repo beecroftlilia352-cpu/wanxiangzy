@@ -102,7 +102,7 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
         <TextArea name="features" label="权益" placeholder={"1,000 灵点 + 赠送 200\n适合多模块连续生成"} />
         <div className="flex items-center justify-between gap-3">
           <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--admin-fg)]">
-            <input name="active" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300" />
+            <input name="active" type="checkbox" defaultChecked className="h-4 w-4 rounded border-[var(--codex-border-strong)]" />
             启用商品
           </label>
           <SubmitButton pending={productPending} icon={Save} label="保存商品" />
@@ -150,11 +150,11 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
         <div className="flex items-center justify-between gap-3 pt-9">
           <div className="flex flex-col gap-2">
             <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--admin-fg)]">
-              <input name="walletEnabled" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300" />
+              <input name="walletEnabled" type="checkbox" defaultChecked className="h-4 w-4 rounded border-[var(--codex-border-strong)]" />
               一次性钱包支付
             </label>
             <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--admin-fg)]">
-              <input name="active" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300" />
+              <input name="active" type="checkbox" defaultChecked className="h-4 w-4 rounded border-[var(--codex-border-strong)]" />
               启用价格
             </label>
           </div>
@@ -187,7 +187,7 @@ function Field({
         type={type}
         required={required}
         placeholder={placeholder}
-        className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-semibold text-[var(--admin-fg)] outline-none placeholder:text-slate-300 focus:border-[var(--admin-border-strong)]"
+        className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-semibold text-[var(--admin-fg)] outline-none placeholder:text-codex-faint focus:border-[var(--admin-border-strong)]"
       />
     </label>
   );
@@ -201,7 +201,7 @@ function TextArea({ name, label, placeholder }: { name: string; label: string; p
         name={name}
         rows={2}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-2 text-sm font-semibold text-[var(--admin-fg)] outline-none placeholder:text-slate-300 focus:border-[var(--admin-border-strong)]"
+        className="w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-2 text-sm font-semibold text-[var(--admin-fg)] outline-none placeholder:text-codex-faint focus:border-[var(--admin-border-strong)]"
       />
     </label>
   );
@@ -212,7 +212,7 @@ function SubmitButton({ pending, icon: Icon, label }: { pending: boolean; icon: 
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--admin-fg)] px-3 text-xs font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--admin-fg)] px-3 text-xs font-black text-white hover:bg-codex-muted disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
       {label}

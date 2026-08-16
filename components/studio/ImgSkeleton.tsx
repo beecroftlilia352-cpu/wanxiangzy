@@ -12,7 +12,7 @@ export function ImgSkeleton({ src, alt, className, variant = "thumb" }: ImgSkele
   const displaySrc = variant ? getImageVariantUrl(src, variant) : src;
 
   return (
-    <div className={`${className} bg-gray-100`}>
+    <div className={`${className} bg-[var(--codex-surface-soft)]`}>
       <RawPreviewImage
         src={displaySrc}
         alt={alt || ""}

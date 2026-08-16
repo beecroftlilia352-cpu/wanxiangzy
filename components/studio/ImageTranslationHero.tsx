@@ -29,25 +29,25 @@ export function ImageTranslationHero({
   const t = useTranslations("Shared");
   return (
     <div className="relative mx-auto w-full max-w-[1180px] px-2 py-2 sm:px-4">
-      <div className="pointer-events-none absolute inset-x-12 top-10 h-40 rounded-full bg-[radial-gradient(circle,rgba(91,124,255,0.18),transparent_70%)] blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-12 top-10 h-40 rounded-full bg-[radial-gradient(circle,var(--codex-accent-18),transparent_70%)] blur-3xl" />
       <div className="pointer-events-none absolute inset-x-12 top-40 h-40 rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.16),transparent_72%)] blur-3xl" />
       <div className="relative">
         {title || description ? (
           <div className="mb-4 text-center sm:mb-6">
             {title ? (
-              <h3 className="text-[22px] font-black tracking-normal text-slate-950 dark:text-stone-100 sm:text-[30px]" style={{ textWrap: "balance" }}>
+              <h3 className="text-[22px] font-black tracking-normal text-codex-ink sm:text-[30px]" style={{ textWrap: "balance" }}>
                 {title}
               </h3>
             ) : null}
             {description ? (
-              <p className="mx-auto mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500 dark:text-stone-400 sm:text-[15px]">
+              <p className="mx-auto mt-2 max-w-2xl text-sm font-semibold leading-6 text-codex-faint sm:text-[15px]">
                 {description}
               </p>
             ) : null}
           </div>
         ) : null}
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/80 bg-white/90 shadow-[0_28px_90px_rgba(91,124,255,0.18),0_8px_26px_rgba(15,23,42,0.08)] ring-1 ring-slate-950/[0.04] backdrop-blur dark:border-white/10 dark:bg-white/5 dark:ring-white/5">
+        <div className="relative overflow-hidden rounded-3xl border border-white/80 bg-white/90 shadow-[0_28px_90px_var(--codex-accent-18),0_8px_26px_rgba(15,23,42,0.08)] ring-1 ring-codex-ink/[0.04] backdrop-blur dark:border-white/10 dark:bg-white/5 dark:ring-white/5">
           <div className="relative aspect-[16/9] w-full">
             <picture>
               <source media="(max-width: 640px)" srcSet={mobileImageSrc} />
@@ -60,11 +60,11 @@ export function ImageTranslationHero({
                 className="object-cover"
               />
             </picture>
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/5 via-transparent to-transparent" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-codex-ink/5 via-transparent to-transparent" />
           </div>
           {actions ? (
-            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-100/80 bg-white/70 px-4 py-3 text-[12px] font-semibold text-slate-500 backdrop-blur dark:border-white/10 dark:bg-[var(--codex-surface)]/40 dark:text-stone-300 sm:gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-violet-700 dark:bg-[rgba(91,124,255,0.1)]0/15 dark:text-violet-200">
+            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-white/80 bg-white/70 px-4 py-3 text-[12px] font-semibold text-codex-faint backdrop-blur dark:border-white/10 dark:bg-[var(--codex-surface)]/40 dark:text-codex-muted sm:gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--codex-accent-10)] px-2.5 py-1 text-[var(--codex-accent)] dark:bg-[var(--codex-accent-14)] dark:text-[var(--codex-accent)]">
                 <Sparkles className="h-3 w-3" />
                 {t("oneClickLocalize")}
               </span>

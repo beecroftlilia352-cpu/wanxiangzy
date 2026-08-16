@@ -121,7 +121,7 @@
   z-index: 2;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 47% 22%, rgba(255, 255, 255, 0.72) 0 15%, transparent 42%),
+    radial-gradient(ellipse at 47% 22%, var(--codex-surface-72) 0 15%, transparent 42%),
     radial-gradient(ellipse at 62% 15%, rgba(126, 116, 255, 0.22) 0 22%, transparent 48%),
     linear-gradient(112deg, transparent 8%, rgba(255, 255, 255, 0.5) 28%, rgba(111, 166, 255, 0.22) 46%, transparent 72%);
   filter: blur(18px) saturate(1.08);
@@ -145,7 +145,7 @@
   top: -6%;
   width: 92vw;
   height: 34vw;
-  background: linear-gradient(96deg, rgba(17, 84, 255, 0.48), rgba(166, 211, 255, 0.34) 48%, rgba(255, 255, 255, 0.08));
+  background: linear-gradient(96deg, rgba(17, 84, 255, 0.48), rgba(166, 211, 255, 0.34) 48%, var(--codex-surface-08));
 }
 
 .home-hero-cloud-two {
@@ -172,9 +172,9 @@
   width: 92px;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--codex-surface-72);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--codex-surface-soft);
   box-shadow: 0 28px 90px rgba(76, 89, 170, 0.22);
   backdrop-filter: blur(16px) saturate(1.1);
   -webkit-backdrop-filter: blur(16px) saturate(1.1);
@@ -234,7 +234,7 @@
   grid-template-columns: 300px minmax(0, 1fr);
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 24px 24px 0 0;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--codex-surface-72);
   color: #111827;
   text-align: left;
   box-shadow: 0 50px 150px rgba(46, 61, 153, 0.28), 0 24px 80px rgba(58, 86, 170, 0.2);
@@ -267,7 +267,7 @@
   min-height: 0;
   overflow: hidden;
   flex-direction: column;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--codex-surface-72);
   background: rgba(248, 251, 255, 0.82);
   box-shadow: 0 36px 120px rgba(50, 70, 164, 0.22);
   backdrop-filter: blur(18px) saturate(1.08);
@@ -329,7 +329,7 @@
   min-height: 0;
   flex: 1 1 auto;
   background:
-    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.82), transparent 34%),
+    radial-gradient(circle at 12% 8%, var(--codex-surface-82), transparent 34%),
     linear-gradient(135deg, #eef4ff, #f9fbff 52%, #e8eeff);
 }
 
@@ -465,7 +465,7 @@
   overflow: hidden;
   border: 1px solid rgba(17, 24, 39, 0.08);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--codex-surface-72);
   box-shadow: 0 26px 80px rgba(45, 67, 140, 0.16);
 }
 
@@ -524,7 +524,7 @@
   bottom: 48px;
   width: min(620px, 62%);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--codex-surface-strong);
   padding: 24px 28px;
   color: #8b8f97;
   box-shadow: 0 30px 100px rgba(55, 70, 145, 0.22);
@@ -641,9 +641,9 @@
   padding: clamp(10px, 1.1vw, 16px);
   border: 1px solid rgba(15, 23, 42, 0.06);
   background:
-    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.78), transparent 30%),
+    radial-gradient(circle at 12% 8%, var(--codex-surface-soft), transparent 30%),
     linear-gradient(135deg, #dfe8ff 0%, #f7faff 52%, #e5ecff 100%);
-  box-shadow: 0 24px 80px rgba(91, 124, 255, 0.14);
+  box-shadow: 0 24px 80px var(--codex-accent-14);
 }
 
 .home-feature-macos-shell {
@@ -704,7 +704,7 @@
   justify-content: center;
   padding: clamp(24px, 4vw, 44px);
   background:
-    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.92), transparent 30%),
+    radial-gradient(circle at 18% 8%, var(--codex-surface-strong), transparent 30%),
     linear-gradient(135deg, #315cff, #c9daff 52%, #eff5ff);
 }
 
@@ -793,7 +793,7 @@
   gap: 12px;
   border: 1px solid rgba(18, 32, 54, 0.08);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--codex-surface-72);
   padding: 0 14px;
   color: #172033;
   font-size: 13px;
@@ -1415,28 +1415,28 @@
 
 .dark .home-marketing-header-scrolled {
   background-color: #0c0a09 !important;
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: var(--codex-surface-08);
   color: #f5f5f7;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 1px 0 var(--codex-surface-04);
 }
 
 .dark .home-login-pill {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--codex-surface-08);
 }
 
 .dark .home-marketing-header-scrolled .home-login-pill {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--codex-surface-06);
   color: #f5f5f7;
 }
 
 .dark .home-menu-pill {
   border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--codex-surface-08);
 }
 
 .dark .home-marketing-header-scrolled .home-menu-pill {
   border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--codex-surface-06);
 }
 
 .dark .home-trial-pill {
@@ -1454,18 +1454,18 @@
 .dark .home-feature-copy-panel,
 .dark .home-partner-band {
   background: #0c0a09;
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--codex-surface-08);
 }
 
 .dark .home-partner-band {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+  border-bottom-color: var(--codex-surface-06);
 }
 
 .dark .home-scene-card,
 .dark .home-tool-card,
 .dark .home-testimonial {
   background: #161618;
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--codex-surface-08);
   color: #f5f5f7;
 }
 
@@ -1483,7 +1483,7 @@
    ========================================================================== */
 .dark .home-macos-body {
   background:
-    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.06), transparent 34%),
+    radial-gradient(circle at 12% 8%, var(--codex-surface-06), transparent 34%),
     linear-gradient(135deg, #14141a, #1c1c1e 52%, #18181c) !important;
 }
 
@@ -1493,7 +1493,7 @@
 
 .dark .home-hero-frame {
   background: rgba(28, 28, 30, 0.78) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  border-color: var(--codex-surface-10) !important;
   color: #f5f5f7 !important;
 }
 
@@ -1513,9 +1513,9 @@
   z-index: 4;
   pointer-events: none;
   background:
-    radial-gradient(circle at 28% 22%, rgba(91, 140, 255, 0.24) 0 10%, transparent 38%),
+    radial-gradient(circle at 28% 22%, var(--codex-accent-24) 0 10%, transparent 38%),
     radial-gradient(circle at 72% 30%, rgba(167, 139, 250, 0.18) 0 12%, transparent 40%),
-    radial-gradient(circle at 48% 68%, rgba(91, 140, 255, 0.15) 0 14%, transparent 42%);
+    radial-gradient(circle at 48% 68%, var(--codex-accent-14) 0 14%, transparent 42%);
   filter: blur(34px);
   animation: home-hero-dark-aurora 11s ease-in-out infinite alternate;
 }
@@ -1532,7 +1532,7 @@
 
 .dark .home-shot-body {
   background: rgba(28, 28, 30, 0.78) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  border-color: var(--codex-surface-10) !important;
   color: #f5f5f7 !important;
 }
 
