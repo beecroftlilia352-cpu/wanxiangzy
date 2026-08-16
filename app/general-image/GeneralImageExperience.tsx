@@ -894,7 +894,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               }))}
               value={aspectRatio}
               onChange={setAspectRatio}
-              titleKey="ratioSectionTitle"
+              titleKey="GeneralImage.ratioSectionTitle"
               ariaLabel={t("ratioAriaLabel")}
             />
           </section>

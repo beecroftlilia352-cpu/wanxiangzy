@@ -128,9 +128,7 @@ export function AspectRatioSelector<T extends string = string>({
               <span className="studio-aspect-ratio-selector-icon" aria-hidden="true">
                 {shape ? <RatioShape shape={shape} /> : <AutoShapeIcon />}
               </span>
-              {option.value === "auto" && (
-                <span className="studio-aspect-ratio-selector-label">{labelText}</span>
-              )}
+              <span className="studio-aspect-ratio-selector-label">{labelText}</span>
             </button>
           );
         })}
