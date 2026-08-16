@@ -409,7 +409,18 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     const restoredAiModel = normalizeLingyaModel(payload.aiModel);
     const restoredAspectRatio = normalizeAspectRatio(payload.aspectRatio, "auto");
     const restoredImageSize = normalizeImageSize(restoredAiModel, payload.imageSize, restoredAspectRatio);
-    setMode(payload.mode === "image-to-image" ? "image-to-image" : "text-to-image");
+    // NOTE: do NOT change `mode` here. The page wrapper owns the mode via
+    // initialMode + URL route (/general-image ↔ /general-image/image-to-image);
+    // clicking a history row should restore the prompt/referenceImages/result
+    // for the CURRENT route's mode, not silently switch routes underneath the
+    // user. The previous behavior — setMode(payload.mode === "image-to-image"
+    // ? "image-to-image" : "text-to-image") — caused two bugs:
+    //   1. applying a text-to-image row while on /image-to-image flipped
+    //      the right preview's filenamePrefix + applyPath to text-to-image,
+    //      so the next Generate routed to /general-image ("callback to text-to-image").
+    //   2. the conditional {isImageMode && <StudioUploadSection ...>} hid the
+    //      reference upload UI even though the user had applied a row that
+    //      included referenceUrls — making it look like the apply "did nothing".
     setPrompt(payload.prompt);
     setAiModel(restoredAiModel);
     setAspectRatio(restoredAspectRatio);
