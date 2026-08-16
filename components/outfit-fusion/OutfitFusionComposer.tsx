@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, ChevronsDown, ImagePlus, Loader2, Plus, Settings2, Sparkles, Trash2, WandSparkles, X } from "lucide-react";
+import { ChevronDown, ChevronsDown, ImagePlus, Loader2, Plus, Settings2, Sparkles, Trash2, WandSparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { StudioModelSelector } from "@/components/studio/StudioModelSelector";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { cn } from "@/lib/utils";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { useTranslations } from "next-intl";
 import {
   DEFAULT_OUTFIT_FUSION_CONFIG,
-  OUTFIT_FUSION_MODELS,
   type OutfitFusionAsset,
   type OutfitFusionAssetRole,
   type OutfitFusionConfig,
@@ -85,8 +87,9 @@ export function OutfitFusionComposer({
   onJumpToBottom,
 }: OutfitFusionComposerProps) {
   const t = useTranslations("OutfitFusion");
+  const modelOptions = useStudioImageModelOptions();
   const canGenerate = assets.length > 0 && prompt.trim().length > 0 && !generating && !uploading && !autoWriting;
-  const modelLabel = OUTFIT_FUSION_MODELS.find((item) => item.value === config.aiModel)?.label || config.aiModel;
+  const modelLabel = modelOptions.find((item) => item.value === config.aiModel)?.label || config.aiModel;
   const visibleSlots = EMPTY_SLOTS.filter((slot) => {
     if (slot.role === "outfit") return true;
     return !assets.some((asset) => asset.role === slot.role);
@@ -240,7 +243,7 @@ export function OutfitFusionComposer({
 
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <span className="min-w-14 text-right text-xs text-codex-muted dark:text-codex-faint">{prompt.length}/800</span>
-            <OutfitFusionConfigPopover config={config} onChange={onConfigChange} modelLabel={modelLabel} />
+            <OutfitFusionConfigPopover config={config} onChange={onConfigChange} modelLabel={modelLabel} models={modelOptions} />
             <Button
               type="button"
               className="h-9 rounded-[6px] bg-[var(--codex-accent)] px-4 text-sm font-semibold text-white shadow-[0_8px_18px_var(--codex-accent-24)] transition hover:bg-[#4d6df4] hover:shadow-[0_12px_24px_var(--codex-accent-30)]"
@@ -630,10 +633,12 @@ function OutfitFusionConfigPopover({
   config,
   onChange,
   modelLabel,
+  models,
 }: {
   config: OutfitFusionConfig;
   onChange: (config: OutfitFusionConfig) => void;
   modelLabel: string;
+  models: ReturnType<typeof useStudioImageModelOptions>;
 }) {
   const t = useTranslations("OutfitFusion");
   return (
@@ -652,7 +657,7 @@ function OutfitFusionConfigPopover({
         side="top"
         sideOffset={8}
         avoidCollisions={false}
-        className="w-[min(316px,calc(100vw-32px))] overflow-visible rounded-[8px] p-4 shadow-[0_18px_48px_rgba(15,23,42,0.18)]"
+        className="w-[min(520px,calc(100vw-32px))] overflow-visible rounded-[16px] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.18)]"
       >
         <div className="space-y-4">
           <ControlGroup label={t("aspectRatio")}>
@@ -677,24 +682,20 @@ function OutfitFusionConfigPopover({
             />
           </ControlGroup>
 
-          <ControlGroup label={t("resolution")}>
-            <Segmented
-              ariaLabel={t("resolution")}
-              value={config.imageSize}
-              options={IMAGE_SIZES.map((size) => ({ value: size, label: size }))}
-              onChange={(value) => onChange({ ...config, imageSize: value as ImageSize })}
-            />
-          </ControlGroup>
+          <ResolutionSelector
+            title={t("resolution")}
+            ariaLabel={t("resolution")}
+            value={config.imageSize}
+            options={IMAGE_SIZES.map((size) => ({ value: size, label: size }))}
+            onChange={(value) => onChange({ ...config, imageSize: value as ImageSize })}
+          />
 
-          <div className="grid grid-cols-1 gap-3">
-            <ControlGroup label={t("modelSelect")}>
-              <InlineConfigSelect
-                value={config.aiModel}
-                options={OUTFIT_FUSION_MODELS.map((model) => ({ value: model.value, label: model.label }))}
-                onChange={(value) => onChange({ ...config, aiModel: value as OutfitFusionConfig["aiModel"] })}
-              />
-            </ControlGroup>
-          </div>
+          <StudioModelSelector
+            models={models}
+            value={config.aiModel}
+            onChange={(value) => onChange({ ...config, aiModel: value })}
+            ariaLabel={t("modelSelect")}
+          />
         </div>
       </PopoverContent>
     </Popover>
@@ -755,77 +756,6 @@ function Segmented({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function InlineConfigSelect({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const active = options.find((option) => option.value === value) || options[0];
-
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(event: PointerEvent) {
-      if (rootRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open]);
-
-  return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-[6px] border border-[var(--codex-accent-20)] bg-white dark:bg-[var(--codex-surface)] px-3 text-left text-[13px] font-medium text-codex-ink dark:text-stone-300 shadow-sm outline-none transition hover:border-[var(--codex-accent-34)] focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-26)]"
-      >
-        <span className="min-w-0 truncate">{active?.label || value}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-codex-muted dark:text-codex-faint transition-transform", open && "rotate-180")} />
-      </button>
-      {open ? (
-        <div
-          role="listbox"
-          className="absolute left-0 top-[calc(100%+4px)] z-[80] w-full rounded border border-[var(--codex-border)] dark:border-white/10 bg-white dark:bg-[var(--codex-surface)] p-1 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
-        >
-          {options.map((option) => {
-            const selected = option.value === value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex h-8 w-full items-center justify-between rounded-[6px] px-2.5 text-left text-[13px] transition",
-                  selected
-                    ? "bg-[var(--codex-accent)] font-semibold text-white"
-                    : "text-codex-ink dark:text-stone-300 hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)]"
-                )}
-              >
-                <span className="truncate">{option.label}</span>
-                {selected ? <Check className="h-3.5 w-3.5" /> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
     </div>
   );
 }

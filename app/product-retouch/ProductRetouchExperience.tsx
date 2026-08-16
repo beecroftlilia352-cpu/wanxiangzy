@@ -76,41 +76,7 @@ import {
   MAX_FILE_SIZE_MB,
   uploadImage,
 } from "@/lib/utils";
-
-const MODEL_OPTIONS: ReadonlyArray<{
-  value: LingyaModel;
-  label: string;
-  labelKey?: string;
-  desc: string;
-  descKey?: string;
-  icon: string;
-  badge?: string;
-  badgeKey?: string;
-}> = [
-  {
-    value: "nano-banana-2",
-    label: "Nano Banana 2",
-    desc: "",
-    descKey: "model.speedFirst",
-    icon: "/model-icons/gemini.png",
-  },
-  {
-    value: "gpt-image-2",
-    label: "GPT Image 2",
-    desc: "",
-    descKey: "model.consistencyFirst",
-    icon: "/model-icons/openai.svg",
-    badge: "",
-    badgeKey: "model.recommended",
-  },
-  {
-    value: "nano-banana-pro",
-    label: "Nano Banana Pro",
-    desc: "",
-    descKey: "model.complexMaterial",
-    icon: "/model-icons/gemini.png",
-  },
-] as const;
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 
 const ASPECT_OPTIONS: ReadonlyArray<{
   value: AspectRatio;
@@ -152,15 +118,7 @@ type PreviewState = {
 
 export function ProductRetouchExperience() {
   const t = useTranslations("ProductRetouch");
-  const displayModels = useMemo(() => MODEL_OPTIONS.map((m) => {
-    const { labelKey, descKey, badgeKey, ...rest } = m;
-    return {
-      ...rest,
-      label: labelKey ? t(labelKey) : m.label,
-      desc: descKey ? t(descKey) : m.desc,
-      badge: m.badge ? (badgeKey ? t(badgeKey) : m.badge) : undefined,
-    };
-  }), [t]);
+  const displayModels = useStudioImageModelOptions();
   const displayAspects = useMemo(() => ASPECT_OPTIONS.map((m) => {
     const { labelKey } = m;
     return {

@@ -25,9 +25,10 @@ export function AudienceAgePanel({ garmentAudience, ageGroup, onChangeAudience, 
     <section className="rounded-2xl border border-violet-100 bg-white/78 p-3 shadow-sm dark:border-white/10 dark:bg-[#1c1c1e]">
       <div className="mb-2.5 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-[13px] font-bold text-codex-ink">
-            {t("audience.title")} <span className="ml-1 rounded-full bg-[var(--codex-surface-soft)] px-1.5 py-0.5 text-[11px] font-medium text-codex-faint dark:bg-white/10 dark:text-codex-faint">{t("common.optional")}</span>
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="studio-control-title">{t("audience.title")}</h3>
+            <span className="rounded-full bg-[var(--codex-surface-soft)] px-1.5 py-0.5 text-[11px] font-medium text-codex-faint dark:bg-white/10 dark:text-codex-faint">{t("common.optional")}</span>
+          </div>
           <p className="mt-1 truncate text-[12px] text-codex-faint">
             {t("audience.description")}
           </p>

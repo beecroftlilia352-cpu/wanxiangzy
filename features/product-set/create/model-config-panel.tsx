@@ -1,7 +1,6 @@
-import { Activity } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { StudioModelSelector } from "@/components/studio/StudioModelSelector";
 import { getCreditCost, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
 import type { ProductSetImageType } from "@/lib/product-set";
@@ -33,38 +32,12 @@ export function ModelConfigPanel({
   const modelOptions = useStudioImageModelOptions();
   return (
     <section id="product-set-generation-settings" aria-label={t("create.modelConfig.ariaLabel")} className="space-y-3">
-      <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <legend className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-stone-100">
-          <Activity aria-hidden="true" className="h-4 w-4 text-[var(--codex-accent)]" /> {t("create.modelConfig.model")}
-        </legend>
-        <div role="radiogroup" className="grid grid-cols-2 items-stretch gap-2">
-          {modelOptions.map((model) => (
-            <button
-              key={model.value}
-              type="button"
-              role="radio"
-              aria-checked={aiModel === model.value}
-              onClick={() => onModelChange(model.value)}
-              className={`min-h-[72px] touch-manipulation rounded-2xl border px-3 py-2.5 text-left transition-[border-color,background-color,color,box-shadow] ${focusRing} ${
-                aiModel === model.value
-                  ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-slate-950 shadow-[0_10px_26px_rgba(124,58,237,0.12)] dark:text-stone-100"
-                  : "border-slate-100 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                <RawPreviewImage src={model.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
-                <span className="min-w-0 truncate text-[11px] font-black">{model.label}</span>
-                {model.badge ? (
-                  <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[10px] font-black text-[var(--codex-accent)]">
-                    {model.badge}
-                  </span>
-                ) : null}
-              </span>
-              <span className="mt-1 line-clamp-2 block pl-5 text-[11px] font-semibold leading-tight text-slate-400" title={model.desc}>{model.desc}</span>
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <StudioModelSelector
+        models={modelOptions}
+        value={aiModel}
+        onChange={onModelChange}
+        ariaLabel={t("create.modelConfig.model")}
+      />
 
       <div className="py-1">
         <ResolutionSelector
@@ -86,7 +59,7 @@ export function ModelConfigPanel({
       </div>
 
       <fieldset className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <legend className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">{t("create.modelConfig.quality")}</legend>
+        <legend className="studio-control-title mb-3">{t("create.modelConfig.quality")}</legend>
         <div role="radiogroup" className="grid grid-cols-2 gap-2">
           {(["standard", "advanced"] as const).map((value) => (
             <button

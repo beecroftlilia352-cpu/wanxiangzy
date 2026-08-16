@@ -25,6 +25,7 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
+import { StudioModelSelector } from "@/components/studio/StudioModelSelector";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES,
@@ -40,7 +41,7 @@ import {
   type AllCategoryProductImagePlatform,
 } from "@/lib/all-category-product-image";
 import { getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { useVisibleImageModels } from "@/lib/use-visible-image-models";
+import { useStudioImageModelOptions } from "@/lib/studio-models";
 import type {
   ProductSetCustomTemplate,
   ProductSetImageType,
@@ -133,12 +134,6 @@ type GenerationResponse = {
 const MAX_PRODUCT_UPLOADS = 6;
 const API_PRODUCT_IMAGE_LIMIT = 3;
 
-const MODELS: Array<{ value: LingyaModel; label: string; badge?: string; badgeKey?: string }> = [
-  { value: "nano-banana-2", label: "Nano Banana 2", badge: "默认", badgeKey: "AllCategoryProduct.models.badgeDefault" },
-  { value: "gpt-image-2", label: "GPT Image 2", badge: "高质感", badgeKey: "AllCategoryProduct.models.badgeHighQuality" },
-  { value: "nano-banana-pro", label: "Nano Banana Pro", badge: "质感", badgeKey: "AllCategoryProduct.models.badgeTexture" },
-];
-
 const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
   { kind: "copy", label: "复制链接" },
@@ -230,7 +225,7 @@ function readModuleResults(value: unknown): ProductSetModuleResult[] {
 
 export default function AllCategoryProductImagePage() {
   const t = useTranslations("AllCategoryProduct");
-  const tAny = useTranslations(); // 数据键全路径（AllCategoryProduct.models.*）
+  const modelOptions = useStudioImageModelOptions();
   const inputRef = useRef<HTMLInputElement>(null);
   const aiPlansReturnFocusRef = useRef<HTMLElement | null>(null);
   const [activeStep, setActiveStep] = useState<StepKey>("input");
@@ -262,12 +257,6 @@ export default function AllCategoryProductImagePage() {
   const [editingDesignSpec, setEditingDesignSpec] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [productLightboxSrc, setProductLightboxSrc] = useState<string | null>(null);
-  const { visibleModels } = useVisibleImageModels();
-  const visibleModelEntries = useMemo(
-    () => MODELS.filter((model) => !visibleModels || visibleModels.has(model.value)),
-    [visibleModels],
-  );
-
   const defaultAspect = getDefaultAspect();
   const supportedSizes = useMemo(() => getSupportedImageSizes(aiModel, defaultAspect), [aiModel, defaultAspect]);
   const countOptions = useMemo(() => imageType === "main" ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6, 7, 8], [imageType]);
@@ -734,10 +723,13 @@ export default function AllCategoryProductImagePage() {
                     onClear={() => { setUserBrief(""); resetOutput(); }}
                   />
                   <SelectField icon={<Languages aria-hidden="true" className="h-4 w-4" />} label={t("targetLanguage")} value={language} options={ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES} onChange={(value) => { setLanguage(value as AllCategoryProductImageLanguage); resetOutput(); }} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <SelectField label={t("modelLabel")} value={aiModel} options={visibleModelEntries.map((item) => item.value)} labels={Object.fromEntries(visibleModelEntries.map((item) => [item.value, item.badge ? `${item.label} · ${item.badgeKey ? tAny(item.badgeKey) : item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />
-                    <SelectField label={t("sizeRatio")} value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
-                  </div>
+                  <StudioModelSelector
+                    models={modelOptions}
+                    value={aiModel}
+                    onChange={(value) => { setAiModel(value); resetOutput(); }}
+                    ariaLabel={t("modelLabel")}
+                  />
+                  <SelectField label={t("sizeRatio")} value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
                   <div className="grid gap-4">
                     <div>
                       <ResolutionSelector

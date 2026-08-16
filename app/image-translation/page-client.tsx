@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Languages as LanguagesIcon,
-  Sparkles,
   X,
   ZoomIn,
 } from "lucide-react";
@@ -22,7 +21,6 @@ import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import {
   StudioModelSelector,
-  StudioOptionGrid,
 } from "@/components/studio/StudioFormControls";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
@@ -749,7 +747,7 @@ export default function ImageTranslationPage() {
 
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-codex-ink">
+              <h3 className="studio-control-title">
                 <LanguagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
                 {t("languageSectionTitle")} <span className="text-xs font-normal text-codex-faint">· {t("languageMulti")}</span>
               </h3>
@@ -813,23 +811,16 @@ export default function ImageTranslationPage() {
             />
           </section>
 
-          <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink">
-              <Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />
-              {t("modelSectionTitle")}
-            </h3>
-            <StudioModelSelector
-              models={modelOptions}
-              value={aiModel}
-              onChange={setAiModel}
-              ariaLabel={t("modelAriaLabel")}
-              getMeta={(model) => `${model.desc} · ${t("modelMeta", { cost: unitCost })}`}
-            />
-          </section>
+          <StudioModelSelector
+            models={modelOptions}
+            value={aiModel}
+            onChange={setAiModel}
+            ariaLabel={t("modelAriaLabel")}
+          />
 
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-codex-ink">{t("ratioSectionTitle")}</h3>
+              <h3 className="studio-control-title">{t("ratioSectionTitle")}</h3>
               <span className="rounded-full bg-[var(--codex-surface-soft)] px-2 py-0.5 text-[11px] font-semibold text-codex-faint">
                 {t("ratioDefaultLabel")}
               </span>

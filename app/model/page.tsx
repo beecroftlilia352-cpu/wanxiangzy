@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { Camera, CheckCircle2, ChevronRight, Cpu, UserRound } from "lucide-react";
+import { Camera, CheckCircle2, ChevronRight, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -76,7 +76,6 @@ type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
 
 export default function ModelPage() {
   const t = useTranslations("Model");
-  // descKey/badgeKey 为根相对全路径（StudioModelSelector 内部用根 t 解析），这里同样用根翻译器
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hairInputRef = useRef<HTMLInputElement>(null);
@@ -788,7 +787,7 @@ export default function ModelPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("modelStyle")}</h3>
+            <h3 className="studio-control-title mb-3">{t("modelStyle")}</h3>
             <StudioOptionGrid
               options={MODEL_SHOOT_STYLES.map((style) => ({
                 value: style.value,
@@ -806,7 +805,7 @@ export default function ModelPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("gender")}</h3>
+            <h3 className="studio-control-title mb-3">{t("gender")}</h3>
             <StudioOptionGrid<Gender>
               options={[
                 { value: "female", label: t("genderFemale") },
@@ -838,7 +837,7 @@ export default function ModelPage() {
           />
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("hairColorRef")}</h3>
+            <h3 className="studio-control-title mb-3">{t("hairColorRef")}</h3>
             <input
               ref={hairColorInputRef}
               type="file"
@@ -913,18 +912,12 @@ export default function ModelPage() {
             )}
           </section>
 
-          <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-codex-ink">
-              <Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("genModel")}
-            </h3>
-            <StudioModelSelector
-              models={modelOptions}
-              value={aiModel}
-              onChange={setAiModel}
-              ariaLabel={t("genModel")}
-              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
-            />
-          </section>
+          <StudioModelSelector
+            models={modelOptions}
+            value={aiModel}
+            onChange={setAiModel}
+            ariaLabel={t("genModel")}
+          />
 
           <section>
             <AspectRatioSelector

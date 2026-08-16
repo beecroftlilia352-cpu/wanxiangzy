@@ -1695,7 +1695,7 @@ export default function ProductSetPage() {
               <>
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-black text-codex-ink">{t("analysisSection.title")}</h3>
+                    <h3 className="studio-control-title">{t("analysisSection.title")}</h3>
                     <p className="mt-1 text-xs text-codex-faint">{t("analysisSection.help")}</p>
                   </div>
                   <button
@@ -1797,7 +1797,7 @@ export default function ProductSetPage() {
           <section className="rounded-3xl border border-[var(--codex-border)] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-codex-ink">{t("planSource.title")}</h3>
+                <h3 className="studio-control-title">{t("planSource.title")}</h3>
                 <p className="mt-1 text-xs leading-5 text-codex-faint">{t("planSource.help")}</p>
               </div>
               {outputCount > 0 && <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-[var(--codex-accent-10)] px-2.5 text-xs font-black text-[var(--codex-accent)]">{outputCount} {imageType === "main" ? t("units.singleImage") : t("units.singleScreen")}</span>}
@@ -1956,7 +1956,7 @@ export default function ProductSetPage() {
           {outputCount > 0 && <section className="rounded-3xl border border-[var(--codex-border)] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-codex-ink">{t("generationPlan.title")}</h3>
+                <h3 className="studio-control-title">{t("generationPlan.title")}</h3>
                 <p className="mt-1 text-xs text-codex-faint">{showFullPlan ? t("generationPlan.fullHint") : t("generationPlan.partialHint")}</p>
               </div>
               <button

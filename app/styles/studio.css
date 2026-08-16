@@ -2374,7 +2374,7 @@
 }
 
 .studio-prompt-control {
-  --studio-prompt-shell-radius: var(--codex-radius-md);
+  --studio-prompt-shell-radius: 12px;
   --studio-prompt-field-radius: calc(var(--codex-radius-sm) - 3px);
   --studio-prompt-action-height: 30px;
   flex: none;
@@ -2452,7 +2452,7 @@
   border: 1px solid #e5e7ef;
   border-radius: var(--studio-prompt-shell-radius);
   background: #f8f9fd;
-  padding: 14px;
+  padding: 12px;
   box-shadow: none;
 }
 
@@ -2460,6 +2460,7 @@
   position: relative;
   display: flex;
   min-width: 0;
+  height: 218px;
   min-height: 218px;
   flex-direction: column;
   overflow: visible;
@@ -2469,15 +2470,15 @@
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.studio-prompt-textarea {
+.studio-prompt-field > textarea.studio-prompt-textarea {
   display: block;
   width: 100%;
-  min-height: 158px;
+  min-height: 0;
   flex: 1 1 auto;
   appearance: none;
-  resize: vertical;
+  resize: none;
   border: 0 !important;
-  border-radius: var(--studio-prompt-field-radius) var(--studio-prompt-field-radius) 0 0 !important;
+  border-radius: 0 !important;
   background: transparent !important;
   padding: 13px 12px 8px !important;
   color: #202126;
@@ -2488,9 +2489,16 @@
   box-shadow: none !important;
 }
 
-.studio-prompt-textarea::placeholder {
+.studio-prompt-field > textarea.studio-prompt-textarea::placeholder {
   color: #c1c2c6;
   opacity: 1;
+}
+
+.studio-prompt-field > textarea.studio-prompt-textarea:focus {
+  border: 0 !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .studio-prompt-field:focus-within {
@@ -2504,7 +2512,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 6px 12px 13px;
+  padding: 6px 16px 13px;
 }
 
 .studio-prompt-textarea-actions-left,
@@ -2517,6 +2525,7 @@
 
 .studio-prompt-action-pill {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -2687,10 +2696,11 @@
 }
 
 .studio-prompt-textarea-section-compact .studio-prompt-field {
+  height: 132px;
   min-height: 132px;
 }
 
-.studio-prompt-textarea-section-compact .studio-prompt-textarea {
+.studio-prompt-textarea-section-compact .studio-prompt-field > textarea.studio-prompt-textarea {
   min-height: 78px;
   padding: 10px 10px 6px !important;
   font-size: 12px !important;
@@ -2707,10 +2717,11 @@
   }
 
   .studio-prompt-field {
+    height: 198px;
     min-height: 198px;
   }
 
-  .studio-prompt-textarea {
+  .studio-prompt-field > textarea.studio-prompt-textarea {
     min-height: 138px;
   }
 
@@ -9282,4 +9293,67 @@ header .animate-spin {
     gap: 20px;
     padding: 22px 16px 16px;
   }
+}
+
+/* ===== Unified studio control titles (reference: short gradient brush) ===== */
+.studio-control-title,
+.studio-section-title,
+.studio-upload-title,
+.studio-aspect-ratio-selector-title,
+.studio-resolution-selector-title,
+.studio-model-selector-title,
+.studio-prompt-textarea-title,
+.studio-multi-image-v2-title {
+  position: relative;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 0 3px 2px;
+  color: #17181c;
+  font-size: 16px;
+  font-weight: 850;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  isolation: isolate;
+}
+
+.studio-control-title::before,
+.studio-section-title::before,
+.studio-upload-title::before,
+.studio-aspect-ratio-selector-title-mark,
+.studio-resolution-selector-title-mark,
+.studio-model-selector-title-mark,
+.studio-prompt-textarea-title-mark,
+.studio-multi-image-v2-title-mark {
+  position: absolute;
+  right: -6px;
+  bottom: 0;
+  left: -1px;
+  z-index: -1;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #b9b9ff 0%, #d0bdff 45%, #ffd8eb 100%);
+  opacity: 0.9;
+  transform: rotate(-4deg);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.studio-control-title::before,
+.studio-section-title::before,
+.studio-upload-title::before {
+  content: "";
+}
+
+.dark .studio-control-title,
+.dark .studio-section-title,
+.dark .studio-upload-title,
+.dark .studio-aspect-ratio-selector-title,
+.dark .studio-resolution-selector-title,
+.dark .studio-model-selector-title,
+.dark .studio-prompt-textarea-title,
+.dark .studio-multi-image-v2-title {
+  color: #f4f4f5;
 }

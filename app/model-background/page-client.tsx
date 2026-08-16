@@ -6,13 +6,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import {
-  Crop,
-  Layers,
   Camera,
   CheckCircle2,
   ChevronRight,
   Images,
-  Sparkles,
   UserRound,
   ZoomIn,
 } from "lucide-react";
@@ -777,7 +774,7 @@ export default function ModelBackgroundPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-codex-ink"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> {t("operationMode")}</h3>
+            <h3 className="studio-control-title mb-3">{t("operationMode")}</h3>
             <StudioOptionGrid
               options={MODE_OPTIONS.map((item) => ({
                 value: item.value,
@@ -793,7 +790,7 @@ export default function ModelBackgroundPage() {
 
           {mode !== "background_only" ? (
             <section>
-              <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+              <h3 className="studio-control-title mb-1">
                 <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> {t("modelReference")} <span className="text-[var(--codex-accent-72)] font-normal text-xs">· {t("required")}</span>
                 <span className="px-1.5 py-0.5 rounded-full bg-[var(--codex-accent-10)] text-[var(--codex-accent)] text-[11px]">{t("pleaseSelect")}</span>
               </h3>
@@ -866,7 +863,7 @@ export default function ModelBackgroundPage() {
 
           {mode !== "model_only" ? (
             <section>
-              <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-codex-ink">
+              <h3 className="studio-control-title mb-1">
                 <Images className="h-4 w-4 text-[var(--codex-accent)]" /> {t("referenceScene")}
               </h3>
               <p className="mb-3 text-[12px] text-codex-faint">{t("referenceSceneHint")}</p>
@@ -986,16 +983,12 @@ export default function ModelBackgroundPage() {
             onClear={() => setUserPrompt("")}
           />
 
-          <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("genModel")}</h3>
-            <StudioModelSelector
-              models={modelOptions}
-              value={aiModel}
-              onChange={setAiModel}
-              ariaLabel={t("genModel")}
-              getMeta={(model) => `${model.desc} · ${t("currentCredits", { credits: getCreditCost(model.value, imageSize, aspectRatio) })}`}
-            />
-          </section>
+          <StudioModelSelector
+            models={modelOptions}
+            value={aiModel}
+            onChange={setAiModel}
+            ariaLabel={t("genModel")}
+          />
 
           <section>
             <AspectRatioSelector options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("imageAspectRatio")} />

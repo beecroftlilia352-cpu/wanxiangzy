@@ -1,10 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Cpu } from "lucide-react";
 import { StudioModelSelector } from "@/components/studio/StudioFormControls";
-import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
-import { isNanoBananaModel, getCreditCost } from "@/lib/api/lingya";
+import type { LingyaModel } from "@/lib/api/lingya";
+import { isNanoBananaModel } from "@/lib/api/lingya";
 
 type ModelCost = {
   value: LingyaModel;
@@ -16,8 +15,6 @@ type ModelCost = {
 type Props = {
   models: readonly ModelCost[];
   value: LingyaModel;
-  imageSize: ImageSize;
-  aspectRatio: AspectRatio;
   hasModelFace: boolean;
   onChange: (value: LingyaModel) => void;
 };
@@ -26,17 +23,14 @@ type Props = {
  * 生成模型选择面板：图标 + StudioModelSelector + 选 face 模式时的香蕉警告。
  *
  * 受控组件：父组件持有 LingyaModel 状态；onChange 时父组件决定是否 toast
- * （传入 onChange 闭包里）。成本 meta / face-fusion 警告由组件内部根据
- * hasModelFace 计算，避免每次渲染都重算。
+ * （传入 onChange 闭包里）。face-fusion 警告由组件内部根据 hasModelFace
+ * 计算；普通状态保持模型目录中的统一描述。
  */
-export function ModelSelectorSection({ models, value, imageSize, aspectRatio, hasModelFace, onChange }: Props) {
+export function ModelSelectorSection({ models, value, hasModelFace, onChange }: Props) {
   const t = useTranslations("Create");
 
   return (
-    <section>
-      <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-codex-ink">
-        <Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("model.sectionTitle")}
-      </h3>
+    <div>
       <StudioModelSelector
         models={models}
         value={value}
@@ -45,7 +39,7 @@ export function ModelSelectorSection({ models, value, imageSize, aspectRatio, ha
         getMeta={(model) => (
           hasModelFace && isNanoBananaModel(model.value)
             ? t("model.faceFusionWarning")
-            : t("model.costMeta", { desc: model.desc, cost: getCreditCost(model.value, imageSize, aspectRatio) })
+            : null
         )}
       />
       {hasModelFace && (
@@ -55,6 +49,6 @@ export function ModelSelectorSection({ models, value, imageSize, aspectRatio, ha
           {t("model.swapFace")}
         </div>
       )}
-    </section>
+    </div>
   );
 }

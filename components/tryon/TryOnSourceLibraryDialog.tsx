@@ -28,7 +28,7 @@ export function TryOnSourceLibraryDialog({
   onRefresh,
   onSelect,
 }: TryOnSourceLibraryDialogProps) {
-  const t = useTranslations("TryonShared");
+  const t = useTranslations();
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent

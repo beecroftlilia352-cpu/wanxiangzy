@@ -8,7 +8,7 @@ import { ensureNotificationPermission, notifyGenerationComplete } from "@/lib/no
 import { OnboardingCoach, hasSeenOnboarding } from "@/components/studio/OnboardingCoach";
 import { useRouter } from "next/navigation";
 import {
-  Upload, UserRound, Image as ImageIcon, Cpu,
+  Upload, UserRound,
   X, Camera, ChevronRight, Wand, Loader2, ZoomIn,
   FolderOpen, CheckCircle2, XCircle,
   Crop, Monitor, ListChecks, PenLine,
@@ -17,7 +17,7 @@ import { useTryOnStore } from "@/lib/store/tryon-store";
 import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
-import { useResolutionOptions } from "@/lib/studio-models";
+import { useResolutionOptions, useStudioImageModelOptions } from "@/lib/studio-models";
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -42,7 +42,7 @@ import { useTaskSelectionSession, type TaskSelectionSession } from "@/components
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useTaskQueueStore } from "@/lib/task-queue-client-store";
-import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { StudioOptionGrid } from "@/components/studio/StudioFormControls";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
@@ -91,7 +91,6 @@ import {
   BANANA_ASPECTS,
   GARMENT_AUDIENCE_OPTIONS,
   GPT_ASPECTS,
-  MODELS,
   PRESET_MODELS,
   PRESET_REFERENCES,
   SCENE_MODE_TABS,
@@ -435,7 +434,7 @@ export default function CreatePage() {
   const isReferenceUploadBusy = isUploadingCustomRef || isReferenceUploadPending;
   const isModelUploadBusy = isUploadingCustomModel || isModelUploadPending;
   const hasModelFace = Boolean(store.selectedModel?.image_url);
-  const selectableModels = MODELS;
+  const selectableModels = useStudioImageModelOptions();
   const selectedReferenceCount = selectedReferenceImages.length;
   const visibleCustomRefUploads = customRefUploads.filter((item) => item.status === "uploading" || item.status === "error");
   const resolvedAutoDesign = normalizeAutoDesignSettings(autoDesign);
@@ -2713,9 +2712,7 @@ export default function CreatePage() {
             )}
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
-                <h3 className="font-bold text-sm flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-[var(--codex-accent)]" /> {t("reference.title")}
-                </h3>
+                <h3 className="studio-control-title">{t("reference.title")}</h3>
                 <p className="mt-1 text-[12px] text-codex-faint">{t("reference.description")}</p>
               </div>
               {sceneMode !== "auto_design" && (
@@ -3040,11 +3037,10 @@ export default function CreatePage() {
             )}
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h3 className="flex items-center gap-2 text-[13px] font-bold text-codex-ink">
-                  <UserRound className="h-4 w-4 text-[var(--codex-accent)]" />
-                  {t("model.title")}
+                <div className="flex items-center gap-2">
+                  <h3 className="studio-control-title">{t("model.title")}</h3>
                   <span className="rounded-full bg-[var(--codex-surface-soft)] px-1.5 py-0.5 text-[11px] font-medium text-codex-faint dark:bg-white/10 dark:text-codex-faint">{t("common.optional")}</span>
-                </h3>
+                </div>
                 <p className="mt-1 text-[12px] text-codex-faint">{t("model.description")}</p>
               </div>
               <span className="shrink-0 rounded-full bg-[var(--codex-accent-10)] px-2 py-1 text-[11px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
@@ -3205,8 +3201,6 @@ export default function CreatePage() {
           <ModelSelectorSection
             models={selectableModels}
             value={aiModel}
-            imageSize={imageSize}
-            aspectRatio={aspectRatio}
             hasModelFace={hasModelFace}
             onChange={(value) => {
               if (hasModelFace && isNanoBananaModel(value)) {
@@ -3222,7 +3216,7 @@ export default function CreatePage() {
               options={aspects}
               value={aspectRatio}
               onChange={setAspectRatio}
-              titleKey="ratio.title"
+              title={t("ratio.title")}
               ariaLabel={t("ratio.title")}
             />
           </section>

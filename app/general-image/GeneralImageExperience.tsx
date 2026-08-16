@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   Crop,
   ImagePlus,
-  Sparkles,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -20,7 +19,7 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector } from "@/components/studio/StudioFormControls";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
@@ -836,15 +835,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             )}
           </div>
 
-          <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> {t("modelSectionTitle")}</h3>
-            <StudioModelSelector
-              models={modelOptions}
-              value={aiModel}
-              onChange={setAiModel}
-              ariaLabel={t("modelAriaLabel")}
-            />
-          </section>
+          <StudioModelSelector
+            models={modelOptions}
+            value={aiModel}
+            onChange={setAiModel}
+            ariaLabel={t("modelAriaLabel")}
+          />
 
           <section>
             <AspectRatioSelector

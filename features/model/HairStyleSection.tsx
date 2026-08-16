@@ -32,7 +32,7 @@ export function HairStyleSection({ gender, hairStyle, hairReferenceUrl, hairInpu
 
   return (
     <section>
-      <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("hairStyleRef")}</h3>
+      <h3 className="studio-control-title mb-3">{t("hairStyleRef")}</h3>
       <input
         ref={hairInputRef}
         type="file"

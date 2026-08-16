@@ -40,6 +40,11 @@ describe("PromptTextarea", () => {
     expect(getByText("0")).toBeTruthy();
     expect(getByText("/ 2000")).toBeTruthy();
     expect(queryByText("AI帮写")).toBeNull();
+
+    const actions = Array.from(container.querySelectorAll(
+      ".studio-prompt-textarea-actions button, .studio-prompt-textarea-count",
+    )).map((node) => node.getAttribute("aria-label") || node.textContent?.trim());
+    expect(actions).toEqual(["词库", "保存到我的提示词", "0 / 2000", "清空"]);
   });
 
   it("shows AI assist only when the page provides the capability", () => {

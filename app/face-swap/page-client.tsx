@@ -8,7 +8,6 @@ import {
   Check,
   ChevronRight,
   RotateCcw,
-  Activity,
   ZoomIn,
   X,
 } from "lucide-react";
@@ -878,19 +877,12 @@ export default function FaceSwapPage() {
             </p>
           </section>
 
-          <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-codex-ink">
-              <Activity className="h-4 w-4 text-[var(--codex-accent)]" />
-              {t("modelSectionTitle")}
-            </h3>
-            <StudioModelSelector
-              models={modelOptions}
-              value={aiModel}
-              onChange={setAiModel}
-              ariaLabel={t("modelSectionTitle")}
-              getMeta={(model) => t("modelMeta", { desc: model.desc, cost: getCreditCost(model.value, normalizeImageSize(model.value, imageSizeValue, aspectRatio), aspectRatio) })}
-            />
-          </section>
+          <StudioModelSelector
+            models={modelOptions}
+            value={aiModel}
+            onChange={setAiModel}
+            ariaLabel={t("modelSectionTitle")}
+          />
 
           <section>
             <PanelTitle title={t("aspectSectionTitle")} />
@@ -1138,7 +1130,7 @@ export default function FaceSwapPage() {
 }
 
 function PanelTitle({ title }: { title: string }) {
-  return <h2 className="mb-3 text-sm font-black text-codex-ink">{title}</h2>;
+  return <h2 className="studio-control-title mb-3">{title}</h2>;
 }
 
 

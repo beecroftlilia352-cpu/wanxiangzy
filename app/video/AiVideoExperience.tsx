@@ -784,7 +784,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           <>
             <section className="rounded-xl bg-[var(--codex-surface-soft)]/90 p-4">
               <div className="mb-3">
-                <h3 className="text-sm font-black text-codex-ink">{t("uploadSectionTitle")}</h3>
+                <h3 className="studio-control-title">{t("uploadSectionTitle")}</h3>
                 <p className="mt-2 text-[11px] font-semibold leading-5 text-codex-faint">
                   {t("uploadSectionHint", { max: MAX_FILE_SIZE_MB })}
                 </p>
@@ -991,7 +991,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         {!isFirstLastFrame && (
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black text-codex-ink">{isMotion ? t("sampleReferenceVideoSection") : t("actionTemplateSection")}</h3>
+              <h3 className="studio-control-title">{isMotion ? t("sampleReferenceVideoSection") : t("actionTemplateSection")}</h3>
               <button
                 type="button"
                 onClick={() => setTemplatePanelOpen(true)}
@@ -1006,7 +1006,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
         {availableProviders.length > 1 && (
           <section>
-            <h3 className="mb-3 text-sm font-black text-codex-ink">{t("videoModelSection")}</h3>
+            <h3 className="studio-control-title mb-3">{t("videoModelSection")}</h3>
             <StudioOptionGrid
               options={availableProviders.map((provider) => ({
                 value: provider,
@@ -1029,7 +1029,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         )}
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("generationModeSection")}</h3>
+          <h3 className="studio-control-title mb-3">{t("generationModeSection")}</h3>
           <StudioOptionGrid
             options={modelModeOptions}
             value={effectiveModelMode}
@@ -1058,7 +1058,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("aspectRatioSection")}</h3>
+          <h3 className="studio-control-title mb-3">{t("aspectRatioSection")}</h3>
           <AspectRatioSelector
             options={AI_VIDEO_ASPECT_RATIO_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
             value={aspectRatio}
@@ -1068,7 +1068,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-black text-codex-ink">{t("durationSection")}</h3>
+          <h3 className="studio-control-title mb-3">{t("durationSection")}</h3>
           <StudioOptionGrid
             options={getVideoDurationOptions(providerKey).map((value) => ({
               value: String(value),

@@ -22,7 +22,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
  *
  * 设计目标：
  * - 标题沿用比例 / 分辨率 控件的紫色 marker 标题
- * - 底部内嵌一行操作：[AI帮写] [词库]              0 / 2000 [保存] [清空]
+ * - 底部内嵌一行操作：[AI帮写] [词库] [保存]       0 / 2000 [清空]
  * - AI帮写按 prop 控制（仅当目标页有该能力时显示）
  * - 词库 / 保存按钮默认保留，未接业务时给出明确占位反馈
  * - 保存 / 清空图标 hover 显示自定义黑色 tooltip（参考设计稿）
@@ -205,67 +205,67 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
               />
               <div className="studio-prompt-textarea-actions">
                 <div className="studio-prompt-textarea-actions-left">
-                {showAiButton ? (
-                  <button
-                    type="button"
-                    onClick={onOptimizePrompt}
-                    disabled={interactionDisabled || isOptimizing || aiAssistantDisabled}
-                    className="studio-prompt-action-pill"
-                  >
-                    {isOptimizing ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <Languages />
-                    )}
-                    <span>{tPrompt("aiAssist")}</span>
-                  </button>
-                ) : null}
-                {showWordLibraryButton ? (
-                  <button
-                    type="button"
-                    onClick={() => handleReservedAction(onOpenWordLibrary)}
-                    disabled={interactionDisabled}
-                    className="studio-prompt-action-pill"
-                    data-tone="muted"
-                    aria-label={tPrompt("wordLibrary")}
-                  >
-                    <NotebookTabs />
-                    <span>{tPrompt("wordLibrary")}</span>
-                  </button>
-                ) : null}
+                  {showAiButton ? (
+                    <button
+                      type="button"
+                      onClick={onOptimizePrompt}
+                      disabled={interactionDisabled || isOptimizing || aiAssistantDisabled}
+                      className="studio-prompt-action-pill"
+                    >
+                      {isOptimizing ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Languages />
+                      )}
+                      <span>{tPrompt("aiAssist")}</span>
+                    </button>
+                  ) : null}
+                  {showWordLibraryButton ? (
+                    <button
+                      type="button"
+                      onClick={() => handleReservedAction(onOpenWordLibrary)}
+                      disabled={interactionDisabled}
+                      className="studio-prompt-action-pill"
+                      data-tone="muted"
+                      aria-label={tPrompt("wordLibrary")}
+                    >
+                      <NotebookTabs />
+                      <span>{tPrompt("wordLibrary")}</span>
+                    </button>
+                  ) : null}
+                  {showSave ? (
+                    <HoverTooltip label={tPrompt("saveToMyPrompts")} side="top">
+                      <button
+                        type="button"
+                        onClick={() => handleReservedAction(onSaveToMyPrompts)}
+                        disabled={interactionDisabled}
+                        className="studio-prompt-icon-action studio-prompt-icon-action-save"
+                        aria-label={tPrompt("saveToMyPrompts")}
+                      >
+                        <Save />
+                      </button>
+                    </HoverTooltip>
+                  ) : null}
                 </div>
 
-              <div className="studio-prompt-textarea-actions-right">
-                <span className="studio-prompt-textarea-count" aria-live="polite">
-                  <span className="studio-prompt-textarea-count-current">{currentLength}</span>
-                  <span className="studio-prompt-textarea-count-limit"> / {safeMax}</span>
-                </span>
-                {showSave ? (
-                  <HoverTooltip label={tPrompt("saveToMyPrompts")} side="top">
-                    <button
-                      type="button"
-                      onClick={() => handleReservedAction(onSaveToMyPrompts)}
-                      disabled={interactionDisabled}
-                      className="studio-prompt-icon-action studio-prompt-icon-action-save"
-                      aria-label={tPrompt("saveToMyPrompts")}
-                    >
-                      <Save />
-                    </button>
-                  </HoverTooltip>
-                ) : null}
-                {showClear ? (
-                  <HoverTooltip label={tPrompt("clear")} side="top">
-                    <button
-                      type="button"
-                      onClick={handleClear}
-                      disabled={interactionDisabled || !value.length}
-                      className="studio-prompt-icon-action studio-prompt-icon-action-clear"
-                      aria-label={tPrompt("clear")}
-                    >
-                      <Trash2 />
-                    </button>
-                  </HoverTooltip>
-                ) : null}
+                <div className="studio-prompt-textarea-actions-right">
+                  <span className="studio-prompt-textarea-count" aria-live="polite">
+                    <span className="studio-prompt-textarea-count-current">{currentLength}</span>
+                    <span className="studio-prompt-textarea-count-limit"> / {safeMax}</span>
+                  </span>
+                  {showClear ? (
+                    <HoverTooltip label={tPrompt("clear")} side="top">
+                      <button
+                        type="button"
+                        onClick={handleClear}
+                        disabled={interactionDisabled || !value.length}
+                        className="studio-prompt-icon-action studio-prompt-icon-action-clear"
+                        aria-label={tPrompt("clear")}
+                      >
+                        <Trash2 />
+                      </button>
+                    </HoverTooltip>
+                  ) : null}
                 </div>
               </div>
             </div>

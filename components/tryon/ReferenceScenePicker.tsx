@@ -85,7 +85,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
   onPreview,
   className,
 }: ReferenceScenePickerProps<TItem>) {
-  const t = useTranslations("TryonShared");
+  const t = useTranslations();
 
   if (!open) return null;
 
@@ -342,7 +342,7 @@ function ScenePreviewPane({
   onNext: () => void;
   canMove: boolean;
 }) {
-  const t = useTranslations("TryonShared");
+  const t = useTranslations();
   return (
     <aside className="flex min-h-[320px] flex-col border-b border-[var(--codex-border)] bg-[var(--codex-surface-soft)] p-4 lg:min-h-0 lg:border-b-0 lg:border-r">
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-[var(--codex-surface-soft)]">
@@ -429,7 +429,7 @@ function SceneMainCard({
   selected: boolean;
   onClick: () => void;
 }) {
-  const t = useTranslations("TryonShared");
+  const t = useTranslations();
   return (
     <button
       type="button"
@@ -461,7 +461,7 @@ function SceneChildCard({
   selected: boolean;
   onClick: () => void;
 }) {
-  const t = useTranslations("TryonShared");
+  const t = useTranslations();
   return (
     <button
       type="button"

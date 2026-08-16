@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
  * Replaces three near-identical components that grew up independently:
  *   - `StudioOptionGrid`     — large "tile" treatment with icon + ratio + badge
  *   - `StudioSegmentedControl` — compact pill-row for short labels
- *   - `StudioModelSelector`  — specialized wrapper that injects the visible-
- *                               models filter and a model meta callback
+ *   - legacy model tiles    — superseded by the dedicated hover-card
+ *                              `StudioModelSelector`
  *
  * The `variant` prop switches visual treatment while sharing the same
  * markup, props, ARIA contract (`role="radiogroup"`, `role="radio"`,
@@ -20,8 +20,7 @@ import { cn } from "@/lib/utils";
  * Migration map (old → new):
  *   <StudioOptionGrid      variant="tile" />
  *   <StudioSegmentedControl variant="segmented" />
- *   <StudioModelSelector    → use the dedicated wrapper in StudioFormControls
- *                             (still uses this primitive internally)
+ *   legacy model tiles     → use the dedicated `StudioModelSelector`
  */
 export type StudioChoiceOption<T extends string = string> = {
   value: T;

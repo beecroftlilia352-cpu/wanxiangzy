@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Cpu, Loader2, Upload, X, ZoomIn } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Upload, X, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -694,7 +694,7 @@ export default function GrassPage() {
 
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="font-bold text-sm">{t("referenceSceneSection")}</h3>
+              <h3 className="studio-control-title">{t("referenceSceneSection")}</h3>
               <span className="rounded-full bg-[var(--codex-accent-08)] px-2 py-1 text-[11px] font-bold text-[var(--codex-accent)]">
                 {sceneMode === "custom_prompt" ? t("promptPriority") : effectiveReferenceName}
               </span>
@@ -856,7 +856,7 @@ export default function GrassPage() {
           {sceneMode !== "custom_prompt" && (
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-bold">{t("personControlTitle")}</h3>
+                <h3 className="studio-control-title">{t("personControlTitle")}</h3>
                 <span className="text-[12px] text-codex-faint">{t("personControlSub")}</span>
               </div>
               <p className="mb-3 text-[12px] leading-5 text-codex-faint">
@@ -878,7 +878,7 @@ export default function GrassPage() {
           {sceneMode !== "custom_prompt" && (
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-bold">{t("sceneControlTitle")}</h3>
+                <h3 className="studio-control-title">{t("sceneControlTitle")}</h3>
                 <span className="text-[12px] text-codex-faint">{t("sceneControlSub")}</span>
               </div>
               <p className="mb-3 text-[12px] leading-5 text-codex-faint">
@@ -897,10 +897,7 @@ export default function GrassPage() {
             </section>
           )}
 
-          <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-codex-ink"><Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("generationModelTitle")}</h3>
-            <StudioModelSelector models={modelOptions} value={aiModel} onChange={setAiModel} ariaLabel={t("generationModelAria")} />
-          </section>
+          <StudioModelSelector models={modelOptions} value={aiModel} onChange={setAiModel} ariaLabel={t("generationModelAria")} />
 
           <section>
             <AspectRatioSelector options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel={t("aspectRatioAria")} />

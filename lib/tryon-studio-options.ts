@@ -1,4 +1,4 @@
-import type { AspectRatio, LingyaModel } from "@/lib/api/lingya";
+import type { AspectRatio } from "@/lib/api/lingya";
 import type { TryOnSceneMode } from "@/lib/tryon-scene";
 import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 
@@ -25,12 +25,6 @@ export const PRESET_REFERENCES = [
   { id: "r7", url: `${SITE_ASSET_BASE}/references/reference-grey-tank-denim-culottes.jpg`, label: "灰背心牛仔", category: "style" as const },
   { id: "r8", url: `${SITE_ASSET_BASE}/references/reference-striped-top-white-skirt.png`, label: "条纹白裙", category: "scene" as const },
   { id: "r9", url: `${SITE_ASSET_BASE}/references/reference-cafe-wide-leg-pants.jpg`, label: "咖啡阔腿", category: "scene" as const },
-];
-
-export const MODELS: { value: LingyaModel; label: string; desc: string; descKey?: string; badge?: string; badgeKey?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "默认稳图", badgeKey: "Shared.modelBadge.stable", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "省灵点", badgeKey: "Shared.modelBadge.creditSaving", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", descKey: "Shared.modelDesc.max4k", badge: "高质精修", badgeKey: "Shared.modelBadge.highQuality", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 export const GPT_ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [

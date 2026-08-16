@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -690,7 +689,7 @@ export default function MaterialEnhancementPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("garmentType.title")}</h3>
+            <h3 className="studio-control-title mb-3">{t("garmentType.title")}</h3>
             <StudioOptionGrid
               options={GARMENT_TYPE_OPTIONS.map((type) => ({ value: type, label: t(fieldGarmentTypeLabelKey(type)) }))}
               value={garmentType}
@@ -709,7 +708,7 @@ export default function MaterialEnhancementPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("enhance.title")}</h3>
+            <h3 className="studio-control-title mb-3">{t("enhance.title")}</h3>
             <StudioOptionGrid
               options={MATERIAL_ENHANCEMENT_LEVELS.map((item) => ({
                 value: item.value,
@@ -735,13 +734,10 @@ export default function MaterialEnhancementPage() {
             onClear={() => setUserPrompt("")}
           />
 
-          <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Cpu className="h-4 w-4 text-[var(--codex-accent)]" />{t("section.model")}</h3>
-            <StudioModelSelector models={displayModels} value={aiModel} onChange={setAiModel} ariaLabel={t("section.modelAria")} />
-          </section>
+          <StudioModelSelector models={displayModels} value={aiModel} onChange={setAiModel} ariaLabel={t("section.modelAria")} />
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.aspectRatio")}</h3>
+            <h3 className="studio-control-title mb-3">{t("section.aspectRatio")}</h3>
             <AspectRatioSelector
               options={[
                 { value: "auto", label: t("aspect.smart") },

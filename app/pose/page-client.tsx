@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
-  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, PersonStanding, Crop } from "lucide-react";
+  CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -1761,7 +1761,7 @@ export default function PosePage() {
 
           <section className="space-y-3">
             <div>
-              <h3 className="flex items-center gap-2 font-bold text-sm"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> {t("mode.title")}</h3>
+              <h3 className="studio-control-title">{t("mode.title")}</h3>
               <p className="mt-1 text-[12px] leading-relaxed text-codex-faint">
                 {t("mode.desc")}
               </p>
@@ -2032,24 +2032,18 @@ export default function PosePage() {
             )}
           </section>
 
-          <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-codex-ink">
-              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("model.title")}
-            </h3>
-            <StudioModelSelector
-              models={modelOptions}
-              value={aiModel}
-              onChange={setAiModel}
-              ariaLabel={t("model.title")}
-              getMeta={(model) => `${model.desc} · ${t("model.perImageCredit", { cost: getCreditCost(model.value, imageSize, aspectRatio) })}`}
-            />
-          </section>
+          <StudioModelSelector
+            models={modelOptions}
+            value={aiModel}
+            onChange={setAiModel}
+            ariaLabel={t("model.title")}
+          />
 
           {!isPoseReferenceMode && (
           <section className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="flex items-center gap-2 font-bold text-sm"><PersonStanding className="h-4 w-4 text-[var(--codex-accent)]" /> {t("angles.title")}</h3>
+                <h3 className="studio-control-title">{t("angles.title")}</h3>
                 <p className="mt-1 text-[12px] leading-relaxed text-codex-faint">
                   {t("angles.desc")}
                 </p>
@@ -2191,7 +2185,7 @@ export default function PosePage() {
           )}
 
           <section>
-            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-codex-ink"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("aspect.title")}</h3>
+            <h3 className="studio-control-title mb-3">{t("aspect.title")}</h3>
             <AspectRatioSelector
               options={ASPECTS.map((a) => ({ value: a.value, label: a.labelKey ? t(a.labelKey) : a.label }))}
               value={aspectRatio}
@@ -2223,7 +2217,7 @@ export default function PosePage() {
             <section className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-bold text-sm flex items-center gap-2">
+                  <h3 className="studio-control-title">
                     <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> {t("plan.title")}
                   </h3>
                   <p className="mt-1 text-[12px] leading-relaxed text-codex-faint">
@@ -2252,7 +2246,7 @@ export default function PosePage() {
             <section className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-bold text-sm flex items-center gap-2">
+                  <h3 className="studio-control-title">
                     <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> {t("plan.title")}
                   </h3>
                   <p className="mt-1 text-[12px] leading-relaxed text-codex-faint">

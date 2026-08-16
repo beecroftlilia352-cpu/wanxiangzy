@@ -802,7 +802,7 @@ export default function Garment3dPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("garmentTypeSectionTitle")}</h3>
+            <h3 className="studio-control-title mb-3">{t("garmentTypeSectionTitle")}</h3>
             <StudioOptionGrid
               options={GARMENT_TYPE_OPTIONS.map((type) => ({
                 value: type,
@@ -824,7 +824,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("outputModeSectionTitle")}</h3>
+            <h3 className="studio-control-title mb-3">{t("outputModeSectionTitle")}</h3>
             <StudioOptionGrid
               options={[
                 { value: "reference" as const, label: t("outputModeReference") },
@@ -899,7 +899,7 @@ export default function Garment3dPage() {
             )}
 
             <div className="mt-3">
-              <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("displayStyleSectionTitle")}</h3>
+              <h3 className="studio-control-title mb-3">{t("displayStyleSectionTitle")}</h3>
               <StudioOptionGrid
                 options={GARMENT_3D_DISPLAY_STYLES.map((style) => ({
                   value: style.value,
@@ -942,18 +942,15 @@ export default function Garment3dPage() {
             </div>
           </section>
 
-          <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("modelSectionTitle")}</h3>
-            <StudioModelSelector
-              models={modelOptions}
-              value={aiModel}
-              onChange={setAiModel}
-              ariaLabel={t("modelSectionTitle")}
-            />
-          </section>
+          <StudioModelSelector
+            models={modelOptions}
+            value={aiModel}
+            onChange={setAiModel}
+            ariaLabel={t("modelSectionTitle")}
+          />
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("aspectSectionTitle")}</h3>
+            <h3 className="studio-control-title mb-3">{t("aspectSectionTitle")}</h3>
             <AspectRatioSelector
               options={[
                 { value: "auto", label: t("aspectAuto") },

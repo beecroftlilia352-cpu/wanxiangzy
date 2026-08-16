@@ -47,12 +47,6 @@ export type OutfitFusionRuntimePlan = {
   imageNumberMap: OutfitFusionRuntimeImageMapItem[];
 };
 
-export const OUTFIT_FUSION_MODELS: Array<{ value: LingyaModel; label: string; desc: string }> = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "高性价比，适合批量出图" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "细节稳定，适合复杂多物件" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "质感更强，适合品牌大片" },
-];
-
 export const OUTFIT_FUSION_QUALITY_OPTIONS: Array<{ value: OutfitFusionQuality; label: string; desc: string }> = [
   { value: "standard", label: "标准", desc: "快速预览" },
   { value: "hd", label: "高清", desc: "细节增强" },
