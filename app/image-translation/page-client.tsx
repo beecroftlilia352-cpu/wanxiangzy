@@ -569,19 +569,14 @@ export default function ImageTranslationPage() {
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "imageTranslation", session.signal);
-      // Apply even if the session went stale mid-fetch — the user already
-      // clicked, the data is fresh, swallowing silently here was the root
-      // cause of "click a row, preview doesn't update". If the request was
-      // aborted we won't reach this branch (catch handles it).
+      if (!session.isCurrent()) return true;
       applyHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
         setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
       }
       return true;
     } catch (err) {
-      // Real abort (user clicked another row) — let the rail fall through to
-      // its URL-based path. Otherwise surface the error to the user.
-      if (session.signal.aborted) return undefined;
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }

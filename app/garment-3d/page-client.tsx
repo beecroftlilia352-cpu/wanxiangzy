@@ -679,9 +679,7 @@ export default function Garment3dPage() {
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "garment3d", session.signal);
-      // Apply even if the session went stale mid-fetch — swallowing silently
-      // here was the root cause of "click a row, preview doesn't update". A
-      // real abort would have hit the catch block via session.signal.
+      if (!session.isCurrent()) return true;
       applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -690,7 +688,7 @@ export default function Garment3dPage() {
       }
       return true;
     } catch (err) {
-      if (session.signal.aborted) return undefined;
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }

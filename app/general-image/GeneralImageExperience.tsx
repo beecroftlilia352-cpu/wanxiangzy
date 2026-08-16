@@ -103,9 +103,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagePromptInputRef = useRef<HTMLInputElement>(null);
   const imagePromptTriggerRef = useRef<HTMLButtonElement>(null);
-  // Guard for the initialMode sync effect — runs exactly once per mount so
-  // re-renders don't clobber history-applied state. See effect below.
-  const initialModeSyncRef = useRef<string | null>(null);
 
   const [mode, setMode] = useState<GeneralImageMode>(initialMode);
   const [prompt, setPrompt] = useState("");
@@ -378,14 +375,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
-    // Initial-mode sync: only run on the FIRST render of this mount. Re-running
-    // this on every `initialMode` reference change was wiping out state that
-    // `applyGeneralImageHistoryPayload` (or any other apply path) had just
-    // restored — e.g. clicking a history row on /general-image/image-to-image
-    // would set resultUrls, then this effect would clobber them on the next
-    // re-render. Compare against the captured first-render value.
-    if (initialModeSyncRef.current) return;
-    initialModeSyncRef.current = initialMode;
     setMode(initialMode);
     resetOutput();
   }, [initialMode]);
@@ -761,10 +750,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
-      // Apply even if the session went stale mid-fetch — the user already
-      // clicked, the data is fresh, swallowing silently here was the root
-      // cause of "click a row, preview doesn't update". If the request was
-      // aborted we won't reach this branch (catch handles it).
+      if (!session.isCurrent()) return true;
       applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -773,9 +759,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       }
       return true;
     } catch (err) {
-      // Real abort (user clicked another row) — let the rail fall through to
-      // its URL-based path. Otherwise surface the error to the user.
-      if (session.signal.aborted) return undefined;
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
