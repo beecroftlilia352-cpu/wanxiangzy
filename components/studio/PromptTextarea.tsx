@@ -6,14 +6,16 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import {
-  BookOpen,
-  Brush,
+  Languages,
   Loader2,
+  NotebookTabs,
   Save,
   Trash2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /**
  * 统一 prompt 文本描述组件。
@@ -22,7 +24,7 @@ import { cn } from "@/lib/utils";
  * - 标题沿用比例 / 分辨率 控件的紫色 marker 标题
  * - 底部内嵌一行操作：[AI帮写] [词库]              0 / 2000 [保存] [清空]
  * - AI帮写按 prop 控制（仅当目标页有该能力时显示）
- * - 词库按钮是预留入口，目前点击占位
+ * - 词库 / 保存按钮默认保留，未接业务时给出明确占位反馈
  * - 保存 / 清空图标 hover 显示自定义黑色 tooltip（参考设计稿）
  *
  * 调用方传 `value / onChange` 与原生 textarea 一致；其余交互回调全部可选。
@@ -43,6 +45,8 @@ export type PromptTextareaProps = Omit<
   description?: ReactNode;
   /** 词库按钮开关：默认显示（预留入口）；设为 false 时整列隐藏 */
   showWordLibrary?: boolean;
+  /** 保存按钮开关：默认显示（预留入口） */
+  showSaveAction?: boolean;
   /** AI帮写开关：默认 false（只有真正调用 optimizePrompt 的页面才传 true） */
   hasAiAssistant?: boolean;
   /** AI帮写 loading 状态（用于 spinner 切换） */
@@ -59,6 +63,8 @@ export type PromptTextareaProps = Omit<
   onClear?: () => void;
   /** Enter 直接提交（Shift+Enter 仍换行） */
   onSubmitOnEnter?: () => void;
+  /** 嵌套高级编辑器使用紧凑样式，默认使用截图主样式 */
+  variant?: "default" | "compact";
   /** 自定义 className 加在 section 上 */
   className?: string;
 };
@@ -95,6 +101,7 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
       badge,
       description,
       showWordLibrary = true,
+      showSaveAction = true,
       hasAiAssistant = false,
       isOptimizing = false,
       onOptimizePrompt,
@@ -103,6 +110,7 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
       onSaveToMyPrompts,
       onClear,
       onSubmitOnEnter,
+      variant = "default",
       value,
       onChange,
       className,
@@ -114,40 +122,68 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
     ref
   ) {
     const t = useTranslations();
+    const tShared = useTranslations("Shared");
     const tPrompt = useTranslations("Shared.prompt");
+    const { confirm, confirmDialog } = useConfirm();
     const resolvedTitle = titleKey ? t(titleKey) : title;
     const hasTitle = resolvedTitle != null && resolvedTitle !== "";
     const showAiButton = hasAiAssistant && typeof onOptimizePrompt === "function";
     const showClear = typeof onClear === "function";
-    const showSave = typeof onSaveToMyPrompts === "function";
-    // 词库按钮：只要声明了 onOpenWordLibrary 就渲染（默认隐藏，避免点了没反应）
-    const showWordLibraryButton = showWordLibrary && typeof onOpenWordLibrary === "function";
+    const showSave = showSaveAction;
+    const showWordLibraryButton = showWordLibrary;
     const safeMax = typeof maxLength === "number" ? maxLength : 2000;
     const currentLength = value.length;
+    const interactionDisabled = Boolean(textareaProps.disabled || textareaProps.readOnly);
+
+    const handleReservedAction = (callback?: () => void) => {
+      if (callback) {
+        callback();
+        return;
+      }
+      toast.info(t("Header.comingSoon"));
+    };
+
+    const handleClear = () => {
+      if (!onClear || !value.length || interactionDisabled) return;
+      confirm({
+        variant: "batch-clear",
+        title: tShared("clearContentTitle"),
+        okText: tShared("confirmClear"),
+        cancelText: tShared("cancel"),
+        onOk: onClear,
+      });
+    };
 
     return (
-      <section className={cn("studio-prompt-control studio-prompt-textarea-section", className)}>
-        {hasTitle && (
-          <h3 className="studio-prompt-textarea-title">
-            <span aria-hidden="true" className="studio-prompt-textarea-title-mark" />
-            <span className="studio-prompt-textarea-title-text">{resolvedTitle}</span>
-            {badge ? (
-              <span className="studio-prompt-textarea-title-badge">{badge}</span>
-            ) : null}
-          </h3>
-        )}
+      <>
+        <section
+          className={cn(
+            "studio-prompt-control studio-prompt-textarea-section",
+            variant === "compact" && "studio-prompt-textarea-section-compact",
+            className,
+          )}
+        >
+          {hasTitle && (
+            <h3 className="studio-prompt-textarea-title">
+              <span aria-hidden="true" className="studio-prompt-textarea-title-mark" />
+              <span className="studio-prompt-textarea-title-text">{resolvedTitle}</span>
+              {badge ? (
+                <span className="studio-prompt-textarea-title-badge">{badge}</span>
+              ) : null}
+            </h3>
+          )}
 
-        <div className="studio-prompt-textarea-card">
           {description ? (
             <p className="studio-prompt-textarea-description">{description}</p>
           ) : null}
 
-          <div className="studio-prompt-field">
-            <textarea
+          <div className="studio-prompt-textarea-shell">
+            <div className="studio-prompt-field">
+              <textarea
               ref={ref}
               {...textareaProps}
               value={value}
-              maxLength={maxLength}
+              maxLength={safeMax}
               rows={rows}
               placeholder={placeholder}
               onChange={(event) => {
@@ -170,22 +206,19 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
               }}
               className="studio-prompt-textarea"
             />
-          </div>
-
-          {showAiButton || showClear || showSave || showWordLibraryButton ? (
-            <div className="studio-prompt-textarea-actions">
-              <div className="studio-prompt-textarea-actions-left">
+              <div className="studio-prompt-textarea-actions">
+                <div className="studio-prompt-textarea-actions-left">
                 {showAiButton ? (
                   <button
                     type="button"
                     onClick={onOptimizePrompt}
-                    disabled={isOptimizing || aiAssistantDisabled}
+                    disabled={interactionDisabled || isOptimizing || aiAssistantDisabled}
                     className="studio-prompt-action-pill"
                   >
                     {isOptimizing ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 className="animate-spin" />
                     ) : (
-                      <Brush className="h-3.5 w-3.5" />
+                      <Languages />
                     )}
                     <span>{tPrompt("aiAssist")}</span>
                   </button>
@@ -193,30 +226,33 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
                 {showWordLibraryButton ? (
                   <button
                     type="button"
-                    onClick={onOpenWordLibrary}
+                    onClick={() => handleReservedAction(onOpenWordLibrary)}
+                    disabled={interactionDisabled}
                     className="studio-prompt-action-pill"
                     data-tone="muted"
                     aria-label={tPrompt("wordLibrary")}
                   >
-                    <BookOpen className="h-3.5 w-3.5" />
+                    <NotebookTabs />
                     <span>{tPrompt("wordLibrary")}</span>
                   </button>
                 ) : null}
-              </div>
+                </div>
 
               <div className="studio-prompt-textarea-actions-right">
                 <span className="studio-prompt-textarea-count" aria-live="polite">
-                  {currentLength} / {safeMax}
+                  <span className="studio-prompt-textarea-count-current">{currentLength}</span>
+                  <span className="studio-prompt-textarea-count-limit"> / {safeMax}</span>
                 </span>
                 {showSave ? (
                   <HoverTooltip label={tPrompt("saveToMyPrompts")} side="top">
                     <button
                       type="button"
-                      onClick={onSaveToMyPrompts}
-                      className="studio-prompt-icon-action"
+                      onClick={() => handleReservedAction(onSaveToMyPrompts)}
+                      disabled={interactionDisabled}
+                      className="studio-prompt-icon-action studio-prompt-icon-action-save"
                       aria-label={tPrompt("saveToMyPrompts")}
                     >
-                      <Save className="h-4 w-4" />
+                      <Save />
                     </button>
                   </HoverTooltip>
                 ) : null}
@@ -224,19 +260,22 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
                   <HoverTooltip label={tPrompt("clear")} side="top">
                     <button
                       type="button"
-                      onClick={onClear}
-                      className="studio-prompt-icon-action"
+                      onClick={handleClear}
+                      disabled={interactionDisabled || !value.length}
+                      className="studio-prompt-icon-action studio-prompt-icon-action-clear"
                       aria-label={tPrompt("clear")}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 />
                     </button>
                   </HoverTooltip>
                 ) : null}
+                </div>
               </div>
             </div>
-          ) : null}
-        </div>
-      </section>
+          </div>
+        </section>
+        {confirmDialog}
+      </>
     );
   }
 );
