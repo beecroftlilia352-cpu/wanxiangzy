@@ -52,7 +52,17 @@
 }
 
 .studio-app-header .studio-brand-subtitle {
-  display: none !important;
+  display: block !important;
+  max-width: 126px;
+  margin-top: 1px;
+  overflow: hidden;
+  color: #626a7d !important;
+  font-size: 9px !important;
+  font-weight: 620 !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .studio-header-actions {

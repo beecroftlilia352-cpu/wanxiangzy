@@ -40,7 +40,7 @@ import {
 import { VISIBLE_TOP_MODULES, getActiveTopModule } from "@/lib/navigation";
 import { StudioTabBadge } from "@/components/studio/StudioTabBadge";
 import { codexTheme } from "@/lib/design/codex-theme";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { toast } from "sonner";
 import { StudioTopNavigation } from "@/components/navigation/StudioTopNavigation";
@@ -55,6 +55,27 @@ type HeaderAccountState = {
 };
 
 const DEFAULT_STUDIO_AVATAR = "/avatars/default-studio-user.png";
+
+const COMPACT_BRAND_SUBTITLES: Record<string, string> = {
+  zh: "AI 视觉工作台",
+  "zh-tw": "AI 視覺工作台",
+  en: "AI Visual Studio",
+  ja: "AI ビジュアルスタジオ",
+  ko: "AI 비주얼 스튜디오",
+  fr: "Studio visuel IA",
+  de: "KI-Visualstudio",
+  es: "Estudio visual IA",
+  pt: "Estúdio visual IA",
+  ru: "ИИ-визуальная студия",
+  id: "Studio Visual AI",
+  bg: "AI визуално студио",
+  it: "Studio visuale IA",
+  ar: "استوديو مرئي AI",
+  vi: "Studio hình ảnh AI",
+  hi: "AI विज़ुअल स्टूडियो",
+  th: "สตูดิโอภาพ AI",
+  tr: "AI Görsel Stüdyo",
+};
 
 const marketingNav = [
   { labelKey: "Header.nav.products", href: "/#features" },
@@ -460,6 +481,10 @@ function HeaderUtilityActions() {
 
 function BrandMark() {
   const t = useTranslations("Header");
+  const locale = useLocale().toLowerCase();
+  const compactSubtitle = COMPACT_BRAND_SUBTITLES[locale]
+    ?? COMPACT_BRAND_SUBTITLES[locale.split("-")[0]]
+    ?? COMPACT_BRAND_SUBTITLES.en;
   return (
     <Link href="/" className="studio-brand-mark flex min-w-0 items-center gap-3" aria-label={t("brandHomeAria")}>
       <span className="studio-brand-logo relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-[var(--codex-border)] dark:bg-[var(--codex-surface)]/90">
@@ -477,8 +502,11 @@ function BrandMark() {
         <span className="block truncate text-sm font-black text-codex-ink sm:text-[15px]">
           {codexTheme.brand.name}
         </span>
-        <span className="studio-brand-subtitle block truncate text-[11px] font-semibold text-codex-muted">
-          {codexTheme.brand.subtitle}
+        <span
+          className="studio-brand-subtitle block truncate text-[11px] font-semibold text-codex-muted"
+          title={codexTheme.brand.subtitle}
+        >
+          {compactSubtitle}
         </span>
       </span>
     </Link>

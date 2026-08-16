@@ -53,6 +53,33 @@ export type MultiImageUploadV2Props = {
 };
 
 /**
+ * Call sites historically passed complete action sentences (for example
+ * "上传 / 拖拽 1-3 张人物参考图") as `emptyHint`. The shared control already
+ * owns the upload/drag/paste action copy, so keep only the business context
+ * inside the brackets and avoid announcing the same action twice.
+ */
+export function normalizeMultiImageUploadHint(hint: string | undefined, fallback: string): string {
+  const source = hint?.trim();
+  if (!source) return fallback.trim();
+
+  const withoutAction = source
+    .replace(
+      /^(?:点击\s*)?(?:上传|添加)(?:为|作为)?\s*(?:(?:\/|、|或|或者|并|和|\+)\s*)?(?:(?:或\s*)?(?:拖拽|拖放)(?:至此|到此)?\s*)?(?:(?:\/|、|或|或者|并|和|\+)\s*(?:粘贴)\s*)?/i,
+      "",
+    )
+    .replace(
+      /^(?:(?:click|tap)\s+(?:to\s+)?)?(?:upload|add)(?:\s+as)?\s*(?:(?:\/|,|or|and|\+)\s*)?(?:(?:drag(?:\s+and\s+drop)?|drop)(?:\s+here)?\s*)?(?:(?:\/|,|or|and|\+)\s*paste\s*)?/i,
+      "",
+    )
+    .trim()
+    .replace(/^(?:【|\[|\(|（)\s*/, "")
+    .replace(/\s*(?:】|\]|\)|）)$/, "")
+    .trim();
+
+  return withoutAction || fallback.trim();
+}
+
+/**
  * 通用多图上传控件。
  *
  * 视觉状态与业务状态一一对应：空态/未满态显示上传面板，满额态隐藏；
@@ -102,12 +129,13 @@ export function MultiImageUploadV2({
     ? tips
     : buildStudioUploadTips({ title, description, footnote, imageRequirement });
   const shouldShowExamples = !hasImages && showExamples && Boolean(examples?.images.length);
+  const uploadContext = normalizeMultiImageUploadHint(emptyHint, title);
   const uploadTitle = hasImages
     ? emptyHint
-      ? `${t("multiImageContinue")}【${emptyHint}】`
+      ? `${t("multiImageContinue")}【${uploadContext}】`
       : t("multiImageContinue")
     : emptyHint
-      ? t("uploadHintWithSuffix", { hint: emptyHint })
+      ? t("uploadHintWithSuffix", { hint: uploadContext })
       : t("multiImageUploadDefault");
 
   const handleClearClick = () => {

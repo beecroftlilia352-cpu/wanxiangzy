@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
+import {
+  MultiImageUploadV2,
+  normalizeMultiImageUploadHint,
+} from "@/components/studio/MultiImageUploadV2";
 import zhMessages from "@/messages/zh.json";
 
 afterEach(() => cleanup());
@@ -42,6 +45,14 @@ function renderUploader(overrides: Partial<React.ComponentProps<typeof MultiImag
 }
 
 describe("MultiImageUploadV2", () => {
+  it("normalizes localized upload-action prefixes before rendering", () => {
+    expect(normalizeMultiImageUploadHint("上传 / 拖拽【商品图】", "商品图")).toBe("商品图");
+    expect(normalizeMultiImageUploadHint("Upload / drag 1-3 person reference images", "Reference images"))
+      .toBe("1-3 person reference images");
+    expect(normalizeMultiImageUploadHint("Click to upload / drag here / paste", "Reference images"))
+      .toBe("Reference images");
+  });
+
   it("renders the screenshot empty state with max badge and examples inside the panel", () => {
     const { getByText, container } = renderUploader();
 
@@ -50,6 +61,15 @@ describe("MultiImageUploadV2", () => {
     expect(getByText("上传 / 或拖拽至此 / 粘贴【多视角商品图】")).toBeTruthy();
     expect(container.querySelector(".studio-multi-image-v2-panel .studio-multi-image-v2-examples")).toBeTruthy();
     expect(container.querySelector(".studio-multi-image-v2-results")).toBeNull();
+  });
+
+  it("removes repeated upload and drag actions from every business hint", () => {
+    const { getByText, queryByText } = renderUploader({
+      emptyHint: "上传 / 拖拽 1-3 张人物参考图",
+    });
+
+    expect(getByText("上传 / 或拖拽至此 / 粘贴【1-3 张人物参考图】")).toBeTruthy();
+    expect(queryByText("上传 / 或拖拽至此 / 粘贴【上传 / 拖拽 1-3 张人物参考图】")).toBeNull();
   });
 
   it("renders the asset-library and batch-entry actions when configured", () => {
@@ -89,6 +109,16 @@ describe("MultiImageUploadV2", () => {
 
     fireEvent.click(container.querySelector(".studio-multi-image-v2-preview") as HTMLElement);
     expect(onPreview).toHaveBeenCalledWith(urls[0], 0);
+  });
+
+  it("keeps the continue-upload state free of repeated actions", () => {
+    const { getByText, queryByText } = renderUploader({
+      urls: urls.slice(0, 1),
+      emptyHint: "上传 / 拖拽参考图",
+    });
+
+    expect(getByText("继续上传【参考图】")).toBeTruthy();
+    expect(queryByText("继续上传【上传 / 拖拽参考图】")).toBeNull();
   });
 
   it("hides the upload panel when the limit is reached", () => {
