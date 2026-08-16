@@ -54,12 +54,10 @@ import {
   fetchHistoryApplyDetail,
   getHistoryApplyFailureMessage,
   isHistoryApplyRowFailed,
-  takeApplyDetail,
   type HistoryJobPayload,
 } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
-import { createGenericImagePreviewSession } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { useHistoryApply } from "@/hooks/use-history-apply";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
@@ -103,6 +101,7 @@ export default function ImageTranslationPage() {
   const router = useRouter();
   const t = useTranslations("ImageTranslation");
   const sourceInputRef = useRef<HTMLInputElement>(null);
+  const languageTriggerRef = useRef<HTMLButtonElement>(null);
   const [sourceUrls, setSourceUrls] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [languageLabels, setLanguageLabels] = useState<string[]>([]);
@@ -388,11 +387,10 @@ export default function ImageTranslationPage() {
     if (!options?.silent) toast.success(t("historyAppliedToast"));
   };
 
-  const handleLanguageConfirm = (next: string[]) => {
+  const handleLanguageChange = (next: string[]) => {
     const labels = next.map((code) => languageLabelMap.get(code)?.label || code);
     setLanguages(next);
     setLanguageLabels(labels);
-    setLanguageModalOpen(false);
     setPromptOverride(null);
   };
 
@@ -678,11 +676,11 @@ export default function ImageTranslationPage() {
   else if (resultUrls.length > 0) statusGroup = "completed";
 
   return (
-    <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
+    <div className="studio-workbench studio-image-translation-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="imageTranslation" />
       <ModuleTaskRail module="imageTranslation" moduleLabel={t("moduleLabel")} onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
 
-      <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
+      <div className="studio-parameters studio-image-translation-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
           <ModuleHeader
             title={t("title")}
@@ -745,7 +743,7 @@ export default function ImageTranslationPage() {
             )}
           </StudioUploadSection>
 
-          <section>
+          <section className="studio-language-field">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="studio-control-title">
                 <LanguagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
@@ -754,9 +752,10 @@ export default function ImageTranslationPage() {
               <span className="text-xs text-codex-faint">{t("languageSelectedCount", { selected: languages.length, max: MAX_IMAGE_TRANSLATION_LANGUAGES })}</span>
             </div>
             <button
+              ref={languageTriggerRef}
               type="button"
               onClick={() => setLanguageModalOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl border border-dashed border-violet-200 bg-[var(--codex-accent-10)]/40 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-[var(--codex-accent-10)]"
+              className="studio-language-field-trigger"
             >
               <span className="truncate">
                 {languageLabels.length
@@ -766,13 +765,13 @@ export default function ImageTranslationPage() {
               <ChevronRight className="h-4 w-4 shrink-0" />
             </button>
             {languages.length ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="studio-language-field-values">
                 {languages.map((code, index) => {
                   const label = languageLabels[index] || code;
                   return (
                     <span
                       key={code}
-                      className="inline-flex items-center gap-1 rounded-full bg-[var(--codex-accent-10)] px-2.5 py-1 text-[12px] font-semibold text-[var(--codex-accent)]"
+                      className="studio-language-field-value"
                     >
                       {label}
                       <button
@@ -976,9 +975,11 @@ export default function ImageTranslationPage() {
         onClose={() => setLanguageModalOpen(false)}
         config={languageConfig}
         selected={languages}
-        onChange={handleLanguageConfirm}
+        onChange={handleLanguageChange}
         title={t("languagePickerTitle")}
         description={languageConfigLoading ? t("languagePickerLoading") : t("languagePickerDesc")}
+        triggerRef={languageTriggerRef}
+        anchorSelector=".studio-image-translation-parameters"
         maxCount={MAX_IMAGE_TRANSLATION_LANGUAGES}
       />
 

@@ -1,15 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import {
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Check, ChevronDown, RotateCcw, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ClientPortal } from "@/components/ClientPortal";
 import type {
   ImageTranslationLanguageConfig,
   ImageTranslationLanguageCode,
 } from "@/lib/image-translation";
-import { flattenImageTranslationLanguages, pickCommonImageTranslationLanguages } from "@/lib/image-translation";
+import { flattenImageTranslationLanguages } from "@/lib/image-translation";
 import { cn } from "@/lib/utils";
+
+const DRAWER_EXIT_MS = 180;
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+type DrawerBounds = Pick<CSSProperties, "inset" | "top" | "right" | "bottom" | "left">;
 
 export type LanguagePickerModalProps = {
   open: boolean;
@@ -19,6 +40,9 @@ export type LanguagePickerModalProps = {
   onChange: (next: string[]) => void;
   title?: string;
   description?: string;
+  triggerRef?: RefObject<HTMLElement | null>;
+  /** Desktop drawer starts at the right edge of this element. */
+  anchorSelector?: string;
   /** 最大可选语种数 */
   maxCount?: number;
 };
@@ -31,19 +55,107 @@ export function LanguagePickerModal({
   onChange,
   title,
   description,
+  triggerRef,
+  anchorSelector = ".studio-parameters",
   maxCount,
 }: LanguagePickerModalProps) {
   const t = useTranslations("Shared");
   const resolvedTitle = title ?? t("allLanguages");
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (open) setQuery("");
-  }, [open]);
+  const [mounted, setMounted] = useState(open);
+  const [entered, setEntered] = useState(false);
+  const [bounds, setBounds] = useState<DrawerBounds>({ inset: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const requestClose = useCallback(() => onCloseRef.current(), []);
 
   const allLanguages = useMemo(() => flattenImageTranslationLanguages(config), [config]);
-  const commonLanguages = useMemo(() => pickCommonImageTranslationLanguages(config), [config]);
+  const languagesByCode = useMemo(
+    () => new Map(allLanguages.map((language) => [language.code, language])),
+    [allLanguages]
+  );
+  const selectedLanguages = useMemo(
+    () => selected
+      .map((code) => languagesByCode.get(code))
+      .filter((language): language is ImageTranslationLanguageCode => Boolean(language)),
+    [languagesByCode, selected]
+  );
+
+  const updateBounds = useCallback(() => {
+    if (window.innerWidth < 1024) {
+      setBounds({ inset: 0 });
+      return;
+    }
+
+    const anchor = document.querySelector<HTMLElement>(anchorSelector);
+    const workbench = anchor?.closest<HTMLElement>(".studio-workbench");
+    if (!anchor || !workbench) {
+      setBounds({ inset: 0 });
+      return;
+    }
+
+    const anchorRect = anchor.getBoundingClientRect();
+    const workbenchRect = workbench.getBoundingClientRect();
+    setBounds({
+      inset: "auto",
+      top: Math.max(0, workbenchRect.top),
+      right: Math.max(0, window.innerWidth - workbenchRect.right),
+      bottom: Math.max(0, window.innerHeight - workbenchRect.bottom),
+      left: Math.max(0, anchorRect.right),
+    });
+  }, [anchorSelector]);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+
+    setEntered(false);
+    const timeout = window.setTimeout(() => setMounted(false), DRAWER_EXIT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !mounted) return;
+
+    returnFocusRef.current = triggerRef?.current
+      ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setQuery("");
+    updateBounds();
+    const anchor = document.querySelector<HTMLElement>(anchorSelector);
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateBounds);
+    if (anchor) resizeObserver?.observe(anchor);
+    window.addEventListener("resize", updateBounds);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = window.requestAnimationFrame(() => {
+      setEntered(true);
+    });
+    const focusTimeout = window.setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 100);
+
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      requestClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(focusTimeout);
+      window.removeEventListener("resize", updateBounds);
+      resizeObserver?.disconnect();
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus({ preventScroll: true });
+    };
+  }, [anchorSelector, mounted, open, requestClose, triggerRef, updateBounds]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const filteredRegions = useMemo(() => {
@@ -64,16 +176,6 @@ export function LanguagePickerModal({
       .filter((region) => region.children.length > 0);
   }, [config, normalizedQuery]);
 
-  const visibleCommon = useMemo(() => {
-    if (!normalizedQuery) return commonLanguages;
-    return commonLanguages.filter(
-      (lang) =>
-        lang.label.toLowerCase().includes(normalizedQuery) ||
-        lang.enLabel.toLowerCase().includes(normalizedQuery)
-    );
-  }, [commonLanguages, normalizedQuery]);
-
-  const totalSelected = selected.length;
   const max = maxCount ?? 0;
   const toggle = (code: string) => {
     if (selected.includes(code)) {
@@ -84,107 +186,136 @@ export function LanguagePickerModal({
     onChange([...selected, code]);
   };
 
-  if (!open) return null;
+  const trapFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  if (!mounted) return null;
 
   return (
     <ClientPortal>
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={resolvedTitle}
-        className="fixed inset-0 z-[260] flex items-end justify-center bg-codex-ink/45 px-3 py-6 backdrop-blur-md sm:items-center sm:px-6"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) onClose();
-        }}
+        className="studio-language-drawer-layer"
+        data-state={entered && open ? "open" : "closed"}
+        style={bounds}
       >
         <div
-          className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
-          onMouseDown={(event) => event.stopPropagation()}
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={resolvedTitle}
+          className="studio-language-drawer-panel"
+          onKeyDown={trapFocus}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-[var(--codex-border)] px-5 py-4">
+          <header className="studio-language-drawer-header">
             <div className="min-w-0">
-              <h2 className="text-base font-black text-codex-ink">{resolvedTitle}</h2>
-              <p className="mt-1 text-xs text-codex-faint">
-                {description || t("languageDescription")}
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-[var(--codex-accent)]">
-                {max > 0 ? t("selectedCountMax", { count: totalSelected, max }) : t("selectedCount", { count: totalSelected })}
-              </p>
+              <h2>{resolvedTitle}</h2>
+              {description ? <p className="sr-only">{description}</p> : null}
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
               aria-label={t("close")}
-              className="rounded-full p-2 text-codex-faint transition hover:bg-[var(--codex-surface-soft)] hover:text-codex-ink"
+              className="studio-language-drawer-close"
             >
-              <X className="h-4 w-4" />
+              <X aria-hidden="true" />
             </button>
-          </div>
+          </header>
 
-          <div className="border-b border-[var(--codex-border)] px-5 py-3">
-            <div className="flex items-center gap-2 rounded-full border border-[var(--codex-border)] bg-codex-surface px-4 py-2 text-sm shadow-inner focus-within:border-[var(--codex-accent-45)] focus-within:ring-2 focus-within:ring-[var(--codex-accent-14)]">
-              <Search className="h-4 w-4 text-codex-faint" />
+          <div className="studio-language-drawer-tools">
+            <label className="studio-language-drawer-search">
+              <Search aria-hidden="true" />
               <input
-                type="text"
+                ref={searchRef}
+                type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("searchTargetLanguage")}
-                className="flex-1 bg-transparent text-sm text-codex-ink outline-none placeholder:text-codex-faint"
                 aria-label={t("searchTargetLanguage")}
               />
-            </div>
+              {query ? (
+                <button type="button" onClick={() => setQuery("")} aria-label={t("clearInput")}>
+                  <X aria-hidden="true" />
+                </button>
+              ) : null}
+            </label>
+
+            {selected.length ? <div className="studio-language-drawer-selection" aria-live="polite">
+              <span className="studio-language-drawer-selection-label">
+                {max > 0
+                  ? t("selectedCountMax", { count: selected.length, max })
+                  : t("selectedCount", { count: selected.length })}
+              </span>
+              <div className="studio-language-drawer-selected-list">
+                {selectedLanguages.map((language) => (
+                  <button
+                    key={language.code}
+                    type="button"
+                    onClick={() => toggle(language.code)}
+                    className="studio-language-drawer-selected-chip"
+                    aria-label={`${t("clear")} ${language.label}`}
+                  >
+                    <span>{language.label}</span>
+                    <span>{language.enLabel}</span>
+                    <X aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="studio-language-drawer-reset" onClick={() => onChange([])}>
+                <RotateCcw aria-hidden="true" />
+                {t("clear")}
+              </button>
+            </div> : null}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarGutter: "stable" as const }}>
-            {!normalizedQuery && visibleCommon.length > 0 ? (
-              <section className="mb-5">
-                <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-codex-faint">{t("commonRecommend")}</h3>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                  {visibleCommon.map((lang) => {
-                    const checked = selected.includes(lang.code);
-                    const disabled = max > 0 && !checked && selected.length >= max;
-                    return (
-                      <LanguageChip key={lang.code} lang={lang} checked={checked} disabled={disabled} onToggle={() => toggle(lang.code)} />
-                    );
-                  })}
-                </div>
-              </section>
-            ) : null}
-
+          <div className="studio-language-drawer-content" style={{ scrollbarGutter: "stable" }}>
             {filteredRegions.map((region) => {
               const isCollapsed = collapsed[region.label] === true && !normalizedQuery;
               return (
-                <section key={region.label} className="mb-6">
+                <section key={region.label} className="studio-language-region">
                   <button
                     type="button"
-                    onClick={() => setCollapsed((prev) => ({ ...prev, [region.label]: !prev[region.label] }))}
-                    className="mb-2 flex w-full items-center justify-between text-left text-[11px] font-black uppercase tracking-[0.16em] text-codex-faint"
+                    onClick={() => setCollapsed((previous) => ({ ...previous, [region.label]: !previous[region.label] }))}
+                    className="studio-language-region-heading"
+                    aria-expanded={!isCollapsed}
                   >
                     <span>{region.label}</span>
-                    <ChevronDown
-                      className={cn(
-                        "h-3.5 w-3.5 transition-transform",
-                        isCollapsed ? "-rotate-90" : "rotate-0"
-                      )}
-                    />
+                    <ChevronDown className={cn(isCollapsed && "-rotate-90")} aria-hidden="true" />
                   </button>
                   {!isCollapsed ? (
-                    <div className="space-y-4">
+                    <div className="studio-language-region-groups">
                       {region.children.map((group, groupIndex) => {
-                        const flat = group
-                          .map((entry) => allLanguages.find((lang) => lang.code === ((entry.enLabel && entry.enLabel.trim()) || entry.label.trim())))
-                          .filter((lang): lang is ImageTranslationLanguageCode => Boolean(lang));
-                        if (!flat.length) return null;
+                        const languages = group
+                          .map((entry) => languagesByCode.get((entry.enLabel && entry.enLabel.trim()) || entry.label.trim()))
+                          .filter((language): language is ImageTranslationLanguageCode => Boolean(language));
+                        if (!languages.length) return null;
                         return (
                           <div
-                            key={`${region.label}-${groupIndex}-${flat[0]?.code || groupIndex}`}
-                            className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4"
+                            key={`${region.label}-${groupIndex}-${languages[0]?.code || groupIndex}`}
+                            className="studio-language-drawer-grid"
                           >
-                            {flat.map((lang) => {
-                              const checked = selected.includes(lang.code);
+                            {languages.map((language) => {
+                              const checked = selected.includes(language.code);
                               const disabled = max > 0 && !checked && selected.length >= max;
                               return (
-                                <LanguageChip key={lang.code} lang={lang} checked={checked} disabled={disabled} onToggle={() => toggle(lang.code)} />
+                                <LanguageChip
+                                  key={language.code}
+                                  lang={language}
+                                  checked={checked}
+                                  disabled={disabled}
+                                  onToggle={() => toggle(language.code)}
+                                />
                               );
                             })}
                           </div>
@@ -197,20 +328,14 @@ export function LanguagePickerModal({
             })}
 
             {filteredRegions.length === 0 ? (
-              <p className="py-10 text-center text-sm text-codex-faint">{t("noLanguageMatch")}</p>
+              <p className="studio-language-drawer-empty">{t("noLanguageMatch")}</p>
             ) : null}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/80 px-5 py-3">
-            <p className="text-xs text-codex-faint">{t("languageFooter", { max: max || "20" })}</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full bg-[var(--codex-accent)] px-5 py-2 text-sm font-black text-white shadow-sm transition hover:opacity-90"
-            >
-              {t("doneSelecting")}
-            </button>
-          </div>
+          <footer className="studio-language-drawer-footer">
+            <p>{t("languageFooter", { max: max || "20" })}</p>
+            <button type="button" onClick={requestClose}>{t("doneSelecting")}</button>
+          </footer>
         </div>
       </div>
     </ClientPortal>
@@ -234,21 +359,13 @@ function LanguageChip({
       onClick={onToggle}
       disabled={disabled}
       aria-pressed={checked}
-      className={cn(
-        "group relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl border px-3 py-2 text-center transition",
-        checked
-          ? "border-[var(--codex-accent)] bg-[var(--codex-accent-10)] text-[var(--codex-accent)] shadow-sm ring-1 ring-[var(--codex-accent-25)]"
-          : "border-[var(--codex-border)] bg-codex-surface text-codex-ink hover:border-[var(--codex-accent-30)] hover:bg-[var(--codex-accent-10)]/40",
-        disabled && "cursor-not-allowed opacity-40 hover:border-[var(--codex-border)] hover:bg-codex-surface"
-      )}
+      className={cn("studio-language-card", checked && "is-selected", disabled && "is-disabled")}
     >
-      <span className="text-sm font-black leading-tight">{lang.label}</span>
-      <span className="truncate text-[10px] font-medium text-codex-faint" title={lang.enLabel}>
-        {lang.enLabel}
-      </span>
+      <span>{lang.label}</span>
+      <span title={lang.enLabel}>{lang.enLabel}</span>
       {checked ? (
-        <span className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--codex-accent-10)]0 text-white">
-          <Check className="h-3 w-3" />
+        <span className="studio-language-card-check">
+          <Check aria-hidden="true" />
         </span>
       ) : null}
     </button>
