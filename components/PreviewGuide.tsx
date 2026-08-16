@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import { Workflow } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -33,93 +33,125 @@ export function PreviewGuide({
   actions,
   variant = "default",
 }: PreviewGuideProps) {
+  const hasStepImages = steps.some((step) => Boolean(step.imageSrc));
+  const layout = hasStepImages ? "gallery" : "overview";
   const stepGridClass = steps.length >= 4
     ? "sm:grid-cols-2 lg:grid-cols-4"
     : steps.length === 2
       ? "sm:grid-cols-2"
-    : "sm:grid-cols-3";
-  const visualGridWidthClass = steps.length >= 4
-    ? ""
-    : steps.length === 2
-      ? "mx-auto max-w-[720px]"
-      : "mx-auto max-w-[900px]";
-  const connectorVisibilityClass = steps.length >= 4 ? "lg:flex" : "sm:flex";
+      : "sm:grid-cols-3";
 
   return (
-    <div className="studio-preview-guide relative mx-auto w-full max-w-[1080px] px-1 py-3 text-center sm:px-3 sm:py-6" data-variant={variant}>
-      <div className="studio-preview-guide-glow pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,var(--codex-accent-16),transparent_68%)] blur-3xl" />
-      <div className="studio-preview-guide-content relative">
-        <h3 className="studio-preview-guide-title bg-[linear-gradient(135deg,#3f5dff_0%,#6d8dff_45%,#aeb8ff_100%)] bg-clip-text text-[24px] font-black tracking-[-0.02em] text-transparent dark:bg-[linear-gradient(135deg,#8fa8ff_0%,#b8c6ff_55%,#dbe4ff_100%)] sm:text-[34px] lg:text-[38px]" style={{ textWrap: "balance" }}>{title}</h3>
-        <p className="studio-preview-guide-subtitle mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-codex-faint sm:text-[15px]">{subtitle}</p>
+    <div className="studio-preview-guide" data-variant={variant} data-layout={layout}>
+      <div className="studio-preview-guide-content">
+        <header className="studio-preview-guide-header">
+          <h3 className="studio-preview-guide-title" style={{ textWrap: "balance" }}>{title}</h3>
+          <p className="studio-preview-guide-subtitle">{subtitle}</p>
+        </header>
 
-        <div className="studio-preview-guide-panel mt-8 overflow-hidden rounded-[32px] border border-white/80 dark:border-white/10 bg-white/95 dark:bg-white/5 px-4 py-7 text-left shadow-[0_28px_90px_var(--codex-accent-12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-codex-ink/[0.03] dark:ring-white/5 backdrop-blur sm:px-7 sm:py-8">
-          <div className={`studio-preview-guide-grid grid grid-cols-1 gap-5 sm:gap-8 ${stepGridClass} ${visualGridWidthClass}`}>
-            {steps.map((step, index) => {
-              const hasImage = Boolean(step.imageSrc || imageSrc);
-              const isContain = step.imageFit === "contain";
-
-              return (
-                <div key={step.title} className="studio-preview-guide-step group relative min-w-0">
-                  <div className="studio-preview-guide-media-frame relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-[var(--codex-surface-soft)] to-[var(--codex-border)] p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_var(--codex-accent-14)] dark:from-stone-800 dark:via-stone-900 dark:to-black">
-                    <div
-                      className={cn(
-                        "studio-preview-guide-media relative aspect-[4/5] overflow-hidden rounded-[21px]",
-                        isContain
-                          ? "bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_55%,#eef4ff_100%)] dark:bg-[linear-gradient(135deg,#1c1c1e_0%,#26262a_55%,#1c1c1e_100%)]"
-                          : "bg-[var(--codex-surface-soft)]"
-                      )}
-                    >
-                      {hasImage ? (
-                        <Image
-                          src={step.imageSrc || imageSrc || ""}
-                          alt={step.imageAlt || imageAlt || step.title}
-                          fill
-                          sizes="(max-width: 640px) 86vw, (max-width: 1024px) 42vw, 250px"
-                          className={cn(
-                            "studio-preview-guide-image transition duration-300 group-hover:scale-[1.025]",
-                            isContain ? "object-contain p-5 sm:p-6" : "object-cover object-top"
-                          )}
-                        />
-                      ) : (
-                        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fbff,#eef3ff)] dark:bg-[linear-gradient(135deg,#1c1c1e,#26262a)]">
-                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,var(--codex-accent-16),transparent_52%),radial-gradient(circle_at_76%_72%,rgba(174, 184, 255, 0.18),transparent_48%)]" />
-                          <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/72 text-3xl font-black text-[var(--codex-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_12px_28px_var(--codex-accent-16)] backdrop-blur-sm dark:bg-white/8 dark:shadow-[inset_0_1px_0_var(--codex-surface-08),0_12px_28px_rgba(0,0,0,0.35)]">
-                            {icon || index + 1}
-                          </span>
-                        </div>
-                      )}
-                      <span className="studio-preview-guide-badge absolute left-3 top-3 inline-flex h-7 items-center gap-1 rounded-lg border border-[var(--codex-accent-28)] bg-[var(--codex-accent-10)] px-2.5 text-[11px] font-black leading-none text-[var(--codex-accent)] backdrop-blur-sm">
-                        {step.badge || (variant === "editorial" ? String(index + 1).padStart(2, "0") : `步骤 ${index + 1}`)}
-                      </span>
-                    </div>
+        <div className="studio-preview-guide-panel">
+          {hasStepImages ? (
+            <div className={cn("studio-preview-guide-grid", stepGridClass)}>
+              {steps.map((step, index) => (
+                <GuideMediaStep
+                  key={step.title}
+                  step={step}
+                  index={index}
+                  fallbackImageSrc={imageSrc}
+                  fallbackImageAlt={imageAlt}
+                  fallbackIcon={icon}
+                  variant={variant}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="studio-preview-guide-overview">
+              <div className="studio-preview-guide-overview-media" aria-hidden={!imageSrc}>
+                {imageSrc ? (
+                  <Image
+                    src={imageSrc}
+                    alt={imageAlt}
+                    fill
+                    priority={false}
+                    sizes="(max-width: 768px) 86vw, 420px"
+                    className="studio-preview-guide-overview-image"
+                  />
+                ) : (
+                  <div className="studio-preview-guide-overview-icon">
+                    {icon || <Workflow className="h-7 w-7" aria-hidden="true" />}
                   </div>
-                  {index < steps.length - 1 ? (
-                    <div className={cn(
-                      "studio-preview-guide-connector pointer-events-none absolute right-[-27px] top-[38%] z-10 hidden h-9 w-9 items-center justify-center rounded-full border-[3px] border-white dark:border-stone-900 bg-[var(--codex-accent)] text-white shadow-[0_16px_34px_var(--codex-accent-28)]",
-                      connectorVisibilityClass
-                    )}>
-                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </div>
-                  ) : null}
-                  <div className="studio-preview-guide-step-heading mt-3 flex items-center justify-center gap-2 text-center">
-                    <span className="studio-preview-guide-step-index inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--codex-surface-soft)] px-2 text-[11px] font-black text-codex-faint">
-                      {index + 1}
-                    </span>
-                    <p className="studio-preview-guide-step-title min-w-0 truncate text-[14px] font-black text-codex-ink sm:text-[15px]">{step.title}</p>
-                  </div>
-                  {step.desc ? (
-                    <p className="studio-preview-guide-step-description mx-auto mt-1.5 max-w-[220px] text-center text-[12px] font-semibold leading-5 text-codex-faint">
-                      {step.desc}
-                    </p>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
+                )}
+                <span className="studio-preview-guide-media-label">01—{String(steps.length).padStart(2, "0")}</span>
+              </div>
 
-          {actions && <div className="studio-preview-guide-actions mt-7 flex flex-wrap justify-center gap-2">{actions}</div>}
+              <ol className="studio-preview-guide-overview-steps">
+                {steps.map((step, index) => (
+                  <li key={step.title} className="studio-preview-guide-overview-step">
+                    <span className="studio-preview-guide-overview-index">{String(index + 1).padStart(2, "0")}</span>
+                    <div>
+                      <p className="studio-preview-guide-step-title">{step.title}</p>
+                      {step.desc ? <p className="studio-preview-guide-step-description">{step.desc}</p> : null}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {actions ? <div className="studio-preview-guide-actions">{actions}</div> : null}
         </div>
       </div>
     </div>
+  );
+}
+
+function GuideMediaStep({
+  step,
+  index,
+  fallbackImageSrc,
+  fallbackImageAlt,
+  fallbackIcon,
+  variant,
+}: {
+  step: PreviewGuideStep;
+  index: number;
+  fallbackImageSrc?: string;
+  fallbackImageAlt: string;
+  fallbackIcon?: ReactNode;
+  variant: "default" | "editorial";
+}) {
+  const src = step.imageSrc || fallbackImageSrc;
+  const isContain = step.imageFit === "contain";
+
+  return (
+    <article className="studio-preview-guide-step">
+      <div className="studio-preview-guide-media-frame">
+        <div className={cn("studio-preview-guide-media", isContain && "studio-preview-guide-media-contain")}>
+          {src ? (
+            <Image
+              src={src}
+              alt={step.imageAlt || fallbackImageAlt || step.title}
+              fill
+              sizes="(max-width: 640px) 86vw, (max-width: 1024px) 42vw, 250px"
+              className={cn("studio-preview-guide-image", isContain ? "object-contain" : "object-cover object-top")}
+            />
+          ) : (
+            <div className="studio-preview-guide-media-placeholder">
+              <span>{fallbackIcon || <Workflow className="h-7 w-7" aria-hidden="true" />}</span>
+            </div>
+          )}
+          <span className="studio-preview-guide-badge">
+            {step.badge || (variant === "editorial" ? String(index + 1).padStart(2, "0") : `${index + 1}`)}
+          </span>
+        </div>
+      </div>
+      <div className="studio-preview-guide-step-copy">
+        <span className="studio-preview-guide-step-index">{String(index + 1).padStart(2, "0")}</span>
+        <div className="min-w-0">
+          <p className="studio-preview-guide-step-title">{step.title}</p>
+          {step.desc ? <p className="studio-preview-guide-step-description">{step.desc}</p> : null}
+        </div>
+      </div>
+    </article>
   );
 }
