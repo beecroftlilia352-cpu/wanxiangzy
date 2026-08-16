@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { FolderOpen, History, Info } from "lucide-react";
 import { getFeatureItem, getFeatureItemsForModule, type FeatureKey, type FeatureNavItem } from "@/lib/navigation";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { StudioTabBadge } from "@/components/studio/StudioTabBadge";
 
 /** 数据键全路径（Header.features.*），用全局 t 解析（对齐 HeaderClient 的 tAny 用法） */
 function featureLabel(t: (key: string) => string, item: FeatureNavItem): string {
@@ -46,8 +45,8 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
   }, [active, visibleItems.length]);
 
   return (
-    <aside className="studio-nav-rail w-full max-w-[100vw] shrink-0 overflow-hidden border-b px-2 py-2 lg:flex lg:h-full lg:w-[112px] lg:max-w-none lg:flex-col lg:border-b-0 lg:border-r lg:px-2 lg:py-3">
-      <div ref={scrollerRef} className="studio-nav-scroller flex w-full items-center gap-1 overflow-x-auto overscroll-x-contain pb-1 lg:min-h-0 lg:flex-1 lg:flex-col lg:items-stretch lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-y-contain lg:pb-2">
+    <aside className="studio-nav-rail w-full max-w-[100vw] shrink-0 overflow-hidden border-b px-2 py-2 lg:flex lg:h-full lg:w-[var(--studio-nav-rail-width)] lg:max-w-none lg:flex-col lg:border-b-0 lg:border-r lg:px-1.5 lg:py-2">
+      <div ref={scrollerRef} className="studio-nav-scroller flex w-full items-center gap-1 overflow-x-auto overscroll-x-contain pb-1 lg:min-h-0 lg:flex-1 lg:flex-col lg:items-stretch lg:gap-0.5 lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-y-contain lg:pb-2">
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.key;
@@ -59,7 +58,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                 key={item.key}
                 aria-disabled="true"
                 title={title}
-                className="studio-nav-item group flex h-14 min-w-[92px] cursor-not-allowed flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[12px] font-black opacity-45 lg:h-[72px] lg:min-w-0"
+                className="studio-nav-item group flex h-14 min-w-[84px] cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold opacity-45 lg:h-[62px] lg:min-w-0"
               >
                 <span className="studio-nav-icon-frame text-codex-faint">
                   <Icon aria-hidden="true" />
@@ -77,7 +76,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
               href={item.href}
               prefetch={false}
               aria-current={isActive ? "page" : undefined}
-              className={`studio-nav-item group flex h-14 min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[12px] font-black transition-[background-color,color,box-shadow,border-color] duration-150 lg:h-[72px] lg:min-w-0 ${
+              className={`studio-nav-item group flex h-14 min-w-[84px] flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition-[background-color,color,box-shadow,border-color] duration-150 lg:h-[62px] lg:min-w-0 ${
                 isActive
                   ? "studio-nav-item-active bg-white/80 text-[var(--codex-accent)] shadow-sm ring-1 ring-[var(--codex-accent-22)] dark:bg-white/10 dark:text-[#cfd8ff] dark:ring-[var(--codex-accent-40)]"
                   : "text-codex-muted hover:bg-white/70 hover:text-codex-ink dark:hover:bg-white/5 dark:hover:text-codex-muted"
@@ -86,11 +85,6 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
             >
               <span className={`studio-nav-icon-frame ${isActive ? "text-[var(--codex-accent)]" : "text-codex-faint group-hover:text-codex-ink"}`}>
                 <Icon aria-hidden="true" />
-                {item.badge && (
-                  <StudioTabBadge variant="inline" className="studio-nav-item-badge">
-                    {item.badge}
-                  </StudioTabBadge>
-                )}
               </span>
               <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{featureLabel(t, item)}</span>
             </Link>
