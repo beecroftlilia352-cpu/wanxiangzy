@@ -4301,9 +4301,9 @@
     },
     "modelDesc": {
       "max4k": "Hasta 4K",
-      "fastGeneral": "Rápido y versátil",
-      "fineDetail": "Detalle fino",
-      "commercialRetouch": "Retoque comercial"
+      "fastGeneral": "Rápido y rentable para generación por lotes, bocetos ágiles y edición habitual de productos; hasta 4K.",
+      "fineDetail": "Sigue mejor las instrucciones y la maquetación de texto para carteles, series de ecommerce y ediciones complejas; detalle nítido hasta 4K.",
+      "commercialRetouch": "Prioriza referencias complejas y acabado comercial, con mejores materiales, consistencia de personajes y retoque premium; hasta 4K."
     },
     "aspect": {
       "auto": "Auto",

@@ -4301,9 +4301,9 @@
     },
     "modelDesc": {
       "max4k": "Hingga 4K",
-      "fastGeneral": "Cepat & serbaguna",
-      "fineDetail": "Detail halus",
-      "commercialRetouch": "Retouch komersial"
+      "fastGeneral": "Cepat dan hemat untuk generasi massal, draf singkat, dan edit produk sehari-hari; hingga 4K.",
+      "fineDetail": "Kuat mengikuti instruksi dan tata letak teks untuk poster, set e-commerce, dan edit kompleks; detail tajam hingga 4K.",
+      "commercialRetouch": "Mengutamakan referensi kompleks dan hasil komersial, dengan detail material, konsistensi karakter, dan retouch premium; hingga 4K."
     },
     "aspect": {
       "auto": "Otomatis",

@@ -4319,9 +4319,9 @@
     },
     "modelDesc": {
       "max4k": "最高4K",
-      "fastGeneral": "快速通用",
-      "fineDetail": "细腻质感",
-      "commercialRetouch": "商业精修"
+      "fastGeneral": "速度与性价比优先，适合批量出图、快速试稿和常规商品编辑；响应更快，最高4K。",
+      "fineDetail": "指令遵循和图文排版更稳，适合海报、电商套图与复杂编辑；细节清晰，最高4K。",
+      "commercialRetouch": "复杂参考与商业质感优先，更擅长材质、人物一致性和高要求精修；最高4K。"
     },
     "aspect": {
       "auto": "智能",

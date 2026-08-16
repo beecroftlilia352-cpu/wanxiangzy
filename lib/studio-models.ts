@@ -20,20 +20,20 @@ export const STUDIO_IMAGE_MODEL_META: Record<
   LingyaModel,
   { label: string; descKey: string; badgeKey: string; icon: string }
 > = {
-  "nano-banana-2": {
-    label: "Nano-Banana-2",
-    descKey: "Shared.modelDesc.fastGeneral",
-    badgeKey: "Shared.modelBadge.recommended",
-    icon: "/model-icons/gemini.png",
-  },
   "gpt-image-2": {
-    label: "GPT-Image-2",
+    label: "GPT image 2",
     descKey: "Shared.modelDesc.fineDetail",
     badgeKey: "Shared.modelBadge.latest",
     icon: "/model-icons/openai.svg",
   },
+  "nano-banana-2": {
+    label: "香蕉2",
+    descKey: "Shared.modelDesc.fastGeneral",
+    badgeKey: "Shared.modelBadge.recommended",
+    icon: "/model-icons/gemini.png",
+  },
   "nano-banana-pro": {
-    label: "Nano-Banana-Pro",
+    label: "香蕉Pro",
     descKey: "Shared.modelDesc.commercialRetouch",
     badgeKey: "Shared.modelBadge.highQuality",
     icon: "/model-icons/gemini.png",

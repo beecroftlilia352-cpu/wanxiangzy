@@ -4301,9 +4301,9 @@
     },
     "modelDesc": {
       "max4k": "4K’ya kadar",
-      "fastGeneral": "Hızlı ve çok yönlü",
-      "fineDetail": "İnce detay",
-      "commercialRetouch": "Ticari rötuş"
+      "fastGeneral": "Toplu üretim, hızlı taslaklar ve günlük ürün düzenlemeleri için hızlı ve ekonomik; 4K’ya kadar.",
+      "fineDetail": "Posterler, e-ticaret setleri ve karmaşık düzenlemelerde talimat ve metin yerleşimine güçlü biçimde uyar; 4K’ya kadar net detay.",
+      "commercialRetouch": "Karmaşık referansları ve ticari kaliteyi önceler; malzeme detayı, karakter tutarlılığı ve premium rötuşta güçlüdür; 4K’ya kadar."
     },
     "aspect": {
       "auto": "Otomatik",
