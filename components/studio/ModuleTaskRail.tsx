@@ -30,10 +30,18 @@ export function ModuleTaskRail({
   const applyTask = async (item: TaskQueueItem, session: TaskSelectionSession) => {
     if (onCompletedTask) {
       const handled = await onCompletedTask(item, session);
-      if (!session.isCurrent()) return true;
-      if (handled === true) return true;
+      // session became stale mid-await (user clicked a different row, or
+      // the rail was unmounted) — but the page handler still ran. Treat
+      // undefined as "didn't claim"; only short-circuit if the handler
+      // explicitly returned true. Critically, do NOT swallow silently:
+      // even when the handler bails on stale session, the user must see
+      // the apply happen — fall through to the URL-based path.
+      if (handled === true && session.isCurrent()) return true;
     }
-    if (!item.applyUrl) return false;
+    if (!item.applyUrl) {
+      toast.error(t("taskApplyFailed"));
+      return false;
+    }
     const target = new URL(item.applyUrl, window.location.origin);
     if (target.pathname === window.location.pathname) {
       window.history.replaceState(window.history.state, "", `${target.pathname}${target.search}${target.hash}`);

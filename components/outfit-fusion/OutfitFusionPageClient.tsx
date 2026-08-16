@@ -779,7 +779,9 @@ export function OutfitFusionPageClient() {
     }
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "outfitFusion", session.signal);
-      if (!session.isCurrent()) return true;
+      // Apply even if the session went stale mid-fetch — swallowing silently
+      // here was the root cause of "click a row, preview doesn't update". A
+      // real abort would have hit the catch block via session.signal.
       if (detail.payload.kind !== "outfitFusion") {
         upsertTaskFromQueueItem(item);
         return true;
@@ -789,7 +791,7 @@ export function OutfitFusionPageClient() {
       });
       return true;
     } catch {
-      if (session.signal.aborted || !session.isCurrent()) return true;
+      if (session.signal.aborted) return undefined;
       upsertTaskFromQueueItem(item);
       if (item.statusGroup === "failed") toast.error(item.error || t("toast.historyTaskLoadFailed"));
       return true;

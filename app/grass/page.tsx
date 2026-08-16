@@ -579,7 +579,9 @@ export default function GrassPage() {
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "grass", session.signal);
-      if (!session.isCurrent()) return true;
+      // Apply even if the session went stale mid-fetch — swallowing silently
+      // here was the root cause of "click a row, preview doesn't update". A
+      // real abort would have hit the catch block via session.signal.
       applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -588,7 +590,7 @@ export default function GrassPage() {
       }
       return true;
     } catch (err) {
-      if (session.signal.aborted || !session.isCurrent()) return true;
+      if (session.signal.aborted) return undefined;
       toast.error(err instanceof Error ? err.message : t("historyParamsLoadFailed"));
       return true;
     }
