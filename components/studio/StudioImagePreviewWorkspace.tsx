@@ -198,7 +198,11 @@ export function StudioImagePreviewWorkspace({
     }
 
     if (action.kind === "download") {
-      await downloadImage(activeUrl, generateDownloadFilename(filenamePrefix, activeIndex, extension));
+      try {
+        await downloadImage(activeUrl, generateDownloadFilename(filenamePrefix, activeIndex, extension));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : t("downloadFailed"));
+      }
       return;
     }
     if (action.kind === "copy") {

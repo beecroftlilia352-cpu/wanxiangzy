@@ -38,14 +38,14 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
-import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getCreditCost, getSupportedImageSizes, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
-import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -242,7 +242,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
           ? (state.partial_failure as { message?: unknown })
           : null;
-        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        const completedError = state.error || coerceErrorMessage(partialFailure?.message);
         ctx.setProgress(100);
         ctx.setResultUrls(finalUrls);
         const completedTask = ctx.taskQueue.markCompleted(ctx.activeTaskId, {
@@ -394,11 +394,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }, []);
 
   function applyGeneralImageHistoryPayload(payload: GeneralImageHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
-    setMode(payload.mode);
+    const restoredAiModel = normalizeLingyaModel(payload.aiModel);
+    const restoredAspectRatio = normalizeAspectRatio(payload.aspectRatio, "auto");
+    const restoredImageSize = normalizeImageSize(restoredAiModel, payload.imageSize, restoredAspectRatio);
+    setMode(payload.mode === "image-to-image" ? "image-to-image" : "text-to-image");
     setPrompt(payload.prompt);
-    setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio);
-    setImageSize(payload.imageSize);
+    setAiModel(restoredAiModel);
+    setAspectRatio(restoredAspectRatio);
+    // Restore the size AFTER aspect ratio so the validation uses the just-restored
+    // ratio — passing the closure-captured `aspectRatio` here would silently force
+    // the size to fall back to the lowest supported tier on re-apply.
+    setImageSize(restoredImageSize);
     setGenCount(payload.genCount);
     setReferenceImages(payload.referenceUrls.map((url, index) => ({
       id: `history-general-${index}-${url}`,
@@ -418,26 +424,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     let cancelled = false;
     (async () => {
     const detail = await takeApplyDetail("generalImage");
-    const payload = detail?.payload;
-    if (cancelled || !payload) return;
-    setMode(payload.mode);
-    setPrompt(payload.prompt);
-    setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio);
-    setImageSize(payload.imageSize);
-    setGenCount(payload.genCount);
-    setReferenceImages(payload.referenceUrls.map((url, index) => ({
-      id: `history-general-${index}-${url}`,
-      name: t("historyReferenceName", { index: index + 1 }),
-      url,
-      preview: url,
-    })));
-    setActiveQueueTask(null);
-    setResultUrls(detail?.resultUrls || []);
-    setIsGenerating(false);
-    setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
-    setProgress(detail?.resultUrls.length ? 100 : 0);
-    toast.success(t("historyAppliedToast"));
+    if (cancelled || !detail) return;
+    applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls, { silent: true });
+    if (isHistoryApplyRowFailed(detail.row)) {
+      setError(getHistoryApplyFailureMessage(detail.row));
+    }
     })();
     return () => {
       cancelled = true;

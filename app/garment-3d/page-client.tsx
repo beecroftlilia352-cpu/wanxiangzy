@@ -36,7 +36,7 @@ import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/l
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { useHistoryApply } from "@/hooks/use-history-apply";
-import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -235,7 +235,7 @@ export default function Garment3dPage() {
         const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
           ? (state.partial_failure as { message?: unknown })
           : null;
-        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        const completedError = state.error || coerceErrorMessage(partialFailure?.message);
         ctx.setProgress(100);
         ctx.setResultUrls(finalUrls);
         ctx.taskQueue.markCompleted(ctx.activeTaskId, {

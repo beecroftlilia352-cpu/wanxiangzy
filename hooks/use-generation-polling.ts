@@ -16,8 +16,10 @@ import { useCallback, useEffect, useRef } from "react";
  * The primitive handles:
  *   - interval / max-attempt limits
  *   - abort propagation (so a component unmount cancels the loop)
- *   - distinguishing 4xx (non-recoverable, bail with server message) from
- *     5xx (transient, retry up to N consecutive failures)
+ *   - retrying on any non-2xx (matches the old inline loops' behavior —
+ *     transient 4xx like a worker-race 404 or mid-session 401 must NOT
+ *     be treated as terminal; if a 4xx is truly fatal, isTerminal will
+ *     see status='failed' in a later successful poll)
  */
 export type GenerationPollConfig<T> = {
   /** Identifier (generation_id / task_id) used by `buildUrl`. */
@@ -111,7 +113,8 @@ async function runLoop<T>(opts: GenerationPollConfig<T> & { signal: AbortSignal 
       return;
     }
     if (!response.ok) {
-      if (response.status >= 400 && response.status < 500) {
+      consecutiveServerErrors += 1;
+      if (consecutiveServerErrors >= (maxConsecutiveServerErrors ?? DEFAULTS.maxConsecutiveServerErrors)) {
         let message = `Service returned ${response.status}`;
         try {
           const body = await response.json();
@@ -120,11 +123,6 @@ async function runLoop<T>(opts: GenerationPollConfig<T> & { signal: AbortSignal 
           /* swallow */
         }
         onError?.(new Error(message));
-        return;
-      }
-      consecutiveServerErrors += 1;
-      if (consecutiveServerErrors >= (maxConsecutiveServerErrors ?? DEFAULTS.maxConsecutiveServerErrors)) {
-        onError?.(new Error("Service unavailable"));
         return;
       }
       continue;

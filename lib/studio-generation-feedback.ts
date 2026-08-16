@@ -13,6 +13,23 @@ export const PARTIAL_FAILURE_REFUND_KEY = "LibShared.feedback.partialFailureRefu
 export const PARTIAL_FAILURE_RETRY_HINT = "点“重试本张”会创建 1 张新任务并重新扣费。";
 export const PARTIAL_FAILURE_RETRY_HINT_KEY = "LibShared.feedback.partialFailureRetryHint";
 
+/**
+ * Coerce an unknown `partial_failure.message` payload into a usable string.
+ * Server may return either a bare string or a `{ message: "...", code: N }`
+ * object; the previous inline `instanceof Object ? String(...) : ""` pattern
+ * turned the object case into the literal "[object Object]".
+ */
+export function coerceErrorMessage(message: unknown): string {
+  if (typeof message === "string") return message;
+  if (message && typeof message === "object") {
+    const nested = (message as { message?: unknown }).message;
+    if (typeof nested === "string") return nested;
+    const errorField = (message as { error?: unknown }).error;
+    if (typeof errorField === "string") return errorField;
+  }
+  return "";
+}
+
 export function summarizeGenerationError(message?: unknown) {
   const raw = typeof message === "string" ? message.trim() : "";
   if (!raw) return GENERATION_ERROR_UPSTREAM;

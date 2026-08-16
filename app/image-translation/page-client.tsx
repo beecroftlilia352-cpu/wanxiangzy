@@ -62,7 +62,7 @@ import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/l
 import { createGenericImagePreviewSession } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { useHistoryApply } from "@/hooks/use-history-apply";
-import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -306,7 +306,7 @@ export default function ImageTranslationPage() {
         const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
           ? (state.partial_failure as { message?: unknown })
           : null;
-        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        const completedError = state.error || coerceErrorMessage(partialFailure?.message);
         ctx.setProgress(100);
         ctx.setResultUrls(() => finalUrls);
         ctx.setIsGenerating(false);
@@ -426,8 +426,13 @@ export default function ImageTranslationPage() {
     setLanguages(restoredLanguages);
     setLanguageLabels(Array.isArray(payload.languageLabels) ? payload.languageLabels : restoredLanguages);
     setAiModel(normalizeLingyaModel(payload.aiModel));
-    setAspectRatio(normalizeAspectRatio(payload.aspectRatio || DEFAULT_ASPECT_RATIO, DEFAULT_ASPECT_RATIO));
-    setImageSize(normalizeImageSize(payload.aiModel, payload.imageSize, aspectRatio));
+    const restoredAspectRatio = normalizeAspectRatio(payload.aspectRatio || DEFAULT_ASPECT_RATIO, DEFAULT_ASPECT_RATIO);
+    setAspectRatio(restoredAspectRatio);
+    // Pass the just-restored aspect ratio explicitly — `aspectRatio` here is the
+    // closure-captured old value and React state setters batch, so reading the
+    // local variable avoids a transient mismatch that previously forced the
+    // size to fall back to the lowest supported tier on re-apply.
+    setImageSize(normalizeImageSize(payload.aiModel, payload.imageSize, restoredAspectRatio));
     setGenCount(Math.min(Math.max(Number(payload.genCount) || 1, 1), 4));
     setPromptOverride(enforceImageTranslationPromptRequirements(payload.prompt, {
       sourceCount: payload.sourceUrls.length,

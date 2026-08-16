@@ -36,7 +36,7 @@ import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, referencesFromUrls, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
-import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -285,7 +285,7 @@ export default function ModelPage() {
         const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
           ? (state.partial_failure as { message?: unknown })
           : null;
-        const completedError = state.error || (partialFailure?.message instanceof Object || typeof partialFailure?.message === "string" ? String(partialFailure?.message) : "");
+        const completedError = state.error || coerceErrorMessage(partialFailure?.message);
         ctx.setResultUrls(finalUrls);
         ctx.setIsGenerating(false);
         ctx.taskQueue.markCompleted(ctx.activeTaskId, {

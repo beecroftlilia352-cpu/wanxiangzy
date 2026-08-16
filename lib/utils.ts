@@ -107,22 +107,33 @@ function inferExt(url: string): string {
 }
 
 export async function downloadMedia(url: string, filename: string) {
+  if (!url) return;
   const downloadUrl = url.startsWith("http")
     ? `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}&proxy=1`
     : url;
 
-  try {
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.download = filename;
-    a.rel = "noopener";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    window.setTimeout(() => a.remove(), 0);
-  } catch {
-    window.open(downloadUrl, "_blank", "noopener,noreferrer");
+  // fetch + blob + blob URL — avoids cross-origin <a download> failures and the
+  // browser beforeunload dialog that fires when the page navigates to the
+  // /api/download-image URL. See features/product-retouch/download.ts for the
+  // same pattern.
+  const response = await fetch(downloadUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`下载失败 (${response.status})`);
   }
+  const blob = await response.blob();
+  saveBlob(blob, filename);
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
 }
 
 export async function downloadImage(url: string, filename: string) {
