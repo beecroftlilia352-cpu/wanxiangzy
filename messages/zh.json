@@ -4332,7 +4332,9 @@
       "wide": "宽屏"
     },
     "countLabel": "生成张数",
-    "modelPickerPlaceholder": "选择模型",
+    "modelPickerTitle": "基础生图模型",
+    "modelPickerRecommended": "推荐基础模型",
+    "modelPickerPlaceholder": "默认模型",
     "moduleHeaderAria": "{title}说明",
     "videoResultPreview": "生成视频 {index} 预览",
     "videoResultPlay": "播放生成视频 {index}",

@@ -4314,7 +4314,9 @@
       "wide": "Geniş ekran"
     },
     "countLabel": "Üretim sayısı",
-    "modelPickerPlaceholder": "Model seç",
+    "modelPickerTitle": "Temel görsel modeli",
+    "modelPickerRecommended": "Önerilen temel modeller",
+    "modelPickerPlaceholder": "Varsayılan model",
     "moduleHeaderAria": "{title} bilgi",
     "videoResultPreview": "Oluşturulan video {index} önizleme",
     "videoResultPlay": "Oluşturulan videoyu oynat {index}",

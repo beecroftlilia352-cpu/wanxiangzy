@@ -4314,7 +4314,9 @@
       "wide": "Lebar"
     },
     "countLabel": "Jumlah generasi",
-    "modelPickerPlaceholder": "Pilih model",
+    "modelPickerTitle": "Model gambar dasar",
+    "modelPickerRecommended": "Model dasar yang direkomendasikan",
+    "modelPickerPlaceholder": "Model default",
     "moduleHeaderAria": "Info {title}",
     "videoResultPreview": "Pratinjau video yang dihasilkan {index}",
     "videoResultPlay": "Putar video yang dihasilkan {index}",

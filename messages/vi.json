@@ -4314,7 +4314,9 @@
       "wide": "Màn hình rộng"
     },
     "countLabel": "Số lượng tạo",
-    "modelPickerPlaceholder": "Chọn mô hình",
+    "modelPickerTitle": "Mô hình ảnh cơ bản",
+    "modelPickerRecommended": "Mô hình cơ bản được đề xuất",
+    "modelPickerPlaceholder": "Mô hình mặc định",
     "moduleHeaderAria": "Thông tin {title}",
     "videoResultPreview": "Xem trước video đã tạo {index}",
     "videoResultPlay": "Phát video đã tạo {index}",

@@ -4314,7 +4314,9 @@
       "wide": "Breitbild"
     },
     "countLabel": "Anzahl Generierungen",
-    "modelPickerPlaceholder": "Modell wählen",
+    "modelPickerTitle": "Basismodell für Bilderzeugung",
+    "modelPickerRecommended": "Empfohlene Basismodelle",
+    "modelPickerPlaceholder": "Standardmodell",
     "moduleHeaderAria": "{title}-Info",
     "videoResultPreview": "Vorschau des generierten Videos {index}",
     "videoResultPlay": "Generiertes Video {index} abspielen",

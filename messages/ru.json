@@ -4314,7 +4314,9 @@
       "wide": "Широкий экран"
     },
     "countLabel": "Количество генераций",
-    "modelPickerPlaceholder": "Выбрать модель",
+    "modelPickerTitle": "Базовая модель изображения",
+    "modelPickerRecommended": "Рекомендуемые базовые модели",
+    "modelPickerPlaceholder": "Модель по умолчанию",
     "moduleHeaderAria": "Справка: {title}",
     "videoResultPreview": "Предпросмотр сгенерированного видео {index}",
     "videoResultPlay": "Воспроизвести сгенерированное видео {index}",

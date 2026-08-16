@@ -4314,7 +4314,9 @@
       "wide": "와이드"
     },
     "countLabel": "생성 매수",
-    "modelPickerPlaceholder": "모델 선택",
+    "modelPickerTitle": "기본 이미지 모델",
+    "modelPickerRecommended": "추천 기본 모델",
+    "modelPickerPlaceholder": "기본 모델",
     "moduleHeaderAria": "{title} 설명",
     "videoResultPreview": "생성된 동영상 {index} 미리보기",
     "videoResultPlay": "생성된 동영상 {index} 재생",

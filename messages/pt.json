@@ -4314,7 +4314,9 @@
       "wide": "Widescreen"
     },
     "countLabel": "Quantidade de gerações",
-    "modelPickerPlaceholder": "Selecionar modelo",
+    "modelPickerTitle": "Modelo base de imagem",
+    "modelPickerRecommended": "Modelos base recomendados",
+    "modelPickerPlaceholder": "Modelo padrão",
     "moduleHeaderAria": "Informações de {title}",
     "videoResultPreview": "Pré-visualização do vídeo gerado {index}",
     "videoResultPlay": "Reproduzir o vídeo gerado {index}",

@@ -4332,7 +4332,9 @@
       "wide": "Widescreen"
     },
     "countLabel": "Generation count",
-    "modelPickerPlaceholder": "Select model",
+    "modelPickerTitle": "Base image model",
+    "modelPickerRecommended": "Recommended base models",
+    "modelPickerPlaceholder": "Default model",
     "moduleHeaderAria": "{title} info",
     "videoResultPreview": "Generated video {index} preview",
     "videoResultPlay": "Play generated video {index}",

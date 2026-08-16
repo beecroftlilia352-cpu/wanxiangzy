@@ -3463,7 +3463,9 @@
       "wide": "ワイド"
     },
     "countLabel": "生成枚数",
-    "modelPickerPlaceholder": "モデルを選択",
+    "modelPickerTitle": "基本画像モデル",
+    "modelPickerRecommended": "おすすめ基本モデル",
+    "modelPickerPlaceholder": "デフォルトモデル",
     "moduleHeaderAria": "{title}の説明",
     "videoResultPreview": "生成動画 {index} プレビュー",
     "videoResultPlay": "生成動画 {index} を再生",

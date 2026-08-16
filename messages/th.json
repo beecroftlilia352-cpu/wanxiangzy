@@ -1139,7 +1139,9 @@
       "wide": "จอกว้าง"
     },
     "countLabel": "จำนวนการสร้าง",
-    "modelPickerPlaceholder": "เลือกรุ่น",
+    "modelPickerTitle": "โมเดลสร้างภาพพื้นฐาน",
+    "modelPickerRecommended": "โมเดลพื้นฐานที่แนะนำ",
+    "modelPickerPlaceholder": "โมเดลเริ่มต้น",
     "moduleHeaderAria": "ข้อมูล {title}",
     "videoResultPreview": "ดูตัวอย่างวิดีโอที่สร้าง {index}",
     "videoResultPlay": "เล่นวิดีโอที่สร้าง {index}",

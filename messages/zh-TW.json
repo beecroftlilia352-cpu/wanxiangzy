@@ -3463,7 +3463,9 @@
       "wide": "寬屏"
     },
     "countLabel": "生成張數",
-    "modelPickerPlaceholder": "選擇模型",
+    "modelPickerTitle": "基礎生圖模型",
+    "modelPickerRecommended": "推薦基礎模型",
+    "modelPickerPlaceholder": "預設模型",
     "moduleHeaderAria": "{title}說明",
     "videoResultPreview": "生成影片 {index} 預覽",
     "videoResultPlay": "播放生成影片 {index}",

@@ -1,16 +1,16 @@
-import { useEffect, useMemo } from "react";
 import type { ChangeEvent, ComponentType, ReactNode } from "react";
-import { useVisibleImageModels } from "@/lib/use-visible-image-models";
-import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { useTranslations } from "next-intl";
 import {
   StudioOptionGrid as StudioChoiceGroupOptionGrid,
   StudioChoiceGroup,
   type StudioChoiceOption,
   type StudioChoiceGroupProps,
 } from "@/components/studio/StudioChoiceGroup";
+export {
+  StudioModelSelector,
+  type StudioModelOption,
+  type StudioModelSelectorProps,
+} from "@/components/studio/StudioModelSelector";
 
 // Re-export the unified choice group under its legacy name so existing
 // imports (`StudioOptionGrid` from `@/components/studio/StudioFormControls`)
@@ -19,78 +19,6 @@ import {
 export const StudioOptionGrid = StudioChoiceGroupOptionGrid;
 export { StudioChoiceGroup };
 export type { StudioChoiceOption, StudioChoiceGroupProps };
-
-export type StudioModelOption<T extends string = string> = {
-  value: T;
-  label: string;
-  labelKey?: string;
-  desc: string;
-  descKey?: string;
-  icon?: string;
-  badge?: string;
-  badgeKey?: string;
-  disabled?: boolean;
-};
-
-export function StudioModelSelector<T extends string>({
-  models,
-  value,
-  onChange,
-  getMeta,
-  columns = 2,
-  ariaLabel = "Generation model",
-}: {
-  models: readonly StudioModelOption<T>[];
-  value: T;
-  onChange: (value: T) => void;
-  getMeta?: (model: StudioModelOption<T>) => ReactNode;
-  columns?: 1 | 2;
-  ariaLabel?: string;
-}) {
-  const t = useTranslations();
-  const { visibleModels, isReady } = useVisibleImageModels();
-  const visibleOptions = useMemo(() => {
-    if (!isReady || !visibleModels) return models;
-    return models.filter((model) => visibleModels.has(model.value));
-  }, [isReady, models, visibleModels]);
-
-  useEffect(() => {
-    if (!isReady || visibleOptions.length === 0) return;
-    if (!visibleOptions.some((model) => model.value === value)) {
-      onChange(visibleOptions[0].value);
-    }
-  }, [isReady, onChange, value, visibleOptions]);
-
-  return (
-    <div className={cn("studio-model-selector", columns === 1 && "studio-model-selector-1")} role="radiogroup" aria-label={ariaLabel}>
-      {visibleOptions.map((model) => {
-        const selected = value === model.value;
-        return (
-          <button
-            key={model.value}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            disabled={model.disabled}
-            onClick={() => onChange(model.value)}
-            className={cn("studio-model-option", selected && "studio-model-option-selected")}
-          >
-            <span className="studio-model-option-icon">
-              {model.icon ? <RawPreviewImage src={model.icon} alt="" /> : <ImageIcon className="h-4 w-4" />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="studio-model-option-title">
-                <span className="leading-tight [overflow-wrap:anywhere]">{model.labelKey ? t(model.labelKey) : model.label}</span>
-                {model.badge && <span className="studio-model-option-badge">{model.badgeKey ? t(model.badgeKey) : model.badge}</span>}
-              </span>
-              <span className="studio-model-option-desc">{getMeta?.(model) ?? (model.descKey ? t(model.descKey) : model.desc)}</span>
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 export function StudioToggleRow({
   title,

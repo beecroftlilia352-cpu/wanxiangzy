@@ -1139,7 +1139,9 @@
       "wide": "Широк екран"
     },
     "countLabel": "Брой генерирания",
-    "modelPickerPlaceholder": "Избор на модел",
+    "modelPickerTitle": "Основен модел за изображения",
+    "modelPickerRecommended": "Препоръчани основни модели",
+    "modelPickerPlaceholder": "Модел по подразбиране",
     "moduleHeaderAria": "Информация за {title}",
     "videoResultPreview": "Преглед на генерирано видео {index}",
     "videoResultPlay": "Пускане на генерирано видео {index}",

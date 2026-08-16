@@ -4314,7 +4314,9 @@
       "wide": "شاشة عريضة"
     },
     "countLabel": "عدد الأجيال",
-    "modelPickerPlaceholder": "اختر نموذجًا",
+    "modelPickerTitle": "نموذج الصور الأساسي",
+    "modelPickerRecommended": "النماذج الأساسية الموصى بها",
+    "modelPickerPlaceholder": "النموذج الافتراضي",
     "moduleHeaderAria": "معلومات {title}",
     "videoResultPreview": "معاينة الفيديو المُنشأ {index}",
     "videoResultPlay": "تشغيل الفيديو المُنشأ {index}",

@@ -4314,7 +4314,9 @@
       "wide": "वाइडस्क्रीन"
     },
     "countLabel": "जनरेशन संख्या",
-    "modelPickerPlaceholder": "मॉडल चुनें",
+    "modelPickerTitle": "बेस इमेज मॉडल",
+    "modelPickerRecommended": "अनुशंसित बेस मॉडल",
+    "modelPickerPlaceholder": "डिफ़ॉल्ट मॉडल",
     "moduleHeaderAria": "{title} जानकारी",
     "videoResultPreview": "जनित वीडियो {index} पूर्वावलोकन",
     "videoResultPlay": "जनित वीडियो {index} चलाएँ",
