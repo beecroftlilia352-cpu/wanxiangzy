@@ -40,11 +40,12 @@ import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
-import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
+import { useHistoryApply } from "@/hooks/use-history-apply";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -406,7 +407,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     // the size to fall back to the lowest supported tier on re-apply.
     setImageSize(restoredImageSize);
     setGenCount(payload.genCount);
-    setReferenceImages(payload.referenceUrls.map((url, index) => ({
+    setReferenceImages((payload.referenceUrls ?? []).map((url, index) => ({
       id: `history-general-${index}-${url}`,
       name: t("historyReferenceName", { index: index + 1 }),
       url,
@@ -420,20 +421,16 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (!options?.silent) toast.success(t("historyAppliedToast"));
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-    const detail = await takeApplyDetail("generalImage");
-    if (cancelled || !detail) return;
-    applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls, { silent: true });
-    if (isHistoryApplyRowFailed(detail.row)) {
-      setError(getHistoryApplyFailureMessage(detail.row));
-    }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useHistoryApply({
+    kind: "generalImage",
+    apply: (payload, resultUrls, { row }) => {
+      applyGeneralImageHistoryPayload(payload, resultUrls, { silent: true });
+      if (isHistoryApplyRowFailed(row)) {
+        setError(getHistoryApplyFailureMessage(row));
+      }
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   function resetOutput() {
     setActiveQueueTask(null);

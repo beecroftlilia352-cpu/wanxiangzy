@@ -4342,7 +4342,8 @@
     "operationFailed": "कार्रवाई विफल",
     "resolutionStandard": "स्टैंडर्ड",
     "resolutionHD": "HD",
-    "resolutionUltra": "अल्ट्रा"
+    "resolutionUltra": "अल्ट्रा",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "फर्स्ट और लास्ट फ्रेम",

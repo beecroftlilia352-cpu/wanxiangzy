@@ -4342,7 +4342,8 @@
     "operationFailed": "Thao tác thất bại",
     "resolutionStandard": "Chuẩn",
     "resolutionHD": "HD",
-    "resolutionUltra": "Siêu nét"
+    "resolutionUltra": "Siêu nét",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",

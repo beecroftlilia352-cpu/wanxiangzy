@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Download, Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus } from "lucide-react";
 import { downloadImagesAsZip } from "@/lib/download-batch";
-import { downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { inferMediaExtension, isLikelyVideoUrl } from "@/lib/media";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -1089,7 +1089,7 @@ function downloadHistoryResult(row: HistoryRow, url: string, index: number) {
     ? `pixel-diffusion-${dateStr}-${String(index + 1).padStart(2, "0")}.${ext}`
     : generateDownloadFilename("history", index, ext);
 
-  downloadImage(url, filename);
+  safeDownloadImage(url, filename);
 }
 
 function getRowPayload(row: HistoryRow) {

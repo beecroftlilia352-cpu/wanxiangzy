@@ -4342,7 +4342,8 @@
     "operationFailed": "فشلت العملية",
     "resolutionStandard": "قياسي",
     "resolutionHD": "عالية الدقة",
-    "resolutionUltra": "فائق"
+    "resolutionUltra": "فائق",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",

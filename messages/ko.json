@@ -4342,7 +4342,8 @@
     "operationFailed": "작업 실패",
     "resolutionStandard": "표준",
     "resolutionHD": "HD",
-    "resolutionUltra": "울트라"
+    "resolutionUltra": "울트라",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "첫/끝 프레임",

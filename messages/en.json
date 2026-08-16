@@ -4321,6 +4321,7 @@
     "videoResultBadge": "Result",
     "videoGeneratingState": "Generating video",
     "videoEstimatedTime": "Estimated 2-5 min",
+    "downloadFailed": "Download failed, please try again",
     "emptyData": "No data",
     "pagingTotal": "Total {total}",
     "perPage": "{option} / page",

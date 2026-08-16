@@ -47,7 +47,7 @@ import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
-import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -1668,7 +1668,7 @@ export default function CreatePage() {
             const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
               ? pollData.partial_failure as { message?: unknown }
               : null;
-            const rawCompletedError = String(pollData.error || partialFailure?.message || "");
+            const rawCompletedError = String(pollData.error || coerceErrorMessage(partialFailure?.message));
             const completedError = rawCompletedError ? summarizeGenerationError(rawCompletedError) : "";
             if (isActive) {
               store.updateProgress(100);

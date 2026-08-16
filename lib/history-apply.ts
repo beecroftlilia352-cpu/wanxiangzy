@@ -334,6 +334,13 @@ export async function takeApplyPayload<K extends HistoryJobPayload["kind"]>(
   }
 }
 
+/**
+ * Fetch the history row referenced by `?apply=<id>` WITHOUT stripping the
+ * URL — the caller (typically `useHistoryApply`) is responsible for stripping
+ * it as the LAST step after the apply succeeds. Stripping inside the fetch
+ * helper meant a fetch failure left the URL polluted AND a synchronous apply
+ * throw left the URL stripped with no way to retry.
+ */
 export async function takeApplyDetail<K extends HistoryJobPayload["kind"]>(
   kind: K
 ): Promise<HistoryApplyDetail<K> | null> {
@@ -345,13 +352,24 @@ export async function takeApplyDetail<K extends HistoryJobPayload["kind"]>(
 
   try {
     const detail = await fetchHistoryApplyDetail(generationId, kind);
-    url.searchParams.delete("apply");
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
     return detail;
   } catch (error) {
     console.error("[history-apply] failed:", error);
     return null;
   }
+}
+
+/**
+ * Strip `?apply=<id>` from the current URL via replaceState. Called by
+ * `useHistoryApply` after the apply succeeds so the URL stays intact for
+ * retries on failure.
+ */
+export function stripApplyParamFromUrl(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("apply")) return;
+  url.searchParams.delete("apply");
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function getModulePath(kind: HistoryJobPayload["kind"]) {

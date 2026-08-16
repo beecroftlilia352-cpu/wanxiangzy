@@ -65,7 +65,7 @@ import { applyGenerationResponseStatus } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { useHistoryApply } from "@/hooks/use-history-apply";
-import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   DEFAULT_POSE_SERIES_STYLE,
   type PoseSeriesStyle,
@@ -1477,7 +1477,7 @@ export default function PosePage() {
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
             ? state.partial_failure as { message?: unknown }
             : null;
-          const completedError = state.error || partialFailure?.message || "";
+          const completedError = state.error || coerceErrorMessage(partialFailure?.message);
           if (isCurrentRun()) {
             setResultUrls(finalUrls);
           }

@@ -3491,7 +3491,8 @@
     "operationFailed": "操作失敗",
     "resolutionStandard": "標清",
     "resolutionHD": "高清",
-    "resolutionUltra": "超清"
+    "resolutionUltra": "超清",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾幀",

@@ -49,7 +49,7 @@ import { applyGenerationResponseStatus } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { useHistoryApply } from "@/hooks/use-history-apply";
-import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -370,7 +370,7 @@ export default function ModelBackgroundPage() {
       const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
         ? (state.partial_failure as { message?: unknown; expectedCount?: number; resultCount?: number; failedCount?: number })
         : null;
-      const completedError = state.error || partialFailure?.message || "";
+      const completedError = state.error || coerceErrorMessage(partialFailure?.message);
 
       // "completed 但 result_count < expected 且服务端没明确说失败" 的情况不会走到这里
       // （isTerminal 已把它判为 false，等下一轮结果补齐才会 isTerminal=true）。

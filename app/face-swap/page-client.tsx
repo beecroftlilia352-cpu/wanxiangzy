@@ -68,7 +68,7 @@ import { applyGenerationResponseStatus } from "@/lib/ui/credit-copy";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createFaceSwapPreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
-import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -332,7 +332,7 @@ export default function FaceSwapPage() {
           const partialFailure = data.partial_failure && typeof data.partial_failure === "object"
             ? data.partial_failure as { message?: unknown; expectedCount?: number; resultCount?: number; failedCount?: number }
             : null;
-          const completedErrorSource = data.error || partialFailure?.message || "";
+          const completedErrorSource = data.error || coerceErrorMessage(partialFailure?.message);
           const completedError = completedErrorSource ? summarizeGenerationError(completedErrorSource) : "";
           // status='completed' 服务端已落地（worker 全部 worker 都跑完 / 出错都结算）。
           // 缺的槽位区分两种：

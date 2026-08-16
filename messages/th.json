@@ -1169,7 +1169,8 @@
     "operationFailed": "การดำเนินการล้มเหลว",
     "resolutionStandard": "มาตรฐาน",
     "resolutionHD": "HD",
-    "resolutionUltra": "อัลตรา"
+    "resolutionUltra": "อัลตรา",
+    "downloadFailed": "Download failed"
   },
   "ModelBackground": {
     "title": "เปลี่ยนพื้นหลัง",

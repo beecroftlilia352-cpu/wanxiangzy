@@ -46,6 +46,9 @@ export function useStudioPreview(input: UseStudioPreviewInput): ImagePreviewSess
   // doesn't rebuild when callers re-derive `promptImages.map(...)` inline.
   const refsKey = input.references ? stableStringify(input.references) : null;
   const metaKey = input.metaItems ? stableStringify(input.metaItems) : null;
+  const errorsKey = input.errors ? stableStringify(input.errors) : null;
+  const qualitiesKey = input.qualities ? stableStringify(input.qualities) : null;
+  const inputThumbnailsKey = input.inputThumbnails ? stableStringify(input.inputThumbnails) : null;
 
   return useMemo(() => {
     return createGenericImagePreviewSession({
@@ -67,6 +70,9 @@ export function useStudioPreview(input: UseStudioPreviewInput): ImagePreviewSess
     input.aspectRatio,
     refsKey,
     metaKey,
+    errorsKey,
+    qualitiesKey,
+    inputThumbnailsKey,
     input.taskId,
     input.createdAt,
   ]);

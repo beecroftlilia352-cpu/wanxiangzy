@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { Download, Loader2, Play, XCircle } from "lucide-react";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { downloadMedia, generateDownloadFilename } from "@/lib/utils";
+import { downloadMedia, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { useTranslations } from "next-intl";
 
@@ -166,7 +166,7 @@ function VideoResultCard({
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          downloadMedia(url, generateDownloadFilename(filenamePrefix, index, "mp4"));
+          safeDownloadImage(url, generateDownloadFilename(filenamePrefix, index, "mp4"), { fallback: t("downloadFailed") });
         }}
         className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-codex-ink opacity-100 shadow-lg ring-1 ring-[var(--codex-border)]/70 backdrop-blur transition-[background-color,color,opacity] hover:bg-white hover:text-codex-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
         aria-label={t("videoResultDownload", { index: index + 1 })}

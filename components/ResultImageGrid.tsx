@@ -10,7 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useTranslations } from "next-intl";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
-import { downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
 const FALLBACK_IMAGE =
@@ -354,7 +354,7 @@ const ResultCard = memo(function ResultCard({
   };
   const downloadResult = () => {
     if (!url) return;
-    downloadImage(url, generateDownloadFilename(filenamePrefix, index, extension));
+    safeDownloadImage(url, generateDownloadFilename(filenamePrefix, index, extension), { fallback: t("downloadFailed") });
   };
   const openImageRepair = () => {
     if (!url) return;

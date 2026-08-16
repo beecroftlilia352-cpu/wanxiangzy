@@ -4,7 +4,7 @@ import { memo, useMemo } from "react";
 import { CheckCircle2, Download, Loader2, RotateCcw, X as XIcon, ZoomIn } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
@@ -260,7 +260,7 @@ const ResultCellView = memo(function ResultCellView({
   const downloadCurrent = () => {
     if (!url) return;
     const seed = Array.from(url).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-    void downloadImage(url, generateDownloadFilename("grouped-result", seed, "png"));
+    safeDownloadImage(url, generateDownloadFilename("grouped-result", seed, "png"), { fallback: t("downloadFailed") });
   };
 
   return (

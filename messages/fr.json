@@ -4342,7 +4342,8 @@
     "operationFailed": "L'opération a échoué",
     "resolutionStandard": "Standard",
     "resolutionHD": "HD",
-    "resolutionUltra": "Ultra"
+    "resolutionUltra": "Ultra",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "actionTemplateSection": "Modèle de mouvement",

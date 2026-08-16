@@ -4320,6 +4320,7 @@
     "videoResultBadge": "结果",
     "videoGeneratingState": "视频生成中",
     "videoEstimatedTime": "预计 2-5 分钟",
+    "downloadFailed": "下载失败，请稍后重试",
     "emptyData": "暂无数据",
     "pagingTotal": "共 {total} 条",
     "perPage": "{option} 条/页",

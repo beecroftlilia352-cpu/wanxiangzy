@@ -31,11 +31,11 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
-import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, safeDownloadImage, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
   PRODUCT_SET_EXAMPLE_GROUPS,
@@ -366,7 +366,7 @@ export default function ProductSetPage() {
           ? (state.partial_failure as { message?: unknown })
           : null;
         const failedModuleCount = nextModules.filter((item) => item.status === "failed").length;
-        const completedErrorSource = nextModules.find((item) => item.error)?.error || state.error || partialFailure?.message || "";
+        const completedErrorSource = nextModules.find((item) => item.error)?.error || state.error || coerceErrorMessage(partialFailure?.message);
         const completedError = completedErrorSource ? summarizeGenerationError(String(completedErrorSource)) : "";
         if (nextModules.length) {
           ctx.setModuleResults(nextModules);
@@ -1502,7 +1502,7 @@ export default function ProductSetPage() {
 
   function downloadResult(url: string, index: number) {
     const ext = url.toLowerCase().includes(".jpg") || url.toLowerCase().includes(".jpeg") ? "jpg" : "png";
-    downloadImage(url, generateDownloadFilename("product-set", index, ext));
+    safeDownloadImage(url, generateDownloadFilename("product-set", index, ext), { fallback: t("downloadFailed") });
   }
 
   function handleRunningTask(item: TaskQueueItem) {

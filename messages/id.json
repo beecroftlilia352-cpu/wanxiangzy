@@ -4342,7 +4342,8 @@
     "operationFailed": "Operasi gagal",
     "resolutionStandard": "Standar",
     "resolutionHD": "HD",
-    "resolutionUltra": "Ultra"
+    "resolutionUltra": "Ultra",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "Frame Awal-Akhir",

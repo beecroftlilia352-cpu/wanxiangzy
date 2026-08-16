@@ -1169,7 +1169,8 @@
     "operationFailed": "Операцията не успя",
     "resolutionStandard": "Стандарт",
     "resolutionHD": "HD",
-    "resolutionUltra": "Ултра"
+    "resolutionUltra": "Ултра",
+    "downloadFailed": "Download failed"
   },
   "ModelBackground": {
     "title": "Смяна на фон",

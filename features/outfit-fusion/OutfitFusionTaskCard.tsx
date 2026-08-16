@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { cn, downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { cn, downloadImage, generateDownloadFilename, safeDownloadImage } from "@/lib/utils";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import type { OutfitFusionAsset, OutfitFusionConfig } from "@/lib/outfit-fusion";
@@ -90,7 +90,7 @@ export function OutfitFusionTaskCard({
     router.push(buildSourceImageHref("/video", url));
   };
   const downloadResult = (url: string, slotIndex: number) => {
-    void downloadImage(url, generateDownloadFilename("outfit-fusion", slotIndex, "png"));
+    safeDownloadImage(url, generateDownloadFilename("outfit-fusion", slotIndex, "png"), { fallback: t("downloadFailed") });
   };
 
   return (

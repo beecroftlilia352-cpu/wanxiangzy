@@ -4342,7 +4342,8 @@
     "operationFailed": "Vorgang fehlgeschlagen",
     "resolutionStandard": "Standard",
     "resolutionHD": "HD",
-    "resolutionUltra": "Ultra"
+    "resolutionUltra": "Ultra",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "actionTemplateSection": "Bewegungsvorlage",

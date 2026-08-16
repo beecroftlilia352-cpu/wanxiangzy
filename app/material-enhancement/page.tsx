@@ -38,7 +38,7 @@ import {
 } from "@/lib/material-enhancement";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
-import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
   getRetryDisplayExpectedCount,
@@ -208,7 +208,7 @@ export default function MaterialEnhancementPage() {
         const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
           ? (state.partial_failure as { message?: unknown })
           : null;
-        const completedError = state.error || partialFailure?.message || "";
+        const completedError = state.error || coerceErrorMessage(partialFailure?.message);
         setProgress(100);
         setResultUrls(finalUrls);
         setIsGenerating(false);

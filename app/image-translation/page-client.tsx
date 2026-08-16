@@ -435,7 +435,9 @@ export default function ImageTranslationPage() {
     setImageSize(normalizeImageSize(payload.aiModel, payload.imageSize, restoredAspectRatio));
     setGenCount(Math.min(Math.max(Number(payload.genCount) || 1, 1), 4));
     setPromptOverride(enforceImageTranslationPromptRequirements(payload.prompt, {
-      sourceCount: payload.sourceUrls.length,
+      // Legacy rows may have sourceUrls=null (single-source schema) — fall back
+      // to 0 so the prompt builder doesn't choke and the apply continues.
+      sourceCount: (payload.sourceUrls ?? []).length,
       languages: restoredLanguages,
       languageLabels: Array.isArray(payload.languageLabels) ? payload.languageLabels : restoredLanguages,
     }));

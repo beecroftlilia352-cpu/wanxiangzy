@@ -4342,7 +4342,8 @@
     "operationFailed": "Операция не удалась",
     "resolutionStandard": "Стандарт",
     "resolutionHD": "HD",
-    "resolutionUltra": "Ультра"
+    "resolutionUltra": "Ультра",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "Первый и последний кадр",

@@ -154,6 +154,36 @@ export async function downloadImages(urls: string[], prefix: string) {
   }
 }
 
+/**
+ * Fire-and-forget wrapper around `downloadImage` for the result-grid click
+ * handlers. The bare `downloadImage` throws on non-2xx (the share-link proxy
+ * can return 404/504/413), and the 8 grid callers used to discard the
+ * rejection — user clicked "download", nothing happened, no toast. This wraps
+ * the call so a single rejected promise never escapes unhandled.
+ *
+ * The message is the upstream error verbatim (already localized by the
+ * server); on a non-Error throw we fall back to a generic copy the caller
+ * can replace via the `fallback` option.
+ */
+export function safeDownloadImage(
+  url: string,
+  filename: string,
+  options: { fallback?: string } = {}
+): void {
+  downloadImage(url, filename).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : options.fallback ?? "";
+    if (message) {
+      // Lazy require to avoid pulling sonner into the server bundle.
+      import("sonner").then(({ toast }) => {
+        toast.error(message);
+      }).catch(() => {
+        // sonner unavailable — silently drop; the raw URL still works for
+        // the user to retry manually if needed.
+      });
+    }
+  });
+}
+
 export const ACCEPTED_IMAGE_TYPES = {
   "image/png": [".png"],
   "image/jpeg": [".jpg", ".jpeg"],

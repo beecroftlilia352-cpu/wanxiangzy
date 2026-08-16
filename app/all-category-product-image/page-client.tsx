@@ -51,7 +51,7 @@ import type {
   ProductSetSettings,
 } from "@/lib/product-set";
 import { getProductSetModuleQualityLabel } from "@/lib/product-set";
-import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, safeDownloadImage, uploadImage } from "@/lib/utils";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import { cn } from "@/lib/utils";
 import {
@@ -633,7 +633,11 @@ export default function AllCategoryProductImagePage() {
 
   async function downloadResult(url: string, index: number) {
     const ext = url.toLowerCase().includes(".jpg") || url.toLowerCase().includes(".jpeg") ? "jpg" : url.toLowerCase().includes(".webp") ? "webp" : "png";
-    await downloadImage(url, generateDownloadFilename("all-category-product", index, ext));
+    try {
+      await downloadImage(url, generateDownloadFilename("all-category-product", index, ext));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("downloadFailed"));
+    }
   }
 
   return (

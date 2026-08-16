@@ -3491,7 +3491,8 @@
     "operationFailed": "操作に失敗しました",
     "resolutionStandard": "標準",
     "resolutionHD": "HD",
-    "resolutionUltra": "超高精細"
+    "resolutionUltra": "超高精細",
+    "downloadFailed": "Download failed"
   },
   "Video": {
     "moduleFirstLastFrame": "始点終点フレーム",
