@@ -976,7 +976,7 @@ export default function ModelBackgroundPage() {
           ) : null}
 
           <PromptTextarea
-            titleKey="extraPrompt"
+            title={t("extraPrompt")}
             badge={t("optional")}
             value={userPrompt}
             onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}

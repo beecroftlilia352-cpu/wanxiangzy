@@ -21,6 +21,7 @@ import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
@@ -1690,33 +1691,36 @@ export default function ProductSetPage() {
           </section>
 
           <section className="rounded-3xl border border-[var(--codex-border)] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-codex-ink">{t("analysisSection.title")}</h3>
-                <p className="mt-1 text-xs text-codex-faint">{t("analysisSection.help")}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => analyzeProductInfo()}
-                disabled={!canAnalyzeProduct}
-                className="inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border border-[var(--codex-accent-22)] bg-[var(--codex-accent-10)] px-3 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[var(--codex-accent-16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isAnalyzing ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
-                {isAnalyzing ? t("analysisSection.analyzing") : hasAnalyzedProduct ? t("analysisSection.rewrite") : t("analysisSection.write")}
-              </button>
-            </div>
-
-            <ProductAnalysisNotice status={analysisStatus} />
-
             {productInfo && !showProductInfoEditor ? (
-              <ProductBriefSummary fields={displayProductInfoFields} onEdit={() => setShowProductInfoEditor(true)} />
+              <>
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-black text-codex-ink">{t("analysisSection.title")}</h3>
+                    <p className="mt-1 text-xs text-codex-faint">{t("analysisSection.help")}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => analyzeProductInfo()}
+                    disabled={!canAnalyzeProduct}
+                    className="inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border border-[var(--codex-accent-22)] bg-[var(--codex-accent-10)] px-3 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[var(--codex-accent-16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isAnalyzing ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
+                    {isAnalyzing ? t("analysisSection.analyzing") : hasAnalyzedProduct ? t("analysisSection.rewrite") : t("analysisSection.write")}
+                  </button>
+                </div>
+                <ProductAnalysisNotice status={analysisStatus} />
+                <ProductBriefSummary fields={displayProductInfoFields} onEdit={() => setShowProductInfoEditor(true)} />
+              </>
             ) : (
-              <div>
-                <textarea
+              <div className="space-y-3">
+                <PromptTextarea
+                  title={t("analysisSection.title")}
+                  description={productInfo ? t("analysisSection.keepTemplateHint") : t("analysisSection.help")}
                   name="product-information"
                   autoComplete="off"
                   value={productInfo}
                   maxLength={2000}
+                  rows={6}
                   onChange={(event) => {
                     const nextValue = event.target.value;
                     setProductInfo(nextValue);
@@ -1724,12 +1728,16 @@ export default function ProductSetPage() {
                   }}
                   aria-label={t("analysisSection.ariaLabel")}
                   placeholder={t("analysisSection.placeholder")}
-                  className="min-h-40 w-full resize-none rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 py-3 text-sm leading-6 text-codex-ink transition-colors focus-visible:border-[var(--codex-accent-48)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-codex-ink dark:focus-visible:bg-white/10"
+                  hasAiAssistant
+                  isOptimizing={isAnalyzing}
+                  onOptimizePrompt={() => void analyzeProductInfo()}
+                  aiAssistantDisabled={!canAnalyzeProduct}
+                  onClear={() => {
+                    setProductInfo("");
+                    resetAnalysisPlan("idle");
+                  }}
                 />
-                <div className="mt-2 flex items-center justify-between text-[12px] text-codex-faint">
-                  <span>{productInfo ? t("analysisSection.keepTemplateHint") : t("analysisSection.optionalHint")}</span>
-                  <span>{productInfo.length} / 2000</span>
-                </div>
+                <ProductAnalysisNotice status={analysisStatus} />
               </div>
             )}
 

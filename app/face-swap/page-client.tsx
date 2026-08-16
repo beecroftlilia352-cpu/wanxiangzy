@@ -947,7 +947,7 @@ export default function FaceSwapPage() {
           </section>
 
           <PromptTextarea
-            titleKey="promptTitle"
+            title={t("promptTitle")}
             badge={t("promptBadge")}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}

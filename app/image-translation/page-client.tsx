@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   ChevronRight,
-  Images as ImagesIcon,
   Languages as LanguagesIcon,
   Sparkles,
   X,
@@ -798,11 +797,9 @@ export default function ImageTranslationPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-codex-ink">
-              <ImagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
-              {t("extraSectionTitle")} <span className="text-xs font-normal text-codex-faint">· {t("extraOptional")}</span>
-            </h3>
             <PromptTextarea
+              title={t("extraSectionTitle")}
+              badge={t("extraOptional")}
               value={userPrompt}
               onChange={(event) => {
                 setUserPrompt(event.target.value);
@@ -810,12 +807,10 @@ export default function ImageTranslationPage() {
               }}
               rows={3}
               placeholder={t("extraPlaceholder")}
+              description={t("extraHint")}
               maxLength={1000}
               onClear={() => setUserPrompt("")}
             />
-            <p className="mt-2 text-[12px] leading-relaxed text-codex-faint">
-              {t("extraHint")}
-            </p>
           </section>
 
           <section>

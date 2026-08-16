@@ -953,7 +953,7 @@ export default function ModelPage() {
 
           <section>
             <PromptTextarea
-              titleKey="extraPrompt"
+              title={t("extraPrompt")}
               badge={t("optional")}
               value={userExtraPrompt}
               onChange={(event) => setUserExtraPrompt(event.target.value)}

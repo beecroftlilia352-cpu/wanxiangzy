@@ -1102,7 +1102,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           {generateAudio && (
             <div className="mt-3 space-y-3">
               <PromptTextarea
-                titleKey="audioPromptTitle"
+                title={t("audioPromptTitle")}
                 badge={t("audioPromptBadge")}
                 value={audioPrompt}
                 onChange={(event) => setAudioPrompt(event.target.value)}

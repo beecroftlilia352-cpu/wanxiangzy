@@ -819,7 +819,7 @@ export function ProductRetouchExperience() {
               </StudioSection>
 
               <PromptTextarea
-                titleKey="prompt.title"
+                title={t("prompt.title")}
                 badge={t("prompt.badge")}
                 value={userInstruction}
                 maxLength={1200}

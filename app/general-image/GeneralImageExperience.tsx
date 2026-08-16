@@ -812,7 +812,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
           <div>
             <PromptTextarea
-              titleKey="textDescriptionTitle"
+              title={t("textDescriptionTitle")}
               value={prompt}
               maxLength={4000}
               onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); }}

@@ -37,8 +37,6 @@ export type PromptTextareaProps = Omit<
   onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   /** 标题文本 */
   title?: ReactNode;
-  /** i18n 标题 key，优先于 title */
-  titleKey?: string;
   /** 标题右侧小标签（如「可选」），保留与 StudioPromptTextarea 兼容 */
   badge?: ReactNode;
   /** 描述行：渲染在 textarea 下方、AI帮写按钮上方 */
@@ -97,7 +95,6 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
   function PromptTextarea(
     {
       title,
-      titleKey,
       badge,
       description,
       showWordLibrary = true,
@@ -125,7 +122,7 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
     const tShared = useTranslations("Shared");
     const tPrompt = useTranslations("Shared.prompt");
     const { confirm, confirmDialog } = useConfirm();
-    const resolvedTitle = titleKey ? t(titleKey) : title;
+    const resolvedTitle = title;
     const hasTitle = resolvedTitle != null && resolvedTitle !== "";
     const showAiButton = hasAiAssistant && typeof onOptimizePrompt === "function";
     const showClear = typeof onClear === "function";
@@ -148,8 +145,8 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
       confirm({
         variant: "batch-clear",
         title: tShared("clearContentTitle"),
-        okText: tShared("confirmClear"),
-        cancelText: tShared("cancel"),
+        okText: tShared("multiImageClearOk"),
+        cancelText: tShared("multiImageClearCancel"),
         onOk: onClear,
       });
     };
@@ -180,32 +177,32 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
           <div className="studio-prompt-textarea-shell">
             <div className="studio-prompt-field">
               <textarea
-              ref={ref}
-              {...textareaProps}
-              value={value}
-              maxLength={safeMax}
-              rows={rows}
-              placeholder={placeholder}
-              onChange={(event) => {
-                if (typeof maxLength === "number" && event.target.value.length > maxLength) {
-                  event.target.value = event.target.value.slice(0, maxLength);
-                }
-                onChange(event);
-              }}
-              onKeyDown={(event) => {
-                textareaProps.onKeyDown?.(event);
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey &&
-                  !event.nativeEvent.isComposing &&
-                  onSubmitOnEnter
-                ) {
-                  event.preventDefault();
-                  onSubmitOnEnter();
-                }
-              }}
-              className="studio-prompt-textarea"
-            />
+                ref={ref}
+                {...textareaProps}
+                value={value}
+                maxLength={safeMax}
+                rows={rows}
+                placeholder={placeholder}
+                onChange={(event) => {
+                  if (typeof maxLength === "number" && event.target.value.length > maxLength) {
+                    event.target.value = event.target.value.slice(0, maxLength);
+                  }
+                  onChange(event);
+                }}
+                onKeyDown={(event) => {
+                  textareaProps.onKeyDown?.(event);
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing &&
+                    onSubmitOnEnter
+                  ) {
+                    event.preventDefault();
+                    onSubmitOnEnter();
+                  }
+                }}
+                className="studio-prompt-textarea"
+              />
               <div className="studio-prompt-textarea-actions">
                 <div className="studio-prompt-textarea-actions-left">
                 {showAiButton ? (

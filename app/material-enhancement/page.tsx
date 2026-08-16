@@ -724,7 +724,7 @@ export default function MaterialEnhancementPage() {
           </section>
 
           <PromptTextarea
-            titleKey="prompt.title"
+            title={t("prompt.title")}
             badge={t("prompt.badge")}
             value={userPrompt}
             onChange={(event) => setUserPrompt(event.target.value)}

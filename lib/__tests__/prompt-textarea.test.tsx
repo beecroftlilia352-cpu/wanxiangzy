@@ -72,7 +72,7 @@ describe("PromptTextarea", () => {
     expect(getByText("清空当前内容？")).toBeTruthy();
     expect(onClear).not.toHaveBeenCalled();
 
-    fireEvent.click(getByText("确认清空"));
+    fireEvent.click(getByText("仍要清空"));
     await waitFor(() => expect(onClear).toHaveBeenCalledTimes(1));
   });
 });

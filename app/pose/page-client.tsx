@@ -2424,45 +2424,61 @@ export default function PosePage() {
                                 <summary className="cursor-pointer text-[12px] font-bold text-codex-muted transition-colors hover:text-blue-700">{t("plan.advancedTuning")}</summary>
                                 <div className="mt-3 grid gap-3">
                                   <div>
-                                    <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.actionDetail")}</label>
                                     <PromptTextarea
+                                      title={t("plan.actionDetail")}
                                       value={selectedPosePlanSlot.bodyAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "bodyAction", event.target.value)}
                                       rows={3}
-                                      className="custom-scroll"
+                                      maxLength={1000}
+                                      variant="compact"
+                                      showWordLibrary={false}
+                                      showSaveAction={false}
                                       placeholder={t("plan.actionDetailPh")}
+                                      onClear={() => updatePosePlanSlot(selectedPosePlanSlotIndex, "bodyAction", "")}
                                     />
                                   </div>
                                   <div>
-                                    <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.handAction")}</label>
                                     <PromptTextarea
+                                      title={t("plan.handAction")}
                                       value={selectedPosePlanSlot.handAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "handAction", event.target.value)}
                                       rows={2}
-                                      className="custom-scroll"
+                                      maxLength={1000}
+                                      variant="compact"
+                                      showWordLibrary={false}
+                                      showSaveAction={false}
                                       placeholder={t("plan.handActionPh")}
+                                      onClear={() => updatePosePlanSlot(selectedPosePlanSlotIndex, "handAction", "")}
                                     />
                                   </div>
                                   {!suppressPoseFaceControls && (
                                     <div>
-                                      <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.expressionDetail")}</label>
                                       <PromptTextarea
+                                        title={t("plan.expressionDetail")}
                                         value={selectedPosePlanSlot.headDirection || ""}
                                         onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "headDirection", event.target.value)}
                                         rows={2}
-                                        className="custom-scroll"
+                                        maxLength={1000}
+                                        variant="compact"
+                                        showWordLibrary={false}
+                                        showSaveAction={false}
                                         placeholder={t("plan.expressionDetailPh")}
+                                        onClear={() => updatePosePlanSlot(selectedPosePlanSlotIndex, "headDirection", "")}
                                       />
                                     </div>
                                   )}
                                   <div>
-                                    <label className="mb-1 block text-[11px] font-bold text-codex-muted">{t("plan.cameraFraming")}</label>
                                     <PromptTextarea
+                                      title={t("plan.cameraFraming")}
                                       value={selectedPosePlanSlot.cameraFraming || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "cameraFraming", event.target.value)}
                                       rows={2}
-                                      className="custom-scroll"
+                                      maxLength={1000}
+                                      variant="compact"
+                                      showWordLibrary={false}
+                                      showSaveAction={false}
                                       placeholder={t("plan.cameraFramingPh")}
+                                      onClear={() => updatePosePlanSlot(selectedPosePlanSlotIndex, "cameraFraming", "")}
                                     />
                                   </div>
                                 </div>
@@ -2479,7 +2495,7 @@ export default function PosePage() {
           )}
 
           <PromptTextarea
-            titleKey="supplement.title"
+            title={t("supplement.title")}
             badge={t("supplement.badge")}
             value={supplementPrompt}
             onChange={(event) => setSupplementPrompt(event.target.value)}

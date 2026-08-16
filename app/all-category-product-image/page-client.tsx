@@ -22,6 +22,7 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
+import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -718,27 +719,20 @@ export default function AllCategoryProductImagePage() {
 
                 <div className="mt-5 grid gap-4">
                   <SelectField icon={<MonitorSmartphone aria-hidden="true" className="h-4 w-4" />} label={t("targetPlatform")} value={platform} options={ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS} onChange={(value) => { setPlatform(value as AllCategoryProductImagePlatform); resetOutput(); }} />
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-semibold text-codex-muted">{imageType === "main" ? t("mainRequirement") : t("detailRequirement")}</span>
-                    <div className="relative">
-                      <textarea
-                        value={userBrief}
-                        onChange={(event) => { setUserBrief(event.target.value); resetOutput(); }}
-                        placeholder={t("briefPlaceholder")}
-                        aria-label={imageType === "main" ? t("mainRequirementAria") : t("detailRequirementAria")}
-                        className="h-[118px] w-full resize-none rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 py-3 pr-28 text-sm leading-6 text-codex-ink outline-none transition focus:border-[var(--codex-border-strong)]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void openAiWritingPlans()}
-                        disabled={!productImages.length || isAnalyzing || isGenerating}
-                        className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-white px-3 text-xs font-black text-codex-ink shadow-sm hover:bg-[var(--codex-surface-soft)] disabled:opacity-50"
-                      >
-                        <Brush aria-hidden="true" className="h-3.5 w-3.5" />
-                        {t("aiAssist")}
-                      </button>
-                    </div>
-                  </label>
+                  <PromptTextarea
+                    title={imageType === "main" ? t("mainRequirement") : t("detailRequirement")}
+                    value={userBrief}
+                    onChange={(event) => { setUserBrief(event.target.value); resetOutput(); }}
+                    placeholder={t("briefPlaceholder")}
+                    aria-label={imageType === "main" ? t("mainRequirementAria") : t("detailRequirementAria")}
+                    maxLength={2000}
+                    rows={6}
+                    hasAiAssistant
+                    isOptimizing={isAnalyzing}
+                    onOptimizePrompt={() => void openAiWritingPlans()}
+                    aiAssistantDisabled={!productImages.length || isGenerating}
+                    onClear={() => { setUserBrief(""); resetOutput(); }}
+                  />
                   <SelectField icon={<Languages aria-hidden="true" className="h-4 w-4" />} label={t("targetLanguage")} value={language} options={ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES} onChange={(value) => { setLanguage(value as AllCategoryProductImageLanguage); resetOutput(); }} />
                   <div className="grid grid-cols-2 gap-3">
                     <SelectField label={t("modelLabel")} value={aiModel} options={visibleModelEntries.map((item) => item.value)} labels={Object.fromEntries(visibleModelEntries.map((item) => [item.value, item.badge ? `${item.label} · ${item.badgeKey ? tAny(item.badgeKey) : item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />

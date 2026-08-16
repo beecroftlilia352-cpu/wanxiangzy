@@ -23,7 +23,7 @@ export function PromptStyleSection({ customStyle, optimizing, onChangeStyle, onO
   return (
     <section>
       <PromptTextarea
-        titleKey="prompt.title"
+        title={t("prompt.title")}
         badge={t("common.optional")}
         value={customStyle}
         onChange={(e) => onChangeStyle(e.target.value)}

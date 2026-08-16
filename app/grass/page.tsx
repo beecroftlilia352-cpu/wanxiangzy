@@ -811,6 +811,7 @@ export default function GrassPage() {
             {sceneMode === "custom_prompt" ? (
               <div className="mt-3 space-y-3">
                 <PromptTextarea
+                  title={t("sceneModeCustom")}
                   value={userPrompt}
                   onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}
                   placeholder={t("customPromptPlaceholder")}
@@ -838,7 +839,7 @@ export default function GrassPage() {
             ) : (
               <div className="mt-3">
                 <PromptTextarea
-                  titleKey="supplementTitle"
+                  title={t("supplementTitle")}
                   badge={t("supplementBadge")}
                   value={supplementPrompt}
                   onChange={(e) => { setSupplementPrompt(e.target.value); setPromptOverride(null); }}
