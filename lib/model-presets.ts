@@ -3,9 +3,9 @@ import type { ImagePreviewAction } from "@/lib/studio-image-preview";
 
 export const MODEL_ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
   { value: "auto", label: "智能", labelKey: "Model.aspects.auto" },
-  { value: "3:4", label: "3:4 竖版", labelKey: "Model.aspects.portrait34" },
-  { value: "1:1", label: "1:1 头像", labelKey: "Model.aspects.square11" },
-  { value: "4:3", label: "4:3 横版", labelKey: "Model.aspects.landscape43" },
+  { value: "3:4", label: "3:4 竖版", labelKey: "Model.aspects.portrait" },
+  { value: "1:1", label: "1:1 头像", labelKey: "Model.aspects.square" },
+  { value: "4:3", label: "4:3 横版", labelKey: "Model.aspects.landscape" },
 ];
 
 export type ModelPreviewAction = ImagePreviewAction & { labelKey?: string };
