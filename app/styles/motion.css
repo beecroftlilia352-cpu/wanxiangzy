@@ -76,7 +76,7 @@ button {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.studio-result-card,
+.studio-result-card-ready,
 .studio-result-grid > * {
   animation: motion-card-in var(--codex-motion-slow) var(--codex-ease-out) both;
 }
@@ -90,18 +90,33 @@ button {
 .studio-result-grid > *:nth-child(8) { animation-delay: 0.35s; }
 
 /* ---- 5.5 卡片 hover 微浮起（仅 hover 设备；入场动画 fill 需先移除才能过渡） ---- */
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .home-scene-card,
-  .studio-result-card {
+  .studio-result-card-ready {
     transition: transform var(--codex-motion-base) var(--codex-ease-out), box-shadow var(--codex-motion-base) var(--codex-ease-out);
   }
 
   .home-scene-card:hover,
-  .studio-result-card:hover {
+  .studio-result-card-ready:hover {
     animation: none;
     transform: translateY(-4px);
     box-shadow: 0 24px 60px rgba(14, 18, 38, 0.16);
   }
+}
+
+/* Pending cards contain their own continuously animated loader. Keeping the
+   shell static prevents hover from rebuilding the compositing layer and
+   making the card flash or resize under the pointer. */
+.studio-result-card-pending-shell {
+  isolation: isolate;
+  contain: paint;
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+.studio-result-card-pending-shell:hover {
+  transform: none !important;
 }
 
 /* ---- 6. Reduced motion：全部关闭 ---- */
@@ -125,7 +140,7 @@ button {
   .home-landing-hero .home-hero-frame > *,
   .studio-run-button,
   .studio-button--primary,
-  .studio-result-card,
+  .studio-result-card-ready,
   .studio-result-grid > * {
     animation: none !important;
   }

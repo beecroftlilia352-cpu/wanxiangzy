@@ -108,6 +108,29 @@ describe("ResultImageGrid download button", () => {
     expect(downloadButtons.length).toBe(0);
   });
 
+  it("keeps pending cards static while only completed cards receive hover motion", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={["", sampleUrls[0]]}
+        expectedCount={2}
+        isGenerating
+        filenamePrefix="image-translation"
+        onOpen={() => {}}
+        variant="task"
+      />
+    );
+
+    const pendingCard = document.querySelector(".studio-result-card-pending-shell");
+    const completedCard = document.querySelector(".studio-result-card-ready");
+
+    expect(pendingCard).toBeTruthy();
+    expect(pendingCard?.classList.contains("studio-result-card-pending-shell")).toBe(true);
+    expect(pendingCard?.classList.contains("studio-result-card-ready")).toBe(false);
+    expect(completedCard).toBeTruthy();
+    expect(completedCard?.classList.contains("studio-result-card-ready")).toBe(true);
+    expect(completedCard?.classList.contains("studio-result-card-pending-shell")).toBe(false);
+  });
+
   it("uses the standard task variant header (disclaimer + timestamp)", () => {
     renderWithIntl(
       <ResultImageGrid

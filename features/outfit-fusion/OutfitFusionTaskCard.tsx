@@ -136,7 +136,7 @@ export function OutfitFusionTaskCard({
                   event.preventDefault();
                   onPreview(slotIndex);
                 }}
-                className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded bg-[#f4f6fa] text-sm text-codex-faint dark:text-codex-muted outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)] focus-visible:ring-offset-2"
+                className="studio-result-card studio-result-card-ready outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded bg-[#f4f6fa] text-sm text-codex-faint dark:text-codex-muted outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)] focus-visible:ring-offset-2"
               >
                 <LoadableResultImage src={url} alt={t("resultImageAlt", { index: slotIndex + 1 })} />
                 <span className="pointer-events-none absolute left-2 top-2 rounded bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
@@ -186,7 +186,7 @@ export function OutfitFusionTaskCard({
                 key={`${task.id}-${slotIndex}`}
                 role="status"
                 aria-live="polite"
-                className="studio-result-card group/slot relative aspect-[3/4] overflow-hidden bg-white dark:bg-[var(--codex-surface)] text-sm text-white"
+                className="studio-result-card studio-result-card-pending-shell group/slot relative aspect-[3/4] overflow-hidden bg-white dark:bg-[var(--codex-surface)] text-sm text-white"
               >
                 <div
                   className={cn(

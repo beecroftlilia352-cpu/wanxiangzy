@@ -116,7 +116,7 @@ function VideoResultCard({
 
   if (!url) {
     return (
-      <div className="studio-result-card w-full justify-self-start overflow-hidden bg-white" style={layout}>
+      <div className="studio-result-card studio-result-card-pending-shell w-full justify-self-start overflow-hidden bg-white" style={layout}>
         <div className="gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2">
           <StudioHomeHeroLoadingBackdrop />
           <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
@@ -135,7 +135,7 @@ function VideoResultCard({
   }
 
   return (
-    <div className="studio-result-card group relative w-full justify-self-start overflow-hidden bg-black" style={layout}>
+    <div className="studio-result-card studio-result-card-ready group relative w-full justify-self-start overflow-hidden bg-black" style={layout}>
       <div
         role="region"
         aria-label={t("videoResultPreview", { index: index + 1 })}

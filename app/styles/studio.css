@@ -4415,7 +4415,7 @@
   transition: opacity 150ms ease, color 150ms ease, background-color 150ms ease;
 }
 
-.studio-result-card:hover .studio-result-card-download,
+.studio-result-card-ready:hover .studio-result-card-download,
 .studio-result-card:focus-within .studio-result-card-download {
   opacity: 1;
 }
@@ -4437,6 +4437,7 @@
 }
 
 
+.studio-result-card-pending-shell,
 .studio-result-card:has(.studio-result-pending-card) {
   border-color: var(--codex-surface-soft);
   background:
@@ -4446,6 +4447,10 @@
     0 26px 72px rgba(53, 84, 190, 0.2),
     0 1px 0 rgba(255, 255, 255, 0.84) inset,
     0 0 0 1px var(--codex-accent-16);
+}
+
+.studio-result-card-pending-shell .studio-home-hero-loading-bg {
+  pointer-events: none;
 }
 
 .studio-result-card img {
@@ -4498,7 +4503,7 @@
   transition: opacity 150ms ease, background 150ms ease;
 }
 
-.studio-result-card:hover .studio-result-focus-layer,
+.studio-result-card-ready:hover .studio-result-focus-layer,
 .studio-result-card:focus-within .studio-result-focus-layer,
 .studio-result-card:focus-visible .studio-result-focus-layer {
   opacity: 1;

@@ -391,11 +391,16 @@ const ResultCard = memo(function ResultCard({
     if (!url) return;
     router.push(buildSourceImageHref("/video", url));
   };
+  const cardStateClass = url
+    ? "studio-result-card-ready"
+    : completedMissing
+      ? "studio-result-card-static"
+      : "studio-result-card-pending-shell";
 
   return (
     <TooltipProvider>
       <div
-        className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${isSingle ? "mx-auto max-w-full" : ""} ${isNew ? "studio-result-card-new" : ""} ${isBestPick ? "studio-result-card-best" : ""}`}
+        className={`studio-result-card ${cardStateClass} group relative min-w-0 overflow-hidden bg-white focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${isSingle ? "mx-auto max-w-full" : ""} ${isNew ? "studio-result-card-new" : ""} ${isBestPick ? "studio-result-card-best" : ""}`}
       >
         {isBestPick && (
           <span
