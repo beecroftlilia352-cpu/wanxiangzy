@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  Crop,
+  ArrowUpRight,
   ImagePlus,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -38,7 +39,7 @@ import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
-import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { useHistoryApply } from "@/hooks/use-history-apply";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
@@ -388,7 +389,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       setPrompt((prev) => prev.trim() || t("defaultImagePrompt"));
       toast.success(t("broughtPreviewImage"));
     }
-  }, []);
+  }, [t]);
 
   function applyGeneralImageHistoryPayload(payload: GeneralImageHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     const restoredAiModel = normalizeLingyaModel(payload.aiModel);
@@ -789,15 +790,29 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   urls={referenceImages.map((item) => item.preview || item.url)}
                   maxCount={8}
                   title={t("referenceSectionTitle")}
-                  emptyHint={t("referenceSectionTitle")}
                   showExamples={false}
+                  descriptionSlot={(
+                    <span>
+                      {t("uploadDescriptionSlot")} {" "}
+                      <Link
+                        href="/all-category-product-image"
+                        className="inline-flex items-center gap-1"
+                      >
+                        {t("uploadDescriptionLink")}
+                        <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+                      </Link>
+                    </span>
+                  )}
                   description={t("uploadTileDescription")}
                   footnote={t("uploadFootnote")}
                   imageRequirement={t("orderMarkedAsImages")}
+                  tips={[{ text: t("uploadTipText") }]}
                   imageFit="contain"
                   loading={isUploading}
                   isDragging={isDragging}
+                  libraryLabel={t("libraryLabel")}
                   onUploadClick={openFileDialog}
+                  onLibraryClick={() => toast.info(t("libraryComingSoon"))}
                   onPreview={(url) => setReferenceLightboxSrc(url)}
                   onRemove={(_, index) => {
                     setReferenceImages((prev) => prev.filter((__, itemIndex) => itemIndex !== index));
@@ -991,6 +1006,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         alt={t("referenceImageAlt")}
         onClose={() => setReferenceLightboxSrc(null)}
       />
+      {unsavedDialog}
       {confirmDialog}
     </div>
   );

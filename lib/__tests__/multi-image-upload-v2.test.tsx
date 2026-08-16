@@ -47,9 +47,26 @@ describe("MultiImageUploadV2", () => {
 
     expect(getByText("商品图")).toBeTruthy();
     expect(getByText("最多 5 张")).toBeTruthy();
-    expect(getByText("点击上传 / 或拖拽至此 / 粘贴【多视角商品图】")).toBeTruthy();
+    expect(getByText("上传 / 或拖拽至此 / 粘贴【多视角商品图】")).toBeTruthy();
     expect(container.querySelector(".studio-multi-image-v2-panel .studio-multi-image-v2-examples")).toBeTruthy();
     expect(container.querySelector(".studio-multi-image-v2-results")).toBeNull();
+  });
+
+  it("renders the asset-library and batch-entry actions when configured", () => {
+    const onLibraryClick = vi.fn();
+    const { getByText } = renderUploader({
+      libraryLabel: "从资源仓库导入",
+      onLibraryClick,
+      descriptionSlot: (
+        <span>
+          想要一次配置生成多任务？试试 <a href="/all-category-product-image">批量图生图</a>
+        </span>
+      ),
+    });
+
+    fireEvent.click(getByText("从资源仓库导入"));
+    expect(onLibraryClick).toHaveBeenCalledTimes(1);
+    expect(getByText("批量图生图").getAttribute("href")).toBe("/all-category-product-image");
   });
 
   it("orders continue upload before tips and uploaded images, and opens preview on click", () => {
