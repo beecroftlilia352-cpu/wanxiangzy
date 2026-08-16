@@ -230,12 +230,6 @@
     "backToLogin": "Zurück zur Anmeldung",
     "resetSentBody": "Link zum Zurücksetzen gesendet an <mail>{email}</mail>",
     "resetSentHint": "Klicke auf den Link in der E-Mail, um ein neues Passwort festzulegen.",
-    "oauthDivider": "Or continue with",
-    "oauthGoogle": "Continue with Google",
-    "oauthGoogleLoading": "Connecting to Google…",
-    "oauthWechat": "Continue with WeChat",
-    "oauthWechatComingSoon": "Coming soon",
-    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "E-Mail oder Passwort ist falsch",
       "emailNotConfirmed": "Bitte bestätige zuerst deine E-Mail über den zugesandten Link",

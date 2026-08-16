@@ -230,12 +230,6 @@
     "backToLogin": "ログインに戻る",
     "resetSentBody": "パスワード再設定リンクを <mail>{email}</mail> に送信しました",
     "resetSentHint": "メール内のリンクから新しいパスワードを設定してください。",
-    "oauthDivider": "Or continue with",
-    "oauthGoogle": "Continue with Google",
-    "oauthGoogleLoading": "Connecting to Google…",
-    "oauthWechat": "Continue with WeChat",
-    "oauthWechatComingSoon": "Coming soon",
-    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "メールアドレスまたはパスワードが正しくありません",
       "emailNotConfirmed": "先に確認メールのリンクから認証を完了してください",

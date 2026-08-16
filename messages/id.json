@@ -230,12 +230,6 @@
     "backToLogin": "Kembali ke halaman masuk",
     "resetSentBody": "Tautan pengaturan ulang dikirim ke <mail>{email}</mail>",
     "resetSentHint": "Klik tautan di email untuk menetapkan kata sandi baru.",
-    "oauthDivider": "Or continue with",
-    "oauthGoogle": "Continue with Google",
-    "oauthGoogleLoading": "Connecting to Google…",
-    "oauthWechat": "Continue with WeChat",
-    "oauthWechatComingSoon": "Coming soon",
-    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "Email atau kata sandi salah",
       "emailNotConfirmed": "Konfirmasi dulu email Anda melalui tautan yang kami kirim",

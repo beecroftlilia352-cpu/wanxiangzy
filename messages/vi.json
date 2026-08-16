@@ -230,12 +230,6 @@
     "backToLogin": "Quay lại đăng nhập",
     "resetSentBody": "Liên kết đặt lại mật khẩu đã gửi đến <mail>{email}</mail>",
     "resetSentHint": "Nhấp vào liên kết trong email để đặt mật khẩu mới.",
-    "oauthDivider": "Or continue with",
-    "oauthGoogle": "Continue with Google",
-    "oauthGoogleLoading": "Connecting to Google…",
-    "oauthWechat": "Continue with WeChat",
-    "oauthWechatComingSoon": "Coming soon",
-    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "Email hoặc mật khẩu không đúng",
       "emailNotConfirmed": "Vui lòng xác nhận email trước qua liên kết chúng tôi đã gửi",

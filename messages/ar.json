@@ -230,12 +230,6 @@
     "backToLogin": "العودة إلى تسجيل الدخول",
     "resetSentBody": "تم إرسال رابط إعادة التعيين إلى <mail>{email}</mail>",
     "resetSentHint": "انقر على الرابط في البريد لتعيين كلمة مرور جديدة.",
-    "oauthDivider": "Or continue with",
-    "oauthGoogle": "Continue with Google",
-    "oauthGoogleLoading": "Connecting to Google…",
-    "oauthWechat": "Continue with WeChat",
-    "oauthWechatComingSoon": "Coming soon",
-    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
       "emailNotConfirmed": "يرجى تأكيد بريدك أولاً عبر الرابط الذي أرسلناه",

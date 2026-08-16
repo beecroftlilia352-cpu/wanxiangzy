@@ -230,12 +230,6 @@
     "backToLogin": "Girişe geri dön",
     "resetSentBody": "Şifre sıfırlama bağlantısı <mail>{email}</mail> adresine gönderildi",
     "resetSentHint": "Yeni bir şifre belirlemek için e-postadaki bağlantıya tıklayın.",
-    "oauthDivider": "Or continue with",
-    "oauthGoogle": "Continue with Google",
-    "oauthGoogleLoading": "Connecting to Google…",
-    "oauthWechat": "Continue with WeChat",
-    "oauthWechatComingSoon": "Coming soon",
-    "oauthFailed": "OAuth sign-in failed, please try again later",
     "errors": {
       "invalidCredentials": "E-posta veya şifre hatalı",
       "emailNotConfirmed": "Lütfen önce gönderdiğimiz bağlantıyla e-postanızı doğrulayın",

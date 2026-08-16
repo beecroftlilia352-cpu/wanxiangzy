@@ -230,12 +230,6 @@
     "backToLogin": "返回登录",
     "resetSentBody": "密码重置链接已发送至 <mail>{email}</mail>",
     "resetSentHint": "请点击邮件中的链接设置新密码。",
-    "oauthDivider": "或使用以下方式继续",
-    "oauthGoogle": "使用 Google 登录",
-    "oauthGoogleLoading": "正在跳转 Google…",
-    "oauthWechat": "使用微信登录",
-    "oauthWechatComingSoon": "即将上线",
-    "oauthFailed": "第三方登录失败，请稍后重试",
     "errors": {
       "invalidCredentials": "邮箱或密码错误",
       "emailNotConfirmed": "请先点击确认邮件中的链接完成验证",
@@ -4314,7 +4308,8 @@
       "square": "方形",
       "landscape": "横版",
       "phone": "手机竖屏",
-      "wide": "宽屏"},
+      "wide": "宽屏"
+    },
     "countLabel": "生成张数",
     "modelPickerPlaceholder": "选择模型",
     "moduleHeaderAria": "{title}说明",

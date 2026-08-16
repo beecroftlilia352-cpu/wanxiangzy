@@ -16,7 +16,6 @@ import { SignUpFormView } from "@/features/login/SignUpFormView";
 import { CheckEmailView } from "@/features/login/CheckEmailView";
 import { ForgotPasswordView } from "@/features/login/ForgotPasswordView";
 import { ResetSentView } from "@/features/login/ResetSentView";
-import { OAuthButtonsView } from "@/features/login/OAuthButtonsView";
 
 /**
  * 登录页（统一路由 /login）：login / signup / check-email / forgot-password / reset-sent 5 个视图。
@@ -171,31 +170,6 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  // 第三方登录：Google 走 Supabase OAuth；WeChat 占位 disabled
-  // Supabase 控制台需启用 Google provider + 配置 redirect URL = `${origin}/auth/callback`
-  const [oauthProvider, setOauthProvider] = useState<"google" | "wechat" | null>(null);
-
-  const handleOAuthSignIn = async (provider: "google" | "wechat") => {
-    if (provider === "wechat") return; // 即将上线，禁用
-    setError(null);
-    setOauthProvider(provider);
-    try {
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(getSafeAuthRedirectTarget())}`;
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo },
-      });
-      if (oauthError) {
-        setError(oauthError.message || t("oauthFailed"));
-        setOauthProvider(null);
-      }
-      // 成功的话浏览器会被 Supabase 重定向到 Google OAuth 页，current page 会自动 unmount
-    } catch {
-      setError(t("oauthFailed"));
-      setOauthProvider(null);
-    }
-  };
-
   const switchToView = (target: AuthView) => {
     setView(target);
     setError(null);
@@ -234,12 +208,6 @@ export default function LoginPage() {
                 onForgotPassword={() => switchToView("forgot-password")}
                 onCreateAccount={() => switchToView("signup")}
               />
-              <OAuthButtonsView
-                loading={loading}
-                activeProvider={oauthProvider}
-                onGoogle={() => handleOAuthSignIn("google")}
-                onWeChat={() => handleOAuthSignIn("wechat")}
-              />
             </div>
           )}
 
@@ -259,12 +227,6 @@ export default function LoginPage() {
                 onToggleShowPassword={() => setShowPassword((value) => !value)}
                 onSubmit={handleSignUp}
                 onGoLogin={() => switchToView("login")}
-              />
-              <OAuthButtonsView
-                loading={loading}
-                activeProvider={oauthProvider}
-                onGoogle={() => handleOAuthSignIn("google")}
-                onWeChat={() => handleOAuthSignIn("wechat")}
               />
             </div>
           )}
