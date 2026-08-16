@@ -70,12 +70,25 @@ function AutoShapeIcon() {
   );
 }
 
+/** 把比例矩形等比缩放进 30×20 的展示框 — 保证 3:4 与 9:16、4:3 与 16:9 肉眼可辨。 */
+function fitRatioInBox(shape: AspectRatioShape): { width: number; height: number } {
+  const parts = shape
+    .split("/")
+    .map((part) => parseFloat(part.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (parts.length !== 2) return { width: 20, height: 20 };
+  const [w, h] = parts;
+  const scale = Math.min(30 / w, 20 / h);
+  return { width: Math.round(w * scale), height: Math.round(h * scale) };
+}
+
 function RatioShape({ shape }: { shape: AspectRatioShape }) {
+  const size = fitRatioInBox(shape);
   return (
     <span
       aria-hidden="true"
       className="studio-aspect-ratio-selector-shape"
-      style={{ aspectRatio: shape.replace(/\s/g, "") }}
+      style={{ width: size.width, height: size.height }}
     />
   );
 }
@@ -109,8 +122,10 @@ export function AspectRatioSelector<T extends string = string>({
       >
         {options.map((option) => {
           const selected = value === option.value;
-          const labelText = option.labelKey ? t(option.labelKey) : option.label ?? option.value;
           const shape = option.shape ?? ratioToShape(option.value);
+          // 固定比例只显示比例本身（如 "3:4"），不带"竖版/方图"等修饰；
+          // auto/智能 等非比例值才使用传入的本地化标签。
+          const labelText = shape ? option.value : option.labelKey ? t(option.labelKey) : option.label ?? option.value;
           return (
             <button
               key={option.value}

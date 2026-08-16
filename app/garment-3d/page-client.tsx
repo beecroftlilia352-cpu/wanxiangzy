@@ -14,6 +14,7 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -949,15 +950,14 @@ export default function Garment3dPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 text-codex-ink">{t("aspectSectionTitle")}</h3>
-            <StudioOptionGrid
+            <AspectRatioSelector
               options={[
                 { value: "auto", label: t("aspectAuto") },
-                { value: "1:1", label: t("aspectSquare") },
-                { value: "3:4", label: t("aspectPortrait") },
+                { value: "1:1" },
+                { value: "3:4" },
               ] as const}
               value={aspectRatio}
               onChange={setAspectRatio}
-              columns={2}
               ariaLabel={t("aspectSectionTitle")}
             />
           </section>

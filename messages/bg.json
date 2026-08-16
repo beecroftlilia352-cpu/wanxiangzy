@@ -1104,6 +1104,7 @@
     "retryThis": "Повтори това изображение",
     "taskWithCount": "Задача {count}",
     "finishedTabCount": "Завършени ({count})",
+    "bestPick": "Най-добър",
     "runningTabCount": "В процес ({count})",
     "loadingTasks": "Зареждане на задачи…",
     "noRunningTasks": "Няма задачи в процес",

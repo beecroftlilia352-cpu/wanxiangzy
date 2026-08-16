@@ -4277,6 +4277,7 @@
     "retryThis": "Thử lại ảnh này",
     "taskWithCount": "Tác vụ {count}",
     "finishedTabCount": "Đã xong ({count})",
+    "bestPick": "Tốt nhất",
     "runningTabCount": "Đang chạy ({count})",
     "loadingTasks": "Đang tải tác vụ…",
     "noRunningTasks": "Không có tác vụ đang chạy",

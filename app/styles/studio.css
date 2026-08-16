@@ -1321,8 +1321,7 @@
 
 .studio-aspect-ratio-selector-shape {
   display: block;
-  width: 28px;
-  max-height: 24px;
+  /* 宽高由组件按比例等比缩放进 30×20 展示框（inline style） */
   border: 1.6px solid currentColor;
   border-radius: 3px;
 }

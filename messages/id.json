@@ -4277,6 +4277,7 @@
     "retryThis": "Coba ulang gambar ini",
     "taskWithCount": "Tugas {count}",
     "finishedTabCount": "Selesai ({count})",
+    "bestPick": "Terbaik",
     "runningTabCount": "Berjalan ({count})",
     "loadingTasks": "Memuat tugas…",
     "noRunningTasks": "Tidak ada tugas berjalan",

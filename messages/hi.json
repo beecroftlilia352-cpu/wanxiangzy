@@ -4277,6 +4277,7 @@
     "retryThis": "यही इमेज रिट्राई करें",
     "taskWithCount": "टास्क {count}",
     "finishedTabCount": "कम्प्लीट ({count})",
+    "bestPick": "सर्वश्रेष्ठ",
     "runningTabCount": "रनिंग ({count})",
     "loadingTasks": "टास्क लोड हो रहे हैं…",
     "noRunningTasks": "कोई रनिंग टास्क नहीं",

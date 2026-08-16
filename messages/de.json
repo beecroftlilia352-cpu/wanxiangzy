@@ -4277,6 +4277,7 @@
     "retryThis": "Dieses Bild erneut versuchen",
     "taskWithCount": "Aufgabe {count}",
     "finishedTabCount": "Abgeschlossen ({count})",
+    "bestPick": "Beste",
     "runningTabCount": "Läuft ({count})",
     "loadingTasks": "Aufgaben werden geladen…",
     "noRunningTasks": "Keine laufenden Aufgaben",

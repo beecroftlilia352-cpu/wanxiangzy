@@ -14,6 +14,7 @@ import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -730,16 +731,15 @@ export default function MaterialEnhancementPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.aspectRatio")}</h3>
-            <StudioOptionGrid
+            <AspectRatioSelector
               options={[
                 { value: "auto", label: t("aspect.smart") },
-                { value: "3:4", label: t("aspect.portrait") },
-                { value: "4:5", label: t("aspect.product") },
-                { value: "1:1", label: t("aspect.square") },
+                { value: "3:4" },
+                { value: "4:5" },
+                { value: "1:1" },
               ] as const}
               value={aspectRatio}
               onChange={setAspectRatio}
-              columns={3}
               ariaLabel={t("section.aspectRatioAria")}
             />
           </section>

@@ -3426,6 +3426,7 @@
     "retryThis": "この画像を再試行",
     "taskWithCount": "タスク {count}",
     "finishedTabCount": "完了({count})",
+    "bestPick": "ベスト",
     "runningTabCount": "実行中({count})",
     "loadingTasks": "タスクを読み込み中…",
     "noRunningTasks": "実行中のタスクはありません",

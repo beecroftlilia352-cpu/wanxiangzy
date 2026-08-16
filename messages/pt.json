@@ -4277,6 +4277,7 @@
     "retryThis": "Tentar esta imagem novamente",
     "taskWithCount": "Tarefa {count}",
     "finishedTabCount": "Concluídas ({count})",
+    "bestPick": "Melhor",
     "runningTabCount": "Em andamento ({count})",
     "loadingTasks": "Carregando tarefas…",
     "noRunningTasks": "Nenhuma tarefa em andamento",

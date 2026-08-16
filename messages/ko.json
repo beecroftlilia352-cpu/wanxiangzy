@@ -4277,6 +4277,7 @@
     "retryThis": "이 이미지 재시도",
     "taskWithCount": "작업 {count}",
     "finishedTabCount": "완료됨({count})",
+    "bestPick": "베스트",
     "runningTabCount": "진행 중({count})",
     "loadingTasks": "작업 불러오는 중…",
     "noRunningTasks": "진행 중인 작업 없음",

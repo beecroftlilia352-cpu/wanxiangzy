@@ -3426,6 +3426,7 @@
     "retryThis": "重試本張",
     "taskWithCount": "任務 {count}",
     "finishedTabCount": "已完成({count})",
+    "bestPick": "最佳",
     "runningTabCount": "進行中({count})",
     "loadingTasks": "載入任務中…",
     "noRunningTasks": "暫無進行中任務",

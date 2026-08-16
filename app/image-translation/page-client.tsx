@@ -25,6 +25,7 @@ import {
   StudioOptionGrid,
   StudioPromptTextarea,
 } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
@@ -908,11 +909,10 @@ export default function ImageTranslationPage() {
                 {t("ratioDefaultLabel")}
               </span>
             </div>
-            <StudioOptionGrid
-              options={[{ value: "auto" as AspectRatio, label: t("ratioAutoLabel"), description: t("ratioAutoDesc") }]}
+            <AspectRatioSelector
+              options={[{ value: "auto" as AspectRatio, label: t("ratioAutoLabel") }]}
               value={aspectRatio}
               onChange={(value) => setAspectRatio(normalizeAspectRatio(value, DEFAULT_ASPECT_RATIO))}
-              columns={1}
               ariaLabel={t("ratioAriaLabel")}
             />
           </section>

@@ -1104,6 +1104,7 @@
     "retryThis": "ลองภาพนี้ใหม่",
     "taskWithCount": "งาน {count}",
     "finishedTabCount": "เสร็จแล้ว ({count})",
+    "bestPick": "ดีที่สุด",
     "runningTabCount": "กำลังทำ ({count})",
     "loadingTasks": "กำลังโหลดงาน…",
     "noRunningTasks": "ไม่มีงานที่กำลังทำ",

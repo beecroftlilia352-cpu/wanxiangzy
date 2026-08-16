@@ -4277,6 +4277,7 @@
     "retryThis": "重试本张",
     "taskWithCount": "任务 {count}",
     "finishedTabCount": "已完成({count})",
+    "bestPick": "最佳",
     "runningTabCount": "进行中({count})",
     "loadingTasks": "加载任务中…",
     "noRunningTasks": "暂无进行中任务",

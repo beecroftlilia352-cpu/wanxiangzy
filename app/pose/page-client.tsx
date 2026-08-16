@@ -47,7 +47,7 @@ import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
-import { qualifyOptionKeys } from "@/lib/i18n/options";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
@@ -2238,11 +2238,10 @@ export default function PosePage() {
 
           <section>
             <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-codex-ink"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> {t("aspect.title")}</h3>
-            <StudioOptionGrid
-              options={qualifyOptionKeys(ASPECTS.map((a) => ({ ...a, description: a.descriptionKey ? t(a.descriptionKey) : a.description })), "Pose")}
+            <AspectRatioSelector
+              options={ASPECTS.map((a) => ({ value: a.value, label: a.labelKey ? t(a.labelKey) : a.label }))}
               value={aspectRatio}
               onChange={setAspectRatio}
-              columns={3}
               ariaLabel={t("aspect.title")}
             />
             <div className="mt-2 rounded-lg border border-[var(--codex-border)] dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-[12px] leading-relaxed text-codex-muted">

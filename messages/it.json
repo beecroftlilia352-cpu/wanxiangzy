@@ -4277,6 +4277,7 @@
     "retryThis": "Riprova questa immagine",
     "taskWithCount": "Attività {count}",
     "finishedTabCount": "Completate ({count})",
+    "bestPick": "Migliore",
     "runningTabCount": "In corso ({count})",
     "loadingTasks": "Caricamento attività…",
     "noRunningTasks": "Nessuna attività in corso",

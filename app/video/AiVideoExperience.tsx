@@ -21,6 +21,7 @@ import { ResultVideoGrid } from "@/components/ResultVideoGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioOptionGrid, StudioPromptTextarea, StudioToggleRow } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
@@ -1060,15 +1061,10 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
         <section>
           <h3 className="mb-3 text-sm font-black text-codex-ink">{t("aspectRatioSection")}</h3>
-          <StudioOptionGrid
-            options={AI_VIDEO_ASPECT_RATIO_OPTIONS.map((item) => ({
-              value: item.value,
-              label: item.label,
-              description: item.description,
-            }))}
+          <AspectRatioSelector
+            options={AI_VIDEO_ASPECT_RATIO_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
             value={aspectRatio}
             onChange={handleAspectRatioChange}
-            columns={3}
             ariaLabel={t("aspectRatioAria")}
           />
         </section>

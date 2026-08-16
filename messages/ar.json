@@ -4277,6 +4277,7 @@
     "retryThis": "إعادة محاولة هذه الصورة",
     "taskWithCount": "المهمة {count}",
     "finishedTabCount": "المكتملة ({count})",
+    "bestPick": "الأفضل",
     "runningTabCount": "قيد التنفيذ ({count})",
     "loadingTasks": "جارٍ تحميل المهام…",
     "noRunningTasks": "لا توجد مهام قيد التنفيذ",

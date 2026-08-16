@@ -4277,6 +4277,7 @@
     "retryThis": "Bu görseli yeniden dene",
     "taskWithCount": "Görev {count}",
     "finishedTabCount": "Tamamlandı ({count})",
+    "bestPick": "En İyi",
     "runningTabCount": "Sürüyor ({count})",
     "loadingTasks": "Görevler yükleniyor…",
     "noRunningTasks": "Süren görev yok",

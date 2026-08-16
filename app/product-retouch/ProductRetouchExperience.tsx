@@ -19,6 +19,7 @@ import {
   StudioOptionGrid,
   StudioPromptTextarea,
 } from "@/components/studio/StudioFormControls";
+import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -160,11 +161,10 @@ export function ProductRetouchExperience() {
     };
   }), [t]);
   const displayAspects = useMemo(() => ASPECT_OPTIONS.map((m) => {
-    const { labelKey, descriptionKey, ...rest } = m;
+    const { labelKey } = m;
     return {
-      ...rest,
+      value: m.value,
       label: labelKey ? t(labelKey) : m.label,
-      description: descriptionKey ? t(descriptionKey) : m.description,
     };
   }), [t]);
   const displaySizes = useMemo(() => SIZE_OPTIONS.map((m) => {
@@ -788,11 +788,10 @@ export function ProductRetouchExperience() {
                 />
                 <div className="mt-4">
                   <Label className="mb-2 block">{t("section.aspectLabel")}</Label>
-                  <StudioOptionGrid
+                  <AspectRatioSelector
                     options={displayAspects}
                     value={aspectRatio}
                     onChange={setAspectRatio}
-                    columns={2}
                     ariaLabel={t("section.aspectAria")}
                   />
                 </div>

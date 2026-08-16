@@ -4277,6 +4277,7 @@
     "retryThis": "Повторить это изображение",
     "taskWithCount": "Задача {count}",
     "finishedTabCount": "Завершено ({count})",
+    "bestPick": "Лучший",
     "runningTabCount": "Выполняется ({count})",
     "loadingTasks": "Загрузка задач…",
     "noRunningTasks": "Нет выполняемых задач",
