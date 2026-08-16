@@ -86,6 +86,7 @@ export function ResolutionSelector<T extends string = string>({
 }: ResolutionSelectorProps<T>) {
   const t = useTranslations();
   const locale = useLocale();
+  const isChineseLocale = locale.toLowerCase().startsWith("zh");
   const usesImageClarityTiers = options.some((option) => isImageClarityTier(String(option.value)));
   const resolvedTitle = usesImageClarityTiers ? t("Shared.resolutionClarity") : title;
   const fallbackAria = typeof title === "string" ? title : undefined;
@@ -172,7 +173,10 @@ export function ResolutionSelector<T extends string = string>({
               <span className="studio-resolution-selector-label">
                 <span>{labelText}</span>
                 {clarityText ? (
-                  <span className="studio-resolution-selector-clarity">{clarityText}</span>
+                  <span className="studio-resolution-selector-clarity">
+                    {isChineseLocale ? null : "\u00a0"}
+                    {clarityText}
+                  </span>
                 ) : null}
               </span>
               {!clarityText && descriptionText ? (

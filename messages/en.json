@@ -4365,9 +4365,9 @@
     "confirmNotInitialized": "Confirm dialog not initialized — action was not executed",
     "operationFailed": "Operation failed",
     "resolutionClarity": "Clarity",
-    "resolutionStandard": "Standard",
+    "resolutionStandard": "STD",
     "resolutionHD": "HD",
-    "resolutionUltra": "Ultra"
+    "resolutionUltra": "UHD"
   },
   "Video": {
     "moduleFirstLastFrame": "First & Last Frame",

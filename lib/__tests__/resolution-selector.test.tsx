@@ -68,6 +68,10 @@ describe("ResolutionSelector", () => {
 
     expect(getByText("REC")).toBeTruthy();
     expect(getByText("PRO")).toBeTruthy();
+    expect(container.querySelectorAll(".studio-resolution-selector-label")[0]?.textContent)
+      .toBe("1K\u00a0STD");
+    expect(container.querySelectorAll(".studio-resolution-selector-label")[2]?.textContent)
+      .toBe("4K\u00a0UHD");
     expect(Array.from(container.querySelectorAll(".studio-resolution-selector-badge")).map((node) => node.textContent))
       .toEqual(["REC", "PRO"]);
   });
