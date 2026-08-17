@@ -405,7 +405,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
+    const nextDefaults = getGeneralImageDefaultSettings(initialMode);
     setMode(initialMode);
+    setAiModel(nextDefaults.model);
+    setAspectRatio(nextDefaults.aspectRatio);
+    setImageSize(nextDefaults.imageSize);
     resetOutput();
   }, [initialMode]);
 
@@ -413,6 +417,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     const sourceImage = takeSourceImageFromLocation();
     if (sourceImage) {
       setMode("image-to-image");
+      setAiModel(getGeneralImageDefaultSettings("image-to-image").model);
       setReferenceImages([{
         id: `source-${Date.now()}`,
         name: t("fromPreview"),

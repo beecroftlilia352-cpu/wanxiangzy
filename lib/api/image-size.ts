@@ -16,6 +16,9 @@ export const IMAGE_ASPECT_RATIOS: readonly FixedImageAspectRatio[] = [
 
 const MAX_GPT_IMAGE_PIXELS = 3840 * 2160;
 const MAX_GPT_IMAGE_EDGE = 3840;
+// The current new.bi upstream returned 2880px square output in both direct
+// 4K probes. Keep the square request aligned with that verified native size.
+const GPT_IMAGE_2_4K_SQUARE_EDGE = 2880;
 const IMAGE_DIMENSION_FETCH_TIMEOUT_MS = 15_000;
 
 export function resolveExactAspectPixelSize(imageSize: ImageResolutionSize, aspectRatio: string): string {
@@ -25,6 +28,7 @@ export function resolveExactAspectPixelSize(imageSize: ImageResolutionSize, aspe
   if (base.width === base.height) {
     if (imageSize === "1K") return "1024x1024";
     if (imageSize === "2K") return "2048x2048";
+    if (imageSize === "4K") return `${GPT_IMAGE_2_4K_SQUARE_EDGE}x${GPT_IMAGE_2_4K_SQUARE_EDGE}`;
   }
 
   if (imageSize === "1K") return resolveLongEdgeExactAspectPixelSize(base, 1536);

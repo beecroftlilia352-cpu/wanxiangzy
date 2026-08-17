@@ -192,7 +192,6 @@ export const MAX_VIDEO_FILE_SIZE_MB = 100;
 export const MAX_VIDEO_FILE_SIZE = MAX_VIDEO_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_AUDIO_FILE_SIZE_MB = 30;
 export const MAX_AUDIO_FILE_SIZE = MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024;
-const UPLOAD_TRANSPORT_SAFE_SIZE_MB = 8;
 const IMAGE_PREPROCESS_TIMEOUT_MS = 20_000;
 const IMAGE_UPLOAD_CLIENT_TIMEOUT_MS = 75_000;
 const IMAGE_UPLOAD_RETRY_DELAYS_MS = [0, 700, 1_600] as const;
@@ -245,24 +244,17 @@ async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): 
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
-        let { width, height } = img;
-
-        // 按比例缩小（最大边 2048px）
-        const maxDim = 2048;
-        if (width > maxDim || height > maxDim) {
-          const ratio = Math.min(maxDim / width, maxDim / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
-        }
-
-        canvas.width = width;
-        canvas.height = height;
+        // The product limit is 15MB. When recompression is necessary, reduce
+        // encoded bytes only; never silently turn a native 4K upload into a
+        // smaller image.
+        canvas.width = img.width;
+        canvas.height = img.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           finish(file);
           return;
         }
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, 0, 0, img.width, img.height);
 
         // 逐步降低质量直到小于限制
         let quality = 0.85;
@@ -349,10 +341,7 @@ export async function uploadImage(
   file: File,
   options: { onProgress?: (percent: number) => void } = {},
 ): Promise<UploadResult> {
-  const uploadLimitMB = file.size > UPLOAD_TRANSPORT_SAFE_SIZE_MB * 1024 * 1024
-    ? UPLOAD_TRANSPORT_SAFE_SIZE_MB
-    : MAX_FILE_SIZE_MB;
-  const compressed = await compressImage(file, uploadLimitMB);
+  const compressed = await compressImage(file, MAX_FILE_SIZE_MB);
   let lastError: unknown;
   for (let attempt = 0; attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
     try {

@@ -102,7 +102,7 @@ describe("uploadImage", () => {
       revokeObjectURL: vi.fn(),
     });
     const largeFile = new File(
-      [new Uint8Array(8 * 1024 * 1024 + 1)],
+      [new Uint8Array(15 * 1024 * 1024 + 1)],
       "large-source.jpg",
       { type: "image/jpeg" },
     );

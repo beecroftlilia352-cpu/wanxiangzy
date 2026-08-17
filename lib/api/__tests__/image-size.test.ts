@@ -10,6 +10,7 @@ import {
 const ASPECT_RATIOS = ["1:1", "9:16", "16:9", "4:3", "3:4", "2:3", "3:2", "4:5", "5:4", "21:9"] as const;
 const IMAGE_SIZES: ImageResolutionSize[] = ["1K", "2K", "4K"];
 const MAX_PIXELS = 3840 * 2160;
+const MAX_4K_SQUARE_PIXELS = 2880 * 2880;
 
 describe("image size resolver", () => {
   it("keeps every explicit aspect ratio exact across all image sizes", () => {
@@ -23,7 +24,10 @@ describe("image size resolver", () => {
         expect(width * ratioHeight, `${imageSize} ${aspectRatio} exact ratio`).toBe(height * ratioWidth);
         expect(width, `${imageSize} ${aspectRatio} max width`).toBeLessThanOrEqual(3840);
         expect(height, `${imageSize} ${aspectRatio} max height`).toBeLessThanOrEqual(3840);
-        expect(width * height, `${imageSize} ${aspectRatio} max pixels`).toBeLessThanOrEqual(MAX_PIXELS);
+        const maxPixels = imageSize === "4K" && aspectRatio === "1:1"
+          ? MAX_4K_SQUARE_PIXELS
+          : MAX_PIXELS;
+        expect(width * height, `${imageSize} ${aspectRatio} max pixels`).toBeLessThanOrEqual(maxPixels);
       }
     }
   });
@@ -32,6 +36,7 @@ describe("image size resolver", () => {
     expect(resolveExactAspectPixelSize("1K", "3:4")).toBe("1152x1536");
     expect(resolveExactAspectPixelSize("2K", "3:4")).toBe("1536x2048");
     expect(resolveExactAspectPixelSize("4K", "3:4")).toBe("2448x3264");
+    expect(resolveExactAspectPixelSize("4K", "1:1")).toBe("2880x2880");
     expect(resolveExactAspectPixelSize("1K", "4:5")).toBe("1216x1520");
     expect(resolveExactAspectPixelSize("1K", "9:16")).toBe("864x1536");
     expect(resolveExactAspectPixelSize("1K", "16:9")).toBe("1536x864");

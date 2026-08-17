@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { storeImage } from "../image-storage";
 import { persistGeneratedImageUrls } from "../result-image-storage";
@@ -139,6 +141,50 @@ describe("result image storage", () => {
     expect((putCalls[0].init?.headers as Record<string, string>).Authorization).toMatch(/^OSS test-access-key-id:/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/png");
   });
+
+  it("preserves native 4K pixels for generated results and compressed user uploads", async () => {
+    process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
+    process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
+
+    const width = 4096;
+    const height = 2160;
+    const source = await sharp(randomBytes(width * height * 3), {
+      raw: { width, height, channels: 3 },
+    }).jpeg({ quality: 94, chromaSubsampling: "4:4:4" }).toBuffer();
+    expect(source.length).toBeGreaterThan(15 * 1024 * 1024);
+    expect(source.length).toBeLessThan(32 * 1024 * 1024);
+
+    const uploadedBodies: Buffer[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      uploadedBodies.push(Buffer.from(init?.body as ArrayBuffer));
+      return new Response("", { status: 200 });
+    }));
+
+    await storeImage({
+      bytes: source,
+      contentType: "image/jpeg",
+      name: "native-4k.jpg",
+      storageClass: "generated",
+    });
+    await storeImage({
+      bytes: source,
+      contentType: "image/jpeg",
+      name: "large-upload.jpg",
+      storageClass: "upload",
+    });
+
+    expect(uploadedBodies).toHaveLength(2);
+    expect(uploadedBodies[0].length).toBe(source.length);
+    expect(Buffer.compare(uploadedBodies[0], source)).toBe(0);
+    await expect(sharp(uploadedBodies[0]).metadata()).resolves.toMatchObject({ width, height });
+    expect(uploadedBodies[1].length).toBeLessThan(source.length);
+    await expect(sharp(uploadedBodies[1]).metadata()).resolves.toMatchObject({ width, height });
+  }, 45_000);
 
   it("normalizes AVIF uploads to JPEG before storing in Aliyun OSS", async () => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
