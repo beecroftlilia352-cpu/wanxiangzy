@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   getReusableAiToolTaskResult: vi.fn(),
   markAiToolTaskSubmissionFailed: vi.fn(),
   recordAiToolTaskProviderResult: vi.fn(),
+  syncAiToolTaskQueueById: vi.fn(),
 }));
 
 vi.mock("@/lib/api/auth", () => ({ requireApiUser: mocks.requireApiUser }));
@@ -72,6 +73,9 @@ vi.mock("@/lib/api/ai-tools/task-repository.server", () => ({
   markAiToolTaskSubmissionFailed: mocks.markAiToolTaskSubmissionFailed,
   recordAiToolTaskProviderResult: mocks.recordAiToolTaskProviderResult,
 }));
+vi.mock("@/lib/task-queue-store", () => ({
+  syncAiToolTaskQueueById: mocks.syncAiToolTaskQueueById,
+}));
 
 import { GET, POST } from "@/app/api/ai-tools/route";
 import { GET as GET_CAPABILITIES } from "@/app/api/ai-tools/capabilities/route";
@@ -88,6 +92,7 @@ describe("AI tools API", () => {
     vi.clearAllMocks();
     mocks.requireApiUser.mockResolvedValue({ supabase: {}, user: { id: "user-1" }, response: null });
     mocks.checkRateLimit.mockResolvedValue({ ok: true });
+    mocks.syncAiToolTaskQueueById.mockResolvedValue(undefined);
     mocks.persistCompletedAiToolOutputs.mockImplementation(async (result: unknown) => result);
     mocks.resolveOwnedAiToolSubmission.mockImplementation(async (request: Record<string, unknown>) => ({
       request,
