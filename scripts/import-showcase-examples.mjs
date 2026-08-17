@@ -1,6 +1,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 
+const SHOWCASE_AUTHOR_NAME = "万象分享官";
+const SHOWCASE_AUTHOR_AVATAR_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/showcase/general-image-image-to-image/remote/metac-prod.oss-cn-hangzhou.aliyuncs.com/idm/image/2212/78036/1776308967749_544.8456297354923-a05cc8b0e2.png";
+
 const args = process.argv.slice(2);
 const outputIndex = args.indexOf("--out");
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : "lib/showcase-data/general-image-image-to-image.seed.json";
@@ -53,8 +56,8 @@ function normalizeItem(item, index) {
     model: "GPT Image 2",
     aspectRatio: ratio,
     imageSize: clarity,
-    authorName: cleanText(item?.userName) || "Pixel Diffusion",
-    authorAvatarUrl: cleanUrl(item?.userPictureUrl),
+    authorName: SHOWCASE_AUTHOR_NAME,
+    authorAvatarUrl: SHOWCASE_AUTHOR_AVATAR_URL,
     publishedAt: cleanText(item?.publishTime || item?.createTime),
     views: toNonNegativeInteger(item?.caseViewCount),
     createCount: toNonNegativeInteger(item?.caseGenerateCount),

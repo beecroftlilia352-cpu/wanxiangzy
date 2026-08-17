@@ -21,7 +21,12 @@ import {
 } from "@/components/ui/shadcn-compat";
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@/components/ui/ant-icons-compat";
 import { AdminPageHeader } from "@/components/admin/AdminPrimitives";
-import type { StudioShowcaseExample, StudioShowcaseRegistry } from "@/lib/showcase-examples";
+import {
+  SHOWCASE_AUTHOR_AVATAR_URL,
+  SHOWCASE_AUTHOR_NAME,
+  type StudioShowcaseExample,
+  type StudioShowcaseRegistry,
+} from "@/lib/showcase-examples";
 
 type FormValue = StudioShowcaseExample & { reason: string; referenceImagesText: string };
 
@@ -113,8 +118,8 @@ export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShow
       model: "GPT Image 2",
       aspectRatio: "3:4",
       imageSize: "1K",
-      authorName: "Pixel Diffusion",
-      authorAvatarUrl: "",
+      authorName: SHOWCASE_AUTHOR_NAME,
+      authorAvatarUrl: SHOWCASE_AUTHOR_AVATAR_URL,
       publishedAt: "",
       views: 0,
       createCount: 0,
@@ -261,8 +266,8 @@ export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShow
             <Form.Item name="aspectRatio" label="比例"><Select options={["1:1", "3:4", "4:3", "4:5", "9:16", "16:9"].map((value) => ({ label: value, value }))} /></Form.Item>
             <Form.Item name="imageSize" label="清晰度"><Select options={["1K", "2K", "4K"].map((value) => ({ label: value, value }))} /></Form.Item>
             <Form.Item name="sortOrder" label="排序"><InputNumber className="!w-full" min={0} max={9999} /></Form.Item>
-            <Form.Item name="authorName" label="作者"><Input maxLength={80} /></Form.Item>
-            <Form.Item name="authorAvatarUrl" label="作者头像 OSS 地址"><Input /></Form.Item>
+            <Form.Item name="authorName" label="作者"><Input disabled /></Form.Item>
+            <Form.Item name="authorAvatarUrl" label="作者头像 OSS 地址"><Input disabled /></Form.Item>
           </div>
           <Form.Item name="enabled" label="前台展示" valuePropName="checked"><Switch checkedChildren="启用" unCheckedChildren="停用" /></Form.Item>
           <Form.Item name="prompt" label="创建相似描述" rules={[{ required: true, message: "请输入描述" }]}><Input.TextArea rows={7} maxLength={4000} /></Form.Item>

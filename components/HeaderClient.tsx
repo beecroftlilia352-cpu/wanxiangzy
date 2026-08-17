@@ -555,21 +555,31 @@ function UserCreditActions({
 
   return (
     <>
-      <Link
-        href="/pricing"
-        className="studio-header-recharge hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_4px_14px_var(--codex-accent-30)] transition sm:inline-flex"
-        title={t("topUp")}
-      >
-        <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
-        {t("topUp")}
-      </Link>
+      <div className="studio-header-wallet hidden shrink-0 items-stretch sm:flex">
+        <Link
+          href="/account?tab=credits"
+          className="studio-header-credit inline-flex shrink-0 items-center gap-1.5 text-xs font-black transition"
+          title={t("creditsAria")}
+        >
+          <Coins className="h-3.5 w-3.5" aria-hidden="true" />
+          {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-[#f0d3b5]" />}
+        </Link>
+        <Link
+          href="/pricing"
+          className="studio-header-recharge inline-flex shrink-0 items-center gap-1.5 text-xs font-black transition"
+          title={t("topUp")}
+        >
+          <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+          {t("topUp")}
+        </Link>
+      </div>
       <Link
         href="/account?tab=credits"
-        className="studio-header-credit inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--codex-accent-30)] bg-[var(--codex-accent-10)] px-4 text-xs font-black text-[var(--codex-accent)] shadow-sm transition"
+        className="studio-header-credit studio-header-credit-mobile inline-flex shrink-0 items-center gap-1.5 text-xs font-black transition sm:hidden"
         title={t("creditsAria")}
       >
         <Coins className="h-3.5 w-3.5" aria-hidden="true" />
-        {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-[var(--codex-surface-soft)] dark:bg-white/10" />}
+        {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-[#f0d3b5]" />}
       </Link>
       <AccountAvatarDropdown
         email={email}

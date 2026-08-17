@@ -2,6 +2,9 @@ import seed from "@/lib/showcase-data/general-image-image-to-image.seed.json";
 
 export const SHOWCASE_CONFIG_KEY = "studio.showcase.general-image-image-to-image";
 export const SHOWCASE_MODULE = "general-image-image-to-image";
+export const SHOWCASE_AUTHOR_NAME = "万象分享官";
+export const SHOWCASE_AUTHOR_AVATAR_URL =
+  "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/showcase/general-image-image-to-image/remote/metac-prod.oss-cn-hangzhou.aliyuncs.com/idm/image/2212/78036/1776308967749_544.8456297354923-a05cc8b0e2.png";
 
 export type StudioShowcaseExample = {
   id: string;
@@ -55,8 +58,8 @@ export function parseShowcaseExample(input: unknown): StudioShowcaseExample | nu
     model: normalizeText(record.model, 60) || "GPT Image 2",
     aspectRatio: normalizeText(record.aspectRatio, 16) || "3:4",
     imageSize: normalizeText(record.imageSize, 16).toUpperCase() || "1K",
-    authorName: normalizeText(record.authorName, 80) || "Pixel Diffusion",
-    authorAvatarUrl: normalizeHttpsUrl(record.authorAvatarUrl),
+    authorName: SHOWCASE_AUTHOR_NAME,
+    authorAvatarUrl: SHOWCASE_AUTHOR_AVATAR_URL,
     publishedAt: normalizeText(record.publishedAt, 40),
     views: normalizeInteger(record.views, 0, Number.MAX_SAFE_INTEGER),
     createCount: normalizeInteger(record.createCount, 0, Number.MAX_SAFE_INTEGER),

@@ -356,24 +356,68 @@
   height: 14px;
 }
 
-.studio-header-recharge,
-.studio-header-credit,
-.studio-header-login {
+.studio-header-wallet {
   height: 30px !important;
   border: 1px solid rgba(255, 255, 255, 0.76) !important;
   border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.76) !important;
+  overflow: hidden;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.studio-header-wallet .studio-header-credit,
+.studio-header-wallet .studio-header-recharge {
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.studio-header-wallet .studio-header-credit {
+  min-width: 62px;
+  background: transparent !important;
+  padding-inline: 10px 9px !important;
+  color: #a55b20 !important;
+}
+
+.studio-header-wallet .studio-header-credit svg {
+  color: #e8a02d;
+}
+
+.studio-header-wallet .studio-header-recharge {
+  border-left: 1px solid rgba(166, 92, 28, 0.16) !important;
+  background: linear-gradient(180deg, #c77a28 0%, #ac5f19 100%) !important;
+  padding-inline: 10px !important;
+  color: #fff !important;
+}
+
+.studio-header-wallet .studio-header-recharge:hover,
+.studio-header-wallet .studio-header-recharge:focus-visible {
+  background: linear-gradient(180deg, #b96c20 0%, #9d5113 100%) !important;
+  color: #fff !important;
+}
+
+.studio-header-wallet .studio-header-credit:hover,
+.studio-header-wallet .studio-header-credit:focus-visible {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #914b16 !important;
+}
+
+.studio-header-login,
+.studio-header-credit-mobile {
+  height: 30px !important;
+  border: 1px solid rgba(255, 255, 255, 0.76) !important;
+  border-radius: 8px !important;
   padding-inline: 10px !important;
   box-shadow: none !important;
   transform: none !important;
 }
 
-.studio-header-recharge {
-  color: #8a531f !important;
-}
-
-.studio-header-credit {
-  color: #b16a32 !important;
+.studio-header-credit-mobile {
+  background: rgba(255, 255, 255, 0.76) !important;
+  color: #a55b20 !important;
 }
 
 .studio-header-login {
@@ -382,8 +426,7 @@
   color: #fff !important;
 }
 
-.studio-header-recharge:hover,
-.studio-header-credit:hover {
+.studio-header-credit-mobile:hover {
   border-color: rgba(255, 255, 255, 0.96) !important;
   background: rgba(255, 255, 255, 0.94) !important;
 }
