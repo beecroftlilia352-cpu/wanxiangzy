@@ -1676,6 +1676,7 @@
     "uploadDescriptionSlot": "Créer plusieurs tâches avec une seule configuration ? Essayez",
     "uploadDescriptionLink": "Image vers image par lot",
     "uploadTipText": "Pour de meilleurs résultats, utilisez au maximum 3 images de référence",
+    "uploadResolutionTip": "Résolution d’image : de 300×300 à 4096×4096 px",
     "referenceUploaded": "Images de référence téléversées",
     "removeImage": "Retirer l'image {index}",
     "resolutionAriaLabel": "Choisir la résolution",

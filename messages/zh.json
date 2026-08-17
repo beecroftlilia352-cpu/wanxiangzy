@@ -1664,6 +1664,7 @@
     "uploadDescriptionSlot": "想要一次配置生成多任务？试试",
     "uploadDescriptionLink": "批量图生图",
     "uploadTipText": "若上传多张参考图，为获得理想生成结果，建议不超过3张",
+    "uploadResolutionTip": "图片分辨率最小300×300px，最大4096×4096px",
     "uploadTileFullTitle": "已达 14 张上限",
     "uploadTileMoreTitle": "继续上传参考图",
     "uploadTileEmptyTitle": "上传 / 拖拽参考图",

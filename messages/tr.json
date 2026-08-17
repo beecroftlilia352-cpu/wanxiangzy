@@ -1666,6 +1666,7 @@
     "uploadDescriptionSlot": "Tek ayarla birden çok görev oluşturmak ister misiniz? Deneyin",
     "uploadDescriptionLink": "Toplu görselden görsele",
     "uploadTipText": "Daha iyi sonuçlar için en fazla 3 referans görsel kullanın",
+    "uploadResolutionTip": "Görsel çözünürlüğü: en az 300×300px, en fazla 4096×4096px",
     "uploadTileFullTitle": "8 görsel sınırına ulaşıldı",
     "uploadTileMoreTitle": "Daha fazla referans görsel yükle",
     "uploadTileEmptyTitle": "Referans görseller yükle / sürükle",

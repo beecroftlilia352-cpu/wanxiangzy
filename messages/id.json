@@ -1666,6 +1666,7 @@
     "uploadDescriptionSlot": "Ingin membuat banyak tugas dengan satu konfigurasi? Coba",
     "uploadDescriptionLink": "Gambar-ke-gambar batch",
     "uploadTipText": "Untuk hasil lebih baik, gunakan maksimal 3 gambar referensi",
+    "uploadResolutionTip": "Resolusi gambar: minimum 300×300px, maksimum 4096×4096px",
     "uploadTileFullTitle": "Sudah mencapai batas 8 gambar",
     "uploadTileMoreTitle": "Lanjut unggah gambar referensi",
     "uploadTileEmptyTitle": "Unggah / seret gambar referensi",

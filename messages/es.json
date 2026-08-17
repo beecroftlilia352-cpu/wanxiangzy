@@ -1666,6 +1666,7 @@
     "uploadDescriptionSlot": "¿Quieres generar varias tareas con una configuración? Prueba",
     "uploadDescriptionLink": "Imagen a imagen por lotes",
     "uploadTipText": "Para mejores resultados con varias referencias, usa como máximo 3 imágenes",
+    "uploadResolutionTip": "Resolución de imagen: de 300×300 a 4096×4096 px",
     "uploadTileFullTitle": "Límite de 8 imágenes alcanzado",
     "uploadTileMoreTitle": "Subir más imágenes de referencia",
     "uploadTileEmptyTitle": "Subir / arrastrar imágenes de referencia",

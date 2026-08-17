@@ -1666,6 +1666,7 @@
     "uploadDescriptionSlot": "एक सेटअप से कई टास्क बनाना चाहते हैं? आज़माएँ",
     "uploadDescriptionLink": "बैच इमेज-टू-इमेज",
     "uploadTipText": "बेहतर परिणामों के लिए अधिकतम 3 रेफ़रेंस इमेज का उपयोग करें",
+    "uploadResolutionTip": "इमेज रिज़ॉल्यूशन: न्यूनतम 300×300px, अधिकतम 4096×4096px",
     "uploadTileFullTitle": "8-इमेज सीमा पूरी हुई",
     "uploadTileMoreTitle": "अधिक रेफ़रेंस इमेज अपलोड करें",
     "uploadTileEmptyTitle": "रेफ़रेंस इमेज अपलोड / ड्रैग करें",

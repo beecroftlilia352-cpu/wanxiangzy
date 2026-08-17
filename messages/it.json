@@ -1666,6 +1666,7 @@
     "uploadDescriptionSlot": "Vuoi creare più attività con una sola configurazione? Prova",
     "uploadDescriptionLink": "Da immagine a immagine in batch",
     "uploadTipText": "Per risultati migliori usa al massimo 3 immagini di riferimento",
+    "uploadResolutionTip": "Risoluzione immagine: da 300×300 a 4096×4096 px",
     "uploadTileFullTitle": "Limite di 8 immagini raggiunto",
     "uploadTileMoreTitle": "Carica altre immagini di riferimento",
     "uploadTileEmptyTitle": "Carica / trascina immagini di riferimento",

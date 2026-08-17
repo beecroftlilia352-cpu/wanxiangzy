@@ -273,10 +273,7 @@ export function MultiImageUploadV2({
                         <RawPreviewImage
                           src={getImageVariantUrl(url, "card")}
                           alt={itemLabel}
-                          className={cn(
-                            "studio-multi-image-v2-img",
-                            imageFit === "cover" ? "object-cover" : "object-contain",
-                          )}
+                          className="studio-multi-image-v2-img object-cover"
                         />
                       </button>
                       <span className="studio-multi-image-v2-index">{itemLabel}</span>

@@ -1664,6 +1664,7 @@
     "uploadDescriptionSlot": "Want to generate multiple tasks with one setup? Try",
     "uploadDescriptionLink": "Batch image-to-image",
     "uploadTipText": "For better results with multiple references, use no more than 3 images",
+    "uploadResolutionTip": "Image resolution: 300×300px minimum, 4096×4096px maximum",
     "uploadTileFullTitle": "14-image limit reached",
     "uploadTileMoreTitle": "Upload more reference images",
     "uploadTileEmptyTitle": "Upload / drag reference images",

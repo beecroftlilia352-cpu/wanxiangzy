@@ -1666,6 +1666,7 @@
     "uploadDescriptionSlot": "هل تريد إنشاء مهام متعددة بإعداد واحد؟ جرّب",
     "uploadDescriptionLink": "صورة إلى صورة دفعة واحدة",
     "uploadTipText": "لنتائج أفضل مع عدة صور مرجعية، استخدم 3 صور كحد أقصى",
+    "uploadResolutionTip": "دقة الصورة من 300×300 بكسل إلى 4096×4096 بكسل",
     "uploadTileFullTitle": "تم بلوغ حد ٨ صور",
     "uploadTileMoreTitle": "تحميل المزيد من الصور المرجعية",
     "uploadTileEmptyTitle": "تحميل / سحب الصور المرجعية",

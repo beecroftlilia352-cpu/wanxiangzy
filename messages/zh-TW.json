@@ -1075,6 +1075,7 @@
     "uploadDescriptionSlot": "想要一次設定生成多個任務？試試",
     "uploadDescriptionLink": "批量圖生圖",
     "uploadTipText": "若上傳多張參考圖，為獲得理想生成結果，建議不超過3張",
+    "uploadResolutionTip": "圖片解析度最小300×300px，最大4096×4096px",
     "uploadTileFullTitle": "已達 8 張上限",
     "uploadTileMoreTitle": "繼續上傳參考圖",
     "uploadTileEmptyTitle": "上傳 / 拖曳參考圖",

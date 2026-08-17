@@ -33,7 +33,7 @@ function normalizeTipText(text?: string) {
   return (text || "").replace(/\s+/g, " ").trim();
 }
 
-function shortenTipText(text: string, max = 28) {
+function shortenTipText(text: string, max = 44) {
   const normalized = normalizeTipText(text);
   if (normalized.length <= max) return normalized;
   const segment = normalized.split(/[。；;.!?？]/)[0]?.trim();

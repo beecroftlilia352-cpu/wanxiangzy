@@ -1075,6 +1075,7 @@
     "uploadDescriptionSlot": "1回の設定で複数タスクを生成しますか？",
     "uploadDescriptionLink": "一括画像変換を試す",
     "uploadTipText": "複数の参照画像を使う場合は3枚以内をおすすめします",
+    "uploadResolutionTip": "画像解像度：最小300×300px、最大4096×4096px",
     "uploadTileFullTitle": "8枚の上限に達しました",
     "uploadTileMoreTitle": "参照画像を追加",
     "uploadTileEmptyTitle": "参照画像をアップロード/ドラッグ",

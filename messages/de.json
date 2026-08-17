@@ -1676,6 +1676,7 @@
     "uploadDescriptionSlot": "Mehrere Aufgaben mit einer Konfiguration erstellen? Probiere",
     "uploadDescriptionLink": "Batch Bild-zu-Bild",
     "uploadTipText": "Für bessere Ergebnisse mit mehreren Referenzen höchstens 3 Bilder verwenden",
+    "uploadResolutionTip": "Bildauflösung: 300×300 bis 4096×4096 px",
     "referenceUploaded": "Referenzbilder hochgeladen",
     "removeImage": "Bild {index} entfernen",
     "resolutionAriaLabel": "Auflösung wählen",

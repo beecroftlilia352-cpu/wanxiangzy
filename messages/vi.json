@@ -1666,6 +1666,7 @@
     "uploadDescriptionSlot": "Muốn tạo nhiều tác vụ với một cấu hình? Hãy thử",
     "uploadDescriptionLink": "Ảnh-sang-ảnh hàng loạt",
     "uploadTipText": "Để có kết quả tốt hơn, chỉ nên dùng tối đa 3 ảnh tham chiếu",
+    "uploadResolutionTip": "Độ phân giải ảnh: tối thiểu 300×300px, tối đa 4096×4096px",
     "uploadTileFullTitle": "Đã đạt giới hạn 8 ảnh",
     "uploadTileMoreTitle": "Tiếp tục tải ảnh tham chiếu",
     "uploadTileEmptyTitle": "Tải / kéo-thả ảnh tham chiếu",

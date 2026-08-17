@@ -876,8 +876,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   description={t("uploadTileDescription")}
                   footnote={t("uploadFootnote")}
                   imageRequirement={t("orderMarkedAsImages")}
-                  tips={[{ text: t("uploadTipText") }]}
-                  imageFit="contain"
+                  tips={[
+                    { text: t("uploadTipText") },
+                    { text: t("uploadResolutionTip") },
+                  ]}
+                  imageFit="cover"
                   loading={isUploading}
                   isDragging={isDragging}
                   libraryLabel={t("libraryLabel")}
