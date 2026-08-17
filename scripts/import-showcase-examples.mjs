@@ -3,6 +3,7 @@ import { basename, dirname, resolve } from "node:path";
 
 const SHOWCASE_AUTHOR_NAME = "万象分享官";
 const SHOWCASE_AUTHOR_AVATAR_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/showcase/general-image-image-to-image/remote/metac-prod.oss-cn-hangzhou.aliyuncs.com/idm/image/2212/78036/1776308967749_544.8456297354923-a05cc8b0e2.png";
+const MAX_REFERENCE_IMAGES = 14;
 
 const args = process.argv.slice(2);
 const outputIndex = args.indexOf("--out");
@@ -44,7 +45,8 @@ console.log(`Written ${resolve(outputPath)}`);
 
 function normalizeItem(item, index) {
   const imageUrl = cleanUrl(item?.resultImageUrl || item?.coverImageUrl || item?.testImageUrl);
-  const prompt = cleanText(item?.algorithmQuery?.prompt || parseInputConfig(item?.inputConfig)?.prompt);
+  const inputConfig = parseInputConfig(item?.inputConfig);
+  const prompt = cleanText(item?.algorithmQuery?.prompt || inputConfig?.prompt);
   if (!imageUrl || !prompt) return null;
 
   const title = prompt.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || `创作示例 ${index + 1}`;
@@ -58,9 +60,9 @@ function normalizeItem(item, index) {
     sortOrder: index,
     title: title.slice(0, 72),
     imageUrl,
-    referenceImageUrls: [],
+    referenceImageUrls: normalizeUrls(item?.algorithmQuery?.image || inputConfig?.image, MAX_REFERENCE_IMAGES),
     prompt: prompt.slice(0, 4000),
-    model: "GPT Image 2",
+    model: normalizeModel(item?.algorithmQuery),
     aspectRatio: ratio,
     imageSize: clarity,
     authorName: SHOWCASE_AUTHOR_NAME,
@@ -70,6 +72,18 @@ function normalizeItem(item, index) {
     createCount: toNonNegativeInteger(item?.caseGenerateCount),
     sourceId: String(item?.id || ""),
   };
+}
+
+function normalizeUrls(value, maxCount) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map(cleanUrl).filter(Boolean))).slice(0, maxCount);
+}
+
+function normalizeModel(algorithmQuery) {
+  const resourceCode = cleanText(algorithmQuery?.functionResourceCode).toLowerCase();
+  if (resourceCode.includes("nano_banana_pro")) return "Nano Banana Pro";
+  if (resourceCode.includes("nano_banana")) return "Nano Banana 2";
+  return "GPT Image 2";
 }
 
 function parseInputConfig(value) {

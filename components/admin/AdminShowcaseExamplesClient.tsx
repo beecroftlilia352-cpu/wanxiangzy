@@ -152,7 +152,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
         .split(/\r?\n/)
         .map((url) => url.trim())
         .filter(Boolean)
-        .slice(0, 3);
+        .slice(0, 14);
       const response = await fetch("/api/admin/showcase-examples", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -270,7 +270,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
             </Form.Item>
             <Form.Item
               name="referenceImagesText"
-              label="参考图 OSS 地址（最多 3 张）"
+              label="参考图 OSS 地址（最多 14 张）"
               className="md:col-span-2"
               extra={isTextToImage
                 ? "文生图案例无需参考图；留空时卡片只展示生成结果。"

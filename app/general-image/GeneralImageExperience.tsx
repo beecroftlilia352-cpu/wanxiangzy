@@ -510,17 +510,22 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   function handleCreateSimilar(example: StudioShowcaseExample) {
-    const nextModel: LingyaModel = "gpt-image-2";
+    const nextModel: LingyaModel = example.model === "Nano Banana Pro"
+      ? "nano-banana-pro"
+      : example.model === "Nano Banana 2"
+        ? "nano-banana-2"
+        : "gpt-image-2";
     const nextAspectRatio = normalizeAspectRatio(example.aspectRatio, "3:4");
     const requestedSize: ImageSize = example.imageSize === "4K" ? "4K" : example.imageSize === "2K" ? "2K" : "1K";
     if (isImageMode) {
-      const referenceUrl = example.referenceImageUrls[0] || example.imageUrl;
-      setReferenceImages([{
-        id: `showcase-reference-${example.id}`,
-        name: example.title,
+      const referenceUrls = (example.referenceImageUrls.length ? example.referenceImageUrls : [example.imageUrl])
+        .slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
+      setReferenceImages(referenceUrls.map((referenceUrl, index) => ({
+        id: `showcase-reference-${example.id}-${index}`,
+        name: `${example.title} ${index + 1}`,
         url: referenceUrl,
         preview: referenceUrl,
-      }]);
+      })));
     } else {
       setReferenceImages([]);
     }

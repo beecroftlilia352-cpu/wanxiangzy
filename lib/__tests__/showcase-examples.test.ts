@@ -22,4 +22,16 @@ describe("showcase examples", () => {
     expect(examples.every((item) => item.imageUrl.startsWith("https://vasthk.oss-cn-hongkong.aliyuncs.com/"))).toBe(true);
     expect(examples.every((item) => item.referenceImageUrls.length === 0)).toBe(true);
   });
+
+  it("loads the complete image-to-image feed with its source references", () => {
+    const examples = getBuiltInShowcaseExamples("general-image-image-to-image");
+    const referenceCounts = examples.map((item) => item.referenceImageUrls.length);
+
+    expect(examples).toHaveLength(39);
+    expect(new Set(examples.map((item) => item.id)).size).toBe(39);
+    expect(examples.every((item) => item.imageUrl.startsWith("https://vasthk.oss-cn-hongkong.aliyuncs.com/"))).toBe(true);
+    expect(examples.every((item) => item.referenceImageUrls.every((url) => url.startsWith("https://vasthk.oss-cn-hongkong.aliyuncs.com/")))).toBe(true);
+    expect(referenceCounts.reduce((total, count) => total + count, 0)).toBe(72);
+    expect(Math.max(...referenceCounts)).toBe(7);
+  });
 });

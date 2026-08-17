@@ -1,5 +1,6 @@
 import seed from "@/lib/showcase-data/general-image-image-to-image.seed.json";
 import textToImageSeed from "@/lib/showcase-data/general-image-text-to-image.seed.json";
+import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
 
 export const DEFAULT_SHOWCASE_MODULE = "general-image-image-to-image" as const;
 export const SHOWCASE_MODULE_CONFIG = {
@@ -79,7 +80,7 @@ export function parseShowcaseExample(input: unknown): StudioShowcaseExample | nu
     sortOrder: normalizeInteger(record.sortOrder, 0, 9999),
     title: normalizeText(record.title, 100) || prompt.split(/\r?\n/)[0]?.slice(0, 100) || "创作示例",
     imageUrl,
-    referenceImageUrls: normalizeHttpsUrls(record.referenceImageUrls, 3),
+    referenceImageUrls: normalizeHttpsUrls(record.referenceImageUrls, MAX_GENERAL_IMAGE_REFERENCE_IMAGES),
     prompt,
     model: normalizeText(record.model, 60) || "GPT Image 2",
     aspectRatio: normalizeText(record.aspectRatio, 16) || "3:4",

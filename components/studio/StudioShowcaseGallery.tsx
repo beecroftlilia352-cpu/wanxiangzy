@@ -182,6 +182,8 @@ function ShowcaseCard({
   const [loaded, setLoaded] = useState(false);
   const ratio = normalizeAspectRatio(item.aspectRatio);
   const referenceImages = item.referenceImageUrls;
+  const visibleReferences = referenceImages.slice(0, 3);
+  const remainingReferenceCount = Math.max(0, referenceImages.length - visibleReferences.length);
   return (
     <article className="studio-showcase-card" style={{ aspectRatio: ratio }}>
       <Image
@@ -202,11 +204,14 @@ function ShowcaseCard({
         <div className="studio-showcase-card-footer">
           {showReferences && referenceImages.length ? (
             <div className="studio-showcase-card-references" aria-hidden="true">
-              {referenceImages.slice(0, 3).map((url, index) => (
-                <span key={`${url}-${index}`}>
-                  <Image src={url} alt="" fill sizes="52px" className="object-cover" />
+              {visibleReferences.map((url, index) => (
+                <span className="studio-showcase-card-reference" key={`${url}-${index}`}>
+                  <Image src={url} alt="" fill sizes="48px" className="object-cover" />
                 </span>
               ))}
+              {remainingReferenceCount > 0 ? (
+                <span className="studio-showcase-card-reference-count">+{remainingReferenceCount}</span>
+              ) : null}
             </div>
           ) : <span />}
           <button type="button" className="studio-showcase-card-create" onClick={onCreate}>{createLabel}</button>
