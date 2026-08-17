@@ -434,6 +434,13 @@ a,
     --studio-top-content-gap: 6px;
     --studio-task-rail-width: 76px;
     --studio-nav-rail-width: 60px;
+    /* Shared studio typography keeps section, control and metadata hierarchy stable. */
+    --studio-type-section-title: 15px;
+    --studio-type-control-label: 14px;
+    --studio-type-control-value: 14px;
+    --studio-type-support: 12px;
+    --studio-type-badge: 10px;
+    --studio-control-row-height: 48px;
     --chart-1: 220 31% 47%;
     --chart-2: 185 58% 48%;
     --chart-3: 38 92% 55%;

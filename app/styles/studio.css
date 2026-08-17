@@ -1326,7 +1326,7 @@
 .studio-generation-count-field {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .studio-generation-count-header {
@@ -1349,16 +1349,16 @@
 .studio-generation-count-description {
   margin: -3px 0 0;
   color: var(--codex-muted);
-  font-size: 12px;
+  font-size: var(--studio-type-support);
   line-height: 1.55;
 }
 
 .studio-generation-count-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 4px 16px;
+  gap: 10px;
+  min-height: var(--studio-control-row-height);
+  padding: 4px 14px;
   border-radius: 9px;
   background: rgb(249, 250, 253);
   border: 1px solid rgb(235, 237, 242);
@@ -1372,11 +1372,12 @@
 .studio-generation-count-label {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
-  font-size: 16px;
-  font-weight: 650;
+  font-size: var(--studio-type-control-label);
+  font-weight: 600;
+  line-height: 1.25;
   color: var(--codex-ink);
 }
 
@@ -1384,15 +1385,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 5px;
   color: var(--codex-ink);
 }
 
 .studio-generation-count-label-icon > svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   stroke-width: 1.75;
 }
 
@@ -1404,17 +1405,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-width: 64px;
-  height: 40px;
-  padding: 0 14px;
+  gap: 8px;
+  min-width: 60px;
+  height: 38px;
+  padding: 0 12px;
   border-radius: 5px;
   background: #fff;
   color: var(--codex-ink);
   border: 1px solid rgb(226, 232, 240);
-  font-size: 16px;
+  font-size: var(--studio-type-control-value);
   font-weight: 500;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
@@ -1453,14 +1455,15 @@
   flex: 1;
   min-width: 0;
   text-align: right;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--codex-ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .studio-generation-count-unit {
   flex: 0 0 auto;
-  font-size: 16px;
+  font-size: var(--studio-type-control-value);
   font-weight: 500;
   color: var(--codex-ink);
   line-height: 1;
@@ -1586,7 +1589,7 @@
 .studio-resolution-selector {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .studio-resolution-selector-title {
@@ -1710,10 +1713,11 @@
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
-  font-size: 16px;
+  font-size: var(--studio-type-control-value);
   font-weight: 600;
-  line-height: 1.05;
-  letter-spacing: -0.012em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  letter-spacing: -0.008em;
 }
 
 .studio-resolution-selector-clarity {
@@ -1722,7 +1726,7 @@
 
 .studio-resolution-selector-card-selected .studio-resolution-selector-label,
 .studio-resolution-selector-card-selected .studio-resolution-selector-clarity {
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .studio-resolution-selector-description {
@@ -1742,20 +1746,20 @@
 
 .studio-resolution-selector-badge {
   position: absolute;
-  top: -18px;
-  right: -14px;
+  top: -16px;
+  right: -10px;
   transform: none;
   z-index: 2;
   display: inline-flex;
   overflow: hidden;
   align-items: center;
   gap: 2px;
-  height: 20px;
-  padding: 0 9px 1px 7px;
+  height: 18px;
+  padding: 0 7px 1px 6px;
   border-radius: 999px;
   background: #4d391f;
   color: #ffd17c;
-  font-size: 11px;
+  font-size: var(--studio-type-badge);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
@@ -1794,8 +1798,8 @@
 }
 
 .studio-resolution-selector-badge-spark {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   flex: 0 0 auto;
 }
 
@@ -10363,10 +10367,11 @@ header .animate-spin {
   gap: 5px;
   padding: 0 2px 2px;
   color: #17181c;
-  font-size: 15px;
-  font-weight: 720;
+  font-size: var(--studio-type-section-title);
+  font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.015em;
+  text-wrap: balance;
   isolation: isolate;
 }
 
