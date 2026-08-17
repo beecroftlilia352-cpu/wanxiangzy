@@ -44,6 +44,7 @@ type ReferenceQuickStartProps = {
   customOtherRefInputRef: RefObject<HTMLInputElement | null>;
   onCustomDraftChange: (updater: (value: CustomDraft) => CustomDraft) => void;
   onUploadCustomReference: (kind: "style" | "model" | "other", file?: File) => void;
+  onPickCustomReference?: (kind: "style" | "model" | "other") => void;
   onAddCustomTemplate: () => void;
 };
 
@@ -57,9 +58,11 @@ export function ReferenceQuickStart({
   customOtherRefInputRef,
   onCustomDraftChange,
   onUploadCustomReference,
+  onPickCustomReference,
   onAddCustomTemplate,
 }: ReferenceQuickStartProps) {
   const t = useTranslations("ProductSet");
+  const resourceT = useTranslations("ResourceLibrary");
   const unit = imageType === "main" ? t("units.singleImage") : t("units.singleScreen");
   const intentOptions = REFERENCE_INTENT_OPTIONS[imageType];
   const activeIntent = intentOptions.find((option) => option.role === customDraft.moduleRole) || intentOptions[0];
@@ -89,12 +92,12 @@ export function ReferenceQuickStart({
       <input ref={customOtherRefInputRef} aria-hidden="true" tabIndex={-1} type="file" accept="image/*" className="hidden" onChange={(event) => onUploadCustomReference("other", event.target.files?.[0])} />
 
       <div className="rounded-2xl bg-white p-2 shadow-sm">
-        <ReferenceUploadButton label={t("create.quickStart.mainRef")} hint={t("create.quickStart.styleHint")} url={customDraft.referenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customRefInputRef.current?.click()} />
+        <ReferenceUploadButton label={t("create.quickStart.mainRef")} hint={t("create.quickStart.styleHint")} url={customDraft.referenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customRefInputRef.current?.click()} onLibraryClick={onPickCustomReference ? () => onPickCustomReference("style") : undefined} libraryLabel={resourceT("page.title")} />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <ReferenceUploadButton label={t("create.quickStart.modelRef")} hint={t("create.quickStart.optional")} url={customDraft.modelReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customModelRefInputRef.current?.click()} />
-        <ReferenceUploadButton label={t("create.quickStart.extraRef", { count: customDraft.otherReferenceImageUrls.length })} hint={t("create.quickStart.optional")} url={customDraft.otherReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customOtherRefInputRef.current?.click()} />
+        <ReferenceUploadButton label={t("create.quickStart.modelRef")} hint={t("create.quickStart.optional")} url={customDraft.modelReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customModelRefInputRef.current?.click()} onLibraryClick={onPickCustomReference ? () => onPickCustomReference("model") : undefined} libraryLabel={resourceT("page.title")} />
+        <ReferenceUploadButton label={t("create.quickStart.extraRef", { count: customDraft.otherReferenceImageUrls.length })} hint={t("create.quickStart.optional")} url={customDraft.otherReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customOtherRefInputRef.current?.click()} onLibraryClick={onPickCustomReference ? () => onPickCustomReference("other") : undefined} libraryLabel={resourceT("page.title")} />
       </div>
 
       <fieldset className="rounded-2xl bg-white px-3 py-3">

@@ -6,6 +6,20 @@ export const PRODUCT_RETOUCH_MAX_SOURCES = 30;
 export const PRODUCT_RETOUCH_MAX_VARIANTS = 4;
 export const PRODUCT_RETOUCH_USER_INSTRUCTION_LIMIT = 1_200;
 
+export const PRODUCT_RETOUCH_DEFAULT_SETTINGS = {
+  mode: "faithful-retouch",
+  variantsPerSource: 1,
+  model: "gpt-image-2",
+  aspectRatio: "auto",
+  imageSize: "2K",
+} as const satisfies {
+  mode: ProductRetouchMode;
+  variantsPerSource: 1 | 2 | 3 | 4;
+  model: LingyaModel;
+  aspectRatio: AspectRatio;
+  imageSize: ImageSize;
+};
+
 export type ProductRetouchMode =
   | "faithful-retouch"
   | "marketplace-white"

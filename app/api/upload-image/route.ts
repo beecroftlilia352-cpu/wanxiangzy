@@ -4,6 +4,12 @@ import { requireApiUser } from "@/lib/api/auth";
 import { storeImage } from "@/lib/api/image-storage";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
+import { getAdminClient } from "@/lib/supabase/admin";
+import {
+  createUploadRegistrationToken,
+  registerTrustedUploadedResourceAsset,
+  type TrustedUploadDescriptor,
+} from "@/lib/resource-library/upload-registration";
 
 export const maxDuration = 60;
 
@@ -22,6 +28,8 @@ type UploadRequestPayload = {
   bytes?: Buffer;
   contentType?: string;
   name: string;
+  originalFilename?: string;
+  byteSize?: number;
   tooLarge?: boolean;
   debug?: UploadDebugInfo;
 };
@@ -59,7 +67,14 @@ async function readUploadRequest(request: Request) {
     const name = typeof nameValue === "string" && nameValue.trim()
       ? nameValue.trim()
       : file.name.replace(/\.[^.]+$/, "");
-    return { bytes, contentType: file.type || "", name, debug } satisfies UploadRequestPayload;
+    return {
+      bytes,
+      contentType: file.type || "",
+      name,
+      originalFilename: file.name,
+      byteSize: file.size,
+      debug,
+    } satisfies UploadRequestPayload;
   }
 
   const body = await request.json();
@@ -89,7 +104,7 @@ export async function POST(request: Request) {
     );
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
-    const { image, bytes, contentType, name, tooLarge, debug } = await readUploadRequest(request);
+    const { image, bytes, contentType, name, originalFilename, byteSize, tooLarge, debug } = await readUploadRequest(request);
     uploadDebug = debug;
 
     if (tooLarge) {
@@ -115,12 +130,27 @@ export async function POST(request: Request) {
       { maxRemoteBytes: MAX_UPLOAD_BYTES, timeoutMs: IMAGE_UPLOAD_TIMEOUT_MS }
     );
 
+    const registration = await registerUploadedImageBestEffort({
+      userId: user.id,
+      url: stored.url,
+      objectKey: stored.object_key,
+      title: name,
+      originalFilename,
+      mimeType: contentType || (typeof image === "string" ? image.match(/^data:([^;,]+)/i)?.[1] : undefined),
+      byteSize,
+      width: stored.width,
+      height: stored.height,
+    });
+
     return NextResponse.json({
       url: stored.url,
       display_url: stored.display_url,
       delete_url: stored.delete_url,
       width: stored.width,
       height: stored.height,
+      object_key: stored.object_key,
+      asset: registration.asset,
+      resource_registration_token: registration.token,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -150,6 +180,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "图片上传超时，请稍后重试" }, { status: 504 });
     }
     return NextResponse.json({ error: "图片上传失败" }, { status: 500 });
+  }
+}
+
+async function registerUploadedImageBestEffort(input: {
+  userId: string;
+  url: string;
+  objectKey?: string;
+  title?: string;
+  originalFilename?: string;
+  mimeType?: string;
+  byteSize?: number;
+  width?: number;
+  height?: number;
+}) {
+  if (!input.objectKey) return { asset: undefined, token: undefined };
+  const descriptor: TrustedUploadDescriptor = {
+    url: input.url,
+    objectKey: input.objectKey,
+    mediaType: "image",
+    title: input.title,
+    originalFilename: input.originalFilename,
+    mimeType: input.mimeType,
+    byteSize: input.byteSize,
+    width: input.width,
+    height: input.height,
+  };
+  let token: string | undefined;
+  try {
+    token = createUploadRegistrationToken(input.userId, descriptor);
+  } catch (error) {
+    console.error("[upload-image] resource registration token failed:", error);
+  }
+  try {
+    const asset = await registerTrustedUploadedResourceAsset(getAdminClient(), input.userId, descriptor);
+    return { asset, token };
+  } catch (error) {
+    console.error("[upload-image] resource registration failed:", error);
+    return { asset: undefined, token };
   }
 }
 

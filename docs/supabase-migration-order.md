@@ -22,6 +22,7 @@
 15. supabase/tryon-reference-templates.sql
 16. supabase/product-set-favorite-plans.sql
 17. supabase/product-retouch.sql
+18. supabase/resource-library.sql
 ```
 
 关键依赖：
@@ -36,6 +37,7 @@ task-queue-items.sql 依赖 generations 和 agent_workflows。
 stripe-billing.sql 文件头已标明需要在 schema、credits-update、admin-console 后执行。
 admin-console.sql 的积分调整函数依赖 profiles 和 credit_logs。
 product-retouch.sql 依赖 generations、credit_logs、admin_config_versions 和 task_queue_items。
+resource-library.sql 依赖 auth.users 和 generations，创建资源收藏、用户提示词、RLS 与资源分类统计函数。
 ```
 
 注意：Agent 模块的 API 当前是 no-op，但 `task-queue-items.sql` 里的 workflow read model 会引用 `public.agent_workflows`。因此如果要启用任务轨道和后台队列视图，仍需先运行 `agent-workflows.sql` 建表。不要跳过第 7 步后直接运行第 8 步。
@@ -98,6 +100,7 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tryon-reference-favorites
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tryon-reference-templates.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/product-set-favorite-plans.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/product-retouch.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/resource-library.sql
 ```
 
 ## 执行后验证
@@ -113,7 +116,9 @@ SELECT
   to_regclass('public.billing_products') AS billing_products,
   to_regclass('public.tryon_reference_scenes') AS tryon_reference_scenes,
   to_regclass('public.product_retouch_batches') AS product_retouch_batches,
-  to_regclass('public.product_retouch_outputs') AS product_retouch_outputs;
+  to_regclass('public.product_retouch_outputs') AS product_retouch_outputs,
+  to_regclass('public.resource_library_assets') AS resource_library_assets,
+  to_regclass('public.user_prompts') AS user_prompts;
 ```
 
 ```sql
@@ -129,7 +134,8 @@ WHERE pronamespace = 'public'::regnamespace
     'grant_billing_order_credits',
     'create_product_retouch_batch',
     'retry_product_retouch_output',
-    'publish_product_retouch_skill_version'
+    'publish_product_retouch_skill_version',
+    'get_resource_library_facets'
   )
 ORDER BY proname;
 ```

@@ -11,7 +11,6 @@ type ProductRetouchBatchGridProps = {
   onPreview: (output: ProductRetouchOutput, outputIndex: number) => void;
   onRetry: (output: ProductRetouchOutput) => void;
   retryingOutputId?: string | null;
-  downloadingSourceIndex?: number | null;
 };
 
 export function ProductRetouchBatchGrid({
@@ -19,7 +18,6 @@ export function ProductRetouchBatchGrid({
   onPreview,
   onRetry,
   retryingOutputId,
-  downloadingSourceIndex,
 }: ProductRetouchBatchGridProps) {
   const t = useTranslations("ProductRetouch");
   const groups = groupOutputs(batch.outputs);
@@ -44,7 +42,12 @@ export function ProductRetouchBatchGrid({
           onPreview={onPreview}
           onRetry={onRetry}
           retryingOutputId={retryingOutputId}
-          downloading={downloadingSourceIndex === sourceIndex}
+          resourceFavorite={{
+            generationId: batch.parentGenerationId,
+            moduleKey: "productRetouch",
+            mediaType: "image",
+            resultIndexOffset: sourceIndex * batch.variantsPerSource,
+          }}
         />
       ))}
     </div>

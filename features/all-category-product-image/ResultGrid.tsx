@@ -14,12 +14,18 @@ import {
   type ResultSlot,
 } from "@/features/all-category-product-image/shared";
 import { IconButton } from "@/features/all-category-product-image/IconButton";
+import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
+import {
+  createResourceFavoriteDescriptor,
+  type ResourceFavoriteCollectionContext,
+} from "@/components/resource-library/resource-favorite-types";
 
 type Props = {
   slots: ResultSlot[];
   regeneratingIndex: number | null;
   onPreview: (url: string, title: string, index: number) => void;
   onRegenerate: (index: number) => void;
+  resourceFavorite?: ResourceFavoriteCollectionContext;
 };
 
 /**
@@ -34,6 +40,7 @@ export function ResultGrid({
   regeneratingIndex,
   onPreview,
   onRegenerate,
+  resourceFavorite,
 }: Props) {
   const t = useTranslations("AllCategoryProduct");
   const sharedT = useTranslations("Shared");
@@ -97,6 +104,10 @@ export function ResultGrid({
                     showLabel={false}
                     variant="ghost"
                     className="h-10 w-10 rounded-full bg-white p-0 text-codex-ink shadow-lg hover:bg-[var(--codex-surface-soft)]"
+                  />
+                  <FavoriteAssetButton
+                    descriptor={createResourceFavoriteDescriptor(resourceFavorite, slot.url, index, slot.module.title)}
+                    className="h-10 w-10"
                   />
                   <IconButton
                     label={t("regenerate")}

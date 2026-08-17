@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { Camera, CheckCircle2, ChevronRight, UserRound } from "lucide-react";
+import { Camera, CheckCircle2, ChevronRight, FolderOpen, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -63,6 +63,7 @@ import {
 } from "@/lib/model-presets";
 import { buildModelDefaultPrompt } from "@/lib/model-default-prompt";
 import { HairStyleSection } from "@/features/model/HairStyleSection";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 
 type Gender = "female" | "male";
 type ModelGenerateOptions = {
@@ -76,6 +77,7 @@ type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
 
 export default function ModelPage() {
   const t = useTranslations("Model");
+  const { openResourcePicker } = useResourcePicker();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hairInputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +121,7 @@ export default function ModelPage() {
   const [userExtraPrompt, setUserExtraPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [activeResultMeta, setActiveResultMeta] = useState<{ createdAt: string; inputThumbnails: string[] } | null>(null);
   const [error, setError] = useState("");
@@ -179,6 +182,7 @@ export default function ModelPage() {
   const previewSession = useStudioPreview({
     module: "model",
     title: t("title"),
+    taskId: activeGenerationId || undefined,
     urls: resultUrls,
     expectedCount: activeResultExpectedCount,
     isGenerating,
@@ -606,6 +610,7 @@ export default function ModelPage() {
         throw new Error(t("noGenerationId"));
       }
       const generationId = data.generation_id;
+      setActiveGenerationId(generationId);
       const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
         id: generationId,
         expectedCount: displayExpectedCount,
@@ -653,6 +658,7 @@ export default function ModelPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setError("");
@@ -667,6 +673,7 @@ export default function ModelPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "model", session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyModelHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -699,6 +706,7 @@ export default function ModelPage() {
     setIsGenerating(false);
     setRunningExpectedCount(null);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setActiveResultMeta(null);
     setError("");
     setPreviewIndex(null);
@@ -754,7 +762,21 @@ export default function ModelPage() {
                 summary={referenceUrls.length ? t("uploadSummary") : undefined}
                 footnote={t("uploadFootnote")}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("uploadReference"),
+                    role: "model-reference",
+                    selectionMode: "multiple",
+                    maxCount: 3,
+                    existingCount: referenceUrls.length,
+                    excludedUrls: referenceUrls,
+                    mediaTypes: ["image"],
+                    moduleKey: "model",
+                  });
+                  const urls = assetUrls(assets);
+                  if (!urls.length) return;
+                  setReferenceUrls((current) => Array.from(new Set([...current, ...urls])).slice(0, 3));
+                }}
                 onPreview={(_, index) => setReferencePreviewIndex(index)}
                 onRemove={(_, index) => {
                   setReferenceUrls((prev) => prev.filter((__, i) => i !== index));
@@ -834,6 +856,22 @@ export default function ModelPage() {
             onUpload={uploadHairReference}
             onRemoveUpload={() => setHairReferenceUrl(null)}
             onPickFile={() => hairInputRef.current?.click()}
+            onPickLibrary={async () => {
+              const assets = await openResourcePicker({
+                title: t("hairStyleRef"),
+                role: "hair-reference",
+                selectionMode: "single",
+                maxCount: 1,
+                existingCount: hairReferenceUrl ? 1 : 0,
+                excludedUrls: hairReferenceUrl ? [hairReferenceUrl] : [],
+                mediaTypes: ["image"],
+                moduleKey: "model",
+              });
+              const [url] = assetUrls(assets);
+              if (!url) return;
+              setHairStyle(null);
+              setHairReferenceUrl(url);
+            }}
           />
 
           <section>
@@ -902,6 +940,29 @@ export default function ModelPage() {
                 )}
               </button>
             </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const assets = await openResourcePicker({
+                  title: t("hairColorRef"),
+                  role: "hair-color-reference",
+                  selectionMode: "single",
+                  maxCount: 1,
+                  existingCount: hairColorReferenceUrl ? 1 : 0,
+                  excludedUrls: hairColorReferenceUrl ? [hairColorReferenceUrl] : [],
+                  mediaTypes: ["image"],
+                  moduleKey: "model",
+                });
+                const [url] = assetUrls(assets);
+                if (!url) return;
+                setHairColor(null);
+                setHairColorReferenceUrl(url);
+              }}
+              className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white/80 text-xs font-semibold text-codex-muted transition hover:border-[var(--codex-accent-35)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)]"
+            >
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              {t("uploadLibrary")}
+            </button>
             {hairColorReferenceUrl && (
               <button
                 onClick={() => setHairColorReferenceUrl(null)}
@@ -1011,6 +1072,7 @@ export default function ModelPage() {
                 createdAt={activeResultMeta?.createdAt}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                resourceFavorite={{ generationId: activeGenerationId, moduleKey: "model", mediaType: "image" }}
                 markMissingAsFailed={hasCompletedPartialResults}
                 missingFailureLabel={t("missingFailureLabel")}
                 missingFailureDetail={partialFailureMessage}

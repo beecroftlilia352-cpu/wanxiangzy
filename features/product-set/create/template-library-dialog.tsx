@@ -40,6 +40,7 @@ type TemplateLibraryDialogProps = {
   onShowCustomBuilder: (value: boolean) => void;
   onCustomDraftChange: (updater: (value: CustomDraft) => CustomDraft) => void;
   onUploadCustomReference: (kind: "style" | "model" | "other", file?: File) => void;
+  onPickCustomReference?: (kind: "style" | "model" | "other") => void;
   onAddCustomTemplate: () => void;
   onRemoveCustomTemplate: (id: string) => void;
 };
@@ -65,6 +66,7 @@ export function TemplateLibraryDialog({
   onShowCustomBuilder,
   onCustomDraftChange,
   onUploadCustomReference,
+  onPickCustomReference,
   onAddCustomTemplate,
   onRemoveCustomTemplate,
 }: TemplateLibraryDialogProps) {
@@ -164,6 +166,7 @@ export function TemplateLibraryDialog({
                   customOtherRefInputRef={customOtherRefInputRef}
                   onCustomDraftChange={onCustomDraftChange}
                   onUploadCustomReference={onUploadCustomReference}
+                  onPickCustomReference={onPickCustomReference}
                   onAddCustomTemplate={onAddCustomTemplate}
                 />
               </div>

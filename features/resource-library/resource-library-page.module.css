@@ -1,0 +1,451 @@
+.workspace {
+  display: flex;
+  width: 100%;
+  height: calc(100dvh - var(--studio-shell-header-height, 44px) - 12px);
+  min-height: 620px;
+  overflow: hidden;
+  border: 1px solid var(--codex-border);
+  border-radius: var(--studio-shell-radius-top, 12px) var(--studio-shell-radius-top, 12px) var(--studio-shell-radius-bottom, 18px) var(--studio-shell-radius-bottom, 18px);
+  background: var(--codex-surface);
+  box-shadow: var(--codex-shadow-sm);
+}
+
+.page {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 30px 14px;
+}
+
+.pageHeader h1 {
+  margin: 0;
+  color: var(--codex-ink);
+  font-size: clamp(24px, 2vw, 32px);
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+.pageHeader p {
+  margin: 7px 0 0;
+  color: var(--codex-muted);
+  font-size: 13px;
+}
+
+.tabRow {
+  display: flex;
+  gap: 28px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--codex-border);
+  padding: 0 30px;
+}
+
+.tabButton {
+  position: relative;
+  min-width: max-content;
+  padding: 13px 1px 15px;
+  color: var(--codex-faint);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tabButton::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: var(--codex-ink);
+  content: "";
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: opacity var(--codex-motion-fast), transform var(--codex-motion-fast);
+}
+
+.tabButton:hover,
+.tabButton[data-active] {
+  color: var(--codex-ink);
+}
+
+.tabButton[data-active]::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.panel {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.panelScroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px 30px 40px;
+}
+
+.uploadSlot,
+.uploadTile {
+  min-height: 226px;
+}
+
+.uploadTile {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 9px;
+  border: 1px dashed var(--codex-accent-50);
+  border-radius: var(--codex-radius-md);
+  background: var(--codex-accent-04);
+  color: var(--codex-muted);
+  transition: border-color var(--codex-motion-fast), background-color var(--codex-motion-fast), transform var(--codex-motion-fast);
+}
+
+.uploadTile:hover {
+  border-color: var(--codex-accent);
+  background: var(--codex-accent-08);
+  transform: translateY(-1px);
+}
+
+.uploadTile > span {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid var(--codex-accent-18);
+  border-radius: 16px;
+  background: var(--codex-surface-strong);
+  color: var(--codex-accent);
+  box-shadow: var(--codex-shadow-sm);
+}
+
+.uploadTile svg {
+  width: 22px;
+  height: 22px;
+}
+
+.uploadTile strong {
+  color: var(--codex-ink);
+  font-size: 14px;
+}
+
+.uploadTile small {
+  font-size: 11px;
+}
+
+.loadMore {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.errorBanner {
+  margin: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--codex-danger) 24%, transparent);
+  background: color-mix(in srgb, var(--codex-danger) 8%, transparent);
+  padding: 9px 30px;
+  color: var(--codex-danger);
+  font-size: 12px;
+}
+
+.promptToolbar {
+  display: grid;
+  grid-template-columns: 170px minmax(220px, 420px) 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--codex-border);
+  padding: 11px 30px;
+}
+
+.promptTypeSelect select,
+.searchField,
+.promptDialog input,
+.promptDialog select,
+.promptDialog textarea {
+  border: 1px solid var(--codex-border);
+  border-radius: 10px;
+  background: var(--codex-surface-strong);
+  color: var(--codex-ink);
+}
+
+.promptTypeSelect select {
+  width: 100%;
+  height: 38px;
+  padding: 0 34px 0 12px;
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.searchField {
+  display: flex;
+  height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+}
+
+.searchField svg {
+  width: 16px;
+  height: 16px;
+  color: var(--codex-faint);
+}
+
+.searchField input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--codex-ink);
+  font-size: 13px;
+  outline: none;
+}
+
+.promptGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.promptCard {
+  position: relative;
+  display: grid;
+  min-height: 188px;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  overflow: hidden;
+  border: 1px solid var(--codex-border);
+  border-radius: var(--codex-radius-lg);
+  background: var(--codex-surface-strong);
+  padding: 17px;
+  box-shadow: var(--codex-shadow-sm);
+}
+
+.promptIcon {
+  position: absolute;
+  right: -8px;
+  bottom: -10px;
+  color: var(--codex-accent-08);
+}
+
+.promptIcon svg {
+  width: 88px;
+  height: 88px;
+}
+
+.promptCardHeader {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.promptCardHeader > div {
+  display: grid;
+  gap: 5px;
+}
+
+.promptCardHeader strong {
+  color: var(--codex-ink);
+  font-size: 15px;
+}
+
+.promptCardHeader span {
+  color: var(--codex-accent);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.promptCard > p {
+  position: relative;
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--codex-muted);
+  font-size: 13px;
+  line-height: 1.65;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.previewDialog {
+  width: min(1040px, calc(100vw - 32px));
+  max-width: none;
+  height: min(820px, calc(100dvh - 32px));
+  place-items: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--codex-surface) 92%, black);
+  padding: 18px;
+}
+
+.previewDialog img,
+.previewDialog video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--codex-radius-md);
+  object-fit: contain;
+}
+
+.previewClose {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+}
+
+.promptDialog {
+  width: min(620px, calc(100vw - 32px));
+  max-width: none;
+  gap: 0;
+  padding: 0;
+}
+
+.promptDialogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--codex-border);
+  padding: 20px 20px 16px 22px;
+}
+
+.promptDialogHeader [data-slot="dialog-description"] {
+  margin-top: 6px;
+}
+
+.promptDialog form {
+  display: grid;
+  gap: 15px;
+  padding: 20px 22px 22px;
+}
+
+.promptDialog label {
+  display: grid;
+  gap: 7px;
+  color: var(--codex-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.promptDialog input,
+.promptDialog select,
+.promptDialog textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 450;
+  outline: none;
+}
+
+.promptDialog textarea {
+  min-height: 160px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.promptDialog input:focus,
+.promptDialog select:focus,
+.promptDialog textarea:focus,
+.promptTypeSelect select:focus-visible,
+.searchField:focus-within {
+  border-color: var(--codex-accent-50);
+  box-shadow: 0 0 0 3px var(--codex-accent-14);
+}
+
+.promptDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.promptDialogActions button {
+  min-width: 92px;
+}
+
+.formError {
+  margin: 0;
+  color: var(--codex-danger);
+  font-size: 12px;
+}
+
+.confirmDialog {
+  width: min(440px, calc(100vw - 32px));
+  max-width: none;
+  padding: 22px;
+}
+
+@media (max-width: 760px) {
+  .workspace {
+    height: auto;
+    min-height: calc(100dvh - var(--studio-shell-header-height, 44px));
+    flex-direction: column;
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  .page {
+    min-height: calc(100dvh - 116px);
+  }
+
+  .pageHeader {
+    padding: 18px 16px 10px;
+  }
+
+  .pageHeader p {
+    display: none;
+  }
+
+  .tabRow {
+    gap: 22px;
+    padding: 0 16px;
+  }
+
+  .panelScroll {
+    overflow: visible;
+    padding: 16px;
+  }
+
+  .promptToolbar {
+    grid-template-columns: 1fr auto;
+    padding: 10px 16px;
+  }
+
+  .searchField {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .promptGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .uploadSlot,
+  .uploadTile {
+    min-height: 190px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabButton::after,
+  .uploadTile {
+    transition: none;
+  }
+
+  .uploadTile:hover {
+    transform: none;
+  }
+}

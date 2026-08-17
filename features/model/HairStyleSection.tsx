@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import type { MutableRefObject } from "react";
-import { Camera, CheckCircle2, UserRound } from "lucide-react";
+import { Camera, CheckCircle2, FolderOpen, UserRound } from "lucide-react";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { MODEL_HAIR_STYLES, type HairStyleOption } from "@/lib/model-presets";
 
@@ -18,6 +18,7 @@ type Props = {
   onUpload: (files: File[]) => Promise<unknown> | void;
   onRemoveUpload: () => void;
   onPickFile: () => void;
+  onPickLibrary?: () => void;
 };
 
 /**
@@ -26,7 +27,7 @@ type Props = {
  * 受控组件：所有状态由父组件持有并通过回调传出。Ref 透传给隐藏的 <input>，
  * 父组件负责真实的上传逻辑（涉及 supabase + credits）。
  */
-export function HairStyleSection({ gender, hairStyle, hairReferenceUrl, hairInputRef, onSelectPreset, onClear, onUpload, onRemoveUpload, onPickFile }: Props) {
+export function HairStyleSection({ gender, hairStyle, hairReferenceUrl, hairInputRef, onSelectPreset, onClear, onUpload, onRemoveUpload, onPickFile, onPickLibrary }: Props) {
   const t = useTranslations("Model");
   const presets: HairStyleOption[] = MODEL_HAIR_STYLES[gender];
 
@@ -102,6 +103,16 @@ export function HairStyleSection({ gender, hairStyle, hairReferenceUrl, hairInpu
           )}
         </button>
       </div>
+      {onPickLibrary ? (
+        <button
+          type="button"
+          onClick={onPickLibrary}
+          className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white/80 text-xs font-semibold text-codex-muted transition hover:border-[var(--codex-accent-35)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)]"
+        >
+          <FolderOpen className="h-4 w-4" aria-hidden="true" />
+          {t("uploadLibrary")}
+        </button>
+      ) : null}
       {hairReferenceUrl && (
         <button
           onClick={onRemoveUpload}

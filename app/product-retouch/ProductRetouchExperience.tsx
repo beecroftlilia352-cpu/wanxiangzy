@@ -36,6 +36,7 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { ProductRetouchBatchGrid } from "@/features/product-retouch/ProductRetouchBatchGrid";
+import { useResourcePicker } from "@/features/resource-library";
 import {
   isTerminalBatch,
   useProductRetouchBatch,
@@ -51,6 +52,7 @@ import {
   type LingyaModel,
 } from "@/lib/api/lingya";
 import {PRODUCT_RETOUCH_EXAMPLE_IMAGES,
+  PRODUCT_RETOUCH_DEFAULT_SETTINGS,
   PRODUCT_RETOUCH_MAX_SOURCES,
   PRODUCT_RETOUCH_MODE_OPTIONS,
   normalizeProductRetouchInstruction,
@@ -100,6 +102,24 @@ const MODE_OPTIONS = PRODUCT_RETOUCH_MODE_OPTIONS.map((option) => ({
       : SunMedium,
 }));
 
+const MODE_TRANSLATION_KEYS: Record<ProductRetouchMode, {
+  label: "mode.faithfulLabel" | "mode.whiteBackgroundLabel" | "mode.studioLabel";
+  description: "mode.faithfulDesc" | "mode.whiteBackgroundDesc" | "mode.studioDesc";
+}> = {
+  "faithful-retouch": {
+    label: "mode.faithfulLabel",
+    description: "mode.faithfulDesc",
+  },
+  "marketplace-white": {
+    label: "mode.whiteBackgroundLabel",
+    description: "mode.whiteBackgroundDesc",
+  },
+  "studio-polish": {
+    label: "mode.studioLabel",
+    description: "mode.studioDesc",
+  },
+};
+
 const SIZE_OPTIONS: ReadonlyArray<{
   value: ImageSize;
   label: string;
@@ -118,7 +138,13 @@ type PreviewState = {
 
 export function ProductRetouchExperience() {
   const t = useTranslations("ProductRetouch");
+  const { openResourcePicker } = useResourcePicker();
   const displayModels = useStudioImageModelOptions();
+  const displayModes = useMemo(() => MODE_OPTIONS.map((option) => ({
+    ...option,
+    label: t(MODE_TRANSLATION_KEYS[option.value].label),
+    description: t(MODE_TRANSLATION_KEYS[option.value].description),
+  })), [t]);
   const displayAspects = useMemo(() => ASPECT_OPTIONS.map((m) => {
     const { labelKey } = m;
     return {
@@ -138,12 +164,12 @@ export function ProductRetouchExperience() {
   const restoredIdRef = useRef<string | null>(null);
   const submissionRef = useRef<{ fingerprint: string; requestId: string } | null>(null);
   const [sources, setSources] = useState<ProductRetouchSource[]>([]);
-  const [mode, setMode] = useState<ProductRetouchMode>("faithful-retouch");
+  const [mode, setMode] = useState<ProductRetouchMode>(PRODUCT_RETOUCH_DEFAULT_SETTINGS.mode);
   const [category] = useState("auto");
-  const [variantsPerSource, setVariantsPerSource] = useState(1);
-  const [model, setModel] = useState<LingyaModel>("gpt-image-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
-  const [imageSize, setImageSize] = useState<ImageSize>("2K");
+  const [variantsPerSource, setVariantsPerSource] = useState<number>(PRODUCT_RETOUCH_DEFAULT_SETTINGS.variantsPerSource);
+  const [model, setModel] = useState<LingyaModel>(PRODUCT_RETOUCH_DEFAULT_SETTINGS.model);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(PRODUCT_RETOUCH_DEFAULT_SETTINGS.aspectRatio);
+  const [imageSize, setImageSize] = useState<ImageSize>(PRODUCT_RETOUCH_DEFAULT_SETTINGS.imageSize);
   const [userInstruction, setUserInstruction] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -168,7 +194,7 @@ export function ProductRetouchExperience() {
   });
   const { loadBatch, watchBatch, stopWatching } = useProductRetouchBatch();
 
-  const expectedCount = Math.max(1, sources.length * variantsPerSource);
+  const expectedCount = sources.length * variantsPerSource;
   const unitCreditCost = getCreditCost(model, imageSize, aspectRatio);
   const totalCost = sources.length * variantsPerSource * unitCreditCost;
   const terminalCount = (batch?.completedCount || 0) + (batch?.failedCount || 0);
@@ -376,7 +402,7 @@ export function ProductRetouchExperience() {
     const example = PRODUCT_RETOUCH_EXAMPLE_IMAGES.find((item) => item.url === image.url);
     if (!example) return;
     if (sources.some((source) => source.url === example.url)) {
-      toast.info(t("example.alreadyAdded", { title: example.title }));
+      toast.info(t("example.alreadyAdded", { title: image.title }));
       return;
     }
     if (sources.length >= PRODUCT_RETOUCH_MAX_SOURCES) {
@@ -391,7 +417,7 @@ export function ProductRetouchExperience() {
         filename: example.filename,
       },
     ]);
-    toast.success(t("example.added", { title: example.title }));
+    toast.success(t("example.added", { title: image.title }));
   }, [isGenerating, isUploading, sources]);
 
   const handleGenerate = useCallback(async () => {
@@ -569,9 +595,10 @@ export function ProductRetouchExperience() {
         references: [{ url: output.sourceUrl, label: t("preview.sourceImage"), role: "product" }],
         promptText: batch.userInstruction,
         selectedIndex,
+        resourceResultIndices: group.map((item) => item.sourceIndex * batch.variantsPerSource + Math.max(0, item.variantIndex - 1)),
         resultTitlePrefix: t("preview.resultPrefix"),
         metaItems: [
-          { label: t("meta.mode"), value: getModeLabel(batch.mode) },
+          { label: t("meta.mode"), value: displayModes.find((option) => option.value === batch.mode)?.label ?? batch.mode },
           { label: t("meta.model"), value: batch.model },
           { label: t("meta.size"), value: batch.imageSize },
           { label: t("meta.skill"), value: batch.skillVersion },
@@ -580,7 +607,7 @@ export function ProductRetouchExperience() {
         aspectRatio: batch.aspectRatio,
       }),
     });
-  }, [batch]);
+  }, [batch, displayModes, t]);
 
   const handleRunningTask = useCallback(async (
     item: TaskQueueItem,
@@ -640,11 +667,11 @@ export function ProductRetouchExperience() {
               setError(null);
               setIsGenerating(false);
               setSources([]);
-              setMode("faithful-retouch");
-              setVariantsPerSource(1);
-              setModel("gpt-image-2");
-              setAspectRatio("1:1");
-              setImageSize("2K");
+              setMode(PRODUCT_RETOUCH_DEFAULT_SETTINGS.mode);
+              setVariantsPerSource(PRODUCT_RETOUCH_DEFAULT_SETTINGS.variantsPerSource);
+              setModel(PRODUCT_RETOUCH_DEFAULT_SETTINGS.model);
+              setAspectRatio(PRODUCT_RETOUCH_DEFAULT_SETTINGS.aspectRatio);
+              setImageSize(PRODUCT_RETOUCH_DEFAULT_SETTINGS.imageSize);
               setUserInstruction("");
                       setPreview(null);
             }}
@@ -661,133 +688,155 @@ export function ProductRetouchExperience() {
         )}
         controlPanel={(
           <StudioControlPanel>
-            <div className="space-y-4 p-4">
-              <StudioUploadSection
-                title={t("upload.sourceTitle")}
-                inputRef={inputRef}
-                multiple
-                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                isDragging={isDragging}
-                setDragging={setIsDragging}
-                onFiles={handleFiles}
-              >
-                {(openFileDialog) => (
-                  <MultiImageUploadV2
-                    urls={sources.map((source) => source.url)}
-                    maxCount={PRODUCT_RETOUCH_MAX_SOURCES}
-                    title={t("upload.uploadedTitle")}
-                    emptyHint={t("upload.emptyTitle")}
-                    itemLabelPrefix={t("upload.itemLabelPrefix")}
-                    loading={isUploading}
-                    disabled={isGenerating}
-                    isDragging={isDragging}
-                    summary={sources.length ? t("upload.summary", { count: sources.length, expected: expectedCount }) : undefined}
-                    footnote={t("upload.footnote")}
-                    tips={[
-                      { label: t("upload.tipConsistencyLabel"), text: t("upload.tipConsistency") },
-                      { label: t("upload.tipAdviceLabel"), text: t("upload.tipAdvice") },
-                    ]}
-                    onUploadClick={openFileDialog}
-                    onPreview={openSourcePreview}
-                    onRemove={(_, index) => setSources((current) => current.filter((__, itemIndex) => itemIndex !== index))}
-                    onMove={(fromIndex, toIndex) => setSources((current) => {
-                      if (fromIndex === toIndex
-                        || fromIndex < 0
-                        || toIndex < 0
-                        || fromIndex >= current.length
-                        || toIndex >= current.length) return current;
-                      const next = [...current];
-                      const [moved] = next.splice(fromIndex, 1);
-                      next.splice(toIndex, 0, moved);
-                      return next;
-                    })}
-                    onClear={() => setSources([])}
-                    examples={{
-                      label: t("common.tryIt"),
-                      images: PRODUCT_RETOUCH_EXAMPLE_IMAGES.map((example) => ({
-                        url: example.url,
-                        title: example.title,
-                      })),
-                      disabled: sources.length >= PRODUCT_RETOUCH_MAX_SOURCES,
-                      onSelect: applyExample,
-                    }}
-                  />
-                )}
-              </StudioUploadSection>
+            <StudioUploadSection
+              title={t("upload.sourceTitle")}
+              inputRef={inputRef}
+              multiple
+              accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+              isDragging={isDragging}
+              setDragging={setIsDragging}
+              onFiles={handleFiles}
+            >
+              {(openFileDialog) => (
+                <MultiImageUploadV2
+                  urls={sources.map((source) => source.url)}
+                  maxCount={PRODUCT_RETOUCH_MAX_SOURCES}
+                  title={t("upload.uploadedTitle")}
+                  emptyHint={t("upload.emptyTitle")}
+                  itemLabelPrefix={t("upload.itemLabelPrefix")}
+                  loading={isUploading}
+                  disabled={isGenerating}
+                  isDragging={isDragging}
+                  summary={sources.length ? t("upload.summary", { count: sources.length, expected: expectedCount }) : undefined}
+                  footnote={t("upload.footnote")}
+                  tips={[
+                    { label: t("upload.tipConsistencyLabel"), text: t("upload.tipConsistency") },
+                    { label: t("upload.tipAdviceLabel"), text: t("upload.tipAdvice") },
+                  ]}
+                  onUploadClick={openFileDialog}
+                  onLibraryClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("upload.sourceTitle"),
+                      role: "source",
+                      selectionMode: "multiple",
+                      maxCount: PRODUCT_RETOUCH_MAX_SOURCES,
+                      existingCount: sources.length,
+                      excludedUrls: sources.map((source) => source.url),
+                      mediaTypes: ["image"],
+                      moduleKey: "productRetouch",
+                    });
+                    if (!assets?.length) return;
+                    setSources((current) => {
+                      const existing = new Set(current.map((source) => source.url));
+                      const added = assets
+                        .filter((asset) => !existing.has(asset.url))
+                        .map((asset) => ({
+                          clientId: `resource-${asset.id}`,
+                          url: asset.url,
+                          filename: asset.title || `resource-${asset.id}.jpg`,
+                        }));
+                      return [...current, ...added].slice(0, PRODUCT_RETOUCH_MAX_SOURCES);
+                    });
+                  }}
+                  onPreview={openSourcePreview}
+                  onRemove={(_, index) => setSources((current) => current.filter((__, itemIndex) => itemIndex !== index))}
+                  onMove={(fromIndex, toIndex) => setSources((current) => {
+                    if (fromIndex === toIndex
+                      || fromIndex < 0
+                      || toIndex < 0
+                      || fromIndex >= current.length
+                      || toIndex >= current.length) return current;
+                    const next = [...current];
+                    const [moved] = next.splice(fromIndex, 1);
+                    next.splice(toIndex, 0, moved);
+                    return next;
+                  })}
+                  onClear={() => setSources([])}
+                  examples={{
+                    label: t("common.tryIt"),
+                    images: PRODUCT_RETOUCH_EXAMPLE_IMAGES.map((example, index) => ({
+                      url: example.url,
+                      title: t("example.sampleLabel", { index: index + 1 }),
+                    })),
+                    disabled: sources.length >= PRODUCT_RETOUCH_MAX_SOURCES,
+                    onSelect: applyExample,
+                  }}
+                />
+              )}
+            </StudioUploadSection>
 
-              <StudioSection
-                title={t("section.planTitle")}
-                description={t("section.planDesc")}
-                icon={<Wand2 className="h-4 w-4" />}
-              >
-                <StudioOptionGrid
-                  options={MODE_OPTIONS}
-                  value={mode}
-                  onChange={setMode}
-                  columns={1}
-                  textAlign="start"
-                  descriptionMode="wrap"
-                  ariaLabel={t("section.modeAria")}
-                />
-              </StudioSection>
-
-              <StudioSection
-                title={t("section.settingsTitle")}
-                description={t("section.settingsDesc")}
-                icon={<Settings2 className="h-4 w-4" />}
-              >
-                <StudioModelSelector
-                  models={displayModels}
-                  value={model}
-                  onChange={setModel}
-                  columns={2}
-                  ariaLabel={t("section.modelAria")}
-                />
-                <div className="mt-4">
-                  <Label className="mb-2 block">{t("section.aspectLabel")}</Label>
-                  <AspectRatioSelector
-                    options={displayAspects}
-                    value={aspectRatio}
-                    onChange={setAspectRatio}
-                    ariaLabel={t("section.aspectAria")}
-                  />
-                </div>
-                <ResolutionSelector
-                  className="mt-4"
-                  title={t("section.resolutionLabel")}
-                  value={imageSize}
-                  options={displaySizes.map((option) => ({
-                    ...option,
-                    disabled: !getSupportedImageSizes(model, aspectRatio).includes(option.value),
-                  }))}
-                  onChange={setImageSize}
-                  ariaLabel={t("section.resolutionAria")}
-                />
-                <GenerationCountField
-                  className="mt-4"
-                  title={t("section.perSourceLabel")}
-                  label={t("section.perSourceLabel")}
-                  value={variantsPerSource}
-                  onChange={setVariantsPerSource}
-                  counts={[1, 2, 3, 4]}
-                  unit={t("section.perSourceUnit")}
-                  ariaLabel={t("section.perSourceAria")}
-                />
-              </StudioSection>
-
-              <PromptTextarea
-                title={t("prompt.title")}
-                badge={t("prompt.badge")}
-                value={userInstruction}
-                maxLength={1200}
-                rows={4}
-                onChange={(event) => setUserInstruction(event.target.value)}
-                placeholder={t("prompt.placeholder")}
-                description={t("prompt.desc")}
-                disabled={isGenerating}
-                onClear={() => setUserInstruction("")}
+            <StudioSection
+              title={t("section.planTitle")}
+              description={t("section.planDesc")}
+              icon={<Wand2 className="h-4 w-4" />}
+            >
+              <StudioOptionGrid
+                options={displayModes}
+                value={mode}
+                onChange={setMode}
+                columns={1}
+                textAlign="start"
+                descriptionMode="wrap"
+                ariaLabel={t("section.modeAria")}
               />
-            </div>
+            </StudioSection>
+
+            <StudioSection
+              title={t("section.settingsTitle")}
+              description={t("section.settingsDesc")}
+              icon={<Settings2 className="h-4 w-4" />}
+            >
+              <StudioModelSelector
+                models={displayModels}
+                value={model}
+                onChange={setModel}
+                columns={2}
+                ariaLabel={t("section.modelAria")}
+              />
+              <div className="mt-4">
+                <Label className="mb-2 block">{t("section.aspectLabel")}</Label>
+                <AspectRatioSelector
+                  options={displayAspects}
+                  value={aspectRatio}
+                  onChange={setAspectRatio}
+                  ariaLabel={t("section.aspectAria")}
+                />
+              </div>
+              <ResolutionSelector
+                className="mt-4"
+                title={t("section.resolutionLabel")}
+                value={imageSize}
+                options={displaySizes.map((option) => ({
+                  ...option,
+                  disabled: !getSupportedImageSizes(model, aspectRatio).includes(option.value),
+                }))}
+                onChange={setImageSize}
+                ariaLabel={t("section.resolutionAria")}
+              />
+              <GenerationCountField
+                className="mt-4"
+                title={t("section.perSourceLabel")}
+                label={t("section.perSourceLabel")}
+                value={variantsPerSource}
+                onChange={setVariantsPerSource}
+                counts={[1, 2, 3, 4]}
+                unit={t("section.perSourceUnit")}
+                ariaLabel={t("section.perSourceAria")}
+              />
+            </StudioSection>
+
+            <PromptTextarea
+              title={t("prompt.title")}
+              badge={t("prompt.badge")}
+              value={userInstruction}
+              maxLength={1200}
+              rows={4}
+              onChange={(event) => setUserInstruction(event.target.value)}
+              placeholder={t("prompt.placeholder")}
+              description={t("prompt.desc")}
+              disabled={isGenerating}
+              onClear={() => setUserInstruction("")}
+            />
           </StudioControlPanel>
         )}
         runBar={(
@@ -799,7 +848,11 @@ export function ProductRetouchExperience() {
                 <span>· {imageSize}</span>
               </span>
             )}
-            estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: expectedCount })}
+            estimateLabel={isGenerating
+              ? t("runBar.estimateGenerating")
+              : expectedCount > 0
+                ? t("runBar.estimateReady", { count: expectedCount })
+                : undefined}
             costLabel={(
               <span className="inline-flex items-center gap-1">
                 <CircleDollarSign className="h-3.5 w-3.5" />
@@ -881,10 +934,6 @@ export function ProductRetouchExperience() {
       />
     </>
   );
-}
-
-function getModeLabel(mode: ProductRetouchMode) {
-  return PRODUCT_RETOUCH_MODE_OPTIONS.find((option) => option.value === mode)?.label || "standard-retouch";
 }
 
 async function uploadFilesWithConcurrency(files: File[], concurrency: number) {

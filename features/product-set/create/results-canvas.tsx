@@ -4,6 +4,8 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
+import { createResourceFavoriteDescriptor } from "@/components/resource-library/resource-favorite-types";
 import {
   StudioBatchDownloadButton,
   StudioSingleDownloadButton,
@@ -102,6 +104,11 @@ export function ResultsCanvas({
   const t = useTranslations("ProductSet");
   const sharedT = useTranslations("Shared");
   const completedUrls = resultSlots.flatMap((slot) => slot.url ? [slot.url] : []);
+  const favoriteContext = {
+    generationId: previewSession.taskId || activeQueueTask?.id,
+    moduleKey: "productSet",
+    mediaType: "image" as const,
+  };
   return (
     <main className="studio-canvas relative min-h-[70dvh] flex-1 overflow-visible lg:overflow-hidden">
       <div className="relative overflow-y-visible p-4 pb-24 sm:p-6 lg:absolute lg:inset-0 lg:overflow-y-auto lg:p-8">
@@ -257,6 +264,10 @@ export function ResultsCanvas({
                         </div>
                         {url ? (
                           <div className="flex shrink-0 items-center gap-1">
+                            <FavoriteAssetButton
+                              descriptor={createResourceFavoriteDescriptor(favoriteContext, url, index, cardTitle)}
+                              className={`h-9 w-9 border-slate-200 shadow-none ${focusRing}`}
+                            />
                             <button
                               type="button"
                               aria-label={t("create.results.regenerateAria", { name: cardTitle })}

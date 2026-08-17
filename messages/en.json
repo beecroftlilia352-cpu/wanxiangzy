@@ -3281,6 +3281,14 @@
       "complexMaterial": "Complex materials and commercial lighting",
       "recommended": "Recommended"
     },
+    "mode": {
+      "faithfulLabel": "Standard retouch",
+      "faithfulDesc": "Preserve the original background · Clean blemishes and noise; correct color, lighting and clarity",
+      "whiteBackgroundLabel": "White-background retouch",
+      "whiteBackgroundDesc": "Generate a pure white background · Standardize framing and contours while preserving natural contact shadows",
+      "studioLabel": "Studio retouch",
+      "studioDesc": "Rebuild studio lighting and background · Enhance materials, reflections and dimensionality"
+    },
     "aspect": {
       "autoLabel": "Original ratio",
       "auto": "Follow the product original",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "Images with a complete subject, sharp focus and no occlusion work best for batch production."
     },
     "example": {
+      "sampleLabel": "Sample {index}",
       "alreadyAdded": "{title} example is already in the current batch",
       "added": "Added {title} example"
     },
@@ -4811,6 +4820,138 @@
     "delete": "Delete",
     "reuseImages": "Reuse images",
     "taskGenericTitle": "Outfit Fusion task",
-    "imageNumber": "Image {index}"
+    "imageNumber": "Image {index}",
+    "uploadLibrary": "Choose from asset library"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Asset library",
+      "description": "Manage reusable uploads, generated assets, and prompts in one place."
+    },
+    "tabs": {
+      "label": "Asset library sections",
+      "uploads": "Local uploads",
+      "generated": "My creations",
+      "prompts": "My prompts"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "confirm": "Confirm",
+      "loadMore": "Load more",
+      "localUpload": "Upload from device",
+      "newPrompt": "New prompt",
+      "remove": "Remove",
+      "removeAsset": "Remove asset",
+      "removePrompt": "Remove prompt",
+      "retry": "Retry",
+      "save": "Save",
+      "add": "Add to asset library",
+      "added": "Added to asset library"
+    },
+    "categories": {
+      "title": "Asset categories",
+      "localUploads": "Local uploads"
+    },
+    "filters": {
+      "allMedia": "All media",
+      "allModules": "All features",
+      "image": "Images",
+      "mediaLabel": "Media type",
+      "moduleLabel": "Feature",
+      "video": "Videos"
+    },
+    "picker": {
+      "title": "Select assets",
+      "selectionHint": "Selected {selected} of {max}",
+      "selectedCount": "{selected}/{max} selected",
+      "gridLabel": "Available assets",
+      "limitReachedTitle": "Selection limit reached",
+      "limitReachedDescription": "Deselect an asset before selecting another one.",
+      "limitReachedInline": "You can select up to {max} assets."
+    },
+    "card": {
+      "select": "Select {title}",
+      "removeSelection": "Deselect {title}",
+      "preview": "Preview {title}",
+      "previewTitle": "Asset preview",
+      "previewDescription": "Preview the selected asset."
+    },
+    "empty": {
+      "uploadTitle": "No local uploads yet",
+      "uploadDescription": "Upload images or videos to reuse them across creation tools.",
+      "moduleTitle": "No saved assets in this feature",
+      "moduleDescription": "Save a generated result to make it appear here.",
+      "generatedTitle": "No generated assets yet",
+      "generatedDescription": "Save results from a creation page to reuse them here.",
+      "promptTitle": "No prompts yet",
+      "promptDescription": "Create reusable prompts to speed up future creations."
+    },
+    "states": {
+      "loading": "Loading",
+      "uploading": "Uploading",
+      "saving": "Saving",
+      "uploadFailed": "Upload failed",
+      "loadFailedTitle": "Could not load assets",
+      "loadFailedDescription": "Check your connection and try again.",
+      "deleteFailed": "Could not remove the item",
+      "createFailed": "Could not create the prompt",
+      "operationFailed": "Asset library action failed. Please try again."
+    },
+    "toast": {
+      "uploadSuccess": "Uploaded {count} assets",
+      "assetRemoved": "Asset removed",
+      "promptCreated": "Prompt created",
+      "promptRemoved": "Prompt removed"
+    },
+    "upload": {
+      "supportedFormats": "Supports common image and video formats"
+    },
+    "prompts": {
+      "allTypes": "All types",
+      "typeLabel": "Prompt type",
+      "searchLabel": "Search prompts",
+      "searchPlaceholder": "Search prompts",
+      "createTitle": "Create prompt",
+      "createDescription": "Save a title and prompt content for reuse.",
+      "titleLabel": "Prompt title",
+      "titlePlaceholder": "Enter a prompt title",
+      "contentLabel": "Prompt content",
+      "contentPlaceholder": "Enter prompt content"
+    },
+    "confirm": {
+      "removeAssetTitle": "Remove asset?",
+      "removeAssetDescription": "This asset will be removed from your library.",
+      "removePromptTitle": "Remove prompt?",
+      "removePromptDescription": "This prompt will be permanently removed."
+    },
+    "promptTypes": {
+      "text-to-image": "Text to image",
+      "image-to-image": "Image to image",
+      "model-background": "Model background",
+      "pose": "Pose",
+      "video": "Video",
+      "other": "Other"
+    },
+    "modules": {
+      "tryon": "Try-on",
+      "grass": "Style seeding image",
+      "productRetouch": "Product retouch",
+      "productSet": "Product set",
+      "modelBackground": "Model background swap",
+      "materialEnhancement": "Material enhance",
+      "generalImage": "General image",
+      "outfitFusion": "Outfit fusion",
+      "pose": "Pose expansion",
+      "model": "Custom model",
+      "garment3d": "Garment to 3D",
+      "faceSwap": "Face swap",
+      "imageTranslation": "Image translation",
+      "commerceDetail": "Product detail image",
+      "allCategoryProductImage": "All-category product image",
+      "videoImageToVideo": "Image to video",
+      "videoMotion": "Motion mimic",
+      "videoFirstLastFrame": "First/last frame"
+    }
   }
 }

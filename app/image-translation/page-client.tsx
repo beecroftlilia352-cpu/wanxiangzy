@@ -34,6 +34,7 @@ import { LanguagePickerModal } from "@/components/studio/LanguagePickerModal";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -100,6 +101,7 @@ const IMAGE_TRANSLATION_PREVIEW_ACTIONS = [
 export default function ImageTranslationPage() {
   const router = useRouter();
   const t = useTranslations("ImageTranslation");
+  const { openResourcePicker } = useResourcePicker();
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const languageTriggerRef = useRef<HTMLButtonElement>(null);
   const [sourceUrls, setSourceUrls] = useState<string[]>([]);
@@ -118,6 +120,7 @@ export default function ImageTranslationPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -472,6 +475,7 @@ export default function ImageTranslationPage() {
   const previewSession = useStudioPreview({
     module: "imageTranslation",
     title: t("previewSessionTitle"),
+    taskId: activeGenerationId || undefined,
     urls: resultUrls,
     expectedCount: activeResultExpectedCount,
     isGenerating,
@@ -490,6 +494,7 @@ export default function ImageTranslationPage() {
   });
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, MAX_IMAGE_TRANSLATION_IMAGES * MAX_IMAGE_TRANSLATION_LANGUAGES * 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
@@ -501,6 +506,7 @@ export default function ImageTranslationPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "imageTranslation", session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
         setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
@@ -527,6 +533,7 @@ export default function ImageTranslationPage() {
     setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError(null);
     setLightboxSrc(null);
     if (sourceInputRef.current) sourceInputRef.current.value = "";
@@ -618,6 +625,7 @@ export default function ImageTranslationPage() {
       }
       setProgress(25);
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
           expectedCount: displayExpectedCount,
@@ -729,7 +737,22 @@ export default function ImageTranslationPage() {
                 ]}
                 imageFit="cover"
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("uploadSectionTitle"),
+                    role: "source",
+                    selectionMode: "multiple",
+                    maxCount: MAX_IMAGE_TRANSLATION_IMAGES,
+                    existingCount: sourceUrls.length,
+                    excludedUrls: sourceUrls,
+                    mediaTypes: ["image"],
+                    moduleKey: "imageTranslation",
+                  });
+                  const urls = assetUrls(assets);
+                  if (!urls.length) return;
+                  setSourceUrls((current) => Array.from(new Set([...current, ...urls])).slice(0, MAX_IMAGE_TRANSLATION_IMAGES));
+                  setPromptOverride(null);
+                }}
                 onPreview={(url) => setLightboxSrc(url)}
                 onRemove={(_, index) => {
                   setSourceUrls((prev) => prev.filter((__, i) => i !== index));
@@ -926,6 +949,7 @@ export default function ImageTranslationPage() {
                   isGenerating={isGenerating}
                   statusGroup={statusGroup}
                   variant="task"
+                  resourceFavorite={{ generationId: activeGenerationId, moduleKey: "imageTranslation", mediaType: "image", resultIndexOffset: start }}
                   inputReferences={[{ url: sourceUrl, label: t("sourceImageIndexed", { index: sIndex + 1 }) }]}
                   cellLabels={labelsForSource}
                   reducePendingMotion

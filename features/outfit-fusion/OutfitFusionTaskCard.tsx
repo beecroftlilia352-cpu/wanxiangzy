@@ -15,6 +15,8 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
+import { createResourceFavoriteDescriptor } from "@/components/resource-library/resource-favorite-types";
 import {
   StudioBatchDownloadButton,
   StudioSingleDownloadButton,
@@ -158,6 +160,14 @@ export function OutfitFusionTaskCard({
                     {t("view")}
                   </Button>
                   <div className="studio-result-focus-actions">
+                    <FavoriteAssetButton
+                      descriptor={createResourceFavoriteDescriptor({
+                        generationId: task.remoteId,
+                        moduleKey: "outfitFusion",
+                        mediaType: "image",
+                      }, url, slotIndex)}
+                      className="studio-result-focus-action h-8 w-8 rounded-full p-0"
+                    />
                     <OutfitFusionFocusAction
                       label={t("previewActions.repair")}
                       onClick={() => openImageRepair(url)}

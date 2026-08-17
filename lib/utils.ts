@@ -204,6 +204,9 @@ export interface UploadResult {
   delete_url: string;
   width: number;
   height: number;
+  object_key?: string;
+  asset?: unknown;
+  resource_registration_token?: string;
 }
 
 /**

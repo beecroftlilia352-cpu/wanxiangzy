@@ -3281,6 +3281,14 @@
       "complexMaterial": "复杂材质与商业布光",
       "recommended": "推荐"
     },
+    "mode": {
+      "faithfulLabel": "标准精修",
+      "faithfulDesc": "保留原始背景 · 清理瑕疵与噪点，校正色彩、光线和清晰度",
+      "whiteBackgroundLabel": "白底精修",
+      "whiteBackgroundDesc": "生成纯白背景 · 规范主体构图与轮廓，保留自然接触阴影",
+      "studioLabel": "影棚精修",
+      "studioDesc": "重塑影棚布光与背景 · 强化材质、反射和立体层次"
+    },
     "aspect": {
       "autoLabel": "原图比例",
       "auto": "跟随商品原图",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "主体完整、对焦清晰、无遮挡的图片更适合批量生产。"
     },
     "example": {
+      "sampleLabel": "示例 {index}",
       "alreadyAdded": "{title}示例已在当前批次中",
       "added": "已加入{title}示例"
     },
@@ -4811,6 +4820,138 @@
     "delete": "删除",
     "reuseImages": "再次使用图片",
     "taskGenericTitle": "搭配融图任务",
-    "imageNumber": "图{index}"
+    "imageNumber": "图{index}",
+    "uploadLibrary": "从资源仓库选择"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "资源仓库",
+      "description": "集中管理可复用的本地上传、生成资源和提示词。"
+    },
+    "tabs": {
+      "label": "资源仓库分类",
+      "uploads": "本地上传",
+      "generated": "我的生成",
+      "prompts": "我的提示词"
+    },
+    "actions": {
+      "cancel": "取消",
+      "close": "关闭",
+      "confirm": "确认",
+      "loadMore": "加载更多",
+      "localUpload": "本地上传",
+      "newPrompt": "新建提示词",
+      "remove": "移除",
+      "removeAsset": "移除资源",
+      "removePrompt": "删除提示词",
+      "retry": "重试",
+      "save": "保存",
+      "add": "加入资源库",
+      "added": "已加入资源库"
+    },
+    "categories": {
+      "title": "资源分类",
+      "localUploads": "本地上传"
+    },
+    "filters": {
+      "allMedia": "全部类型",
+      "allModules": "全部功能",
+      "image": "图片",
+      "mediaLabel": "媒体类型",
+      "moduleLabel": "功能模块",
+      "video": "视频"
+    },
+    "picker": {
+      "title": "选择资源",
+      "selectionHint": "已选择 {selected}/{max}",
+      "selectedCount": "已选择 {selected}/{max}",
+      "gridLabel": "可选资源",
+      "limitReachedTitle": "已达到选择上限",
+      "limitReachedDescription": "请先取消一个已选资源，再选择其他资源。",
+      "limitReachedInline": "最多可选择 {max} 个资源。"
+    },
+    "card": {
+      "select": "选择「{title}」",
+      "removeSelection": "取消选择「{title}」",
+      "preview": "预览「{title}」",
+      "previewTitle": "资源预览",
+      "previewDescription": "预览当前选择的资源。"
+    },
+    "empty": {
+      "uploadTitle": "暂无本地上传",
+      "uploadDescription": "上传图片或视频，即可在各个创作功能中重复使用。",
+      "moduleTitle": "此功能暂无已收藏资源",
+      "moduleDescription": "收藏生成结果后，资源会显示在这里。",
+      "generatedTitle": "暂无生成资源",
+      "generatedDescription": "在创作页面收藏生成结果，即可在这里重复使用。",
+      "promptTitle": "暂无提示词",
+      "promptDescription": "新建可复用的提示词，让后续创作更高效。"
+    },
+    "states": {
+      "loading": "加载中",
+      "uploading": "上传中",
+      "saving": "保存中",
+      "uploadFailed": "上传失败",
+      "loadFailedTitle": "资源加载失败",
+      "loadFailedDescription": "请检查网络连接后重试。",
+      "deleteFailed": "移除失败",
+      "createFailed": "提示词创建失败",
+      "operationFailed": "资源库操作失败，请稍后重试。"
+    },
+    "toast": {
+      "uploadSuccess": "已上传 {count} 个资源",
+      "assetRemoved": "资源已移除",
+      "promptCreated": "提示词已创建",
+      "promptRemoved": "提示词已删除"
+    },
+    "upload": {
+      "supportedFormats": "支持常见图片和视频格式"
+    },
+    "prompts": {
+      "allTypes": "全部类型",
+      "typeLabel": "提示词类型",
+      "searchLabel": "搜索提示词",
+      "searchPlaceholder": "搜索提示词",
+      "createTitle": "新建提示词",
+      "createDescription": "保存标题和提示词内容，方便后续重复使用。",
+      "titleLabel": "提示词标题",
+      "titlePlaceholder": "请输入提示词标题",
+      "contentLabel": "提示词内容",
+      "contentPlaceholder": "请输入提示词内容"
+    },
+    "confirm": {
+      "removeAssetTitle": "移除资源？",
+      "removeAssetDescription": "此资源将从你的资源库中移除。",
+      "removePromptTitle": "删除提示词？",
+      "removePromptDescription": "此提示词将被永久删除。"
+    },
+    "promptTypes": {
+      "text-to-image": "文生图",
+      "image-to-image": "图生图",
+      "model-background": "模特换背景",
+      "pose": "姿势裂变",
+      "video": "视频",
+      "other": "其他"
+    },
+    "modules": {
+      "tryon": "服装上身",
+      "grass": "服装种草图",
+      "productRetouch": "商品精修",
+      "productSet": "商品套图",
+      "modelBackground": "模特换背景",
+      "materialEnhancement": "材质增强",
+      "generalImage": "通用生图",
+      "outfitFusion": "搭配融图",
+      "pose": "姿势裂变",
+      "model": "专属模特",
+      "garment3d": "服装转3D",
+      "faceSwap": "换脸",
+      "imageTranslation": "图片翻译",
+      "commerceDetail": "商品详情图",
+      "allCategoryProductImage": "全品类商品图",
+      "videoImageToVideo": "图生视频",
+      "videoMotion": "动作模仿",
+      "videoFirstLastFrame": "首尾帧"
+    }
   }
 }

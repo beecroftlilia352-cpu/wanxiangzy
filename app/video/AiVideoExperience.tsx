@@ -34,6 +34,7 @@ import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import {
   AI_VIDEO_ACTION_TEMPLATES,
   AI_VIDEO_ASPECT_RATIO_OPTIONS,
@@ -105,6 +106,7 @@ function normalizeHappyHorseUiAudioMode(value: unknown): AiVideoAudioMode {
 export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const router = useRouter();
   const t = useTranslations("Video");
+  const { openResourcePicker } = useResourcePicker();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelImageInputRef = useRef<HTMLInputElement>(null);
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
@@ -177,6 +179,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -551,6 +554,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
           expectedCount: genCount,
@@ -651,6 +655,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     generationRunRef.current += 1;
     submitLockRef.current = false;
     setIsSubmitting(false);
@@ -664,6 +669,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, generationKind, session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -769,6 +775,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setAudioPrompt("");
     setGenCount(1);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError("");
     setProgress(0);
     setIsSubmitting(false);
@@ -813,7 +820,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     isDragging={isDraggingFirstFrame}
                     loading={isUploadingFirstFrame}
                     onUploadClick={() => firstFrameInputRef.current?.click()}
-                    onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                    onLibraryClick={async () => {
+                      const assets = await openResourcePicker({
+                        title: t("uploadFirstFrameTitle"),
+                        role: "first-frame",
+                        selectionMode: "single",
+                        maxCount: 1,
+                        existingCount: firstFrameUrl ? 1 : 0,
+                        excludedUrls: firstFrameUrl ? [firstFrameUrl] : [],
+                        mediaTypes: ["image"],
+                        moduleKey: "videoFirstLastFrame",
+                      });
+                      const [url] = assetUrls(assets);
+                      if (!url) return;
+                      setFirstFrameUrl(url);
+                      setFirstFrameRatio(null);
+                    }}
                     onPreview={firstFrameUrl ? () => setLightboxImage(firstFrameUrl) : undefined}
                     onRemove={firstFrameUrl ? () => {
                       setFirstFrameUrl("");
@@ -846,7 +868,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     isDragging={isDraggingLastFrame}
                     loading={isUploadingLastFrame}
                     onUploadClick={() => lastFrameInputRef.current?.click()}
-                    onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                    onLibraryClick={async () => {
+                      const assets = await openResourcePicker({
+                        title: t("uploadLastFrameTitle"),
+                        role: "last-frame",
+                        selectionMode: "single",
+                        maxCount: 1,
+                        existingCount: lastFrameUrl ? 1 : 0,
+                        excludedUrls: lastFrameUrl ? [lastFrameUrl] : [],
+                        mediaTypes: ["image"],
+                        moduleKey: "videoFirstLastFrame",
+                      });
+                      const [url] = assetUrls(assets);
+                      if (!url) return;
+                      setLastFrameUrl(url);
+                      setLastFrameRatio(null);
+                    }}
                     onPreview={lastFrameUrl ? () => setLightboxImage(lastFrameUrl) : undefined}
                     onRemove={lastFrameUrl ? () => {
                       setLastFrameUrl("");
@@ -883,7 +920,23 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               isDragging={isDraggingImage}
               loading={isUploadingImage}
               onUploadClick={() => imageInputRef.current?.click()}
-              onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+              onLibraryClick={async () => {
+                const assets = await openResourcePicker({
+                  title: t("uploadImageTitle"),
+                  role: "source-image",
+                  selectionMode: "single",
+                  maxCount: 1,
+                  existingCount: imageUrl ? 1 : 0,
+                  excludedUrls: imageUrl ? [imageUrl] : [],
+                  mediaTypes: ["image"],
+                  moduleKey: "videoImageToVideo",
+                });
+                const [url] = assetUrls(assets);
+                if (!url) return;
+                setImageUrl(url);
+                setImageRatio(null);
+                setSelectedTemplateId(null);
+              }}
               onPreview={imageUrl ? () => setLightboxImage(imageUrl) : undefined}
               onRemove={imageUrl ? () => {
                 setImageUrl("");
@@ -919,7 +972,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 isDragging={isDraggingModelImage}
                 loading={isUploadingModelImage}
                 onUploadClick={() => modelImageInputRef.current?.click()}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("uploadModelImageTitle"),
+                    role: "model-image",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: modelImageUrl ? 1 : 0,
+                    excludedUrls: modelImageUrl ? [modelImageUrl] : [],
+                    mediaTypes: ["image"],
+                    moduleKey: "videoMotion",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setModelImageUrl(url);
+                  setModelImageRatio(null);
+                }}
                 onPreview={modelImageUrl ? () => setLightboxImage(modelImageUrl) : undefined}
                 onRemove={modelImageUrl ? () => {
                   setModelImageUrl("");
@@ -949,7 +1017,23 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 isDragging={isDraggingVideo}
                 loading={isUploadingVideo}
                 onUploadClick={() => videoInputRef.current?.click()}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("uploadReferenceVideoTitle"),
+                    role: "motion-video",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: referenceVideoUrl ? 1 : 0,
+                    excludedUrls: referenceVideoUrl ? [referenceVideoUrl] : [],
+                    mediaTypes: ["video"],
+                    view: "video",
+                    moduleKey: "videoMotion",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setReferenceVideoUrl(url);
+                  setSelectedTemplateId(null);
+                }}
                 onRemove={referenceVideoUrl ? removeReferenceVideo : undefined}
                 sourceLabel={selectedTemplate ? t("sampleReferenceVideo", { title: selectedTemplate.title }) : undefined}
                 uploadLabel={t("uploadClickLabel")}
@@ -1194,6 +1278,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               isGenerating={isGenerating}
               inputThumbnails={inputThumbnails}
               statusGroup={isGenerating ? "running" : undefined}
+              resourceFavorite={{ generationId: activeGenerationId, moduleKey: generationKind, mediaType: "video" }}
             />
           </div>
         ) : isFirstLastFrame ? (

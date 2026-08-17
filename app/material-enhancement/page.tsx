@@ -23,6 +23,7 @@ import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -81,6 +82,7 @@ const MATERIAL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
 
 export default function MaterialEnhancementPage() {
   const t = useTranslations("MaterialEnhancement");
+  const { openResourcePicker } = useResourcePicker();
   const displayModels = useStudioImageModelOptions();
   const displayActions = useMemo(() => MATERIAL_PREVIEW_ACTIONS.map((a) => {
     const labelKeys: Record<string, string> = {
@@ -124,6 +126,7 @@ export default function MaterialEnhancementPage() {
   const [, setProgress] = useState(0);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
@@ -309,6 +312,7 @@ export default function MaterialEnhancementPage() {
     () => createGenericImagePreviewSession({
       module: "materialEnhancement",
       title: t("moduleName"),
+      taskId: activeGenerationId || undefined,
       urls: resultUrls,
       expectedCount: activeResultExpectedCount,
       isGenerating,
@@ -329,7 +333,7 @@ export default function MaterialEnhancementPage() {
       resultTitlePrefix: t("preview.resultTitlePrefix"),
       aspectRatio,
     }),
-    [activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, enhancementLevelLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, resultUrls, sourceUrl, userPrompt]
+    [activeGenerationId, activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, enhancementLevelLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, resultUrls, sourceUrl, userPrompt]
   );
 
   const runDisabledReason = !sourceUrl
@@ -508,6 +512,7 @@ export default function MaterialEnhancementPage() {
       }
 
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const initialResultUrls = mergeRetryResultUrls(
           retryPreviousResultUrls,
           retryResultIndex,
@@ -558,6 +563,7 @@ export default function MaterialEnhancementPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
@@ -571,6 +577,7 @@ export default function MaterialEnhancementPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "materialEnhancement", session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -602,6 +609,7 @@ export default function MaterialEnhancementPage() {
     setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError(null);
     setLightboxSrc(null);
     if (sourceInputRef.current) sourceInputRef.current.value = "";
@@ -642,7 +650,22 @@ export default function MaterialEnhancementPage() {
                 isDragging={isDraggingSource}
                 loading={isUploadingSource}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info(t("library.comingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("upload.sourceSectionTitle"),
+                    role: "source",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: sourceUrl ? 1 : 0,
+                    excludedUrls: sourceUrl ? [sourceUrl] : [],
+                    mediaTypes: ["image"],
+                    moduleKey: "materialEnhancement",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setSourceUrl(url);
+                  setSourceName(assets?.[0]?.title || t("upload.uploadedSource"));
+                }}
                 onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
                 onRemove={sourceUrl ? () => {
                   setSourceUrl("");
@@ -673,7 +696,22 @@ export default function MaterialEnhancementPage() {
                 isDragging={isDraggingGarment}
                 loading={isUploadingGarment}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info(t("library.comingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("upload.garmentSectionTitle"),
+                    role: "garment",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: garmentUrl ? 1 : 0,
+                    excludedUrls: garmentUrl ? [garmentUrl] : [],
+                    mediaTypes: ["image"],
+                    moduleKey: "materialEnhancement",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setGarmentUrl(url);
+                  setGarmentName(assets?.[0]?.title || t("upload.uploadedGarment"));
+                }}
                 onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
                 onRemove={garmentUrl ? () => {
                   setGarmentUrl("");
@@ -812,6 +850,7 @@ export default function MaterialEnhancementPage() {
                 inputThumbnails={taskInputThumbnails}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                resourceFavorite={{ generationId: activeGenerationId, moduleKey: "materialEnhancement", mediaType: "image" }}
                 markMissingAsFailed={hasCompletedPartialResults}
                 missingFailureLabel={t("result.missingLabel")}
                 missingFailureDetail={partialFailureMessage}

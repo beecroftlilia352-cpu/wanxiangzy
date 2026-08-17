@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronsDown, ImagePlus, Loader2, Plus, Settings2, Sparkles, Trash2, WandSparkles, X } from "lucide-react";
+import { ChevronDown, ChevronsDown, FolderOpen, ImagePlus, Loader2, Plus, Settings2, Sparkles, Trash2, WandSparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -50,6 +50,7 @@ export type OutfitFusionComposerProps = {
   onPromptChange: (value: string) => void;
   onConfigChange: (config: OutfitFusionConfig) => void;
   onUploadClick: (role: OutfitFusionAssetRole) => void;
+  onLibraryClick?: (role: OutfitFusionAssetRole) => void;
   onUploadFiles: (role: OutfitFusionAssetRole, files: File[]) => void;
   onPreviewAsset?: (id: string) => void;
   onRemoveAsset: (id: string) => void;
@@ -76,6 +77,7 @@ export function OutfitFusionComposer({
   onPromptChange,
   onConfigChange,
   onUploadClick,
+  onLibraryClick,
   onUploadFiles,
   onPreviewAsset,
   onRemoveAsset,
@@ -215,6 +217,7 @@ export function OutfitFusionComposer({
               optionalLabel={slot.optional ? t("uploadSlotOptional") : undefined}
               uploading={uploading}
               onClick={onUploadClick}
+              onLibraryClick={onLibraryClick}
               onFiles={onUploadFiles}
             />
           ))}
@@ -270,6 +273,7 @@ function UploadSlot({
   optionalLabel,
   uploading,
   onClick,
+  onLibraryClick,
   onFiles,
 }: {
   role: OutfitFusionAssetRole;
@@ -277,6 +281,7 @@ function UploadSlot({
   optionalLabel?: string;
   uploading?: boolean;
   onClick: (role: OutfitFusionAssetRole) => void;
+  onLibraryClick?: (role: OutfitFusionAssetRole) => void;
   onFiles: (role: OutfitFusionAssetRole, files: File[]) => void;
 }) {
   const t = useTranslations("OutfitFusion");
@@ -292,12 +297,13 @@ function UploadSlot({
   });
 
   return (
+    <div className="relative h-[88px] w-[88px] shrink-0">
     <button
       type="button"
       onClick={() => onClick(role)}
       disabled={uploading}
       className={cn(
-        "group flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-[var(--codex-border-strong)] dark:border-white/15 bg-white dark:bg-[var(--codex-surface)] text-codex-faint dark:text-codex-muted transition duration-200 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-500 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
+        "group flex h-[88px] w-[88px] flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-[var(--codex-border-strong)] dark:border-white/15 bg-white dark:bg-[var(--codex-surface)] text-codex-faint dark:text-codex-muted transition duration-200 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-500 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
         isDragging && "border-blue-500 bg-blue-50 text-blue-500 ring-2 ring-blue-500/20"
       )}
       {...dragHandlers}
@@ -312,6 +318,22 @@ function UploadSlot({
         )}
       </span>
     </button>
+    {onLibraryClick ? (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onLibraryClick(role);
+        }}
+        disabled={uploading}
+        className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-white/80 bg-white/94 text-codex-muted shadow-sm transition hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)] disabled:opacity-50 dark:border-white/10 dark:bg-[#29292d]"
+        aria-label={t("uploadLibrary")}
+        title={t("uploadLibrary")}
+      >
+        <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    ) : null}
+    </div>
   );
 }
 

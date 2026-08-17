@@ -3281,6 +3281,14 @@
       "complexMaterial": "कॉम्प्लेक्स मटेरियल और कमर्शियल लाइटिंग",
       "recommended": "अनुशंसित"
     },
+    "mode": {
+      "faithfulLabel": "स्टैंडर्ड रीटच",
+      "faithfulDesc": "मूल बैकग्राउंड बनाए रखें · दाग और नॉइज़ हटाएँ; रंग, रोशनी और स्पष्टता सुधारें",
+      "whiteBackgroundLabel": "सफेद बैकग्राउंड रीटच",
+      "whiteBackgroundDesc": "शुद्ध सफेद बैकग्राउंड बनाएँ · प्राकृतिक संपर्क छाया रखते हुए फ्रेमिंग और किनारे व्यवस्थित करें",
+      "studioLabel": "स्टूडियो रीटच",
+      "studioDesc": "स्टूडियो लाइटिंग और बैकग्राउंड दोबारा बनाएँ · सामग्री, प्रतिबिंब और गहराई उभारें"
+    },
     "aspect": {
       "autoLabel": "ओरिजिनल रेशियो",
       "auto": "प्रोडक्ट ओरिजिनल फॉलो करें",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "संपूर्ण सब्जेक्ट, शार्प फ़ोकस और कोई रुकावट नहीं वाली इमेज बैच प्रोडक्शन के लिए सबसे बेहतर काम करती हैं।"
     },
     "example": {
+      "sampleLabel": "उदाहरण {index}",
       "alreadyAdded": "{title} एग्ज़ाम्पल पहले से मौजूदा बैच में है",
       "added": "{title} एग्ज़ाम्पल जोड़ा गया"
     },
@@ -4811,6 +4820,138 @@
     "delete": "डिलीट",
     "reuseImages": "इमेज दोबारा इस्तेमाल करें",
     "taskGenericTitle": "आउटफिट फ्यूज़न टास्क",
-    "imageNumber": "छवि {index}"
+    "imageNumber": "छवि {index}",
+    "uploadLibrary": "एसेट लाइब्रेरी से चुनें"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "संपत्ति पुस्तकालय",
+      "description": "पुन: प्रयोज्य अपलोड, उत्पन्न संपत्ति और संकेतों को एक ही स्थान पर प्रबंधित करें।"
+    },
+    "tabs": {
+      "label": "संपत्ति पुस्तकालय अनुभाग",
+      "uploads": "स्थानीय अपलोड",
+      "generated": "मेरी बनाई सामग्री",
+      "prompts": "मेरे प्रॉम्प्ट"
+    },
+    "actions": {
+      "cancel": "रद्द करें",
+      "close": "बंद करें",
+      "confirm": "पुष्टि करें",
+      "loadMore": "और अधिक लोड करें",
+      "localUpload": "डिवाइस से अपलोड करें",
+      "newPrompt": "नया संकेत",
+      "remove": "हटाओ",
+      "removeAsset": "संपत्ति हटाएं",
+      "removePrompt": "प्रॉम्प्ट हटाएँ",
+      "retry": "पुनः प्रयास करें",
+      "save": "सहेजें",
+      "add": "एसेट लाइब्रेरी में जोड़ें",
+      "added": "एसेट लाइब्रेरी में जोड़ा गया"
+    },
+    "categories": {
+      "title": "संपत्ति श्रेणियां",
+      "localUploads": "स्थानीय अपलोड"
+    },
+    "filters": {
+      "allMedia": "सभी मीडिया",
+      "allModules": "सभी सुविधाएँ",
+      "image": "छवियाँ",
+      "mediaLabel": "मीडिया प्रकार",
+      "moduleLabel": "विशेषता",
+      "video": "वीडियो"
+    },
+    "picker": {
+      "title": "संपत्तियों का चयन करें",
+      "selectionHint": "{max} में से चयनित {selected}",
+      "selectedCount": "{selected}/{max} चयनित",
+      "gridLabel": "उपलब्ध संपत्ति",
+      "limitReachedTitle": "चयन की सीमा पूरी हो गई",
+      "limitReachedDescription": "किसी अन्य परिसंपत्ति को चुनने से पहले उसका चयन रद्द करें।",
+      "limitReachedInline": "आप अधिकतम {max} संपत्तियों का चयन कर सकते हैं।"
+    },
+    "card": {
+      "select": "{title} चुनें",
+      "removeSelection": "{title} का चयन रद्द करें",
+      "preview": "{title} का पूर्वावलोकन करें",
+      "previewTitle": "संपत्ति पूर्वावलोकन",
+      "previewDescription": "चयनित संपत्ति का पूर्वावलोकन करें."
+    },
+    "empty": {
+      "uploadTitle": "अभी तक कोई स्थानीय अपलोड नहीं",
+      "uploadDescription": "निर्माण टूल में उनका पुन: उपयोग करने के लिए चित्र या वीडियो अपलोड करें।",
+      "moduleTitle": "इस सुविधा में कोई सहेजी गई संपत्ति नहीं",
+      "moduleDescription": "जेनरेट किए गए परिणाम को यहां प्रदर्शित करने के लिए उसे सहेजें।",
+      "generatedTitle": "अभी तक कोई संपत्ति उत्पन्न नहीं हुई",
+      "generatedDescription": "किसी निर्माण पृष्ठ से परिणामों को यहां पुन: उपयोग करने के लिए सहेजें।",
+      "promptTitle": "अभी तक कोई संकेत नहीं",
+      "promptDescription": "आगे की रचनाओं को तेज़ बनाने के लिए दोबारा इस्तेमाल किए जा सकने वाले प्रॉम्प्ट बनाएं।"
+    },
+    "states": {
+      "loading": "लोड हो रहा है",
+      "uploading": "अपलोड हो रहा है",
+      "saving": "सहेजा जा रहा है",
+      "uploadFailed": "अपलोड विफल रहा",
+      "loadFailedTitle": "परिसंपत्तियाँ लोड नहीं की जा सकीं",
+      "loadFailedDescription": "अपना कनेक्शन जांचें और पुनः प्रयास करें।",
+      "deleteFailed": "आइटम को हटाया नहीं जा सका",
+      "createFailed": "प्रॉम्प्ट नहीं बनाया जा सका",
+      "operationFailed": "एसेट लाइब्रेरी कार्रवाई विफल रही. कृपया पुन: प्रयास करें।"
+    },
+    "toast": {
+      "uploadSuccess": "{count} संपत्तियां अपलोड की गईं",
+      "assetRemoved": "संपत्ति हटा दी गई",
+      "promptCreated": "शीघ्र बनाया गया",
+      "promptRemoved": "संकेत हटा दिया गया"
+    },
+    "upload": {
+      "supportedFormats": "सामान्य छवि और वीडियो प्रारूपों का समर्थन करता है"
+    },
+    "prompts": {
+      "allTypes": "सभी प्रकार के",
+      "typeLabel": "शीघ्र प्रकार",
+      "searchLabel": "खोज संकेत",
+      "searchPlaceholder": "खोज संकेत",
+      "createTitle": "प्रॉम्प्ट बनाएं",
+      "createDescription": "पुन: उपयोग के लिए एक शीर्षक और शीघ्र सामग्री सहेजें।",
+      "titleLabel": "शीघ्र शीर्षक",
+      "titlePlaceholder": "शीघ्र शीर्षक दर्ज करें",
+      "contentLabel": "शीघ्र सामग्री",
+      "contentPlaceholder": "शीघ्र सामग्री दर्ज करें"
+    },
+    "confirm": {
+      "removeAssetTitle": "संपत्ति निकालें?",
+      "removeAssetDescription": "यह संपत्ति आपकी लाइब्रेरी से हटा दी जाएगी.",
+      "removePromptTitle": "प्रॉम्प्ट हटाएँ?",
+      "removePromptDescription": "यह संकेत स्थायी रूप से हटा दिया जाएगा."
+    },
+    "promptTypes": {
+      "text-to-image": "छवि पर पाठ",
+      "image-to-image": "छवि से छवि",
+      "model-background": "मॉडल पृष्ठभूमि",
+      "pose": "मुद्रा",
+      "video": "वीडियो",
+      "other": "अन्य"
+    },
+    "modules": {
+      "tryon": "ट्राई-ऑन",
+      "grass": "स्टाइल सीडिंग इमेज",
+      "productRetouch": "प्रोडक्ट रीटच",
+      "productSet": "प्रोडक्ट सेट",
+      "modelBackground": "मॉडल बैकग्राउंड स्वैप",
+      "materialEnhancement": "मटेरियल एन्हांस",
+      "generalImage": "जनरल इमेज",
+      "outfitFusion": "आउटफिट फ़्यूज़न",
+      "pose": "पोज़ एक्सपैंशन",
+      "model": "कस्टम मॉडल",
+      "garment3d": "गारमेंट से 3D",
+      "faceSwap": "फेस स्वैप",
+      "imageTranslation": "छवि अनुवाद",
+      "commerceDetail": "उत्पाद विवरण छवि",
+      "allCategoryProductImage": "सभी श्रेणी की उत्पाद छवि",
+      "videoImageToVideo": "इमेज से वीडियो",
+      "videoMotion": "मोशन मिमिक",
+      "videoFirstLastFrame": "फर्स्ट/लास्ट फ्रेम"
+    }
   }
 }

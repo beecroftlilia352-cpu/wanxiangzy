@@ -295,8 +295,10 @@ export function StudioTaskRail({
     autoSelectSignatureRef.current = "";
     runningSelectionRef.current = null;
     clearSelectedTask(module);
-    onContinue?.();
-  }, [clearSelectedTask, hasLoaded, module, onContinue, rows.length, selectedId]);
+    // Mounting a different module must never execute its destructive
+    // "continue creating" callback. The page already starts from its own
+    // default state; only the explicit Continue card may clear user input.
+  }, [clearSelectedTask, hasLoaded, module, rows.length, selectedId]);
 
   useEffect(() => {
     if (!onSelectTask || selectedId === TASK_QUEUE_CONTINUE_ID) {

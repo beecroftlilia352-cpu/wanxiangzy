@@ -22,6 +22,8 @@ export interface StoredImage {
   delete_url: string;
   width: number;
   height: number;
+  /** Present only for objects written by the trusted Aliyun OSS adapter. */
+  object_key?: string;
 }
 
 export interface StoreImageInput {
@@ -222,6 +224,7 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
       delete_url: "",
       width: 0,
       height: 0,
+      object_key: objectKey,
     };
   },
 };

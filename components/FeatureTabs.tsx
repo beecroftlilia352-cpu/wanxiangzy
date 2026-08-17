@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { FolderOpen, History, Info } from "lucide-react";
-import { getFeatureItem, getFeatureItemsForModule, type FeatureKey, type FeatureNavItem } from "@/lib/navigation";
+import { getFeatureItem, getFeatureItemsForModule, type AppModuleKey, type FeatureKey, type FeatureNavItem } from "@/lib/navigation";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StudioTabBadge } from "@/components/studio/StudioTabBadge";
+import { requestStudioNavigation } from "@/lib/studio-navigation";
 
 /** 数据键全路径（Header.features.*），用全局 t 解析（对齐 HeaderClient 的 tAny 用法） */
 function featureLabel(t: (key: string) => string, item: FeatureNavItem): string {
@@ -26,16 +28,17 @@ function compactRailLabel(label: string, locale: string): string {
   return firstWord.length <= 10 ? firstWord : "";
 }
 
-export function FeatureTabs({ active }: { active: FeatureKey }) {
+export function FeatureTabs({ active, module }: { active: FeatureKey | null; module?: AppModuleKey }) {
   const t = useTranslations();
   const locale = useLocale();
+  const router = useRouter();
   const activeRef = useRef<HTMLAnchorElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const activeItem = getFeatureItem(active);
+  const activeItem = active ? getFeatureItem(active) : undefined;
   const visibleItems = useMemo(() => {
-    const moduleKey = activeItem?.module || "aiShoots";
+    const moduleKey = module || activeItem?.module || "aiShoots";
     return getFeatureItemsForModule(moduleKey);
-  }, [activeItem?.module]);
+  }, [activeItem?.module, module]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -51,6 +54,12 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
     const targetLeft = activeNode.offsetLeft - (scroller.clientWidth - activeNode.clientWidth) / 2;
     scroller.scrollTo({ left: Math.max(0, targetLeft), behavior: "auto" });
   }, [active, visibleItems.length]);
+
+  const navigate = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    void requestStudioNavigation(href, () => router.push(href));
+  };
 
   return (
     <aside className="studio-nav-rail w-full max-w-[100vw] shrink-0 overflow-hidden border-b px-2 py-2 lg:flex lg:h-full lg:w-[var(--studio-nav-rail-width)] lg:max-w-none lg:flex-col lg:border-b-0 lg:border-r lg:px-1 lg:py-1">
@@ -69,7 +78,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                 aria-disabled="true"
                 aria-label={label}
                 title={title}
-                className="studio-nav-item group flex h-14 min-w-[84px] cursor-not-allowed flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[11px] font-bold opacity-45 lg:h-12 lg:min-w-0 lg:px-0 lg:text-[10px]"
+                className="studio-nav-item group flex h-14 min-w-[84px] cursor-not-allowed flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[11px] font-bold opacity-45 lg:h-[52px] lg:min-w-0 lg:px-0 lg:text-[10.5px]"
               >
                 <span className="studio-nav-icon-frame text-codex-faint">
                   <Icon aria-hidden="true" />
@@ -88,12 +97,13 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
               prefetch={false}
               aria-current={isActive ? "page" : undefined}
               aria-label={label}
-              className={`studio-nav-item group flex h-14 min-w-[84px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[11px] font-bold transition-[background-color,color,box-shadow,border-color] duration-150 lg:h-12 lg:min-w-0 lg:px-0 lg:text-[10px] ${
+              className={`studio-nav-item group flex h-14 min-w-[84px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[11px] font-bold transition-[background-color,color,box-shadow,border-color] duration-150 lg:h-[52px] lg:min-w-0 lg:px-0 lg:text-[10.5px] ${
                 isActive
                   ? "studio-nav-item-active bg-white/80 text-[var(--codex-accent)] shadow-sm ring-1 ring-[var(--codex-accent-22)] dark:bg-white/10 dark:text-[#cfd8ff] dark:ring-[var(--codex-accent-40)]"
                   : "text-codex-muted hover:bg-white/70 hover:text-codex-ink dark:hover:bg-white/5 dark:hover:text-codex-muted"
               }`}
               title={featureTitle(t, item)}
+              onClick={(event) => navigate(event, item.href)}
             >
               <span className={`studio-nav-icon-frame ${isActive ? "text-[var(--codex-accent)]" : "text-codex-faint group-hover:text-codex-ink"}`}>
                 <Icon aria-hidden="true" />
@@ -108,33 +118,42 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
           );
         })}
       </div>
-      <StudioNavFooter locale={locale} />
+      <StudioNavFooter locale={locale} onNavigate={navigate} />
     </aside>
   );
 }
 
-function StudioNavFooter({ locale }: { locale: string }) {
+function StudioNavFooter({
+  locale,
+  onNavigate,
+}: {
+  locale: string;
+  onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void;
+}) {
   const t = useTranslations("Header");
+  const pathname = usePathname();
   const historyLabel = t("generationHistory");
   const resourceLabel = t("resourceLibrary");
+  const isHistoryActive = pathname === "/history" || pathname.startsWith("/history/");
+  const isResourceLibraryActive = pathname === "/resource-library" || pathname.startsWith("/resource-library/");
 
   return (
     <TooltipProvider delayDuration={320} skipDelayDuration={80}>
       <div className="studio-nav-footer hidden shrink-0 flex-col lg:flex">
         <div className="studio-nav-footer-divider" aria-hidden="true" />
-        <Link href="/history" prefetch={false} className="studio-nav-footer-item" aria-label={historyLabel} title={historyLabel}>
+        <Link href="/history" prefetch={false} className="studio-nav-footer-item" data-active={isHistoryActive || undefined} aria-current={isHistoryActive ? "page" : undefined} aria-label={historyLabel} title={historyLabel} onClick={(event) => onNavigate(event, "/history")}>
           <History aria-hidden="true" />
           <span aria-hidden="true" className="max-w-full truncate whitespace-nowrap">{compactRailLabel(historyLabel, locale)}</span>
         </Link>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button type="button" className="studio-nav-footer-item" aria-label={t("resourceLibraryComingSoon")} title={resourceLabel}>
+            <Link href="/resource-library" prefetch={false} className="studio-nav-footer-item" data-active={isResourceLibraryActive || undefined} aria-current={isResourceLibraryActive ? "page" : undefined} aria-label={resourceLabel} title={resourceLabel} onClick={(event) => onNavigate(event, "/resource-library")}>
               <FolderOpen aria-hidden="true" />
               <span aria-hidden="true" className="max-w-full truncate whitespace-nowrap">{compactRailLabel(resourceLabel, locale)}</span>
-            </button>
+            </Link>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={10} className="studio-nav-footer-tooltip">
-            {t("resourceLibraryComingSoon")}
+            {resourceLabel}
           </TooltipContent>
         </Tooltip>
         <Tooltip>

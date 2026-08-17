@@ -40,6 +40,7 @@ import { OutfitFusionTaskCard, type OutfitFusionTask } from "@/features/outfit-f
 import { OutfitFusionFocusAction } from "@/features/outfit-fusion/OutfitFusionFocusAction";
 import { TaskInputReuseStack } from "@/features/outfit-fusion/TaskInputReuseStack";
 import { LoadableResultImage } from "@/features/outfit-fusion/LoadableResultImage";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import {
   getOutfitFusionRoleLabelKey,
   getIndexedAssetLabel,
@@ -80,6 +81,7 @@ function clampPollProgress(state: PollState, fallback = 24): number {
 export function OutfitFusionPageClient() {
   const t = useTranslations("OutfitFusion");
   const router = useRouter();
+  const { openResourcePicker } = useResourcePicker();
   const [assets, setAssets] = useState<OutfitFusionAsset[]>([]);
   const [prompt, setPrompt] = useState("");
   const [config, setConfig] = useState<OutfitFusionConfig>(DEFAULT_OUTFIT_FUSION_CONFIG);
@@ -456,6 +458,41 @@ export function OutfitFusionPageClient() {
         fileInputRef.current.click();
       }
     });
+  }
+
+  async function handleLibraryClick(role: OutfitFusionAssetRole) {
+    const roleAssets = assets.filter((asset) => asset.role === role);
+    const remainingTotal = Math.max(0, 10 - assets.length);
+    const roleLimit = role === "outfit" ? Math.min(8, roleAssets.length + remainingTotal) : 1;
+    const selected = await openResourcePicker({
+      title: t("roles." + role),
+      role,
+      moduleKey: "outfitFusion",
+      selectionMode: role === "outfit" ? "multiple" : "single",
+      maxCount: roleLimit,
+      existingCount: role === "outfit" ? roleAssets.length : 0,
+      mediaTypes: ["image"],
+      view: role === "outfit" ? "group" : "single",
+      excludedUrls: assets.map((asset) => asset.url),
+    });
+    if (!selected?.length) return;
+
+    const picked: OutfitFusionAsset[] = assetUrls(selected).map((url, index) => ({
+      id: `resource-${selected[index]?.id || `${role}-${Date.now()}-${index}`}`,
+      role,
+      url,
+      name: selected[index]?.title || getUploadedAssetName(role, assets, index),
+    }));
+    const nextAssets = role === "outfit"
+      ? [...assets, ...picked].slice(0, 10)
+      : [...assets.filter((asset) => asset.role !== role), picked[0]].filter(Boolean).slice(0, 10) as OutfitFusionAsset[];
+
+    setSelectedTemplate(null);
+    setAssets(nextAssets);
+    if (!prompt.trim()) {
+      setPrompt(limitComposerPrompt(buildPromptDraft(picked, role)));
+    }
+    toast.success(t("toast.uploadSuccess"));
   }
 
   async function handleFiles(files: FileList | File[] | null, roleOverride = uploadRole) {
@@ -981,6 +1018,7 @@ export function OutfitFusionPageClient() {
           onPromptChange={setPrompt}
           onConfigChange={setConfig}
           onUploadClick={handleUploadClick}
+          onLibraryClick={(role) => void handleLibraryClick(role)}
           onUploadFiles={(role, files) => void handleFiles(files, role)}
           onPreviewAsset={setAssetPreviewId}
           onRemoveAsset={handleRemoveAsset}

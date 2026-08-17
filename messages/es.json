@@ -3281,6 +3281,14 @@
       "complexMaterial": "Materiales complejos e iluminación comercial",
       "recommended": "Recomendado"
     },
+    "mode": {
+      "faithfulLabel": "Retoque estándar",
+      "faithfulDesc": "Conservar el fondo original · Limpiar imperfecciones y ruido; corregir color, luz y nitidez",
+      "whiteBackgroundLabel": "Retoque con fondo blanco",
+      "whiteBackgroundDesc": "Generar un fondo blanco puro · Normalizar el encuadre y los contornos conservando sombras de contacto naturales",
+      "studioLabel": "Retoque de estudio",
+      "studioDesc": "Recrear la iluminación y el fondo de estudio · Reforzar materiales, reflejos y volumen"
+    },
     "aspect": {
       "autoLabel": "Relación original",
       "auto": "Sigue el original del producto",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "Las imágenes con sujeto completo, enfoque nítido y sin oclusión funcionan mejor para la producción por lotes."
     },
     "example": {
+      "sampleLabel": "Ejemplo {index}",
       "alreadyAdded": "El ejemplo {title} ya está en el lote actual",
       "added": "Añadido ejemplo {title}"
     },
@@ -4811,6 +4820,138 @@
     "delete": "Eliminar",
     "reuseImages": "Reutilizar imágenes",
     "taskGenericTitle": "Tarea de fusión de atuendos",
-    "imageNumber": "Imagen {index}"
+    "imageNumber": "Imagen {index}",
+    "uploadLibrary": "Elija de la biblioteca de activos"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Biblioteca de activos",
+      "description": "Administre cargas reutilizables, activos generados y mensajes en un solo lugar."
+    },
+    "tabs": {
+      "label": "Secciones de biblioteca de activos",
+      "uploads": "Cargas locales",
+      "generated": "Mis creaciones",
+      "prompts": "Mis prompts"
+    },
+    "actions": {
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "confirm": "Confirmar",
+      "loadMore": "Cargar más",
+      "localUpload": "Subir desde el dispositivo",
+      "newPrompt": "Nuevo mensaje",
+      "remove": "Quitar",
+      "removeAsset": "Eliminar activo",
+      "removePrompt": "Quitar mensaje",
+      "retry": "Reintentar",
+      "save": "Guardar",
+      "add": "Agregar a la biblioteca de activos",
+      "added": "Agregado a la biblioteca de activos"
+    },
+    "categories": {
+      "title": "Categorías de activos",
+      "localUploads": "Cargas locales"
+    },
+    "filters": {
+      "allMedia": "Todos los medios",
+      "allModules": "Todas las características",
+      "image": "Imágenes",
+      "mediaLabel": "Tipo de medio",
+      "moduleLabel": "Característica",
+      "video": "Vídeos"
+    },
+    "picker": {
+      "title": "Seleccionar activos",
+      "selectionHint": "Seleccionado {selected} de {max}",
+      "selectedCount": "{selected}/{max} seleccionado",
+      "gridLabel": "Activos disponibles",
+      "limitReachedTitle": "Límite de selección alcanzado",
+      "limitReachedDescription": "Anule la selección de un activo antes de seleccionar otro.",
+      "limitReachedInline": "Puede seleccionar hasta activos {max}."
+    },
+    "card": {
+      "select": "Seleccione {title}",
+      "removeSelection": "Deseleccionar {title}",
+      "preview": "Vista previa {title}",
+      "previewTitle": "Vista previa de activos",
+      "previewDescription": "Obtenga una vista previa del activo seleccionado."
+    },
+    "empty": {
+      "uploadTitle": "Aún no hay cargas locales",
+      "uploadDescription": "Sube imágenes o vídeos para reutilizarlos en las herramientas de creación.",
+      "moduleTitle": "No hay recursos guardados en esta función",
+      "moduleDescription": "Guarde un resultado generado para que aparezca aquí.",
+      "generatedTitle": "Aún no hay activos generados",
+      "generatedDescription": "Guarde los resultados de una página de creación para reutilizarlos aquí.",
+      "promptTitle": "Aún no hay mensajes",
+      "promptDescription": "Crea prompts reutilizables para agilizar tus próximas creaciones."
+    },
+    "states": {
+      "loading": "Cargando",
+      "uploading": "Subiendo",
+      "saving": "Guardando",
+      "uploadFailed": "Error al subir",
+      "loadFailedTitle": "No se pudieron cargar los recursos",
+      "loadFailedDescription": "Comprueba tu conexión y vuelve a intentarlo.",
+      "deleteFailed": "No se pudo eliminar el artículo",
+      "createFailed": "No se pudo crear el mensaje",
+      "operationFailed": "Error en la acción de la biblioteca de recursos. Por favor inténtalo de nuevo."
+    },
+    "toast": {
+      "uploadSuccess": "Activos {count} cargados",
+      "assetRemoved": "Activo eliminado",
+      "promptCreated": "Mensaje creado",
+      "promptRemoved": "Aviso eliminado"
+    },
+    "upload": {
+      "supportedFormats": "Admite formatos comunes de imagen y video"
+    },
+    "prompts": {
+      "allTypes": "Todos los tipos",
+      "typeLabel": "tipo de mensaje",
+      "searchLabel": "Mensajes de búsqueda",
+      "searchPlaceholder": "Mensajes de búsqueda",
+      "createTitle": "Crear mensaje",
+      "createDescription": "Guarde un título y solicite el contenido para su reutilización.",
+      "titleLabel": "Título rápido",
+      "titlePlaceholder": "Ingrese un título rápido",
+      "contentLabel": "Contenido rápido",
+      "contentPlaceholder": "Introduzca el contenido del mensaje"
+    },
+    "confirm": {
+      "removeAssetTitle": "¿Quitar activo?",
+      "removeAssetDescription": "Este recurso será eliminado de su biblioteca.",
+      "removePromptTitle": "¿Eliminar mensaje?",
+      "removePromptDescription": "Este mensaje se eliminará permanentemente."
+    },
+    "promptTypes": {
+      "text-to-image": "Texto a imagen",
+      "image-to-image": "Imagen a imagen",
+      "model-background": "Fondo del modelo",
+      "pose": "postura",
+      "video": "Vídeo",
+      "other": "Otro"
+    },
+    "modules": {
+      "tryon": "Prueba virtual",
+      "grass": "Imagen promocional",
+      "productRetouch": "Retoque de producto",
+      "productSet": "Set de producto",
+      "modelBackground": "Cambio de fondo de modelo",
+      "materialEnhancement": "Mejora de material",
+      "generalImage": "Imagen general",
+      "outfitFusion": "Fusión de conjuntos",
+      "pose": "Variación de pose",
+      "model": "Modelo personalizado",
+      "garment3d": "Prenda a 3D",
+      "faceSwap": "Cambio de rostro",
+      "imageTranslation": "Traducción de imágenes",
+      "commerceDetail": "Imagen de detalle del producto",
+      "allCategoryProductImage": "Imagen de producto de todas las categorías",
+      "videoImageToVideo": "Imagen a video",
+      "videoMotion": "Imitación de movimiento",
+      "videoFirstLastFrame": "Primer/último fotograma"
+    }
   }
 }

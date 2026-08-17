@@ -40,6 +40,7 @@ import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getApplyPath, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { requestStudioNavigation } from "@/lib/studio-navigation";
+import { useResourcePicker } from "@/features/resource-library";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
@@ -105,6 +106,7 @@ const GENERAL_IMAGE_PREVIEW_ACTIONS: Array<ImagePreviewAction & { labelKey: stri
 export function GeneralImageExperience({ initialMode = "text-to-image" }: { initialMode?: GeneralImageMode }) {
   const router = useRouter();
   const t = useTranslations("GeneralImage");
+  const { openResourcePicker } = useResourcePicker();
   const tShared = useTranslations("Shared");
   const { confirm, confirmDialog } = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -368,6 +370,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const previewSession = useStudioPreview({
     module: "generalImage",
     title: modeMeta.title,
+    taskId: activeQueueTask?.id,
     urls: resultUrls,
     expectedCount: activeResultExpectedCount,
     isGenerating,
@@ -896,7 +899,31 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   isDragging={isDragging}
                   libraryLabel={t("libraryLabel")}
                   onUploadClick={openFileDialog}
-                  onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                  onLibraryClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("referenceSectionTitle"),
+                      role: "reference",
+                      selectionMode: "multiple",
+                      maxCount: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+                      existingCount: referenceImages.length,
+                      excludedUrls: referenceImages.map((item) => item.url),
+                      mediaTypes: ["image"],
+                      moduleKey: "generalImage",
+                    });
+                    if (!assets?.length) return;
+                    setReferenceImages((current) => {
+                      const existing = new Set(current.map((item) => item.url));
+                      const added = assets
+                        .filter((asset) => !existing.has(asset.url))
+                        .map((asset) => ({
+                          id: `resource-${asset.id}`,
+                          name: asset.title || t("referenceImage"),
+                          url: asset.url,
+                          preview: asset.previewUrl || asset.thumbnailUrl || asset.url,
+                        }));
+                      return [...current, ...added].slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
+                    });
+                  }}
                   onPreview={(url) => setReferenceLightboxSrc(url)}
                   onRemove={(_, index) => {
                     setReferenceImages((prev) => prev.filter((__, itemIndex) => itemIndex !== index));
@@ -1034,6 +1061,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                 variant="task"
+                resourceFavorite={{ generationId: activeQueueTask?.id, moduleKey: "generalImage", mediaType: "image" }}
                 failureLabel={t("failedLabel")}
                 failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
                 markMissingAsFailed={hasCompletedPartialResults}

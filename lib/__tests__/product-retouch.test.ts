@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import enMessages from "@/messages/en.json";
+import zhMessages from "@/messages/zh.json";
 import {
   BUILTIN_PRODUCT_RETOUCH_SKILL,
+  PRODUCT_RETOUCH_DEFAULT_SETTINGS,
   PRODUCT_RETOUCH_EXAMPLE_IMAGES,
   PRODUCT_RETOUCH_MAX_SOURCES,
   buildProductRetouchPrompt,
@@ -15,6 +18,25 @@ import {
 import { getApplyPath } from "@/lib/history-apply";
 
 describe("product retouch contract", () => {
+  it("defaults faithful retouch to the original aspect ratio", () => {
+    expect(PRODUCT_RETOUCH_DEFAULT_SETTINGS).toMatchObject({
+      mode: "faithful-retouch",
+      aspectRatio: "auto",
+      model: "gpt-image-2",
+      imageSize: "2K",
+      variantsPerSource: 1,
+    });
+  });
+
+  it("localizes every retouch plan instead of exposing the Chinese source labels", () => {
+    expect(Object.keys(enMessages.ProductRetouch.mode)).toEqual(
+      Object.keys(zhMessages.ProductRetouch.mode),
+    );
+    expect(enMessages.ProductRetouch.mode.faithfulLabel).toBe("Standard retouch");
+    expect(enMessages.ProductRetouch.mode.whiteBackgroundLabel).toBe("White-background retouch");
+    expect(enMessages.ProductRetouch.mode.studioLabel).toBe("Studio retouch");
+  });
+
   it("keeps the product image navigation order stable", () => {
     const items = getFeatureItemsForModule("productImages");
     expect(items.map((item) => item.key)).toEqual([

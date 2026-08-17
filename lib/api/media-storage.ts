@@ -12,6 +12,8 @@ export interface StoredMedia {
   delete_url: string;
   width: number;
   height: number;
+  /** Present only for objects written by this trusted Aliyun OSS adapter. */
+  object_key?: string;
 }
 
 export interface StoreMediaInput {
@@ -70,7 +72,7 @@ export async function storeMedia(input: StoreMediaInput, options: StoreMediaOpti
   }
 
   const url = buildPublicObjectUrl(config.publicBaseUrl, objectKey);
-  return { url, display_url: url, delete_url: "", width: 0, height: 0 };
+  return { url, display_url: url, delete_url: "", width: 0, height: 0, object_key: objectKey };
 }
 
 async function resolveMediaPayload(media: string, name: string, options: StoreMediaOptions) {

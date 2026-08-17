@@ -9,6 +9,12 @@ import zhMessages from "@/messages/zh.json";
 
 afterEach(() => cleanup());
 
+vi.stubGlobal("ResizeObserver", class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+});
+
 vi.mock("@/lib/image-variants", () => ({
   getImageVariantUrl: (url: string) => url,
 }));
@@ -61,6 +67,29 @@ describe("MultiImageUploadV2", () => {
     expect(getByText("上传 / 或拖拽至此 / 粘贴【多视角商品图】")).toBeTruthy();
     expect(container.querySelector(".studio-multi-image-v2-panel .studio-multi-image-v2-examples")).toBeTruthy();
     expect(container.querySelector(".studio-multi-image-v2-results")).toBeNull();
+  });
+
+  it("keeps combination examples fully expanded and reveals a large preview on focus", async () => {
+    const previewUrls = Array.from({ length: 4 }, (_, index) => `https://example.com/combo-${index + 1}.png`);
+    const { container, getByRole } = renderUploader({
+      examples: {
+        label: "试一试",
+        images: [{ url: previewUrls[0], title: "四图组合", previewUrls }],
+        onSelect: vi.fn(),
+      },
+    });
+
+    const trigger = getByRole("button", { name: /四图组合/ });
+    expect(trigger.classList.contains("studio-upload-tile-example-thumb-multi")).toBe(true);
+    expect(trigger.querySelectorAll(".studio-upload-tile-example-cell")).toHaveLength(4);
+
+    fireEvent.focus(trigger);
+    await waitFor(() => {
+      const popover = document.querySelector(".studio-upload-example-preview-popover-multi");
+      expect(popover).toBeTruthy();
+      expect(popover!.querySelector(".studio-upload-example-preview-grid")?.querySelectorAll(".studio-upload-example-preview-media")).toHaveLength(4);
+    });
+    expect(container.querySelector(".studio-multi-image-v2-examples")).toBeTruthy();
   });
 
   it("removes repeated upload and drag actions from every business hint", () => {

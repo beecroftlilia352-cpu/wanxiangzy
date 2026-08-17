@@ -70,6 +70,7 @@ import { IconButton } from "@/features/all-category-product-image/IconButton";
 import { PlanningPreview } from "@/features/all-category-product-image/PlanningPreview";
 import { ProgressLine } from "@/features/all-category-product-image/ProgressLine";
 import { ResultGrid } from "@/features/all-category-product-image/ResultGrid";
+import { useResourcePicker } from "@/features/resource-library";
 import { SelectField } from "@/features/all-category-product-image/SelectField";
 import { StepBar } from "@/features/all-category-product-image/StepBar";
 
@@ -130,8 +131,8 @@ type GenerationResponse = {
   error?: string;
 };
 
-const MAX_PRODUCT_UPLOADS = 6;
 const API_PRODUCT_IMAGE_LIMIT = 3;
+const MAX_PRODUCT_UPLOADS = API_PRODUCT_IMAGE_LIMIT;
 
 const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -224,6 +225,7 @@ function readModuleResults(value: unknown): ProductSetModuleResult[] {
 
 export default function AllCategoryProductImagePage() {
   const t = useTranslations("AllCategoryProduct");
+  const { openResourcePicker } = useResourcePicker();
   const modelOptions = useStudioImageModelOptions();
   const inputRef = useRef<HTMLInputElement>(null);
   const aiPlansReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -251,6 +253,7 @@ export default function AllCategoryProductImagePage() {
   const [progress, setProgress] = useState(0);
   const [moduleResults, setModuleResults] = useState<ProductSetModuleResult[]>([]);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [showAiPlans, setShowAiPlans] = useState(false);
   const [editingDesignSpec, setEditingDesignSpec] = useState(false);
@@ -271,6 +274,7 @@ export default function AllCategoryProductImagePage() {
       expectedCount: Math.max(resultSlots.length, modules.length, 1),
       isGenerating,
       statusGroup: isGenerating ? "running" : activeStep === "done" ? "completed" : undefined,
+      taskId: activeGenerationId,
       references: productImages.map((image, index) => ({
         url: image.uploadedUrl || image.url,
         label: image.name || t("productImageSlot", { index: index + 1 }),
@@ -300,7 +304,7 @@ export default function AllCategoryProductImagePage() {
       }),
       aspectRatio: defaultAspect,
     }),
-    [activeStep, aiModel, defaultAspect, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, resultSlots, t, userBrief]
+    [activeGenerationId, activeStep, aiModel, defaultAspect, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, resultSlots, t, userBrief]
   );
 
   useEffect(() => {
@@ -318,6 +322,7 @@ export default function AllCategoryProductImagePage() {
 
   function resetOutput() {
     setResultUrls([]);
+    setActiveGenerationId(null);
     setModuleResults([]);
     setError("");
     setProgress(0);
@@ -572,6 +577,7 @@ export default function AllCategoryProductImagePage() {
       });
       const data = (await res.json().catch(() => ({}))) as GenerationResponse;
       if (!res.ok || !data.generation_id) throw new Error(data.error || t("generationSubmitFailed"));
+      setActiveGenerationId(data.generation_id);
       const initialModules = readModuleResults(data.module_results);
       if (initialModules.length) setModuleResults(initialModules);
 
@@ -665,6 +671,35 @@ export default function AllCategoryProductImagePage() {
                   imageFit="contain"
                   loading={isUploading}
                   onUploadClick={() => inputRef.current?.click()}
+                  onLibraryClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("productImagesTitle"),
+                      role: "product",
+                      selectionMode: "multiple",
+                      maxCount: MAX_PRODUCT_UPLOADS,
+                      existingCount: productImages.length,
+                      excludedUrls: productImages.map((item) => item.uploadedUrl || item.url),
+                      mediaTypes: ["image"],
+                      moduleKey: "allCategoryProductImage",
+                    });
+                    if (!assets?.length) return;
+                    setProductImages((current) => {
+                      const existing = new Set(current.map((item) => item.uploadedUrl || item.url));
+                      const added = assets
+                        .filter((asset) => !existing.has(asset.url))
+                        .map((asset, index) => ({
+                          url: asset.previewUrl || asset.thumbnailUrl || asset.url,
+                          uploadedUrl: asset.url,
+                          name: asset.title || t("productImageSlot", { index: current.length + index + 1 }),
+                        }));
+                      return [...current, ...added].slice(0, MAX_PRODUCT_UPLOADS);
+                    });
+                    setActiveStep("input");
+                    setProductInfo("");
+                    setAnalysisDetail(null);
+                    setProductProfile(null);
+                    resetOutput();
+                  }}
                   onPreview={(url) => setProductLightboxSrc(url)}
                   onRemove={(_, index) => removeProductImage(index)}
                   onClear={() => {
@@ -833,6 +868,11 @@ export default function AllCategoryProductImagePage() {
                     regeneratingIndex={regeneratingIndex}
                     onPreview={(_, __, index) => setPreviewIndex(index)}
                     onRegenerate={(index) => void submitGeneration(index)}
+                    resourceFavorite={activeGenerationId ? {
+                      generationId: activeGenerationId,
+                      moduleKey: "allCategoryProductImage",
+                      mediaType: "image",
+                    } : undefined}
                   />
                   <StudioImagePreviewDialog
                     open={previewIndex !== null}

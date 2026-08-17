@@ -1471,6 +1471,14 @@
       "complexMaterial": "複雑な素材と商用ライティング",
       "recommended": "おすすめ"
     },
+    "mode": {
+      "faithfulLabel": "標準レタッチ",
+      "faithfulDesc": "元の背景を維持 · 傷やノイズを除去し、色・光・鮮明さを補正",
+      "whiteBackgroundLabel": "白背景レタッチ",
+      "whiteBackgroundDesc": "純白背景を生成 · 主体の構図と輪郭を整え、自然な接地影を保持",
+      "studioLabel": "スタジオレタッチ",
+      "studioDesc": "スタジオ照明と背景を再構築 · 素材感、反射、立体感を強化"
+    },
     "aspect": {
       "autoLabel": "元の比率",
       "auto": "商品の原版に追従",
@@ -1513,6 +1521,7 @@
       "tipAdvice": "被写体が完全でピントが合い、遮蔽のない画像が一括生産に適しています。"
     },
     "example": {
+      "sampleLabel": "サンプル {index}",
       "alreadyAdded": "{title}のサンプルはすでに現在のバッチにあります",
       "added": "{title}のサンプルを追加しました"
     },
@@ -4811,6 +4820,138 @@
     "delete": "削除",
     "reuseImages": "画像を再利用",
     "taskGenericTitle": "コーデ融合タスク",
-    "imageNumber": "画像{index}"
+    "imageNumber": "画像{index}",
+    "uploadLibrary": "アセットライブラリから選択"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "アセットライブラリ",
+      "description": "再利用可能なアップロード、生成されたアセット、プロンプトを 1 か所で管理します。"
+    },
+    "tabs": {
+      "label": "アセット ライブラリのセクション",
+      "uploads": "ローカルアップロード",
+      "generated": "生成した素材",
+      "prompts": "保存したプロンプト"
+    },
+    "actions": {
+      "cancel": "キャンセル",
+      "close": "閉じる",
+      "confirm": "確認する",
+      "loadMore": "さらにロードする",
+      "localUpload": "デバイスからアップロードする",
+      "newPrompt": "新しいプロンプト",
+      "remove": "削除",
+      "removeAsset": "アセットの削除",
+      "removePrompt": "プロンプトを削除する",
+      "retry": "再試行",
+      "save": "保存",
+      "add": "アセットライブラリに追加",
+      "added": "アセットライブラリに追加されました"
+    },
+    "categories": {
+      "title": "資産カテゴリー",
+      "localUploads": "ローカルアップロード"
+    },
+    "filters": {
+      "allMedia": "すべてのメディア",
+      "allModules": "すべての機能",
+      "image": "画像",
+      "mediaLabel": "メディアの種類",
+      "moduleLabel": "特徴",
+      "video": "動画"
+    },
+    "picker": {
+      "title": "アセットの選択",
+      "selectionHint": "{max} の {selected} を選択しました",
+      "selectedCount": "{selected}/{max} 選択済み",
+      "gridLabel": "利用可能なアセット",
+      "limitReachedTitle": "選択制限に達しました",
+      "limitReachedDescription": "別のアセットを選択する前に、アセットの選択を解除してください。",
+      "limitReachedInline": "最大 {max} のアセットを選択できます。"
+    },
+    "card": {
+      "select": "{title}を選択してください",
+      "removeSelection": "{title}の選択を解除します",
+      "preview": "{title}のプレビュー",
+      "previewTitle": "アセットのプレビュー",
+      "previewDescription": "選択したアセットをプレビューします。"
+    },
+    "empty": {
+      "uploadTitle": "ローカルアップロードはまだありません",
+      "uploadDescription": "画像やビデオをアップロードして、複数の作成ツール間で再利用できます。",
+      "moduleTitle": "この機能には保存されたアセットがありません",
+      "moduleDescription": "生成された結果を保存すると、ここに表示されます。",
+      "generatedTitle": "アセットはまだ生成されていません",
+      "generatedDescription": "作成ページの結果を保存して、ここで再利用します。",
+      "promptTitle": "まだプロンプトはありません",
+      "promptDescription": "再利用できるプロンプトを作成して、次回以降の生成を効率化します。"
+    },
+    "states": {
+      "loading": "読み込み中",
+      "uploading": "アップロード中",
+      "saving": "保存中",
+      "uploadFailed": "アップロードに失敗しました",
+      "loadFailedTitle": "アセットをロードできませんでした",
+      "loadFailedDescription": "接続を確認して、もう一度試してください。",
+      "deleteFailed": "アイテムを削除できませんでした",
+      "createFailed": "プロンプトを作成できませんでした",
+      "operationFailed": "アセット ライブラリのアクションが失敗しました。もう一度試してください。"
+    },
+    "toast": {
+      "uploadSuccess": "{count} アセットをアップロードしました",
+      "assetRemoved": "資産が削除されました",
+      "promptCreated": "プロンプトが作成されました",
+      "promptRemoved": "プロンプトが削除されました"
+    },
+    "upload": {
+      "supportedFormats": "一般的な画像およびビデオ形式をサポート"
+    },
+    "prompts": {
+      "allTypes": "全種類",
+      "typeLabel": "プロンプトタイプ",
+      "searchLabel": "検索プロンプト",
+      "searchPlaceholder": "検索プロンプト",
+      "createTitle": "プロンプトの作成",
+      "createDescription": "タイトルとプロンプトコンテンツを保存して再利用します。",
+      "titleLabel": "プロンプトタイトル",
+      "titlePlaceholder": "プロンプトのタイトルを入力してください",
+      "contentLabel": "プロンプトコンテンツ",
+      "contentPlaceholder": "プロンプトの内容を入力してください"
+    },
+    "confirm": {
+      "removeAssetTitle": "アセットを削除しますか?",
+      "removeAssetDescription": "このアセットはライブラリから削除されます。",
+      "removePromptTitle": "プロンプトを削除しますか?",
+      "removePromptDescription": "このプロンプトは完全に削除されます。"
+    },
+    "promptTypes": {
+      "text-to-image": "テキストから画像へ",
+      "image-to-image": "画像から画像へ",
+      "model-background": "モデルの背景",
+      "pose": "ポーズ",
+      "video": "ビデオ",
+      "other": "その他"
+    },
+    "modules": {
+      "tryon": "試着",
+      "grass": "衣類PR画像",
+      "productRetouch": "商品レタッチ",
+      "productSet": "商品セット",
+      "modelBackground": "モデル背景変更",
+      "materialEnhancement": "素材強調",
+      "generalImage": "汎用画像",
+      "outfitFusion": "コーデ合成",
+      "pose": "ポーズ展開",
+      "model": "専用モデル",
+      "garment3d": "衣類から3D",
+      "faceSwap": "顔交換",
+      "imageTranslation": "画像翻訳",
+      "commerceDetail": "商品詳細画像",
+      "allCategoryProductImage": "全カテゴリー商品イメージ",
+      "videoImageToVideo": "画像→動画",
+      "videoMotion": "モーション模倣",
+      "videoFirstLastFrame": "始点終点フレーム"
+    }
   }
 }

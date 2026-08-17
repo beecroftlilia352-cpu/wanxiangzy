@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioBatchDownloadButton, StudioSingleDownloadButton } from "@/components/studio/StudioMediaDownloadButton";
+import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
+import {
+  createResourceFavoriteDescriptor,
+  type ResourceFavoriteCollectionContext,
+  type ResourceFavoriteDescriptor,
+} from "@/components/resource-library/resource-favorite-types";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useTranslations } from "next-intl";
 import { getImageVariantUrl } from "@/lib/image-variants";
@@ -55,6 +61,8 @@ type ResultImageGridProps = {
    * the highest-confidence result when results finish streaming.
    */
   bestPickIndex?: number | null;
+  /** Enables resource-library favorite actions when a generation identity is available. */
+  resourceFavorite?: ResourceFavoriteCollectionContext;
 };
 
 export type ResultInputReference = {
@@ -111,6 +119,7 @@ export function ResultImageGrid({
   tileAspectRatio,
   reducePendingMotion = false,
   bestPickIndex = null,
+  resourceFavorite,
 }: ResultImageGridProps) {
   const t = useTranslations("Shared");
   const resolvedImageAltPrefix = imageAltPrefix ?? t("resultImageAlt");
@@ -252,6 +261,7 @@ export function ResultImageGrid({
                   tileAspectRatio={tileAspectRatio}
                   isNew={newResultIndexes.has(index)}
                   isBestPick={bestPickIndex === index}
+                  favoriteDescriptor={createResourceFavoriteDescriptor(resourceFavorite, url, index)}
                 />
               );
             })}
@@ -306,6 +316,7 @@ export function ResultImageGrid({
               tileAspectRatio={tileAspectRatio}
               isNew={newResultIndexes.has(index)}
               isBestPick={bestPickIndex === index}
+              favoriteDescriptor={createResourceFavoriteDescriptor(resourceFavorite, url, index)}
             />
           );
         })}
@@ -353,6 +364,7 @@ type ResultCardProps = {
   /** True when this slot is the module's best-pick. Drives the 最佳 badge
    *  and an accent ring. */
   isBestPick?: boolean;
+  favoriteDescriptor?: ResourceFavoriteDescriptor | null;
 };
 
 const ResultCard = memo(function ResultCard({
@@ -377,6 +389,7 @@ const ResultCard = memo(function ResultCard({
   tileAspectRatio,
   isNew = false,
   isBestPick = false,
+  favoriteDescriptor,
 }: ResultCardProps) {
   const t = useTranslations("Shared");
   const router = useRouter();
@@ -485,6 +498,10 @@ const ResultCard = memo(function ResultCard({
                 {t("view")}
               </Button>
               <div className="studio-result-focus-actions">
+                <FavoriteAssetButton
+                  descriptor={favoriteDescriptor}
+                  className="studio-result-focus-action h-8 w-8 p-0"
+                />
                 <ResultFocusAction label={t("actionRepair")} onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
                 <ResultFocusAction label={t("actionAiVideo")} onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
                 <StudioSingleDownloadButton
@@ -526,7 +543,10 @@ function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
     prev.cellLabel === next.cellLabel &&
     prev.completedMissing === next.completedMissing &&
     prev.isNew === next.isNew &&
-    prev.isBestPick === next.isBestPick
+    prev.isBestPick === next.isBestPick &&
+    prev.favoriteDescriptor?.generationId === next.favoriteDescriptor?.generationId &&
+    prev.favoriteDescriptor?.resultIndex === next.favoriteDescriptor?.resultIndex &&
+    prev.favoriteDescriptor?.url === next.favoriteDescriptor?.url
   );
 }
 

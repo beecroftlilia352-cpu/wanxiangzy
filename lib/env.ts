@@ -148,6 +148,7 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "ALIYUN_OSS_GENERATED_PREFIX", category: "optional", description: "OSS prefix for medium-lived generated results." },
   { name: "ALIYUN_OSS_FAVORITE_PREFIX", category: "optional", description: "OSS prefix for permanent user favorites." },
   { name: "ALIYUN_OSS_TEMP_PREFIX", category: "optional", description: "OSS prefix for temporary scratch images." },
+  { name: "RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET", category: "optional", description: "Optional HMAC secret for short-lived resource-library upload receipts; defaults to the OSS access key secret." },
   { name: "ALIYUN_OSS_ENDPOINT", category: "optional", description: "OSS upload endpoint override, without protocol." },
   { name: "ALIYUN_OSS_SECURITY_TOKEN", category: "optional", description: "Optional STS security token for temporary OSS credentials." },
   { name: "DOWNLOAD_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Extra hosts allowed by /api/download-image." },

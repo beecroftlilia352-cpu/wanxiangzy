@@ -1531,6 +1531,14 @@
       "complexMaterial": "วัสดุซับซ้อนและการจัดแสงเชิงพาณิชย์",
       "recommended": "แนะนำ"
     },
+    "mode": {
+      "faithfulLabel": "รีทัชมาตรฐาน",
+      "faithfulDesc": "คงพื้นหลังเดิม · ลบรอยตำหนิและนอยส์ พร้อมปรับสี แสง และความคมชัด",
+      "whiteBackgroundLabel": "รีทัชพื้นหลังขาว",
+      "whiteBackgroundDesc": "สร้างพื้นหลังสีขาวบริสุทธิ์ · จัดองค์ประกอบและเส้นขอบให้เป็นมาตรฐานโดยคงเงาสัมผัสตามธรรมชาติ",
+      "studioLabel": "รีทัชสตูดิโอ",
+      "studioDesc": "สร้างแสงและพื้นหลังสตูดิโอใหม่ · เพิ่มรายละเอียดวัสดุ เงาสะท้อน และมิติ"
+    },
     "aspect": {
       "autoLabel": "อัตราส่วนตามภาพต้นฉบับ",
       "auto": "ตามภาพสินค้าต้นฉบับ",
@@ -1573,6 +1581,7 @@
       "tipAdvice": "ภาพที่ตัวหลักครบ โฟกัสชัด ไม่มีสิ่งบัง เหมาะกับการผลิตจำนวนมาก"
     },
     "example": {
+      "sampleLabel": "ตัวอย่าง {index}",
       "alreadyAdded": "ตัวอย่าง {title} อยู่ในชุดปัจจุบันแล้ว",
       "added": "เพิ่มตัวอย่าง {title} แล้ว"
     },
@@ -4811,6 +4820,138 @@
     "delete": "ลบ",
     "reuseImages": "ใช้ภาพอีกครั้ง",
     "taskGenericTitle": "งานฟิวชันชุด",
-    "imageNumber": "รูป {index}"
+    "imageNumber": "รูป {index}",
+    "uploadLibrary": "เลือกจากคลังสินทรัพย์"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "ไลบรารีสินทรัพย์",
+      "description": "จัดการการอัปโหลดที่ใช้ซ้ำได้ เนื้อหาที่สร้างขึ้น และข้อความแจ้งได้ในที่เดียว"
+    },
+    "tabs": {
+      "label": "ส่วนไลบรารีสินทรัพย์",
+      "uploads": "การอัปโหลดในเครื่อง",
+      "generated": "ผลงานของฉัน",
+      "prompts": "พรอมต์ของฉัน"
+    },
+    "actions": {
+      "cancel": "ยกเลิก",
+      "close": "ปิด",
+      "confirm": "ยืนยัน",
+      "loadMore": "โหลดเพิ่ม",
+      "localUpload": "อัพโหลดจากอุปกรณ์",
+      "newPrompt": "พรอมต์ใหม่",
+      "remove": "ลบ",
+      "removeAsset": "ลบเนื้อหา",
+      "removePrompt": "ลบพรอมต์",
+      "retry": "ลองอีกครั้ง",
+      "save": "บันทึก",
+      "add": "เพิ่มลงในไลบรารีสินทรัพย์",
+      "added": "เพิ่มลงในไลบรารีสินทรัพย์แล้ว"
+    },
+    "categories": {
+      "title": "หมวดหมู่สินทรัพย์",
+      "localUploads": "การอัปโหลดในเครื่อง"
+    },
+    "filters": {
+      "allMedia": "สื่อทั้งหมด",
+      "allModules": "คุณสมบัติทั้งหมด",
+      "image": "รูปภาพ",
+      "mediaLabel": "ประเภทสื่อ",
+      "moduleLabel": "คุณสมบัติ",
+      "video": "วิดีโอ"
+    },
+    "picker": {
+      "title": "เลือกสินทรัพย์",
+      "selectionHint": "เลือก {selected} ของ {max}",
+      "selectedCount": "เลือก {selected}/{max} แล้ว",
+      "gridLabel": "สินทรัพย์ที่มีอยู่",
+      "limitReachedTitle": "ถึงขีดจำกัดการเลือกแล้ว",
+      "limitReachedDescription": "ยกเลิกการเลือกสินทรัพย์ก่อนเลือกสินทรัพย์อื่น",
+      "limitReachedInline": "คุณสามารถเลือกสินทรัพย์ได้สูงสุด {max}"
+    },
+    "card": {
+      "select": "เลือก {title}",
+      "removeSelection": "ยกเลิกการเลือก {title}",
+      "preview": "ดูตัวอย่าง {title}",
+      "previewTitle": "การแสดงตัวอย่างเนื้อหา",
+      "previewDescription": "ดูตัวอย่างเนื้อหาที่เลือก"
+    },
+    "empty": {
+      "uploadTitle": "ยังไม่มีการอัปโหลดในเครื่อง",
+      "uploadDescription": "อัปโหลดรูปภาพหรือวิดีโอเพื่อนำมาใช้ซ้ำในเครื่องมือสร้างสรรค์ต่างๆ",
+      "moduleTitle": "ไม่มีเนื้อหาที่บันทึกไว้ในฟีเจอร์นี้",
+      "moduleDescription": "บันทึกผลลัพธ์ที่สร้างขึ้นเพื่อให้ปรากฏที่นี่",
+      "generatedTitle": "ยังไม่มีการสร้างสินทรัพย์",
+      "generatedDescription": "บันทึกผลลัพธ์จากหน้าการสร้างเพื่อนำมาใช้ซ้ำที่นี่",
+      "promptTitle": "ยังไม่มีข้อความแจ้ง",
+      "promptDescription": "สร้างพรอมต์ที่ใช้ซ้ำได้ เพื่อให้การสร้างผลงานครั้งต่อไปรวดเร็วยิ่งขึ้น"
+    },
+    "states": {
+      "loading": "กำลังโหลด",
+      "uploading": "กำลังอัพโหลด",
+      "saving": "กำลังบันทึก",
+      "uploadFailed": "การอัปโหลดล้มเหลว",
+      "loadFailedTitle": "ไม่สามารถโหลดเนื้อหาได้",
+      "loadFailedDescription": "ตรวจสอบการเชื่อมต่อของคุณแล้วลองอีกครั้ง",
+      "deleteFailed": "ไม่สามารถลบรายการได้",
+      "createFailed": "ไม่สามารถสร้างพรอมต์ได้",
+      "operationFailed": "การดำเนินการไลบรารีสินทรัพย์ล้มเหลว โปรดลองอีกครั้ง"
+    },
+    "toast": {
+      "uploadSuccess": "อัปโหลดเนื้อหา {count}",
+      "assetRemoved": "นำเนื้อหาออกแล้ว",
+      "promptCreated": "สร้างพรอมต์แล้ว",
+      "promptRemoved": "ลบพรอมต์แล้ว"
+    },
+    "upload": {
+      "supportedFormats": "รองรับรูปแบบรูปภาพและวิดีโอทั่วไป"
+    },
+    "prompts": {
+      "allTypes": "ทุกประเภท",
+      "typeLabel": "ประเภทพร้อมท์",
+      "searchLabel": "ข้อความแจ้งการค้นหา",
+      "searchPlaceholder": "ข้อความแจ้งการค้นหา",
+      "createTitle": "สร้างพรอมต์",
+      "createDescription": "บันทึกชื่อและเนื้อหาพร้อมท์เพื่อนำมาใช้ซ้ำ",
+      "titleLabel": "ชื่อพรอมต์",
+      "titlePlaceholder": "ป้อนชื่อพร้อมท์",
+      "contentLabel": "เนื้อหาพร้อมท์",
+      "contentPlaceholder": "ป้อนเนื้อหาพร้อมท์"
+    },
+    "confirm": {
+      "removeAssetTitle": "ลบเนื้อหาใช่ไหม",
+      "removeAssetDescription": "เนื้อหานี้จะถูกนำออกจากห้องสมุดของคุณ",
+      "removePromptTitle": "ลบข้อความเตือนใช่ไหม",
+      "removePromptDescription": "ข้อความแจ้งนี้จะถูกลบออกอย่างถาวร"
+    },
+    "promptTypes": {
+      "text-to-image": "ข้อความเป็นรูปภาพ",
+      "image-to-image": "ภาพต่อภาพ",
+      "model-background": "พื้นหลังของโมเดล",
+      "pose": "โพสท่า",
+      "video": "วีดีโอ",
+      "other": "อื่นๆ"
+    },
+    "modules": {
+      "tryon": "ลองสวมเสมือนจริง",
+      "grass": "ภาพเสื้อผ้าแนะนำสินค้า",
+      "productRetouch": "รีทัชสินค้า",
+      "productSet": "ชุดภาพสินค้า",
+      "modelBackground": "โมเดลเปลี่ยนพื้นหลัง",
+      "materialEnhancement": "เพิ่มความคมวัสดุ",
+      "generalImage": "สร้างภาพทั่วไป",
+      "outfitFusion": "ผสานการแต่งตัว",
+      "pose": "สร้างท่าทาง",
+      "model": "โมเดลเฉพาะตัว",
+      "garment3d": "เสื้อผ้าเป็น 3D",
+      "faceSwap": "สลับใบหน้า",
+      "imageTranslation": "การแปลรูปภาพ",
+      "commerceDetail": "ภาพรายละเอียดสินค้า",
+      "allCategoryProductImage": "รูปภาพสินค้าทุกหมวดหมู่",
+      "videoImageToVideo": "ภาพเป็นวิดีโอ",
+      "videoMotion": "เลียนแบบท่าทาง",
+      "videoFirstLastFrame": "ภาพแรกภาพสุดท้าย"
+    }
   }
 }

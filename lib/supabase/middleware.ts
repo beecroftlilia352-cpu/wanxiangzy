@@ -11,6 +11,7 @@ export async function updateSession(request: NextRequest) {
     "/create",
     "/face-swap",
     "/history",
+    "/resource-library",
     "/tryon",
     "/pose",
     "/model",

@@ -37,6 +37,7 @@ import { GenerationCountField } from "@/components/studio/GenerationCountField";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import {
   FACE_SWAP_LIBRARY,
   FACE_SWAP_MODE_OPTIONS,
@@ -137,6 +138,7 @@ type FaceSwapPollContext = {
 export default function FaceSwapPage() {
   const router = useRouter();
   const t = useTranslations("FaceSwap");
+  const { openResourcePicker } = useResourcePicker();
   const originalInputRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
   const faceInputRef = useRef<HTMLInputElement>(null);
@@ -788,7 +790,22 @@ export default function FaceSwapPage() {
                 summary={sourceUrls.length ? t("sourceSummary", { count: sourceUrls.length * normalizeFaceSwapCount(genCount) }) : undefined}
                 footnote={t("sourceFootnote", { max: MAX_FACE_SWAP_SOURCE_IMAGES })}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("sourceTitle"),
+                    role: "source",
+                    selectionMode: "multiple",
+                    maxCount: MAX_FACE_SWAP_SOURCE_IMAGES,
+                    existingCount: sourceUrls.length,
+                    excludedUrls: sourceUrls,
+                    mediaTypes: ["image"],
+                    moduleKey: "faceSwap",
+                  });
+                  const urls = assetUrls(assets);
+                  if (!urls.length) return;
+                  setSourceUrls((current) => Array.from(new Set([...current, ...urls])).slice(0, MAX_FACE_SWAP_SOURCE_IMAGES));
+                  resetGenerationForInputChange();
+                }}
                 onPreview={(url, index) => openLightbox(url, t("sourceLightboxCaption", { index: index + 1 }))}
                 onRemove={(_, index) => {
                   setSourceUrls((prev) => prev.filter((__, i) => i !== index));
@@ -812,12 +829,7 @@ export default function FaceSwapPage() {
           </StudioUploadSection>
 
           <StudioUploadSection
-            title={(
-              <span className="face-swap-target-title">
-                <span>{t("targetFaceTitle")}</span>
-                <span>{faceSwapMode === "featuresHairSkin" ? t("targetFeaturesHairSkin") : t("targetFeatures")}</span>
-              </span>
-            )}
+            title={t("targetFaceTitle")}
             inputRef={faceInputRef}
             onFiles={(files) => handleUpload(files.slice(0, 1), "face")}
             actions={(
@@ -834,7 +846,22 @@ export default function FaceSwapPage() {
                 imageAlt={t("targetFaceImageAlt")}
                 loading={isUploadingFace}
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => setDrawerOpen(true)}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("targetFaceUploadTitle"),
+                    role: "target-face",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: faceUrl ? 1 : 0,
+                    excludedUrls: faceUrl ? [faceUrl] : [],
+                    mediaTypes: ["image"],
+                    moduleKey: "faceSwap",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setFaceUrl(url);
+                  resetGenerationForInputChange();
+                }}
                 onPreview={faceUrl ? () => openLightbox(faceUrl, t("targetFaceLightboxCaption", { note: faceSwapModeNote })) : undefined}
                 onRemove={faceUrl ? () => {
                   setFaceUrl("");
@@ -843,7 +870,7 @@ export default function FaceSwapPage() {
                 onDropFile={(file) => file && handleUpload([file], "face")}
                 dragContext={dragContext}
                 uploadLabel={t("uploadFaceLabel")}
-                libraryLabel={t("officialFaceLabel")}
+                libraryLabel={t("libraryLabel")}
                 footnote={faceSwapMode === "featuresHairSkin" ? t("targetFootnoteHairSkin") : t("targetFootnoteFeatures")}
                 examples={{
                   label: t("examplesLabel"),
@@ -1234,6 +1261,7 @@ function ResultsPanel({
             statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
             imageAltPrefix={t("resultImageAlt")}
             variant="task"
+            resourceFavorite={{ generationId: task?.id, moduleKey: "faceSwap", mediaType: "image" }}
             inputReferences={[
               ...sourceUrls.map((url, index) => ({ url, label: t("sourceImageLabel", { index: index + 1 }) })),
               ...(faceUrl ? [{ url: faceUrl, label: t("targetFaceLabel") }] : []),
@@ -1262,6 +1290,7 @@ function ResultsPanel({
             statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
             imageAltPrefix={`${t("resultImageAlt")} ${sIndex + 1}`}
             variant="task"
+            resourceFavorite={{ generationId: task?.id, moduleKey: "faceSwap", mediaType: "image", resultIndexOffset: sIndex * perSourceCount }}
             inputReferences={[
               { url: sourceUrl, label: t("sourceImageLabel", { index: sIndex + 1 }) },
               ...(faceUrl ? [{ url: faceUrl, label: t("targetFaceLabel") }] : []),

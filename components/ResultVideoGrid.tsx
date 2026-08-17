@@ -5,6 +5,12 @@ import { Loader2, Play, XCircle } from "lucide-react";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioSingleDownloadButton } from "@/components/studio/StudioMediaDownloadButton";
+import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
+import {
+  createResourceFavoriteDescriptor,
+  type ResourceFavoriteCollectionContext,
+  type ResourceFavoriteDescriptor,
+} from "@/components/resource-library/resource-favorite-types";
 import { generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { useTranslations } from "next-intl";
@@ -20,6 +26,7 @@ type ResultVideoGridProps = {
   createdAt?: string | null;
   statusGroup?: TaskStatusGroup;
   renderKey?: string;
+  resourceFavorite?: ResourceFavoriteCollectionContext;
 };
 
 export function ResultVideoGrid({
@@ -33,6 +40,7 @@ export function ResultVideoGrid({
   createdAt,
   statusGroup,
   renderKey = "video-result",
+  resourceFavorite,
 }: ResultVideoGridProps) {
   const t = useTranslations("Shared");
   const count = Math.max(urls.length, expectedCount || 0, 1);
@@ -72,6 +80,11 @@ export function ResultVideoGrid({
               aspectRatio={aspectRatio}
               filenamePrefix={filenamePrefix}
               onOpen={onOpen}
+              favoriteDescriptor={createResourceFavoriteDescriptor(
+                resourceFavorite ? { ...resourceFavorite, mediaType: "video" } : undefined,
+                url,
+                index,
+              )}
             />
           ))}
         </div>
@@ -103,6 +116,7 @@ function VideoResultCard({
   aspectRatio,
   filenamePrefix,
   onOpen,
+  favoriteDescriptor,
 }: {
   url: string | null;
   index: number;
@@ -110,6 +124,7 @@ function VideoResultCard({
   aspectRatio?: string;
   filenamePrefix: string;
   onOpen: (url: string, index: number) => void;
+  favoriteDescriptor?: ResourceFavoriteDescriptor | null;
 }) {
   const layout = getVideoResultLayout(aspectRatio);
   const t = useTranslations("Shared");
@@ -171,6 +186,10 @@ function VideoResultCard({
         showLabel={false}
         variant="ghost"
         className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-codex-ink opacity-100 shadow-lg ring-1 ring-[var(--codex-border)]/70 backdrop-blur transition-[background-color,color,opacity] hover:bg-white hover:text-codex-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+      />
+      <FavoriteAssetButton
+        descriptor={favoriteDescriptor}
+        className="absolute right-14 top-3 z-[3] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
       />
     </div>
   );

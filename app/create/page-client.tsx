@@ -98,13 +98,11 @@ import {
 } from "@/lib/tryon-studio-options";
 import { TRYON_CATEGORY_BY_CODE, isIntimateAnalysis, normalizeTryOnClothingAnalysis, type TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
 import { alignTryOnReferenceAnalyses, type TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
-import { TryOnSourceLibraryDialog } from "@/components/tryon/TryOnSourceLibraryDialog";
 import {
   ReferenceScenePicker,
   type ReferenceScenePickerTab,
 } from "@/components/tryon/ReferenceScenePicker";
-import { useTryOnSourceLibrary } from "@/components/tryon/useTryOnSourceLibrary";
-import type { TryOnSourceLibraryItem } from "@/lib/tryon-source-library";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import { buildTryOnInputReferences } from "@/lib/tryon-input-references";
 import type { TryOnInputReference } from "@/lib/tryon-input-references";
 import {
@@ -207,6 +205,7 @@ import type {
 
 export default function CreatePage() {
   const t = useTranslations("Create");
+  const { openResourcePicker } = useResourcePicker();
   const locale = useLocale();
   // 服装角色分类标签键（lib TRYON_CLOTHING_ROLE_LABELS 为中文兜底）
   const ROLE_LABEL_KEYS = ROLE_I18N_KEYS;
@@ -333,15 +332,6 @@ export default function CreatePage() {
   const clothingAnalysisInflightRef = useRef(new Map<string, Promise<ClothingAnalysisCacheEntry>>());
   const referenceAnalysisCacheRef = useRef(new Map<string, ReferenceAnalysisCacheEntry>());
   const referenceAnalysisInflightRef = useRef(new Map<string, Promise<ReferenceAnalysisCacheEntry>>());
-  const sourceLibrary = useTryOnSourceLibrary({
-    ensureAuthenticated: refreshAuth,
-    isAuthenticated,
-    onUnauthenticated: () => {
-      toast.error(t("library.loginRequired"));
-      router.push("/login");
-    },
-  });
-
   // 已上传的服装 URL 列表（选择后立即上传）
   const [uploadedClothingUrls, setUploadedClothingUrls] = useState<string[]>([]);
   const [clothingAnalysis, setClothingAnalysis] = useState<TryOnClothingAnalysis | null>(null);
@@ -1153,23 +1143,33 @@ export default function CreatePage() {
     fileInputRef.current?.click();
   };
 
-  const applySourceLibraryItem = (item: TryOnSourceLibraryItem) => {
-    if (!sourceLibrary.role) return;
-
-    const nextRole = clothingMode === "single" ? "single" : sourceLibrary.role;
+  const pickClothingFromResourceLibrary = async (role: TryOnClothingRole) => {
+    const nextRole = clothingMode === "single" ? "single" : role;
+    const currentItem = getCurrentClothingItemStates().find((item) => item.role === nextRole);
+    const assets = await openResourcePicker({
+      title: t("clothing.libraryImport"),
+      role: `clothing-${nextRole}`,
+      selectionMode: "single",
+      maxCount: 1,
+      existingCount: currentItem ? 1 : 0,
+      excludedUrls: currentItem ? [currentItem.url] : [],
+      mediaTypes: ["image"],
+      moduleKey: "tryon",
+    });
+    const [url] = assetUrls(assets);
+    if (!url) return;
     const retainedItems = clothingMode === "single"
       ? []
       : getCurrentClothingItemStates().filter((current) => current.role !== nextRole);
     applyClothingItems([
       ...retainedItems,
       {
-        file: createPlaceholderFile(`library-${item.generationId}-${Date.now()}.jpg`),
-        preview: item.url,
-        url: item.url,
+        file: createPlaceholderFile(`resource-${assets?.[0]?.id || Date.now()}.jpg`),
+        preview: assets?.[0]?.previewUrl || assets?.[0]?.thumbnailUrl || url,
+        url,
         role: nextRole,
       },
     ]);
-    sourceLibrary.close();
     toast.success(t("clothing.libraryAdded", { role: t(ROLE_LABEL_KEYS[nextRole]) || t("clothing.garment") }));
   };
 
@@ -2595,7 +2595,7 @@ export default function CreatePage() {
                   loading={isUploading && uploadingClothingRoles.includes("single")}
                   supportBadge={t("clothing.oneImageBadge")}
                   onUploadClick={() => openClothingPicker("single")}
-                  onLibraryClick={() => sourceLibrary.open("single")}
+                  onLibraryClick={() => void pickClothingFromResourceLibrary("single")}
                   onPreview={singleClothing ? () => openLightbox(singleClothing.preview, t("clothing.singleImageAlt")) : undefined}
                   onRemove={singleClothing ? () => removeClothing(0) : undefined}
                   onDropFile={(file) => {
@@ -2630,7 +2630,7 @@ export default function CreatePage() {
                         loading={isUploading && uploadingClothingRoles.includes(role)}
                         supportBadge={t("clothing.individualUploadBadge")}
                         onUploadClick={() => openClothingPicker(role)}
-                        onLibraryClick={() => sourceLibrary.open(role)}
+                        onLibraryClick={() => void pickClothingFromResourceLibrary(role)}
                         onPreview={item ? () => openLightbox(item.preview, t("clothing.uploadedRoleAlt", { role: TRYON_CLOTHING_ROLE_LABELS[role] })) : undefined}
                         onRemove={item && itemIndex >= 0 ? () => removeClothing(itemIndex) : undefined}
                         onDropFile={(file) => {
@@ -2827,6 +2827,32 @@ export default function CreatePage() {
                   disabled={isReferenceUploadBusy}
                   loading={isReferenceUploadBusy}
                   onUploadClick={() => customRefInputRef.current?.click()}
+                  onLibraryClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("reference.title"),
+                      role: "scene-reference",
+                      selectionMode: "multiple",
+                      maxCount: MAX_TRYON_REFERENCE_IMAGES,
+                      existingCount: selectedReferenceImages.length,
+                      excludedUrls: selectedReferenceImages.map((item) => item.url),
+                      mediaTypes: ["image"],
+                      moduleKey: "tryon",
+                    });
+                    if (!assets?.length) return;
+                    setSceneMode("upload_reference");
+                    setSelectedReferences([
+                      ...selectedReferenceImages,
+                      ...assets.map((asset) => ({
+                        id: `resource-${asset.id}`,
+                        url: asset.url,
+                        label: asset.title || t("common.referenceImage"),
+                        category: "style" as const,
+                        is_preset: false,
+                        user_id: null,
+                        source: "upload" as const,
+                      })),
+                    ].slice(0, MAX_TRYON_REFERENCE_IMAGES), { mode: "upload_reference" });
+                  }}
                   onPreview={(url, index) => openLightbox(url, selectedReferenceImages[index]?.label || t("common.referenceImage"))}
                   onRemove={(_, index) => {
                     setSelectedReferences(selectedReferenceImages.filter((__, itemIndex) => itemIndex !== index));
@@ -3194,6 +3220,38 @@ export default function CreatePage() {
                 )}
               </div>
               <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" aria-label={t("model.uploadAriaLabel")} onChange={handleCustomModel} disabled={isModelUploadBusy} />
+              <button
+                type="button"
+                disabled={isModelUploadBusy}
+                onClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("model.title"),
+                    role: "model-face",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: customModelImageUrl ? 1 : 0,
+                    excludedUrls: customModelImageUrl ? [customModelImageUrl] : [],
+                    mediaTypes: ["image"],
+                    moduleKey: "tryon",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setCustomModelPreview(null);
+                  store.setSelectedModel({
+                    id: `resource-${assets?.[0]?.id || Date.now()}`,
+                    name: assets?.[0]?.title || t("model.custom"),
+                    image_url: url,
+                    gender: "female",
+                    is_preset: false,
+                    user_id: userId || null,
+                  });
+                  setPromptOverride(null);
+                }}
+                className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--codex-border)] bg-white px-2 text-center text-codex-muted transition hover:border-[var(--codex-accent-38)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] disabled:opacity-50 dark:bg-[#1c1c1e]"
+              >
+                <FolderOpen className="h-6 w-6" aria-hidden="true" />
+                <span className="text-[12px] font-bold">{t("clothing.libraryImport")}</span>
+              </button>
             </div>
           </section>
 
@@ -3323,7 +3381,7 @@ export default function CreatePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => sourceLibrary.open(clothingMode === "multi" ? "upper" : "single")}
+                        onClick={() => void pickClothingFromResourceLibrary(clothingMode === "multi" ? "upper" : "single")}
                         className="inline-flex items-center gap-1.5 rounded-full border border-[var(--codex-border)] bg-white px-4 py-2 text-xs font-semibold text-codex-muted transition-colors hover:border-[var(--codex-border-strong)] hover:text-codex-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-border-strong)] focus-visible:ring-offset-2 dark:border-white/15 dark:bg-[#26262a] dark:text-codex-muted dark:hover:border-white/30 dark:hover:text-white"
                       >
                         <FolderOpen className="h-3.5 w-3.5" /> {t("guide.selectFromLibrary")}
@@ -3382,6 +3440,7 @@ export default function CreatePage() {
                       statusGroup={activeQueueTask?.statusGroup}
                       variant="task"
                       renderKey={activeQueueTask?.id || "tryon-create"}
+                      resourceFavorite={{ generationId: activeQueueTask?.id, moduleKey: "tryon", mediaType: "image" }}
                       markMissingAsFailed={hasCompletedPartialResults}
                       missingFailureLabel={t("generate.thisImageFailed")}
                       missingFailureDetail={partialFailureMessage}
@@ -3410,17 +3469,6 @@ export default function CreatePage() {
             )}
           />
         )}
-      />
-
-      <TryOnSourceLibraryDialog
-        open={sourceLibrary.role !== null}
-        targetLabel={sourceLibrary.targetLabel}
-        items={sourceLibrary.items}
-        isLoading={sourceLibrary.isLoading}
-        error={sourceLibrary.error}
-        onClose={sourceLibrary.close}
-        onRefresh={sourceLibrary.load}
-        onSelect={applySourceLibraryItem}
       />
 
       {rulesPopoverStyle && (

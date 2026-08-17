@@ -1598,7 +1598,9 @@ async function executePayload(
     });
     const resultUrl = getResultUrl(result);
     const hardValidation = payload.hardValidationPolicy.enabled
-      ? await validateGeneratedProductImage(resultUrl, payload.hardValidationPolicy)
+      ? await validateGeneratedProductImage(resultUrl, payload.hardValidationPolicy, {
+          expectedAspectRatio: payload.aspectRatio,
+        })
       : undefined;
     const trace = createPromptTraceItem({
       index: 1,
