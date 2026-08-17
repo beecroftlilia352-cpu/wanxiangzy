@@ -57,7 +57,7 @@ import {
   MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
   type GeneralImageMode,
 } from "@/lib/general-image-config";
-import type { StudioShowcaseExample } from "@/lib/showcase-examples";
+import type { StudioShowcaseExample, StudioShowcaseModule } from "@/lib/showcase-examples";
 
 type ReferenceImage = {
   id: string;
@@ -332,9 +332,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         tooltip: t("textToImageTooltip"),
         emptyTitle: t("textToImageEmptyTitle"),
         emptySubtitle: t("textToImageEmptySubtitle"),
-        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png",
-        emptyImageFit: "cover" as const,
+        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/guides/text-to-image-guide-v1.png",
+        emptyImageFit: "contain" as const,
       };
+  const showcaseModule: StudioShowcaseModule = isImageMode
+    ? "general-image-image-to-image"
+    : "general-image-text-to-image";
   const previewReferenceUrls = safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length
     ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails)
     : referenceImages.map((item) => item.preview || item.url).filter(Boolean);
@@ -510,14 +513,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     const nextModel: LingyaModel = "gpt-image-2";
     const nextAspectRatio = normalizeAspectRatio(example.aspectRatio, "3:4");
     const requestedSize: ImageSize = example.imageSize === "4K" ? "4K" : example.imageSize === "2K" ? "2K" : "1K";
-    const referenceUrl = example.referenceImageUrls[0] || example.imageUrl;
-    setMode("image-to-image");
-    setReferenceImages([{
-      id: `showcase-reference-${example.id}`,
-      name: example.title,
-      url: referenceUrl,
-      preview: referenceUrl,
-    }]);
+    if (isImageMode) {
+      const referenceUrl = example.referenceImageUrls[0] || example.imageUrl;
+      setReferenceImages([{
+        id: `showcase-reference-${example.id}`,
+        name: example.title,
+        url: referenceUrl,
+        preview: referenceUrl,
+      }]);
+    } else {
+      setReferenceImages([]);
+    }
     setPrompt(example.prompt.slice(0, 4000));
     setAiModel(nextModel);
     setAspectRatio(nextAspectRatio);
@@ -525,7 +531,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setGenCount(1);
     setImagePromptImage(null);
     resetOutput();
-    toast.success(t("broughtPreviewImage"));
+    toast.success(isImageMode ? t("broughtPreviewImage") : t("appliedToDescription"));
     requestAnimationFrame(() => {
       document.querySelector<HTMLElement>(".studio-general-image-parameters-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -991,17 +997,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 subtitle={modeMeta.emptySubtitle}
                 imageSrc={modeMeta.emptyImage}
                 imageFit={modeMeta.emptyImageFit}
-                imagePriority={isImageMode}
-                presentation={isImageMode ? "hero-image" : "standard"}
+                imagePriority
+                presentation="hero-image"
                 imageAlt={isImageMode ? t("guideImageAltImageToImage") : t("guideImageAltTextToImage")}
-                steps={!isImageMode ? [
-                  { title: t("stepInputTitle"), desc: t("stepInputDesc") },
-                  { title: t("stepParamsTitle"), desc: t("stepParamsDesc") },
-                  { title: t("stepGenerateTitle"), desc: t("stepGenerateDesc") },
-                ] : []}
+                steps={[]}
                 variant="editorial"
               />
-              {isImageMode ? <StudioShowcaseGallery onCreateSimilar={handleCreateSimilar} /> : null}
+              <StudioShowcaseGallery module={showcaseModule} onCreateSimilar={handleCreateSimilar} />
             </div>
           </div>
         )}

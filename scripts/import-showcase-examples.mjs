@@ -6,11 +6,18 @@ const SHOWCASE_AUTHOR_AVATAR_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com/
 
 const args = process.argv.slice(2);
 const outputIndex = args.indexOf("--out");
+const moduleIndex = args.indexOf("--module");
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : "lib/showcase-data/general-image-image-to-image.seed.json";
-const inputPaths = args.filter((value, index) => value !== "--out" && index !== outputIndex + 1);
+const showcaseModule = moduleIndex >= 0 ? cleanText(args[moduleIndex + 1]) : "general-image-image-to-image";
+const inputPaths = args.filter((value, index) => (
+  value !== "--out"
+  && value !== "--module"
+  && index !== outputIndex + 1
+  && index !== moduleIndex + 1
+));
 
-if (!inputPaths.length) {
-  throw new Error("Usage: node scripts/import-showcase-examples.mjs page1.json page2.json --out <file>");
+if (!inputPaths.length || !showcaseModule) {
+  throw new Error("Usage: node scripts/import-showcase-examples.mjs page1.json page2.json --module <module> --out <file>");
 }
 
 const seen = new Set();
@@ -27,7 +34,7 @@ const items = inputPaths.flatMap((inputPath) => {
 mkdirSync(dirname(resolve(outputPath)), { recursive: true });
 writeFileSync(resolve(outputPath), `${JSON.stringify({
   version: 1,
-  module: "general-image-image-to-image",
+  module: showcaseModule,
   enabled: true,
   items,
 }, null, 2)}\n`, "utf8");

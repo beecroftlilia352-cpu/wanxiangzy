@@ -390,6 +390,7 @@ function printSamples(assets) {
 
 function walkFiles(dir) {
   if (!existsSync(dir)) return [];
+  if (statSync(dir).isFile()) return [dir];
   const entries = readdirSync(dir, { withFileTypes: true });
   return entries.flatMap((entry) => {
     const path = join(dir, entry.name);

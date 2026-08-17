@@ -3,8 +3,9 @@ import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { getStudioShowcaseRegistry } from "@/lib/showcase-examples.server";
 import {
-  SHOWCASE_CONFIG_KEY,
   archiveShowcaseExample,
+  getShowcaseModuleConfig,
+  normalizeShowcaseModule,
   upsertShowcaseExample,
 } from "@/lib/showcase-examples";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -15,12 +16,14 @@ type MutationBody = {
   id?: unknown;
   reason?: unknown;
   enabled?: unknown;
+  module?: unknown;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminApi("assets:read");
   if (!auth.ok) return auth.response;
-  return NextResponse.json(await getStudioShowcaseRegistry(), { headers: { "Cache-Control": "no-store" } });
+  const module = normalizeShowcaseModule(new URL(request.url).searchParams.get("module"));
+  return NextResponse.json(await getStudioShowcaseRegistry(module), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -28,13 +31,15 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json().catch(() => ({})) as MutationBody;
+  const module = normalizeShowcaseModule(body.module);
+  const { configKey } = getShowcaseModuleConfig(module);
   const action = body.action === "archive" ? "archive" : body.action === "toggle" ? "toggle" : "upsert";
   const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 240) : "";
   if (reason.length < 4) {
     return NextResponse.json({ error: "请填写至少 4 个字的操作原因" }, { status: 400 });
   }
 
-  const registry = await getStudioShowcaseRegistry();
+  const registry = await getStudioShowcaseRegistry(module);
   let nextItems = registry.items;
   let enabled = registry.enabled;
   let resourceId = "registry";
@@ -58,13 +63,13 @@ export async function POST(request: Request) {
   await admin
     .from("admin_config_versions")
     .update({ status: "archived" })
-    .eq("config_key", SHOWCASE_CONFIG_KEY)
+    .eq("config_key", configKey)
     .eq("status", "published");
 
   const { data, error } = await admin
     .from("admin_config_versions")
     .insert({
-      config_key: SHOWCASE_CONFIG_KEY,
+      config_key: configKey,
       value: { version: 1, module: registry.module, enabled, items: nextItems },
       status: "published",
       created_by: auth.context.userId,
@@ -80,7 +85,7 @@ export async function POST(request: Request) {
     resourceType: "studio_showcase_example",
     resourceId,
     reason,
-    metadata: { configKey: SHOWCASE_CONFIG_KEY, versionId: data?.id, enabled },
+    metadata: { configKey, module, versionId: data?.id, enabled },
   });
 
   return NextResponse.json({

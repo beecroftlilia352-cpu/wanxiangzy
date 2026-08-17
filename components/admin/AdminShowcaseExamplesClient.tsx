@@ -11,6 +11,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Segmented,
   Select,
   Space,
   Switch,
@@ -24,15 +25,19 @@ import { AdminPageHeader } from "@/components/admin/AdminPrimitives";
 import {
   SHOWCASE_AUTHOR_AVATAR_URL,
   SHOWCASE_AUTHOR_NAME,
+  type StudioShowcaseModule,
   type StudioShowcaseExample,
   type StudioShowcaseRegistry,
 } from "@/lib/showcase-examples";
 
 type FormValue = StudioShowcaseExample & { reason: string; referenceImagesText: string };
 
-export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShowcaseRegistry }) {
+export function AdminShowcaseExamplesClient({ registries }: { registries: StudioShowcaseRegistry[] }) {
   const router = useRouter();
   const { message, modal } = AntdApp.useApp();
+  const [selectedModule, setSelectedModule] = useState<StudioShowcaseModule>("general-image-image-to-image");
+  const registry = registries.find((item) => item.module === selectedModule) || registries[0]!;
+  const isTextToImage = registry.module === "general-image-text-to-image";
   const [form] = Form.useForm<FormValue>();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<StudioShowcaseExample | null>(null);
@@ -151,7 +156,7 @@ export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShow
       const response = await fetch("/api/admin/showcase-examples", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "upsert", reason, example }),
+        body: JSON.stringify({ action: "upsert", module: registry.module, reason, example }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || `保存失败 (${response.status})`);
@@ -175,7 +180,7 @@ export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShow
         const response = await fetch("/api/admin/showcase-examples", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "archive", id: item.id, reason: `归档案例 ${item.title}` }),
+          body: JSON.stringify({ action: "archive", module: registry.module, id: item.id, reason: `归档案例 ${item.title}` }),
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "归档失败");
@@ -190,7 +195,7 @@ export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShow
       const response = await fetch("/api/admin/showcase-examples", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "toggle", enabled, reason: enabled ? "启用创建相似案例区" : "停用创建相似案例区" }),
+        body: JSON.stringify({ action: "toggle", module: registry.module, enabled, reason: enabled ? "启用创建相似案例区" : "停用创建相似案例区" }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "状态更新失败");
@@ -206,8 +211,17 @@ export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShow
       <AdminPageHeader
         eyebrow="Content showcase"
         title="创建相似案例"
-        description="管理图生图右侧的瀑布流案例。图片请使用已上传至阿里云 OSS 的稳定地址；发布后前台会自动刷新。"
+        description={`管理${isTextToImage ? "文生图" : "图生图"}右侧的瀑布流案例。图片请使用已上传至阿里云 OSS 的稳定地址；发布后前台会自动刷新。`}
         actions={<Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={startCreate}>新增案例</Button>}
+      />
+
+      <Segmented
+        value={registry.module}
+        options={[
+          { label: "图生图", value: "general-image-image-to-image" },
+          { label: "文生图", value: "general-image-text-to-image" },
+        ]}
+        onChange={(value) => setSelectedModule(value as StudioShowcaseModule)}
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -258,7 +272,9 @@ export function AdminShowcaseExamplesClient({ registry }: { registry: StudioShow
               name="referenceImagesText"
               label="参考图 OSS 地址（最多 3 张）"
               className="md:col-span-2"
-              extra="每行一个 HTTPS 地址；聚焦卡片时显示在左下角，创建相似时优先带入第一张。"
+              extra={isTextToImage
+                ? "文生图案例无需参考图；留空时卡片只展示生成结果。"
+                : "每行一个 HTTPS 地址；聚焦卡片时显示在左下角，创建相似时优先带入第一张。"}
             >
               <Input.TextArea rows={3} placeholder={"https://.../reference-1.png\nhttps://.../reference-2.png"} />
             </Form.Item>

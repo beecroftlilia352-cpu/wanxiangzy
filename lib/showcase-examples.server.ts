@@ -2,21 +2,25 @@ import "server-only";
 
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
-  SHOWCASE_CONFIG_KEY,
-  SHOWCASE_MODULE,
+  DEFAULT_SHOWCASE_MODULE,
   getBuiltInShowcaseExamples,
+  getShowcaseModuleConfig,
   parseShowcaseItems,
+  type StudioShowcaseModule,
   type StudioShowcaseRegistry,
 } from "@/lib/showcase-examples";
 
-export async function getStudioShowcaseRegistry(): Promise<StudioShowcaseRegistry> {
-  const fallbackItems = getBuiltInShowcaseExamples();
+export async function getStudioShowcaseRegistry(
+  requestedModule: StudioShowcaseModule = DEFAULT_SHOWCASE_MODULE,
+): Promise<StudioShowcaseRegistry> {
+  const { module, configKey } = getShowcaseModuleConfig(requestedModule);
+  const fallbackItems = getBuiltInShowcaseExamples(module);
   const warnings: string[] = [];
   try {
     const { data, error } = await getAdminClient()
       .from("admin_config_versions")
       .select("id,status,value,created_at,published_at")
-      .eq("config_key", SHOWCASE_CONFIG_KEY)
+      .eq("config_key", configKey)
       .order("published_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(12);
@@ -28,8 +32,8 @@ export async function getStudioShowcaseRegistry(): Promise<StudioShowcaseRegistr
       : null;
     const configuredItems = parseShowcaseItems(value?.items);
     return {
-      configKey: SHOWCASE_CONFIG_KEY,
-      module: SHOWCASE_MODULE,
+      configKey,
+      module,
       enabled: typeof value?.enabled === "boolean" ? value.enabled : true,
       activeVersionId: active?.id || null,
       activeVersionStatus: active?.status || null,
@@ -39,8 +43,8 @@ export async function getStudioShowcaseRegistry(): Promise<StudioShowcaseRegistr
   } catch (error) {
     warnings.push(error instanceof Error ? error.message : "示例配置读取失败");
     return {
-      configKey: SHOWCASE_CONFIG_KEY,
-      module: SHOWCASE_MODULE,
+      configKey,
+      module,
       enabled: true,
       activeVersionId: null,
       activeVersionStatus: null,

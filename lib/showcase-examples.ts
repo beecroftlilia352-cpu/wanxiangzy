@@ -1,7 +1,22 @@
 import seed from "@/lib/showcase-data/general-image-image-to-image.seed.json";
+import textToImageSeed from "@/lib/showcase-data/general-image-text-to-image.seed.json";
 
-export const SHOWCASE_CONFIG_KEY = "studio.showcase.general-image-image-to-image";
-export const SHOWCASE_MODULE = "general-image-image-to-image";
+export const DEFAULT_SHOWCASE_MODULE = "general-image-image-to-image" as const;
+export const SHOWCASE_MODULE_CONFIG = {
+  "general-image-image-to-image": {
+    configKey: "studio.showcase.general-image-image-to-image",
+    seed,
+  },
+  "general-image-text-to-image": {
+    configKey: "studio.showcase.general-image-text-to-image",
+    seed: textToImageSeed,
+  },
+} as const;
+export type StudioShowcaseModule = keyof typeof SHOWCASE_MODULE_CONFIG;
+export const SHOWCASE_MODULES = Object.keys(SHOWCASE_MODULE_CONFIG) as StudioShowcaseModule[];
+// Legacy aliases retained for call sites outside the showcase feature.
+export const SHOWCASE_CONFIG_KEY = SHOWCASE_MODULE_CONFIG[DEFAULT_SHOWCASE_MODULE].configKey;
+export const SHOWCASE_MODULE = DEFAULT_SHOWCASE_MODULE;
 export const SHOWCASE_AUTHOR_NAME = "万象分享官";
 export const SHOWCASE_AUTHOR_AVATAR_URL =
   "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/showcase/general-image-image-to-image/remote/metac-prod.oss-cn-hangzhou.aliyuncs.com/idm/image/2212/78036/1776308967749_544.8456297354923-a05cc8b0e2.png";
@@ -26,8 +41,8 @@ export type StudioShowcaseExample = {
 };
 
 export type StudioShowcaseRegistry = {
-  configKey: typeof SHOWCASE_CONFIG_KEY;
-  module: typeof SHOWCASE_MODULE;
+  configKey: string;
+  module: StudioShowcaseModule;
   enabled: boolean;
   activeVersionId: string | null;
   activeVersionStatus: string | null;
@@ -35,8 +50,19 @@ export type StudioShowcaseRegistry = {
   warnings: string[];
 };
 
-export function getBuiltInShowcaseExamples(): StudioShowcaseExample[] {
-  return parseShowcaseItems(seed.items);
+export function normalizeShowcaseModule(value: unknown): StudioShowcaseModule {
+  return typeof value === "string" && value in SHOWCASE_MODULE_CONFIG
+    ? value as StudioShowcaseModule
+    : DEFAULT_SHOWCASE_MODULE;
+}
+
+export function getShowcaseModuleConfig(value: unknown) {
+  const module = normalizeShowcaseModule(value);
+  return { module, ...SHOWCASE_MODULE_CONFIG[module] };
+}
+
+export function getBuiltInShowcaseExamples(module: StudioShowcaseModule = DEFAULT_SHOWCASE_MODULE): StudioShowcaseExample[] {
+  return parseShowcaseItems(SHOWCASE_MODULE_CONFIG[module].seed.items);
 }
 
 export function parseShowcaseExample(input: unknown): StudioShowcaseExample | null {

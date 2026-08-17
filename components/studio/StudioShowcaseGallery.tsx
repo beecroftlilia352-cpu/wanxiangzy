@@ -12,10 +12,11 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { StudioShowcaseExample } from "@/lib/showcase-examples";
+import type { StudioShowcaseExample, StudioShowcaseModule } from "@/lib/showcase-examples";
 import { cn } from "@/lib/utils";
 
 type StudioShowcaseGalleryProps = {
+  module: StudioShowcaseModule;
   onCreateSimilar: (example: StudioShowcaseExample) => void;
 };
 
@@ -24,10 +25,16 @@ type ShowcaseResponse = {
   items?: StudioShowcaseExample[];
 };
 
-export function StudioShowcaseGallery({ onCreateSimilar }: StudioShowcaseGalleryProps) {
+export function StudioShowcaseGallery({ module, onCreateSimilar }: StudioShowcaseGalleryProps) {
   const locale = useLocale();
   const isChinese = locale.toLowerCase().startsWith("zh");
-  const copy = useMemo(() => isChinese ? zhCopy : enCopy, [isChinese]);
+  const isTextToImage = module === "general-image-text-to-image";
+  const copy = useMemo(
+    () => isChinese
+      ? { ...zhCopy, subtitle: isTextToImage ? zhCopy.textSubtitle : zhCopy.imageSubtitle }
+      : { ...enCopy, subtitle: isTextToImage ? enCopy.textSubtitle : enCopy.imageSubtitle },
+    [isChinese, isTextToImage],
+  );
   const [items, setItems] = useState<StudioShowcaseExample[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<StudioShowcaseExample | null>(null);
@@ -35,7 +42,9 @@ export function StudioShowcaseGallery({ onCreateSimilar }: StudioShowcaseGallery
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    fetch("/api/showcase-examples", { signal: controller.signal })
+    setLoading(true);
+    setSelected(null);
+    fetch(`/api/showcase-examples?module=${encodeURIComponent(module)}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error(`showcase ${response.status}`);
         return response.json() as Promise<ShowcaseResponse>;
@@ -55,7 +64,7 @@ export function StudioShowcaseGallery({ onCreateSimilar }: StudioShowcaseGallery
       active = false;
       controller.abort();
     };
-  }, []);
+  }, [module]);
 
   function applyExample(example: StudioShowcaseExample) {
     onCreateSimilar(example);
@@ -79,10 +88,11 @@ export function StudioShowcaseGallery({ onCreateSimilar }: StudioShowcaseGallery
         <div className="studio-showcase-grid">
           {items.map((item) => (
             <ShowcaseCard
-              key={item.id}
+              key={`${module}-${item.id}`}
               item={item}
               previewLabel={copy.preview}
               createLabel={copy.create}
+              showReferences={!isTextToImage}
               onPreview={() => setSelected(item)}
               onCreate={() => applyExample(item)}
             />
@@ -158,18 +168,20 @@ function ShowcaseCard({
   item,
   previewLabel,
   createLabel,
+  showReferences,
   onPreview,
   onCreate,
 }: {
   item: StudioShowcaseExample;
   previewLabel: string;
   createLabel: string;
+  showReferences: boolean;
   onPreview: () => void;
   onCreate: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const ratio = normalizeAspectRatio(item.aspectRatio);
-  const referenceImages = item.referenceImageUrls.length ? item.referenceImageUrls : [item.imageUrl];
+  const referenceImages = item.referenceImageUrls;
   return (
     <article className="studio-showcase-card" style={{ aspectRatio: ratio }}>
       <Image
@@ -188,13 +200,15 @@ function ShowcaseCard({
           {previewLabel}
         </button>
         <div className="studio-showcase-card-footer">
-          <div className="studio-showcase-card-references" aria-hidden="true">
-            {referenceImages.slice(0, 3).map((url, index) => (
-              <span key={`${url}-${index}`}>
-                <Image src={url} alt="" fill sizes="52px" className="object-cover" />
-              </span>
-            ))}
-          </div>
+          {showReferences && referenceImages.length ? (
+            <div className="studio-showcase-card-references" aria-hidden="true">
+              {referenceImages.slice(0, 3).map((url, index) => (
+                <span key={`${url}-${index}`}>
+                  <Image src={url} alt="" fill sizes="52px" className="object-cover" />
+                </span>
+              ))}
+            </div>
+          ) : <span />}
           <button type="button" className="studio-showcase-card-create" onClick={onCreate}>{createLabel}</button>
         </div>
       </div>
@@ -220,7 +234,8 @@ function normalizeAspectRatio(value: string) {
 
 const zhCopy = {
   title: "创建相似",
-  subtitle: "从案例开始，替换参考图或调整描述，快速得到你的版本。",
+  imageSubtitle: "从案例开始，替换参考图或调整描述，快速得到你的版本。",
+  textSubtitle: "从案例开始，调整描述，快速生成你的专属视觉素材。",
   preview: "预览",
   create: "创建相似",
   loading: "正在加载创作案例",
@@ -233,7 +248,8 @@ const zhCopy = {
 
 const enCopy = {
   title: "Create similar",
-  subtitle: "Start from an example, replace the reference or refine the prompt, and make it yours.",
+  imageSubtitle: "Start from an example, replace the reference or refine the prompt, and make it yours.",
+  textSubtitle: "Start from an example, refine the prompt, and create a visual of your own.",
   preview: "Preview",
   create: "Create similar",
   loading: "Loading examples",
