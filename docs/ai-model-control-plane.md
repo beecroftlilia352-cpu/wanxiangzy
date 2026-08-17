@@ -74,6 +74,8 @@
 
 OpenAI Images 兼容模型使用 `openai-image`；Gemini 原生 `generateContent` 使用 `gemini-native`；OpenAI 兼容文本/视觉使用 `openai-chat`；现有 NewAPI 视频网关使用 `newapi-video`。控制台只允许选择已经具备完整请求转换、响应归一化和运行时测试的协议；`OpenAI Responses` 或自定义 HTTP 必须先新增代码适配器和契约测试，不能仅靠配置冒充支持。
 
+默认草稿还为三个内置图片模型提供 `api.new.bi` 的 `openai-image` 低优先级备用部署（`newapi-image`）。它只在同一逻辑模型的主部署失败或不可用时接管，不进行跨模型替换；图片编辑请求的原图与 mask 会继续由协议适配器透传。未配置 `VIDEO_API_KEY` 时该供应商会自动退出候选池。发布前仍需在后台连接测试确认账户实际开放对应上游模型与 `/images/edits`，未通过时应禁用对应部署。
+
 ## 发布、回滚与故障演练
 
 - 发布前：连接测试、配置校验、Redis 连通、至少两个供应商的低成本探测。

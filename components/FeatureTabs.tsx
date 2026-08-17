@@ -16,10 +16,13 @@ function featureLabel(t: (key: string) => string, item: FeatureNavItem): string 
 }
 
 function featureTitle(t: (key: string) => string, item: FeatureNavItem): string {
+  const description = item.labelKey
+    ? t(`Header.features.${item.key}.description`)
+    : item.description;
   if (item.disabled) {
-    return item.disabledReason || t(`Header.features.${item.key}.description`);
+    return item.disabledReason || description;
   }
-  return t(`Header.features.${item.key}.description`);
+  return description;
 }
 
 function compactRailLabel(label: string, locale: string): string {

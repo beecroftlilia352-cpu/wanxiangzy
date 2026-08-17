@@ -159,6 +159,11 @@ import {
 
 type GenerationJobPayloadBase = {
   publicBaseUrl?: string | null;
+  aiTool?: {
+    requestId: string;
+    operation: "outpaint" | "erase" | "repair-limbs" | "repair-garment" | "repair-footwear";
+    nativeMaskUrl?: string;
+  };
 };
 
 export type GenerationJobPayload = GenerationJobPayloadBase & (
@@ -1671,6 +1676,9 @@ async function executePayload(
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
+    const nativeMaskInput = payload.aiTool?.nativeMaskUrl
+      ? await resolvePayloadImageInputs({ clothingUrls: [payload.aiTool.nativeMaskUrl] })
+      : { clothingUrls: [] };
     const smartAspectImage = payload.kind === "outfitFusion"
       ? resolveOutfitFusionSmartAspectImage({
           assets: payload.assets,
@@ -1692,6 +1700,7 @@ async function executePayload(
           prompt_kind: payload.kind === "outfitFusion" ? "outfitFusion" : undefined,
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
+          mask: nativeMaskInput.clothingUrls[0],
           smart_aspect_image: smartAspectImage,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
@@ -2350,7 +2359,7 @@ function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
 }
 
 function shouldSkipVisualQualityEvaluation(payload: GenerationJobPayload) {
-  if (payload.kind === "tryon" || payload.kind === "pose" || payload.kind === "productRetouch" || isVideoPayload(payload)) return true;
+  if (payload.aiTool || payload.kind === "tryon" || payload.kind === "pose" || payload.kind === "productRetouch" || isVideoPayload(payload)) return true;
   return false;
 }
 

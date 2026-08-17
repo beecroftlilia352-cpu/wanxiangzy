@@ -8,6 +8,7 @@ import {
 describe("AI control-plane configuration", () => {
   it("accepts a valid multi-provider priority pool", () => {
     const config = createDefaultAiControlPlaneConfig();
+    const existingCount = config.deployments.filter((item) => item.modelId === "nano-banana-2").length;
     config.providers.push({
       id: "backup-image",
       name: "Backup",
@@ -26,7 +27,20 @@ describe("AI control-plane configuration", () => {
 
     const result = validateAiControlPlaneConfig(config);
     expect(result.issues.filter((issue) => issue.severity === "error")).toEqual([]);
-    expect(result.config.deployments.filter((item) => item.modelId === "nano-banana-2")).toHaveLength(2);
+    expect(result.config.deployments.filter((item) => item.modelId === "nano-banana-2")).toHaveLength(existingCount + 1);
+  });
+
+  it("ships api.new.bi as a lower-priority image-edit fallback", () => {
+    const config = createDefaultAiControlPlaneConfig();
+    const provider = config.providers.find((item) => item.id === "newapi-image");
+    const fallbacks = config.deployments.filter((item) => item.providerId === "newapi-image");
+
+    expect(provider).toMatchObject({
+      baseUrl: "https://api.new.bi/v1",
+      enabled: true,
+    });
+    expect(fallbacks).toHaveLength(3);
+    expect(fallbacks.every((item) => item.protocol === "openai-image" && item.priority === 20)).toBe(true);
   });
 
   it("rejects a user-visible dynamic image model without authoritative pricing", () => {

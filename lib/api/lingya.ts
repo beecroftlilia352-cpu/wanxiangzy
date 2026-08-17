@@ -151,6 +151,8 @@ interface GenerateInput {
   prompt_kind?: ImagePromptKind;
   aspect_ratio?: AspectRatio;
   image?: string[];
+  /** Optional OpenAI-compatible edit mask. Transparent pixels are editable. */
+  mask?: string;
   smart_aspect_image?: string;
   image_size?: ImageSize;
   search?: boolean;
@@ -318,7 +320,15 @@ async function generateImageWithProvider(
               adapterConfig: provider.adapterConfig,
             })
           : useImageEditEndpoint
-            ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: requestInput.image || [], signal: provider.signal, adapterConfig: provider.adapterConfig })
+            ? await buildImageEditRequest({
+                apiBase,
+                apiKey,
+                body,
+                imageUrls: requestInput.image || [],
+                maskUrl: requestInput.mask,
+                signal: provider.signal,
+                adapterConfig: provider.adapterConfig,
+              })
             : buildImageGenerationRequest({ apiBase, apiKey, provider, body });
         res = await fetch(request.url, request.init);
 
@@ -748,6 +758,7 @@ async function buildImageEditRequest(params: {
   apiKey: string;
   body: Record<string, any>;
   imageUrls: string[];
+  maskUrl?: string;
   signal?: AbortSignal;
   adapterConfig?: AiDeploymentAdapterConfig;
 }): Promise<{ url: string; init: RequestInit }> {
@@ -770,6 +781,10 @@ async function buildImageEditRequest(params: {
   const images = await Promise.all(params.imageUrls.map(fetchImageFormPart));
   for (const image of images) {
     form.append("image", image.blob, image.filename);
+  }
+  if (params.maskUrl) {
+    const mask = await fetchImageFormPart(params.maskUrl, params.imageUrls.length);
+    form.append("mask", mask.blob, `mask-${mask.filename}`);
   }
 
   return {

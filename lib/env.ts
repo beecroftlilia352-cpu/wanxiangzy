@@ -102,6 +102,13 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "GPT_IMAGE_PROVIDER", category: "optional", description: "GPT-Image-2 provider: catrouter (default) or plato." },
   { name: "GPT_TRYON_PROMPT_TEMPLATE", category: "optional", description: "GPT-Image-2 try-on prompt template: banana (default) or legacy rollback." },
   { name: "ADMIN_SECRETS_ENCRYPTION_KEY", category: "optional", description: "AES-256-GCM key used to encrypt admin-configured provider API keys at rest." },
+  { name: "AI_TOOLS_EXECUTION_MODE", category: "optional", description: "AI toolbox runtime mode: live, or mock outside production." },
+  { name: "AI_TOOLS_PROVIDER_GATEWAY_URL", category: "optional", description: "HTTPS base URL for the operation-aware AI toolbox Provider Gateway." },
+  { name: "AI_TOOLS_PROVIDER_GATEWAY_TOKEN", category: "optional", description: "Server-only Bearer token for the AI toolbox Provider Gateway." },
+  { name: "AI_TOOLS_PROVIDER_OPERATIONS", category: "optional", description: "Explicit allowlist for external matting/upscale Gateway operations; generative tools use published model providers." },
+  { name: "AI_TOOLS_PROVIDER_TIMEOUT_MS", category: "optional", description: "AI toolbox Provider request timeout, clamped by runtime to 1000-60000ms." },
+  { name: "AI_TOOL_ASSET_REF_SECRET", category: "optional", description: "Independent HMAC secret for user-bound AI toolbox mask references." },
+  { name: "AI_TOOL_MASK_REF_TTL_SECONDS", category: "optional", description: "Signed mask reference lifetime in seconds (300-86400)." },
   { name: "CATROUTER_BASE_URL", category: "optional", description: "CatRouter API base URL, default https://api.catrouter.net." },
   { name: "CATROUTER_API_KEY", category: "optional", description: "CatRouter API key for GPT-Image-2 and optional Banana native routing." },
   { name: "CATROUTER_GPT_IMAGE_MODEL", category: "optional", description: "CatRouter provider model id for gpt-image-2." },
@@ -135,6 +142,7 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "MINIMAX_VISION_MODEL", category: "optional", description: "MiniMax vision model override, default MiniMax-M3." },
   { name: "MINIMAX_TEXT_MODEL", category: "optional", description: "MiniMax text model override, default MiniMax-M3." },
   { name: "MINIMAX_VIDEO_API_KEY", category: "optional", description: "MiniMax H3 video API key; used by scripts/seed-provider-configs to seed video.providers and as a local test fallback." },
+  { name: "VIDEO_API_KEY", category: "optional", description: "Shared api.new.bi credential for control-plane image fallback and NewAPI video deployments." },
   { name: "MINIMAX_VIDEO_BASE_URL", category: "optional", description: "MiniMax H3 video base URL (new-api gateway), default https://api.new.bi." },
   { name: "MINIMAX_VIDEO_MODEL", category: "optional", description: "MiniMax H3 upstream model, default minimax-h3." },
   { name: "LINGYA_TEXT_MODEL", category: "optional", description: "Lingya text model override." },
@@ -192,6 +200,10 @@ const WEAK_PROCESSOR_SECRETS = new Set([
 ]);
 
 const MIN_PRODUCTION_PROCESSOR_SECRET_LENGTH = 32;
+const AI_TOOL_LIVE_OPERATIONS = new Set([
+  "matting",
+  "upscale",
+]);
 
 let validated = false;
 
@@ -245,6 +257,8 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
     }
   }
 
+  validateAiToolEnv({ issues, isProduction });
+
   const capacityMode = (process.env.AI_ROUTER_CAPACITY_MODE || "redis").trim().toLowerCase();
   if (capacityMode === "redis") {
     for (const name of ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"] as const) {
@@ -261,6 +275,112 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
 
   if (options.log) logEnvIssues(issues);
   return issues;
+}
+
+function validateAiToolEnv(params: {
+  issues: EnvValidationIssue[];
+  isProduction: boolean;
+}) {
+  const configuredMode = process.env.AI_TOOLS_EXECUTION_MODE?.trim().toLowerCase();
+  if (!configuredMode) return;
+
+  const severity: EnvSeverity = params.isProduction ? "error" : "warning";
+  const report = (name: string, message: string) => {
+    params.issues.push({
+      name,
+      category: "feature-required",
+      severity,
+      message,
+    });
+  };
+
+  if (configuredMode !== "live" && configuredMode !== "mock") {
+    report("AI_TOOLS_EXECUTION_MODE", "AI_TOOLS_EXECUTION_MODE must be live or mock.");
+    return;
+  }
+  if (configuredMode === "mock") {
+    if (params.isProduction) {
+      report("AI_TOOLS_EXECUTION_MODE", "AI_TOOLS_EXECUTION_MODE=mock is forbidden in production.");
+    }
+    return;
+  }
+
+  const configuredOperations = process.env.AI_TOOLS_PROVIDER_OPERATIONS;
+  if (configuredOperations === undefined) {
+    report(
+      "AI_TOOLS_PROVIDER_OPERATIONS",
+      "Set an explicit AI_TOOLS_PROVIDER_OPERATIONS allowlist in live mode; use an empty value to keep every remote operation disabled.",
+    );
+    return;
+  }
+
+  const operations = [...new Set(
+    configuredOperations.split(",").map((value) => value.trim()).filter(Boolean),
+  )];
+  const invalidOperations = operations.filter((operation) => !AI_TOOL_LIVE_OPERATIONS.has(operation));
+  if (invalidOperations.length) {
+    report(
+      "AI_TOOLS_PROVIDER_OPERATIONS",
+      `AI_TOOLS_PROVIDER_OPERATIONS contains unsupported operations: ${invalidOperations.join(", ")}.`,
+    );
+  }
+  if (!isStrongRuntimeSecret(process.env.AI_TOOL_ASSET_REF_SECRET)) {
+    report(
+      "AI_TOOL_ASSET_REF_SECRET",
+      "AI_TOOL_ASSET_REF_SECRET must contain at least 32 non-placeholder characters in live mode.",
+    );
+  }
+  if (!isStrongRuntimeSecret(process.env.RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET)) {
+    report(
+      "RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET",
+      "RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET must contain at least 32 non-placeholder characters in live mode.",
+    );
+  }
+
+  const maskTtl = process.env.AI_TOOL_MASK_REF_TTL_SECONDS?.trim();
+  if (maskTtl && (!/^\d+$/.test(maskTtl) || Number(maskTtl) < 300 || Number(maskTtl) > 86_400)) {
+    report("AI_TOOL_MASK_REF_TTL_SECONDS", "AI_TOOL_MASK_REF_TTL_SECONDS must be an integer from 300 to 86400.");
+  }
+
+  if (!operations.length || invalidOperations.length) return;
+
+  if (!isValidConfiguredUrl(process.env.AI_TOOLS_PROVIDER_GATEWAY_URL, params.isProduction)) {
+    report(
+      "AI_TOOLS_PROVIDER_GATEWAY_URL",
+      "A credential-free HTTPS AI_TOOLS_PROVIDER_GATEWAY_URL is required when live operations are enabled.",
+    );
+  }
+  if (!isStrongRuntimeSecret(process.env.AI_TOOLS_PROVIDER_GATEWAY_TOKEN)) {
+    report(
+      "AI_TOOLS_PROVIDER_GATEWAY_TOKEN",
+      "AI_TOOLS_PROVIDER_GATEWAY_TOKEN must contain at least 32 non-placeholder characters when live operations are enabled.",
+    );
+  }
+  const timeout = process.env.AI_TOOLS_PROVIDER_TIMEOUT_MS?.trim();
+  if (timeout && (!/^\d+$/.test(timeout) || Number(timeout) < 1_000 || Number(timeout) > 60_000)) {
+    report("AI_TOOLS_PROVIDER_TIMEOUT_MS", "AI_TOOLS_PROVIDER_TIMEOUT_MS must be an integer from 1000 to 60000.");
+  }
+}
+
+function isValidConfiguredUrl(value: string | undefined, isProduction: boolean) {
+  if (!value?.trim()) return false;
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.username || parsed.password || !parsed.hostname) return false;
+    if (parsed.protocol === "https:") return true;
+    return !isProduction
+      && parsed.protocol === "http:"
+      && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1");
+  } catch {
+    return false;
+  }
+}
+
+function isStrongRuntimeSecret(value: string | undefined) {
+  const normalized = value?.trim() || "";
+  return normalized.length >= MIN_PRODUCTION_PROCESSOR_SECRET_LENGTH
+    && !WEAK_PROCESSOR_SECRETS.has(normalized.toLowerCase())
+    && !normalized.toLowerCase().includes("replace-with");
 }
 
 export function validateEnvOnce(): EnvValidationIssue[] {

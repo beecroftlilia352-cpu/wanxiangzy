@@ -4,6 +4,7 @@ import type { TaskQueueItem, TaskQueueSummary } from "@/lib/task-queue";
 import { writeTaskQueueItem } from "@/lib/redis/task-queue-cache";
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
+  type TaskQueueAiToolSourceRow,
   type TaskQueueGenerationSourceRow,
   type TaskQueueIndexRow,
   type TaskQueueIndexWrite,
@@ -12,6 +13,7 @@ import {
   emptyTaskQueueSummary,
   indexRowToTaskQueueItem,
   normalizeGenerationTaskQueueItem,
+  normalizeAiToolTaskQueueItem,
   normalizeModule,
   normalizeWorkflowTaskQueueItem,
   taskQueueItemToIndexWrite,
@@ -66,6 +68,25 @@ const WORKFLOW_INDEX_SOURCE_COLUMNS = [
   "created_at",
   "updated_at",
   "final_outputs",
+].join(",");
+
+const AI_TOOL_INDEX_SOURCE_COLUMNS = [
+  "id",
+  "user_id",
+  "provider_task_id",
+  "operation",
+  "status",
+  "source_url",
+  "request_payload",
+  "provider_payload",
+  "response_payload",
+  "output_persistence_status",
+  "result_urls",
+  "last_error",
+  "created_at",
+  "updated_at",
+  "completed_at",
+  "generation_id",
 ].join(",");
 
 export type TaskQueueIndexLoadResult =
@@ -226,6 +247,55 @@ export async function syncWorkflowTaskQueueById(workflowId: string): Promise<voi
   await upsertTaskQueueIndexItem(
     taskQueueItemToIndexWrite(item, { userId: row.user_id, sourceType: "workflow", sourceId: row.id }),
   );
+}
+
+/**
+ * Projects the durable AI-tool task into the shared task-queue read model.
+ * This is deliberately best-effort: a cache/index outage must never turn a
+ * successfully submitted image job into an API failure.
+ */
+export async function syncAiToolTaskQueueById(aiToolTaskId: string): Promise<void> {
+  try {
+    const supabase = getAdminClient();
+    const { data, error } = await supabase
+      .from("ai_tool_tasks")
+      .select(AI_TOOL_INDEX_SOURCE_COLUMNS)
+      .eq("id", aiToolTaskId)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.warn("[task-queue-index] AI tool source unavailable:", error?.message || aiToolTaskId);
+      return;
+    }
+
+    const row = data as unknown as TaskQueueAiToolSourceRow;
+    // A submitting row has no stable public task identifier yet. It is synced
+    // immediately after the provider task is bound instead.
+    if (!row.provider_task_id) return;
+
+    // Generative tools already have a live generations row maintained by the
+    // existing worker/DB trigger. Let that source own the rail entry so status
+    // keeps advancing even after the browser closes.
+    if (row.generation_id) {
+      await supabase
+        .from("task_queue_items")
+        .delete()
+        .eq("source_type", "ai_tool")
+        .eq("source_id", row.id);
+      return;
+    }
+
+    const item = normalizeAiToolTaskQueueItem(row);
+    await upsertTaskQueueIndexItem(
+      taskQueueItemToIndexWrite(item, {
+        userId: row.user_id,
+        sourceType: "ai_tool",
+        sourceId: row.id,
+      }),
+    );
+  } catch (error) {
+    console.warn("[task-queue-index] AI tool sync unavailable:", toLogMessage(error));
+  }
 }
 
 export async function upsertTaskQueueIndexItem(item: TaskQueueIndexWrite): Promise<void> {

@@ -29,7 +29,6 @@ type UploadRequestPayload = {
   contentType?: string;
   name: string;
   originalFilename?: string;
-  byteSize?: number;
   tooLarge?: boolean;
   debug?: UploadDebugInfo;
 };
@@ -72,7 +71,6 @@ async function readUploadRequest(request: Request) {
       contentType: file.type || "",
       name,
       originalFilename: file.name,
-      byteSize: file.size,
       debug,
     } satisfies UploadRequestPayload;
   }
@@ -104,7 +102,7 @@ export async function POST(request: Request) {
     );
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
-    const { image, bytes, contentType, name, originalFilename, byteSize, tooLarge, debug } = await readUploadRequest(request);
+    const { image, bytes, contentType, name, originalFilename, tooLarge, debug } = await readUploadRequest(request);
     uploadDebug = debug;
 
     if (tooLarge) {
@@ -136,8 +134,8 @@ export async function POST(request: Request) {
       objectKey: stored.object_key,
       title: name,
       originalFilename,
-      mimeType: contentType || (typeof image === "string" ? image.match(/^data:([^;,]+)/i)?.[1] : undefined),
-      byteSize,
+      mimeType: stored.content_type,
+      byteSize: stored.byte_size,
       width: stored.width,
       height: stored.height,
     });
@@ -148,6 +146,8 @@ export async function POST(request: Request) {
       delete_url: stored.delete_url,
       width: stored.width,
       height: stored.height,
+      content_type: stored.content_type,
+      byte_size: stored.byte_size,
       object_key: stored.object_key,
       asset: registration.asset,
       resource_registration_token: registration.token,
@@ -170,7 +170,10 @@ export async function POST(request: Request) {
     if (message.includes("图片上传服务未配置") || message.includes("图床上传服务未配置") || message.includes("IMGBB_API_KEY") || message.includes("ALIYUN_OSS")) {
       return NextResponse.json({ error: "图片上传服务未配置" }, { status: 500 });
     }
-    if (message.includes("当前图片格式暂不支持") || message.includes("图片文件无法解析") || message.includes("图片内容为空") || message.includes("图片过大")) {
+    if (message.includes("图片像素不能超过")) {
+      return NextResponse.json({ error: message }, { status: 413 });
+    }
+    if (message.includes("当前图片格式暂不支持") || message.includes("图片文件无法解析") || message.includes("图片内容为空") || message.includes("图片过大") || message.includes("仅支持单帧") || message.includes("实际格式与声明格式不一致") || message.includes("图片尺寸无法识别")) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     if (message.includes("图片上传失败") || message.includes("转存图床失败")) {

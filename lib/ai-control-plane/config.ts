@@ -51,6 +51,7 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
     providers: [
       provider("yunwu-openai", "云雾 OpenAI 兼容", "https://yunwu.ai/v1", "env:PLATO_API_KEY"),
       provider("yunwu-native", "云雾 Gemini Native", "https://yunwu.ai", "env:YUNWU_NATIVE_API_KEY"),
+      provider("newapi-image", "NewAPI 图片备用", "https://api.new.bi/v1", "env:VIDEO_API_KEY"),
       provider("minimax", "MiniMax", "https://api.minimaxi.com/v1", "env:MINIMAX_API_KEY"),
       provider("newapi-video", "NewAPI 视频", "https://api.new.bi", "env:VIDEO_API_KEY"),
     ],
@@ -58,6 +59,9 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
       deployment("banana2-yunwu", "nano-banana-2", "yunwu-native", "gemini-3.1-flash-image-preview", "gemini-native", 10),
       deployment("gpt2-yunwu", "gpt-image-2", "yunwu-openai", "gpt-image-2", "openai-image", 10),
       deployment("banana-pro-yunwu", "nano-banana-pro", "yunwu-native", "gemini-3-pro-image-preview", "gemini-native", 10),
+      deployment("banana2-newapi", "nano-banana-2", "newapi-image", "nano-banana-2", "openai-image", 20),
+      deployment("gpt2-newapi", "gpt-image-2", "newapi-image", "gpt-image-2", "openai-image", 20),
+      deployment("banana-pro-newapi", "nano-banana-pro", "newapi-image", "nano-banana-pro", "openai-image", 20),
       deployment("text-minimax", "text-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
       deployment("vision-minimax", "vision-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
       deployment("video-minimax-newapi", "video-minimax", "newapi-video", "minimax", "newapi-video", 10, false),

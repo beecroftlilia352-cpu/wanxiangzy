@@ -36,6 +36,8 @@ describe("upload-image resource registration", () => {
       delete_url: "",
       width: 1024,
       height: 1024,
+      content_type: "image/webp",
+      byte_size: 4096,
       object_key: "uploads/image.png",
     });
   });
@@ -55,8 +57,18 @@ describe("upload-image resource registration", () => {
         url: "https://bucket.oss-cn-hongkong.aliyuncs.com/uploads/image.png",
         objectKey: "uploads/image.png",
         mediaType: "image",
+        mimeType: "image/webp",
+        byteSize: 4096,
+        width: 1024,
+        height: 1024,
       }),
     );
+    expect(body).toMatchObject({
+      content_type: "image/webp",
+      byte_size: 4096,
+      width: 1024,
+      height: 1024,
+    });
   });
 
   it("does not turn a successful OSS upload into a failure when catalog registration fails", async () => {
@@ -70,6 +82,18 @@ describe("upload-image resource registration", () => {
     expect(body.url).toContain("aliyuncs.com/uploads/image.png");
     expect(body.asset).toBeUndefined();
     expect(body.resource_registration_token).toBe("signed-token");
+    consoleError.mockRestore();
+  });
+
+  it("returns a payload-too-large response for decoded pixel-limit failures", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.storeImage.mockRejectedValue(new Error("图片像素不能超过 3200 万"));
+
+    const response = await POST(uploadRequest());
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({ error: "图片像素不能超过 3200 万" });
+    expect(mocks.registerTrustedUploadedResourceAsset).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
 });

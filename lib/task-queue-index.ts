@@ -3,6 +3,12 @@ import { safeTaskQueueUrls } from "@/lib/task-queue";
 import { normalizeGenerationState } from "@/lib/api/generation-state";
 import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/tryon-input-references";
 import { getGeneralImageHistoryMode, getHistoryModulePath } from "@/lib/history-apply";
+import {
+  AI_TOOL_CATALOG,
+  getAiToolPath,
+  isAiToolSlug,
+  type AiToolSlug,
+} from "@/lib/ai-tools/catalog";
 
 export const TASK_QUEUE_ITEM_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const TASK_QUEUE_SUMMARY_TTL_SECONDS = 60 * 5;
@@ -10,7 +16,7 @@ export const TASK_QUEUE_MODULE_CACHE_LIMIT = 100;
 export const TASK_QUEUE_RUNNING_STALE_MS = 60 * 60 * 1000;
 export const TASK_RESULT_THUMBNAIL_LIMIT = 4;
 
-export type TaskQueueSourceType = "generation" | "workflow";
+export type TaskQueueSourceType = "generation" | "workflow" | "ai_tool";
 
 export type TaskQueueGenerationSourceRow = {
   id: string;
@@ -42,6 +48,25 @@ export type TaskQueueWorkflowSourceRow = {
   completed_at?: string | null;
   workflow_payload?: Record<string, unknown> | null;
   final_outputs?: unknown;
+};
+
+export type TaskQueueAiToolSourceRow = {
+  id: string;
+  user_id: string;
+  provider_task_id?: string | null;
+  operation: AiToolSlug;
+  status: string | null;
+  source_url: string;
+  request_payload?: Record<string, unknown> | null;
+  provider_payload?: Record<string, unknown> | null;
+  response_payload?: Record<string, unknown> | null;
+  output_persistence_status?: "pending" | "processing" | "completed" | "failed" | null;
+  result_urls?: string[] | null;
+  last_error?: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at?: string | null;
+  completed_at?: string | null;
+  generation_id?: string | null;
 };
 
 export type TaskQueueIndexRow = {
@@ -88,6 +113,7 @@ const MODULE_LABELS: Record<string, string> = {
   videoMotion: "动作模仿",
   videoFirstLastFrame: "首尾帧",
   workflow: "工作流",
+  toolbox: "AI工具箱",
 };
 
 export const TASK_QUEUE_MODULE_LABEL_KEYS: Record<string, string> = {
@@ -139,6 +165,7 @@ const MODULE_PATHS: Record<string, string> = {
   videoMotion: "/video/motion-control",
   videoFirstLastFrame: "/video/first-last-frame",
   workflow: "/workflow",
+  toolbox: "/ai-tools",
 };
 
 export function emptyTaskQueueSummary(): TaskQueueSummary {
@@ -200,6 +227,7 @@ export function applyStaleRunningFallback(item: TaskQueueItem): TaskQueueItem {
 
 export function inferGenerationModule(row: TaskQueueGenerationSourceRow): string {
   const payload = row.job_payload || {};
+  if (isAiToolPayload(payload)) return "toolbox";
   const explicit = stringValue(payload.module) || stringValue(payload.kind) || stringValue(payload.generationType);
   if (explicit) {
     return normalizeModule(explicit);
@@ -329,14 +357,60 @@ export function normalizeGenerationTaskQueueItem(row: TaskQueueGenerationSourceR
     inputThumbnails,
     resultThumbnails,
     thumbnails: resultThumbnails.length > 0 ? resultThumbnails : inputThumbnails,
-    applyUrl: `${getHistoryModulePath(module, row.job_payload || undefined) || modulePath(module)}?apply=${encodeURIComponent(row.id)}`,
+    applyUrl: generationApplyUrl(module, row.id, row.job_payload),
   };
   return applyStaleRunningFallback(item);
 }
 
 function taskScope(module: string, payload?: Record<string, unknown> | null) {
+  if (module === "toolbox") {
+    const operation = aiToolOperation(payload);
+    return operation || undefined;
+  }
   if (module !== "generalImage") return undefined;
   return getGeneralImageHistoryMode(payload || undefined);
+}
+
+export function normalizeAiToolTaskQueueItem(row: TaskQueueAiToolSourceRow): TaskQueueItem {
+  const resultUrls = arrayOfStrings(row.result_urls);
+  const isPersistingOutput = row.status === "completed" && row.output_persistence_status !== "completed";
+  const effectiveStatus = isPersistingOutput
+    ? row.output_persistence_status === "failed" ? "failed" : "processing"
+    : row.status;
+  const statusGroup = taskQueueStatusGroup(effectiveStatus, resultUrls.length);
+  const createdAt = row.created_at || new Date().toISOString();
+  const completedAt = row.completed_at || (statusGroup === "completed" || statusGroup === "failed" ? row.updated_at || null : null);
+  const providerPayload = row.provider_payload || row.response_payload || {};
+  const expectedCount = Math.max(1, Math.floor(numberValue(providerPayload.expected_count) || resultUrls.length || 1));
+  const progress = statusGroup === "completed"
+    ? 100
+    : statusGroup === "failed"
+      ? 0
+      : isPersistingOutput
+        ? 99
+        : clampProgress(providerPayload.progress || (statusGroup === "running" ? 34 : 8));
+  const taskId = row.provider_task_id || row.id;
+  const item: TaskQueueItem = {
+    id: row.id,
+    module: "toolbox",
+    scope: row.operation,
+    title: AI_TOOL_CATALOG[row.operation].label,
+    status: effectiveStatus || "queued",
+    statusGroup,
+    time: formatElapsed(createdAt, completedAt),
+    createdAt,
+    updatedAt: row.updated_at || completedAt || createdAt,
+    completedAt,
+    error: stringValue(row.last_error?.message),
+    progress,
+    expectedCount,
+    resultCount: resultUrls.length,
+    inputThumbnails: uniqueStrings([row.source_url]),
+    resultThumbnails: resultUrls.slice(0, TASK_RESULT_THUMBNAIL_LIMIT),
+    thumbnails: resultUrls.length ? resultUrls.slice(0, TASK_RESULT_THUMBNAIL_LIMIT) : uniqueStrings([row.source_url]),
+    applyUrl: `${getAiToolPath(row.operation)}?task=${encodeURIComponent(taskId)}`,
+  };
+  return applyStaleRunningFallback(item);
 }
 
 export function normalizeWorkflowTaskQueueItem(row: TaskQueueWorkflowSourceRow): TaskQueueItem {
@@ -482,6 +556,27 @@ function extractGenerationInputThumbnails(row: TaskQueueGenerationSourceRow): st
     stringValue(payload.lastFrameUrl),
     stringValue(payload.referenceVideoUrl),
   ]).slice(0, 8);
+}
+
+function generationApplyUrl(
+  module: string,
+  generationId: string,
+  payload?: Record<string, unknown> | null,
+) {
+  const operation = module === "toolbox" ? aiToolOperation(payload) : null;
+  if (operation) return `${getAiToolPath(operation)}?task=${encodeURIComponent(generationId)}`;
+  return `${getHistoryModulePath(module, payload || undefined) || modulePath(module)}?apply=${encodeURIComponent(generationId)}`;
+}
+
+function isAiToolPayload(payload: Record<string, unknown>) {
+  return Boolean(aiToolOperation(payload));
+}
+
+function aiToolOperation(payload?: Record<string, unknown> | null): AiToolSlug | null {
+  const aiTool = payload?.aiTool;
+  if (!aiTool || typeof aiTool !== "object" || Array.isArray(aiTool)) return null;
+  const operation = stringValue((aiTool as Record<string, unknown>).operation);
+  return isAiToolSlug(operation) ? operation : null;
 }
 
 function extractWorkflowInputThumbnails(

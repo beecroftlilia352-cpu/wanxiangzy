@@ -1,3 +1,5 @@
+import { getAiToolPath, isAiToolSlug } from "@/lib/ai-tools/catalog";
+
 export type TaskStatusGroup = "queued" | "running" | "completed" | "failed";
 
 export type TaskDisplayMode = "flat" | "grouped";
@@ -33,6 +35,7 @@ export function taskMatchesScope(item: Pick<TaskQueueItem, "scope" | "applyUrl">
     const pathname = new URL(item.applyUrl, "https://task.local").pathname;
     if (scope === "image-to-image") return pathname === "/general-image/image-to-image";
     if (scope === "text-to-image") return pathname === "/general-image";
+    if (isAiToolSlug(scope)) return pathname === getAiToolPath(scope);
   } catch {
     // An empty/legacy apply URL cannot prove that it belongs to this scope.
   }
