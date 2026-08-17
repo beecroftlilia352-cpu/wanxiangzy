@@ -20,6 +20,7 @@ type PreviewGuideProps = {
   imageAlt?: string;
   imageFit?: "cover" | "contain";
   imagePriority?: boolean;
+  presentation?: "standard" | "hero-image";
   icon?: ReactNode;
   actions?: ReactNode;
   variant?: "default" | "editorial";
@@ -33,12 +34,13 @@ export function PreviewGuide({
   imageAlt = "",
   imageFit = "cover",
   imagePriority = false,
+  presentation = "standard",
   icon,
   actions,
   variant = "default",
 }: PreviewGuideProps) {
   const hasStepImages = steps.some((step) => Boolean(step.imageSrc));
-  const layout = hasStepImages ? "gallery" : "overview";
+  const layout = presentation === "hero-image" ? "hero-image" : hasStepImages ? "gallery" : "overview";
   const stepGridClass = steps.length >= 4
     ? "sm:grid-cols-2 lg:grid-cols-4"
     : steps.length === 2
@@ -48,13 +50,30 @@ export function PreviewGuide({
   return (
     <div className="studio-preview-guide" data-variant={variant} data-layout={layout}>
       <div className="studio-preview-guide-content">
-        <header className="studio-preview-guide-header">
+        <header className={cn("studio-preview-guide-header", presentation === "hero-image" && "sr-only")}>
           <h3 className="studio-preview-guide-title" style={{ textWrap: "balance" }}>{title}</h3>
           <p className="studio-preview-guide-subtitle">{subtitle}</p>
         </header>
 
         <div className="studio-preview-guide-panel">
-          {hasStepImages ? (
+          {presentation === "hero-image" ? (
+            <div className="studio-preview-guide-hero-media">
+              {imageSrc ? (
+                <Image
+                  src={imageSrc}
+                  alt={imageAlt}
+                  fill
+                  priority={imagePriority}
+                  sizes="(max-width: 768px) 92vw, (max-width: 1440px) 58vw, 980px"
+                  className="studio-preview-guide-hero-image"
+                />
+              ) : (
+                <div className="studio-preview-guide-media-placeholder">
+                  <span>{icon || <Workflow className="h-7 w-7" aria-hidden="true" />}</span>
+                </div>
+              )}
+            </div>
+          ) : hasStepImages ? (
             <div className={cn("studio-preview-guide-grid", stepGridClass)}>
               {steps.map((step, index) => (
                 <GuideMediaStep

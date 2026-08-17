@@ -322,7 +322,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         tooltip: t("imageToImageTooltip"),
         emptyTitle: t("imageToImageEmptyTitle"),
         emptySubtitle: t("imageToImageEmptySubtitle"),
-        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/guides/image-to-image-guide-v1.png",
+        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/guides/image-to-image-guide-v2.png",
         emptyImageFit: "contain" as const,
       }
     : {
@@ -961,16 +961,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               imageSrc={modeMeta.emptyImage}
               imageFit={modeMeta.emptyImageFit}
               imagePriority={isImageMode}
+              presentation={isImageMode ? "hero-image" : "standard"}
               imageAlt={isImageMode ? t("guideImageAltImageToImage") : t("guideImageAltTextToImage")}
               steps={!isImageMode ? [
                 { title: t("stepInputTitle"), desc: t("stepInputDesc") },
                 { title: t("stepParamsTitle"), desc: t("stepParamsDesc") },
                 { title: t("stepGenerateTitle"), desc: t("stepGenerateDesc") },
-              ] : [
-                { title: t("stepUploadRefTitle"), desc: t("stepUploadRefDesc") },
-                { title: t("stepWriteIndexTitle"), desc: t("stepWriteIndexDesc") },
-                { title: t("stepGenerateRefTitle"), desc: t("stepGenerateRefDesc") },
-              ]}
+              ] : []}
               variant="editorial"
             />
           </div>
