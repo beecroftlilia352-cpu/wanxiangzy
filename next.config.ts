@@ -7,8 +7,16 @@ const staticAssetCacheControl =
   process.env.NODE_ENV === "production"
     ? "public, max-age=31536000, immutable"
     : "no-store, must-revalidate";
+/**
+ * Next dev reuses stable chunk filenames. Some browsers can keep an older
+ * `immutable` response from a previous server run, which mixes an old React
+ * tree with the current CSS after a restart. Give every dev process its own
+ * deployment id so a normal reload always addresses the current chunks.
+ */
 const developmentDeploymentId =
-  process.env.NODE_ENV === "development" ? "studio-shell-refresh-1" : undefined;
+  process.env.NODE_ENV === "development"
+    ? `studio-dev-${Date.now().toString(36)}`
+    : undefined;
 
 const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {

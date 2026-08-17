@@ -71,6 +71,7 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     label: "内容",
     children: [
       { href: "/admin/assets", label: "资产作品", icon: <PictureOutlined aria-hidden="true" /> },
+      { href: "/admin/showcase", label: "示例内容", icon: <PictureOutlined aria-hidden="true" /> },
       { href: "/admin/assets/lifecycle", label: "生命周期", icon: <DatabaseOutlined aria-hidden="true" /> },
       { href: "/admin/moderation", label: "内容审核", icon: <SafetyCertificateOutlined aria-hidden="true" /> },
       { href: "/admin/tryon", label: "试衣配置", icon: <AppstoreOutlined aria-hidden="true" /> },

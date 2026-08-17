@@ -30,6 +30,7 @@ import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { MultiImageUploadV2 } from "@/components/studio/MultiImageUploadV2";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
+import { StudioShowcaseGallery } from "@/components/studio/StudioShowcaseGallery";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
@@ -56,6 +57,7 @@ import {
   MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
   type GeneralImageMode,
 } from "@/lib/general-image-config";
+import type { StudioShowcaseExample } from "@/lib/showcase-examples";
 
 type ReferenceImage = {
   id: string;
@@ -322,7 +324,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         tooltip: t("imageToImageTooltip"),
         emptyTitle: t("imageToImageEmptyTitle"),
         emptySubtitle: t("imageToImageEmptySubtitle"),
-        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/guides/image-to-image-guide-v2.png",
+        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/guides/image-to-image-guide-v3.png",
         emptyImageFit: "contain" as const,
       }
     : {
@@ -501,6 +503,31 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       okText: t("confirm"),
       cancelText: t("cancel"),
       onOk: performContinueCreate,
+    });
+  }
+
+  function handleCreateSimilar(example: StudioShowcaseExample) {
+    const nextModel: LingyaModel = "gpt-image-2";
+    const nextAspectRatio = normalizeAspectRatio(example.aspectRatio, "3:4");
+    const requestedSize: ImageSize = example.imageSize === "4K" ? "4K" : example.imageSize === "2K" ? "2K" : "1K";
+    const referenceUrl = example.referenceImageUrls[0] || example.imageUrl;
+    setMode("image-to-image");
+    setReferenceImages([{
+      id: `showcase-reference-${example.id}`,
+      name: example.title,
+      url: referenceUrl,
+      preview: referenceUrl,
+    }]);
+    setPrompt(example.prompt.slice(0, 4000));
+    setAiModel(nextModel);
+    setAspectRatio(nextAspectRatio);
+    setImageSize(normalizeImageSize(nextModel, requestedSize, nextAspectRatio));
+    setGenCount(1);
+    setImagePromptImage(null);
+    resetOutput();
+    toast.success(t("broughtPreviewImage"));
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(".studio-general-image-parameters-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
 
@@ -954,22 +981,25 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
-            <PreviewGuide
-              title={modeMeta.emptyTitle}
-              subtitle={modeMeta.emptySubtitle}
-              imageSrc={modeMeta.emptyImage}
-              imageFit={modeMeta.emptyImageFit}
-              imagePriority={isImageMode}
-              presentation={isImageMode ? "hero-image" : "standard"}
-              imageAlt={isImageMode ? t("guideImageAltImageToImage") : t("guideImageAltTextToImage")}
-              steps={!isImageMode ? [
-                { title: t("stepInputTitle"), desc: t("stepInputDesc") },
-                { title: t("stepParamsTitle"), desc: t("stepParamsDesc") },
-                { title: t("stepGenerateTitle"), desc: t("stepGenerateDesc") },
-              ] : []}
-              variant="editorial"
-            />
+          <div className="studio-empty-stage min-h-[260px] overflow-y-auto px-4 py-6 sm:min-h-[360px] lg:h-full">
+            <div className="studio-general-empty-content">
+              <PreviewGuide
+                title={modeMeta.emptyTitle}
+                subtitle={modeMeta.emptySubtitle}
+                imageSrc={modeMeta.emptyImage}
+                imageFit={modeMeta.emptyImageFit}
+                imagePriority={isImageMode}
+                presentation={isImageMode ? "hero-image" : "standard"}
+                imageAlt={isImageMode ? t("guideImageAltImageToImage") : t("guideImageAltTextToImage")}
+                steps={!isImageMode ? [
+                  { title: t("stepInputTitle"), desc: t("stepInputDesc") },
+                  { title: t("stepParamsTitle"), desc: t("stepParamsDesc") },
+                  { title: t("stepGenerateTitle"), desc: t("stepGenerateDesc") },
+                ] : []}
+                variant="editorial"
+              />
+              {isImageMode ? <StudioShowcaseGallery onCreateSimilar={handleCreateSimilar} /> : null}
+            </div>
           </div>
         )}
 
