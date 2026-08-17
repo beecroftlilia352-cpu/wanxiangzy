@@ -438,6 +438,7 @@ function AppHeader({ pathname }: { pathname: string }) {
             <MobileModuleMenu activeModule={activeModule} />
           </div>
           <HeaderUtilityActions />
+          <ThemeToggle className="h-10 w-10" />
           <LanguageSwitcher variant="icon" />
           <UserCreditActions
             authReady={authReady}
