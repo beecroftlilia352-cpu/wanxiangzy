@@ -50,7 +50,7 @@ describe("product set favorite plan payload boundary", () => {
         { key: "hero", name: "  Hero override  ", extraDescription: "x".repeat(900) },
         { key: "" },
       ],
-      aiModel: "not-a-real-model",
+      aiModel: "not a real model!",
       aspectRatio: "16:9",
       imageSize: "1K",
       qualityMode: "advanced",
@@ -116,6 +116,15 @@ describe("product set favorite plan payload boundary", () => {
     });
   });
 
+  it("preserves a safe administrator-defined model id", () => {
+    const payload = normalizeFavoritePlanPayload({
+      name: "Dynamic model plan",
+      aiModel: "qwen-image-3",
+    });
+
+    expect(payload?.ai_model).toBe("qwen-image-3");
+  });
+
   it("normalizes database rows before returning them to the client", () => {
     const client = favoritePlanRowToClient({
       id: "row-1",
@@ -129,7 +138,7 @@ describe("product set favorite plan payload boundary", () => {
       selected_template_ids: [5, "6", -2, 5],
       custom_templates: "bad",
       module_overrides: [{ key: "module-1", name: "Module" }],
-      ai_model: "bad",
+      ai_model: "bad model!",
       aspect_ratio: "bad",
       image_size: "bad",
       quality_mode: "bad",

@@ -24,6 +24,8 @@ export async function getVideoProviderConfig(provider: VideoProviderName): Promi
     return { provider, apiKey: env.apiKey.trim(), baseUrl: env.baseUrl };
   }
 
+  const unified = await getUnifiedVideoConfigs(provider);
+  if (unified.length) return unified[0];
   const { getAdminVideoProviderOverrides } = await import("@/lib/api/video-provider-registry.server");
   const overrides = await getAdminVideoProviderOverrides();
   const override = overrides[provider];
@@ -39,6 +41,16 @@ export async function getEnabledVideoProviders(): Promise<VideoProviderName[]> {
     return (Object.keys(env) as VideoProviderName[]).filter((provider) => Boolean(env[provider]?.enabled && env[provider]?.apiKey?.trim()));
   }
 
+  const { getAiControlPlaneConfig } = await import("@/lib/ai-control-plane/server");
+  const config = await getAiControlPlaneConfig({ decryptSecrets: true, allowLegacy: true });
+  if (config) {
+    const enabled = (["minimax", "seedance"] as const).filter((provider) => {
+      const modelId = `video-${provider}`;
+      return config.models.some((model) => model.id === modelId && model.enabled)
+        && config.deployments.some((item) => item.modelId === modelId && item.enabled && config.providers.some((endpoint) => endpoint.id === item.providerId && endpoint.enabled && endpoint.apiKey));
+    });
+    if (enabled.length) return enabled;
+  }
   const { getEnabledVideoProviderOverrides } = await import("@/lib/api/video-provider-registry.server");
   const overrides = await getEnabledVideoProviderOverrides();
   return overrides.map((item) => item.provider);
@@ -49,19 +61,51 @@ function toNewApiProvider(config: VideoProviderConfig): NewApiVideoProviderConfi
 }
 
 export async function generateVideoImageToVideo(input: VideoImageToVideoInput): Promise<VideoGenerationResult> {
-  const config = await getVideoProviderConfig(input.provider);
-  return generateNewApiImageToVideo(input, toNewApiProvider(config));
+  return executeVideoRouted(input.provider, (config) => generateNewApiImageToVideo(input, config));
 }
 
 export async function generateVideoMotionControl(input: VideoMotionControlInput): Promise<VideoGenerationResult> {
-  const config = await getVideoProviderConfig(input.provider);
-  if (!supportsVideoMotionControl(config.provider)) {
+  if (!supportsVideoMotionControl(input.provider)) {
     throw new Error("当前视频供应商暂不支持参考视频动作模仿，请使用图生视频或首尾帧功能。");
   }
-  return generateNewApiMotionControl(input, toNewApiProvider(config));
+  return executeVideoRouted(input.provider, (config) => generateNewApiMotionControl(input, config));
 }
 
 export async function generateVideoFirstLastFrame(input: VideoFirstLastFrameInput): Promise<VideoGenerationResult> {
-  const config = await getVideoProviderConfig(input.provider);
-  return generateNewApiFirstLastFrame(input, toNewApiProvider(config));
+  return executeVideoRouted(input.provider, (config) => generateNewApiFirstLastFrame(input, config));
+}
+
+async function executeVideoRouted(
+  provider: VideoProviderName,
+  execute: (config: NewApiVideoProviderConfig) => Promise<VideoGenerationResult>,
+) {
+  if (process.env.NODE_ENV === "test") {
+    const config = await getVideoProviderConfig(provider);
+    return execute(toNewApiProvider(config));
+  }
+  const { executeAiRouted } = await import("@/lib/ai-control-plane/router.server");
+  return executeAiRouted({
+    modelId: `video-${provider}`,
+    modality: "video",
+    execute: async (deployment) => {
+      if (deployment.protocol !== "newapi-video") throw new Error(`视频部署 ${deployment.id} 的协议 ${deployment.protocol} 不受支持`);
+      return execute({ provider, apiBase: deployment.provider.baseUrl, apiKey: deployment.apiKey, signal: deployment.abortSignal, adapterConfig: deployment.adapterConfig });
+    },
+  });
+}
+
+async function getUnifiedVideoConfigs(provider: VideoProviderName): Promise<VideoProviderConfig[]> {
+  try {
+    const { getAiControlPlaneConfig } = await import("@/lib/ai-control-plane/server");
+    const config = await getAiControlPlaneConfig({ decryptSecrets: true, allowLegacy: true });
+    if (!config) return [];
+    const providers = new Map(config.providers.filter((item) => item.enabled && item.apiKey).map((item) => [item.id, item]));
+    return config.deployments
+      .filter((item) => item.enabled && item.modelId === `video-${provider}` && item.protocol === "newapi-video" && providers.has(item.providerId))
+      .sort((a, b) => a.priority - b.priority || b.weight - a.weight)
+      .map((item) => {
+        const endpoint = providers.get(item.providerId)!;
+        return { provider, apiKey: endpoint.apiKey || "", baseUrl: endpoint.baseUrl };
+      });
+  } catch { return []; }
 }

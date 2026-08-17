@@ -8,7 +8,7 @@
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 调用 chat completions 接口
-    const res = await fetch(getChatCompletionsUrl(llm), {
+    const res = await fetchLlmChat("text", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${llm.apiKey}`,

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  getCreditCost,
   normalizeAspectRatio,
   normalizeImageSize,
   normalizeLingyaModel,
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Math.floor(Number(body.gen_count) || 1), 1), 4);
-    const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
+    const totalCost = await getConfiguredImageCreditCost(model, size) * genCount;
     const moduleKind = normalizeModuleKind(body.module_kind || body.module);
     const outfitFusionAssets = moduleKind === "outfitFusion" ? normalizeOutfitFusionAssets(body.input_assets, referenceUrls) : undefined;
     const outfitFusionAspectRatio: OutfitFusionConfig["aspectRatio"] = aspectRatio === "1:1" || aspectRatio === "3:4" ? aspectRatio : "auto";

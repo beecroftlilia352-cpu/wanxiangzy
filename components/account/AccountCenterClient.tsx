@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDateTime as formatDateTimeLocalized, formatNumber as formatNumberLocalized } from "@/lib/i18n/format";
+import { RoutingPreferenceCard } from "@/components/account/RoutingPreferenceCard";
 
 const { RangePicker } = DatePicker;
 const { Text, Title } = Typography;
@@ -661,6 +662,7 @@ function AccountInfoPanel({
           <SmallMetric label={t("panels.account.paidOrders")} value={t("panels.account.ordersValue", { count: formatNumber(paidOrders) })} />
           <SmallMetric label={t("panels.account.customerStatus")} value={openTickets ? t("panels.account.customerPending", { count: openTickets }) : t("panels.account.customerEmpty")} />
         </div>
+        <RoutingPreferenceCard />
       </section>
     </div>
   );

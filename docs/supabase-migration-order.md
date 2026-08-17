@@ -151,3 +151,18 @@ ORDER BY proname;
 /product-retouch 能创建父批次，并隐藏内部子任务。
 失败槽位退款、单项重试扣费和批次恢复均正常。
 ```
+## AI model control plane
+
+在 `admin-console.sql` 之后执行：
+
+```text
+supabase/ai-control-plane.sql
+supabase/ai-routing-queue-backpressure.sql
+```
+
+```bash
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/ai-control-plane.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/ai-routing-queue-backpressure.sql
+```
+
+`ai-control-plane.sql` 依赖 `admin_config_versions`，并创建供应商健康、路由尝试、用户偏好、原子 RPC、BRIN 时序索引及每小时遥测维护 Cron（脚本会启用 `pg_cron`）。`ai-routing-queue-backpressure.sql` 依赖 `generations` 与 `atomic-credit-rpc.sql`，为临时容量饱和增加延迟重试而不消耗业务失败次数。详细运维说明见 `docs/ai-model-control-plane.md`。

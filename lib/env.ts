@@ -95,6 +95,9 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 ];
 
 const OPTIONAL_ENV: EnvContractEntry[] = [
+  { name: "AI_ROUTER_CAPACITY_MODE", category: "optional", description: "AI provider capacity guard: redis for distributed pooling (recommended in production), local for development only." },
+  { name: "UPSTASH_REDIS_REST_URL", category: "optional", description: "Distributed AI routing concurrency and RPM lease store." },
+  { name: "UPSTASH_REDIS_REST_TOKEN", category: "optional", description: "Credential for the distributed AI routing capacity store." },
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "GPT_IMAGE_PROVIDER", category: "optional", description: "GPT-Image-2 provider: catrouter (default) or plato." },
   { name: "GPT_TRYON_PROMPT_TEMPLATE", category: "optional", description: "GPT-Image-2 try-on prompt template: banana (default) or legacy rollback." },
@@ -237,6 +240,20 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
           category: entry.category,
           severity: "warning",
           message: `${entry.name} is required when IMAGE_STORAGE_PROVIDER=aliyun-oss.`,
+        });
+      }
+    }
+  }
+
+  const capacityMode = (process.env.AI_ROUTER_CAPACITY_MODE || "redis").trim().toLowerCase();
+  if (capacityMode === "redis") {
+    for (const name of ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"] as const) {
+      if (!process.env[name]) {
+        issues.push({
+          name,
+          category: "optional",
+          severity: "warning",
+          message: `${name} is required for distributed AI routing capacity protection; process-local fallback is not safe for multi-process production.`,
         });
       }
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     const model: LingyaModel = normalizeLingyaModel(ai_model);
     const aspectRatio: AspectRatio = normalizeAspectRatio(body.aspect_ratio || body.aspectRatio || "auto", "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
-    const unitCost = getCreditCost(model, size, aspectRatio);
+    const unitCost = await getConfiguredImageCreditCost(model, size);
     const totalCost = unitCost * effectiveGenCount;
     const poseStyle = normalizePoseSeriesStyle(pose_style);
     const posePlanMode = body.pose_plan_mode === "ai" || body.posePlanMode === "ai" ? "ai" : "preset";

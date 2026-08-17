@@ -22,6 +22,8 @@ import type { VideoProviderName } from "@/lib/api/video-catalog";
 import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
+import { runWithAiRouteContext } from "@/lib/ai-control-plane/context.server";
+import { AiCapacityUnavailableError } from "@/lib/ai-control-plane/router.server";
 // Agent module is temporarily disabled; the visual quality evaluator
 // (applyQualityRepairToPrompt / evaluateGeneratedImages) is stubbed locally.
 // Restore the import from "@/lib/agent/brain/visual-quality" once the
@@ -508,6 +510,7 @@ async function runClaimedJob(
   job: ClaimedJob
 ) {
   let parsedPayload: GenerationJobPayload | null = null;
+  let hasPartialOutput = false;
   try {
     await syncGenerationQueueIndex(job.id, "claim");
     const payload = parseJobPayload(job.job_payload);
@@ -537,6 +540,7 @@ async function runClaimedJob(
           mediaType: isVideoPayload(payload) ? "video" : "image",
         });
         const finalUrl = persisted || rawUrl;
+        hasPartialOutput = true;
         persistedResultUrlByRawUrl.set(rawUrl, finalUrl);
         persistedUrls[index] = finalUrl;
       }
@@ -558,6 +562,7 @@ async function runClaimedJob(
             rawModuleUrlByKey.set(moduleResult.moduleKey, resultUrl);
             persistedModuleUrlByKey.set(moduleResult.moduleKey, persisted || resultUrl);
             resultUrl = persisted || resultUrl;
+            hasPartialOutput = true;
           } else {
             resultUrl = persistedModuleUrlByKey.get(moduleResult.moduleKey) || resultUrl;
           }
@@ -570,7 +575,20 @@ async function runClaimedJob(
       return persistedModules;
     };
 
-    const execution = await executePayload(payload, async (update) => {
+    const { data: routingPreference } = await supabase
+      .from("ai_user_routing_preferences")
+      .select("routing_mode,allow_cross_model_fallback")
+      .eq("user_id", job.user_id)
+      .maybeSingle();
+    const execution = await runWithAiRouteContext({
+      generationId: job.id,
+      userId: job.user_id,
+      routingMode: routingPreference?.routing_mode === "smart" ? "smart" : "stable",
+      // Provider fallback is safe because the logical model and customer
+      // price stay unchanged. Cross-model substitution needs a separate,
+      // explicit capability and pricing consent flow, so it is fail-closed.
+      allowCrossModelFallback: false,
+    }, () => executePayload(payload, async (update) => {
       if (update.moduleResults?.length) {
         const persistedModules = await persistModuleResults(update.moduleResults);
         const nextProgress = typeof update.progress === "number" ? update.progress : lastProgress;
@@ -615,7 +633,7 @@ async function runClaimedJob(
         externalStatus: update.externalStatus,
         providerDetails: update.providerDetails,
       });
-    });
+    }));
     if (payload.kind === "productRetouch" && execution.hardValidation) {
       await assertProductRetouchResultUnique(supabase, payload, execution.hardValidation);
     }
@@ -685,6 +703,10 @@ async function runClaimedJob(
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
+    if (err instanceof AiCapacityUnavailableError && !hasPartialOutput) {
+      await deferGenerationForAiCapacity(supabase, job, err);
+      return;
+    }
     if (parsedPayload?.kind === "productRetouch" && Number(job.credits_cost || 0) === 0) {
       await failZeroCostProductRetouchChild(supabase, job, parsedPayload, message);
       throw err;
@@ -702,6 +724,23 @@ async function runClaimedJob(
     }
     throw err;
   }
+}
+
+async function deferGenerationForAiCapacity(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  error: AiCapacityUnavailableError,
+) {
+  const { data: deferred, error: deferError } = await supabase.rpc("defer_generation_for_ai_capacity", {
+    p_generation_id: job.id,
+    p_user_id: job.user_id,
+    p_delay_seconds: error.retryAfterSeconds,
+    p_reason: error.message,
+  });
+  if (deferError) throw new Error(`模型容量排队失败: ${deferError.message}`);
+  if (deferred !== true) throw new Error("模型容量排队失败: 任务状态已变化");
+  logger.info(`[jobs] deferred ${job.id} for AI capacity (${error.retryAfterSeconds}s)`);
+  await syncGenerationQueueIndex(job.id, "capacity-defer");
 }
 
 async function failZeroCostProductRetouchChild(

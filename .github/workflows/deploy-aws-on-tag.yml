@@ -109,6 +109,61 @@ jobs:
 
           echo "::warning::ssh-keyscan failed; continuing with StrictHostKeyChecking=accept-new"
 
+      - name: Update AI router runtime secrets
+        env:
+          ADMIN_SECRETS_ENCRYPTION_KEY: ${{ secrets.ADMIN_SECRETS_ENCRYPTION_KEY }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          for key in ADMIN_SECRETS_ENCRYPTION_KEY UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "::error::GitHub Actions secret is empty: $key"
+              exit 1
+            fi
+          done
+
+          quote() { printf '%q' "$1"; }
+          REMOTE_ENV="ADMIN_SECRETS_ENCRYPTION_KEY=$(quote "$ADMIN_SECRETS_ENCRYPTION_KEY") UPSTASH_REDIS_REST_URL=$(quote "$UPSTASH_REDIS_REST_URL") UPSTASH_REDIS_REST_TOKEN=$(quote "$UPSTASH_REDIS_REST_TOKEN")"
+
+          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=60 \
+            -o ConnectionAttempts=3 \
+            -o ServerAliveInterval=30 \
+            "$AWS_USER_NORM@$AWS_HOST_NORM" \
+            "$REMOTE_ENV bash -s" <<'REMOTE'
+          set -euo pipefail
+          ENV_FILE="$HOME/apps/wanxiangzy/shared/.env.production"
+          mkdir -p "$(dirname "$ENV_FILE")"
+          touch "$ENV_FILE"
+          chmod 600 "$ENV_FILE"
+
+          escape_sed_replacement() {
+            printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
+          }
+
+          set_env_var() {
+            local key="$1"
+            local value="$2"
+            local escaped
+            escaped="$(escape_sed_replacement "$value")"
+            if grep -q "^${key}=" "$ENV_FILE"; then
+              sed -i.bak "s/^${key}=.*/${key}=${escaped}/" "$ENV_FILE"
+            else
+              printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+            fi
+          }
+
+          set_env_var ADMIN_SECRETS_ENCRYPTION_KEY "$ADMIN_SECRETS_ENCRYPTION_KEY"
+          set_env_var UPSTASH_REDIS_REST_URL "$UPSTASH_REDIS_REST_URL"
+          set_env_var UPSTASH_REDIS_REST_TOKEN "$UPSTASH_REDIS_REST_TOKEN"
+          set_env_var AI_ROUTER_CAPACITY_MODE redis
+          echo "Updated AI router runtime configuration in $ENV_FILE"
+          REMOTE
+
       - name: Fetch .env.production from EC2
         run: |
           set -euo pipefail
@@ -126,11 +181,11 @@ jobs:
 
           # Verify required keys exist (Next.js auto-loads .env.production at build time)
           missing=0
-          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_APP_URL; do
-            if grep -q "^${key}=" .env.production; then
+          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_APP_URL ADMIN_SECRETS_ENCRYPTION_KEY UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN AI_ROUTER_CAPACITY_MODE; do
+            if grep -Eq "^${key}=.+$" .env.production; then
               echo "  ✓ $key"
             else
-              echo "::error::Missing required key in .env.production: $key"
+              echo "::error::Missing or empty required key in .env.production: $key"
               missing=1
             fi
           done

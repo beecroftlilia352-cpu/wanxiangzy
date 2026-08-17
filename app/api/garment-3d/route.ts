@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  getCreditCost,
   normalizeImageSize,
   normalizeLingyaModel,
   type AspectRatio,
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio: AspectRatio = aspect_ratio === "auto" || aspect_ratio === "1:1" ? aspect_ratio : "3:4";
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
-    const costPerImage = getCreditCost(model, size, aspectRatio);
+    const costPerImage = await getConfiguredImageCreditCost(model, size);
     const totalCost = costPerImage * genCount;
 
     const finalGarmentType = garment_type === "其他"
