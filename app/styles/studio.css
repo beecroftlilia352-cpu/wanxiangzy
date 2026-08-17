@@ -261,6 +261,8 @@
   border-right: 1px solid var(--codex-border);
   opacity: 1;
   transform: translateX(0);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 248, 251, 0.98) 100%) !important;
   transition:
     width 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
     min-width 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -286,17 +288,169 @@
 }
 
 .studio-task-rail-loading {
-  animation: studio-rail-enter 240ms ease-out both;
+  opacity: 1;
+  transform: none;
+}
+
+.studio-task-rail-header {
+  position: relative;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: inset 0 -1px 0 rgba(36, 42, 58, 0.025);
+}
+
+.studio-task-rail-title {
+  letter-spacing: -0.015em;
+}
+
+.studio-task-rail-title-icon {
+  color: #7884a6;
 }
 
 .studio-task-card {
   contain: layout paint style;
   content-visibility: auto;
   contain-intrinsic-size: 64px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(86, 94, 118, 0.14);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 1px 2px rgba(30, 36, 50, 0.035);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 160ms ease,
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-task-card--compact {
+  isolation: isolate;
+}
+
+.studio-task-card--continue {
+  color: #596175;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(247, 248, 252, 0.94));
+}
+
+.studio-task-card[data-state="running"] {
+  border-color: rgba(111, 132, 177, 0.28);
+  background: #f5f7fb;
+}
+
+.studio-task-card[data-state="failed"] {
+  border-color: rgba(188, 104, 102, 0.3);
+  background: #fbf7f6;
+}
+
+.studio-task-card.is-selected,
+.studio-task-card[data-selected="true"] {
+  border-color: rgba(113, 126, 190, 0.62);
+  background: #f2f3f9;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 0 0 1px rgba(113, 126, 190, 0.08),
+    0 3px 9px rgba(48, 57, 86, 0.045);
+}
+
+.studio-task-card:focus-visible {
+  outline: 2px solid rgba(103, 119, 190, 0.52);
+  outline-offset: 1px;
+}
+
+.studio-task-card-selection-marker {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  width: 16px;
+  height: 16px;
+  padding: 2px 2px 0 0;
+  border-radius: 0 8px 0 100%;
+  color: #fff;
+  background: #6f7db3;
+  box-shadow: -1px 1px 4px rgba(42, 49, 72, 0.14);
+  transform-origin: top right;
+  animation: studio-task-marker-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.studio-task-thumb {
+  background: #eef0f4;
+}
+
+.studio-task-thumb--compact {
+  border: 1px solid rgba(76, 84, 106, 0.1);
+  border-radius: 8px;
+  background: #f0f1f4;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.44);
+}
+
+.studio-task-running-badge {
+  background: rgba(55, 64, 86, 0.84);
+  box-shadow: 0 1px 4px rgba(24, 29, 42, 0.16);
+  backdrop-filter: blur(4px);
+}
+
+.studio-task-running-dot {
+  background: #c9d6ff;
+  box-shadow: 0 0 0 2px rgba(201, 214, 255, 0.2);
+  animation: studio-task-running-dot 1.35s ease-in-out infinite;
+}
+
+.studio-task-applying-overlay {
+  color: #6573ad;
+  background: rgba(248, 249, 252, 0.78);
+}
+
+.studio-task-failed-line {
+  background: #bd7471;
+}
+
+.studio-task-status-pill {
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-task-status-pill--running,
+.studio-task-status-pill--applying {
+  color: #6675ad;
+  background: #eff2fa;
+}
+
+.studio-task-status-pill--completed {
+  color: #477566;
+  background: #edf6f2;
+}
+
+.studio-task-status-pill--failed {
+  color: #a55f5b;
+  background: #f9eeee;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .studio-task-card:hover {
+    border-color: rgba(112, 124, 176, 0.38);
+    background-color: #f7f8fb;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 4px 12px rgba(42, 49, 70, 0.065);
+    transform: translateY(-1px);
+    transition-duration: 90ms;
+  }
+
+  .studio-task-card:active {
+    transform: translateY(0);
+    transition-duration: 60ms;
+  }
 }
 
 .studio-task-card-expanded {
   contain-intrinsic-size: 96px;
+  border-radius: 12px;
 }
 
 .studio-task-thumb-frame,
@@ -308,7 +462,8 @@
 
 .studio-task-rail-skeleton,
 .studio-task-rail-empty {
-  animation: studio-rail-content-in 220ms ease-out both;
+  opacity: 1;
+  transform: none;
 }
 
 .studio-skeleton-shimmer {
@@ -316,39 +471,38 @@
   overflow: hidden;
   transform: translateZ(0);
   background:
-    linear-gradient(105deg, transparent 34%, rgba(255, 255, 255, 0.62) 48%, transparent 64%),
-    linear-gradient(180deg, #e1e4e8 0%, #eef0f2 46%, #e1e4e8 100%);
-  background-size: 230% 100%, 100% 100%;
-  animation: studio-skeleton-shimmer 1.6s ease-in-out infinite;
+    linear-gradient(105deg, transparent 34%, rgba(255, 255, 255, 0.2) 43%, rgba(255, 255, 255, 0.78) 50%, rgba(255, 255, 255, 0.2) 57%, transparent 66%),
+    linear-gradient(180deg, #e4e7eb 0%, #f0f2f4 48%, #e2e5e9 100%);
+  background-position: 180% 0, 0 0;
+  background-size: 240% 100%, 100% 100%;
+  animation: studio-skeleton-shimmer 1.45s linear infinite;
+  will-change: background-position;
+}
+
+.studio-task-card-skeleton-frame {
+  border-color: rgba(86, 94, 118, 0.1);
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    0 1px 2px rgba(30, 36, 50, 0.025);
 }
 
 .dark .studio-skeleton-shimmer {
   background:
-    linear-gradient(105deg, transparent 34%, var(--codex-accent-22) 46%, rgba(124, 134, 232, 0.3) 52%, transparent 64%),
-    linear-gradient(180deg, #1e2129 0%, #242833 46%, #1e2129 100%);
-  background-size: 230% 100%, 100% 100%;
+    linear-gradient(105deg, transparent 33%, rgba(135, 149, 202, 0.05) 42%, rgba(160, 174, 224, 0.28) 50%, rgba(135, 149, 202, 0.05) 58%, transparent 67%),
+    linear-gradient(180deg, #202228 0%, #292c35 48%, #1e2026 100%);
+  background-position: 180% 0, 0 0;
+  background-size: 240% 100%, 100% 100%;
 }
 
-@keyframes studio-rail-enter {
-  from {
-    opacity: 0.78;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+@keyframes studio-task-marker-in {
+  from { opacity: 0; transform: scale(0.72); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-@keyframes studio-rail-content-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes studio-task-running-dot {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 
 .studio-workbench[aria-busy="true"] {
@@ -356,8 +510,8 @@
 }
 
 @keyframes studio-skeleton-shimmer {
-  0% { background-position: -180% 0, 0 0; }
-  100% { background-position: 180% 0, 0 0; }
+  0% { background-position: 180% 0, 0 0; }
+  100% { background-position: -180% 0, 0 0; }
 }
 
 @keyframes studio-skeleton-fade-in {
@@ -5592,31 +5746,100 @@ header .animate-spin {
 /* ---- Task rail (left column) ---- */
 .dark .studio-task-rail,
 .dark .studio-shell-task-rail {
-  background: rgba(28, 28, 30, 0.55) !important;
+  background:
+    linear-gradient(180deg, rgba(30, 31, 36, 0.98), rgba(23, 24, 29, 0.98)) !important;
   border-color: var(--codex-surface-08) !important;
   color: #f5f5f7 !important;
 }
 
-.dark .studio-task-card {
-  background: var(--codex-surface-04) !important;
-  border-color: var(--codex-surface-10) !important;
-  color: #f5f5f7 !important;
+.dark .studio-task-rail-header {
+  background: rgba(34, 35, 41, 0.68);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.025);
 }
 
-.dark .studio-task-card:hover {
-  background: var(--codex-surface-08) !important;
-  border-color: var(--codex-accent-36) !important;
+.dark .studio-task-rail-title-icon {
+  color: #aab4d6;
+}
+
+.dark .studio-task-card {
+  background: rgba(255, 255, 255, 0.035) !important;
+  border-color: var(--codex-surface-10) !important;
+  color: #f5f5f7 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 1px 2px rgba(0, 0, 0, 0.18) !important;
 }
 
 .dark .studio-task-card-expanded {
-  background: var(--codex-accent-18) !important;
-  border-color: var(--codex-accent-50) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+.dark .studio-task-card[data-state="running"] {
+  background: rgba(102, 123, 170, 0.12) !important;
+  border-color: rgba(142, 158, 202, 0.25) !important;
+}
+
+.dark .studio-task-card[data-state="failed"] {
+  background: rgba(157, 83, 80, 0.1) !important;
+  border-color: rgba(194, 112, 108, 0.24) !important;
+}
+
+.dark .studio-task-card.is-selected,
+.dark .studio-task-card[data-selected="true"] {
+  background: rgba(119, 132, 190, 0.16) !important;
+  border-color: rgba(153, 165, 220, 0.44) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(153, 165, 220, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.18) !important;
+}
+
+.dark .studio-task-card-selection-marker {
+  background: #8a96c9;
+  box-shadow: -1px 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dark .studio-task-card:hover {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(153, 165, 220, 0.32) !important;
+  }
 }
 
 .dark .studio-task-thumb-frame,
-.dark .studio-task-placeholder-thumb {
+.dark .studio-task-placeholder-thumb,
+.dark .studio-task-thumb--compact {
   background: var(--codex-surface-06) !important;
   border-color: var(--codex-surface-10) !important;
+}
+
+.dark .studio-task-applying-overlay {
+  color: #bac4eb;
+  background: rgba(24, 25, 30, 0.76);
+}
+
+.dark .studio-task-status-pill--running,
+.dark .studio-task-status-pill--applying {
+  color: #c2ccf2;
+  background: rgba(115, 131, 189, 0.18);
+}
+
+.dark .studio-task-status-pill--completed {
+  color: #a5d6c5;
+  background: rgba(77, 130, 111, 0.16);
+}
+
+.dark .studio-task-status-pill--failed {
+  color: #e0aaa6;
+  background: rgba(167, 88, 83, 0.16);
+}
+
+.dark .studio-task-card-skeleton-frame {
+  border-color: rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.028);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 1px 2px rgba(0, 0, 0, 0.16);
 }
 
 .dark .studio-task-rail-empty {
@@ -5769,13 +5992,6 @@ header .animate-spin {
 .dark .studio-empty-state-title,
 .dark .studio-empty-title {
   color: #f5f5f7 !important;
-}
-
-.dark .studio-skeleton-shimmer {
-  background:
-    linear-gradient(105deg, transparent 36%, rgba(255,255,255,0.1) 46%, transparent 56%),
-    linear-gradient(180deg, #1e1e22 0%, #252528 50%, #1e1e22 100%) !important;
-  background-size: 260% 100%, 100% 100% !important;
 }
 
 .dark .studio-loading {

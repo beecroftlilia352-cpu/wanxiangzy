@@ -417,13 +417,13 @@ export function StudioTaskRail({
       <div className="flex h-full min-h-0 flex-col">
         <div
           className={cn(
-            "flex items-center justify-between border-b border-[var(--codex-border)]",
+            "studio-task-rail-header flex items-center justify-between border-b border-[var(--codex-border)]",
             expanded ? "gap-2 px-3 py-3" : "gap-0.5 px-1 py-2.5"
           )}
         >
           <div className={cn("min-w-0 flex-1", !expanded && "flex justify-center")}>
-            <div className={cn("flex items-center font-black text-codex-ink", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[11px] leading-4")}>
-              {expanded && <History className="h-4 w-4 text-blue-500" />}
+            <div className={cn("studio-task-rail-title flex items-center font-bold text-codex-ink", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[11px] leading-4")}>
+              {expanded && <History className="studio-task-rail-title-icon h-4 w-4" />}
               <span className="max-w-full truncate whitespace-nowrap">{expanded ? t("allTasks") : compactRecentTasksLabel}</span>
             </div>
             {expanded && (
@@ -608,14 +608,19 @@ function ContinueCard({ selected, disabled = false, onClick }: { selected: boole
       type="button"
       disabled={disabled}
       onClick={onClick}
+      data-selected={selected || undefined}
       className={cn(
-        "group relative flex aspect-square w-full items-center justify-center rounded border bg-white px-1 text-center text-[11px] font-medium leading-4 text-codex-muted transition hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/10 dark:bg-white/5 dark:text-codex-muted dark:hover:border-[var(--codex-accent-45)] dark:hover:bg-white/10",
+        "studio-task-card studio-task-card--compact studio-task-card--continue group relative flex aspect-square w-full items-center justify-center px-1 text-center text-[11px] font-medium leading-4 text-codex-muted",
         disabled && "cursor-not-allowed opacity-55",
-        selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)] dark:border-[var(--codex-accent-55)] dark:bg-[var(--codex-accent-18)]" : "border-[var(--codex-border)] dark:border-white/10"
+        selected && "is-selected"
       )}
     >
       <span className="max-w-full truncate whitespace-nowrap">{compactLabel}</span>
-      {selected && <span className="absolute -right-2 top-[7px] h-[50px] w-1 rounded-full bg-blue-500" />}
+      {selected && (
+        <span className="studio-task-card-selection-marker" aria-hidden="true">
+          <Check className="h-2 w-2" />
+        </span>
+      )}
     </button>
   );
 }
@@ -671,6 +676,7 @@ function TaskCard({
   const t = useTranslations("Shared");
   const running = isTaskRunning(item);
   const failed = item.statusGroup === "failed";
+  const completed = item.statusGroup === "completed";
   const resultThumbnails = safeTaskUrls(item.resultThumbnails);
   const inputThumbnails = safeTaskUrls(item.inputThumbnails);
   const thumbnails = safeTaskUrls(item.thumbnails);
@@ -685,16 +691,21 @@ function TaskCard({
         type="button"
         disabled={disabled}
         onClick={onClick}
+        data-state={applying ? "applying" : failed ? "failed" : running ? "running" : completed ? "completed" : "idle"}
+        data-selected={selected || undefined}
         className={cn(
-          "studio-task-card group relative flex aspect-square w-full items-center justify-center rounded border bg-white p-1 text-left transition hover:border-blue-300 hover:bg-blue-50/40",
-          running && "border-blue-100 bg-blue-50/45",
+          "studio-task-card studio-task-card--compact group relative flex aspect-square w-full items-center justify-center p-1 text-left",
           applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
-          selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-[var(--codex-border)]"
+          selected && "is-selected"
         )}
         title={item.title || item.id}
       >
         <TaskThumb url={cover} running={running} failed={failed} applying={applying} compact className="h-full w-full" />
-        {selected && <span className="absolute -right-2 top-[7px] h-[50px] w-1 rounded-full bg-blue-500" />}
+        {selected && (
+          <span className="studio-task-card-selection-marker" aria-hidden="true">
+            <Check className="h-2 w-2" />
+          </span>
+        )}
       </button>
     );
   }
@@ -704,11 +715,12 @@ function TaskCard({
       type="button"
       disabled={disabled}
       onClick={onClick}
+      data-state={applying ? "applying" : failed ? "failed" : running ? "running" : completed ? "completed" : "idle"}
+      data-selected={selected || undefined}
       className={cn(
-        "studio-task-card studio-task-card-expanded group w-full rounded-lg border bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/35",
+        "studio-task-card studio-task-card-expanded group w-full p-2 text-left",
         applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
-        selected ? "border-blue-400 ring-2 ring-blue-100" : "border-[var(--codex-border)]",
-        failed && "border-red-200 bg-red-50/60"
+        selected && "is-selected"
       )}
     >
       <div className="flex items-start gap-3">
@@ -720,7 +732,7 @@ function TaskCard({
               <p className="mt-0.5 truncate text-[11px] font-semibold text-codex-faint">{item.id}</p>
             </div>
             {applying ? (
-              <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 text-[10px] font-black text-blue-600">
+              <span className="studio-task-status-pill studio-task-status-pill--applying inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-bold">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {t("applying")}
               </span>
@@ -759,8 +771,8 @@ function TaskThumb({
 
   return (
     <span className={cn(
-      "relative block overflow-hidden",
-      compact ? "rounded bg-white" : "studio-task-thumb-frame rounded-lg",
+      "studio-task-thumb relative block overflow-hidden",
+      compact ? "studio-task-thumb--compact" : "studio-task-thumb-frame rounded-lg",
       className
     )}>
       {displayUrl ? (
@@ -788,18 +800,18 @@ function TaskThumb({
         </span>
       )}
       {running && (
-        <span className="absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1 rounded bg-blue-600/90 px-1.5 py-0.5 text-[10px] font-black leading-none text-white shadow-sm">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" />
+        <span className="studio-task-running-badge absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+          <span className="studio-task-running-dot h-1.5 w-1.5 shrink-0 rounded-full" />
           <span className="truncate">{t("generating")}</span>
         </span>
       )}
       {applying && !running && (
-        <span className="absolute inset-0 z-[2] flex items-center justify-center gap-1 bg-white/70 text-[10px] font-semibold text-blue-600 backdrop-blur-[1px]">
+        <span className="studio-task-applying-overlay absolute inset-0 z-[2] flex items-center justify-center gap-1 text-[10px] font-semibold backdrop-blur-[1px]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           {compact && <span>{t("applying")}</span>}
         </span>
       )}
-      {failed && <span className="absolute inset-x-0 bottom-0 z-[2] h-1 bg-red-400" />}
+      {failed && <span className="studio-task-failed-line absolute inset-x-0 bottom-0 z-[2] h-0.5" />}
     </span>
   );
 }
@@ -888,13 +900,13 @@ function TaskStripImage({ url }: { url: string }) {
 function StatusPill({ item }: { item: TaskQueueItem }) {
   const t = useTranslations("Shared");
   const progress = clampProgress(item.progress);
-  const className = item.statusGroup === "failed"
-    ? "bg-red-50 text-red-600"
+  const state = item.statusGroup === "failed"
+    ? "failed"
     : item.statusGroup === "completed"
-      ? "bg-emerald-50 text-emerald-600"
-      : "bg-blue-50 text-blue-600";
+      ? "completed"
+      : "running";
   return (
-    <span className={cn("inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-black", className)}>
+    <span className={cn("studio-task-status-pill inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-bold", `studio-task-status-pill--${state}`)}>
       {isTaskRunning(item) && <Loader2 className="h-3 w-3 animate-spin" />}
       {statusText(item, progress, t)}
     </span>
@@ -909,7 +921,7 @@ function TaskRailSkeleton({ compact }: { compact: boolean }) {
         <div
           key={index}
           className={cn(
-            "flex items-center gap-3 overflow-hidden rounded-lg border border-white/70 bg-white/72 shadow-sm",
+            "studio-task-card-skeleton-frame flex items-center gap-3 overflow-hidden rounded-lg border",
             compact ? "aspect-square p-1" : "h-[88px] p-2"
           )}
         >
