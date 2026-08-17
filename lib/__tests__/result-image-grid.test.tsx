@@ -147,4 +147,36 @@ describe("ResultImageGrid download button", () => {
     const refThumbs = document.querySelectorAll(".studio-result-reference-thumb");
     expect(refThumbs.length).toBe(2);
   });
+
+  it("keeps the decoded image mounted while switching recent tasks", () => {
+    const view = renderWithIntl(
+      <ResultImageGrid
+        urls={[sampleUrls[0]]}
+        filenamePrefix="image-translation"
+        onOpen={() => {}}
+        variant="task"
+        renderKey="task-a"
+      />
+    );
+    const initialImage = document.querySelector<HTMLImageElement>(".studio-result-card img");
+
+    expect(initialImage).toBeTruthy();
+    expect(initialImage?.getAttribute("src")).toBe(sampleUrls[0]);
+
+    view.rerender(
+      <NextIntlClientProvider locale="zh" messages={zhMessages}>
+        <ResultImageGrid
+          urls={[sampleUrls[1]]}
+          filenamePrefix="image-translation"
+          onOpen={() => {}}
+          variant="task"
+          renderKey="task-b"
+        />
+      </NextIntlClientProvider>
+    );
+
+    const imageWhileReplacementDecodes = document.querySelector<HTMLImageElement>(".studio-result-card img");
+    expect(imageWhileReplacementDecodes).toBe(initialImage);
+    expect(imageWhileReplacementDecodes?.getAttribute("src")).toBe(sampleUrls[0]);
+  });
 });

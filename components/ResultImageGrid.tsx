@@ -238,9 +238,12 @@ export function ResultImageGrid({
             {slots.map((url, index) => {
               const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
               const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
+              // Keep each visual slot mounted while switching recent tasks so
+              // StableResultImage can preserve the decoded image until the
+              // replacement is ready.
               return (
                 <ResultCard
-                  key={`${renderKey}-${index}`}
+                  key={`task-result-slot-${index}`}
                   url={url}
                   index={index}
                   count={count}
@@ -295,7 +298,7 @@ export function ResultImageGrid({
           const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
           return (
             <ResultCard
-              key={`${renderKey}-${index}`}
+              key={`result-slot-${index}`}
               url={url}
               index={index}
               count={count}
@@ -604,6 +607,7 @@ function StableResultImage({ src, alt }: { src: string; alt: string }) {
       height={1600}
       loading="lazy"
       decoding="async"
+      disableFade
       className="h-full w-full object-cover"
       onError={() => {
         setDisplaySrc(FALLBACK_IMAGE);

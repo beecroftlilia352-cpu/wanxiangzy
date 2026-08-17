@@ -70,13 +70,12 @@ button {
   50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 8px 36px rgba(124, 58, 237, 0.48); }
 }
 
-/* ---- 5. 结果卡片入场：生成完成后错峰浮现 ---- */
+/* ---- 5. 内容卡片入场：生成结果使用自身的无位移高亮 ---- */
 @keyframes motion-card-in {
   from { opacity: 0; transform: translateY(14px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.studio-result-card-ready,
 .studio-result-grid > * {
   animation: motion-card-in var(--codex-motion-slow) var(--codex-ease-out) both;
 }
@@ -89,15 +88,13 @@ button {
 .studio-result-grid > *:nth-child(7) { animation-delay: 0.3s; }
 .studio-result-grid > *:nth-child(8) { animation-delay: 0.35s; }
 
-/* ---- 5.5 卡片 hover 微浮起（仅 hover 设备；入场动画 fill 需先移除才能过渡） ---- */
+/* ---- 5.5 营销卡片 hover 微浮起（结果卡片保持静止，反馈由操作层承担） ---- */
 @media (hover: hover) and (pointer: fine) {
-  .home-scene-card,
-  .studio-result-card-ready {
+  .home-scene-card {
     transition: transform var(--codex-motion-base) var(--codex-ease-out), box-shadow var(--codex-motion-base) var(--codex-ease-out);
   }
 
-  .home-scene-card:hover,
-  .studio-result-card-ready:hover {
+  .home-scene-card:hover {
     animation: none;
     transform: translateY(-4px);
     box-shadow: 0 24px 60px rgba(14, 18, 38, 0.16);
@@ -140,7 +137,6 @@ button {
   .home-landing-hero .home-hero-frame > *,
   .studio-run-button,
   .studio-button--primary,
-  .studio-result-card-ready,
   .studio-result-grid > * {
     animation: none !important;
   }
