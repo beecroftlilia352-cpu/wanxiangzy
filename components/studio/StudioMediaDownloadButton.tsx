@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { Archive, Check, Download, Loader2, RotateCcw } from "lucide-react";
+import { Check, Download, Images, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getBatchDownloadStatusLabel,
@@ -114,7 +114,7 @@ export function DownloadStatusIcon({
   if (state.status === "success") return <Check className={iconClass} aria-hidden="true" />;
   if (state.status === "error") return <RotateCcw className={iconClass} aria-hidden="true" />;
   return batch
-    ? <Archive className={iconClass} aria-hidden="true" />
+    ? <Images className={iconClass} aria-hidden="true" />
     : <Download className={iconClass} aria-hidden="true" />;
 }
 

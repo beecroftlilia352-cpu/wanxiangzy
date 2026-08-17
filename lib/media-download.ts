@@ -33,11 +33,11 @@ const DOWNLOAD_RESOLVE_TIMEOUT_MS = 12_000;
 const DOWNLOAD_RETRY_DELAYS_MS = [0, 650] as const;
 
 /**
- * Starts a user-visible download with the lightest reliable transport.
+ * Hands a single file to the browser's native download manager immediately.
  *
- * OSS assets are resolved to a short-lived attachment URL and handed to the
- * browser directly, so application servers never relay the file. Other hosts
- * use the guarded same-origin proxy and expose byte progress when available.
+ * Remote files go through the guarded same-origin endpoint. That endpoint can
+ * redirect OSS files to a signed attachment URL or stream other providers,
+ * without making the UI buffer the entire image before the save begins.
  */
 export async function downloadMediaFile(
   url: string,
@@ -47,38 +47,52 @@ export async function downloadMediaFile(
   if (!url) throw new Error("没有可下载的文件");
 
   options.onProgress?.({
-    phase: "resolving",
-    completed: 0,
+    phase: "saving",
+    completed: 1,
     total: 1,
-    percent: null,
+    percent: 100,
   });
 
-  if (isBrowserLocalUrl(url)) {
-    const blob = await fetchBlobFromUrl(url, options);
-    options.onProgress?.({ phase: "saving", completed: 1, total: 1, percent: 100 });
-    saveBlobToDevice(blob, filename);
-  } else {
-    let target: DownloadTarget;
-    try {
-      target = await resolveDownloadTarget(url, filename, options.signal);
-    } catch (error) {
-      if (options.signal?.aborted) throw error;
-      // The resolver is intentionally tiny, but a transient application-edge
-      // failure should not strand the user. The guarded proxy remains the
-      // final reliable path and will surface the authoritative error.
-      target = buildProxyTarget(url, filename);
-    }
-    if (target.strategy === "direct") {
-      options.onProgress?.({ phase: "saving", completed: 1, total: 1, percent: 100 });
-      triggerUrlDownload(target.url, filename);
-    } else {
-      const blob = await fetchBlobWithRetry(target.url, options);
-      options.onProgress?.({ phase: "saving", completed: 1, total: 1, percent: 100 });
-      saveBlobToDevice(blob, filename);
-    }
-  }
+  const downloadUrl = isBrowserLocalUrl(url)
+    ? url
+    : buildBrowserDownloadUrl(url, filename);
+  triggerUrlDownload(downloadUrl, filename);
 
   options.onProgress?.({ phase: "completed", completed: 1, total: 1, percent: 100 });
+}
+
+/** Starts separate native downloads while the original click still owns the
+ * browser's user activation. No image bytes are read by the application. */
+export async function downloadMediaFiles(options: {
+  urls: string[];
+  filenamePrefix: string;
+  onProgress?: (progress: MediaDownloadProgress) => void;
+}) {
+  const urls = options.urls.filter(Boolean);
+  if (!urls.length) throw new Error("没有可下载的图片");
+
+  urls.forEach((url, index) => {
+    const filename = buildIndexedFilename(options.filenamePrefix, url, index);
+    const downloadUrl = isBrowserLocalUrl(url)
+      ? url
+      : buildBrowserDownloadUrl(url, filename);
+    triggerUrlDownload(downloadUrl, filename);
+    const completed = index + 1;
+    options.onProgress?.({
+      phase: "saving",
+      completed,
+      total: urls.length,
+      percent: Math.round((completed / urls.length) * 100),
+    });
+  });
+
+  options.onProgress?.({
+    phase: "completed",
+    completed: urls.length,
+    total: urls.length,
+    percent: 100,
+  });
+  return { successCount: urls.length, failedCount: 0 };
 }
 
 /** Fetches media bytes for local ZIP creation. The proxy is forced because
@@ -142,6 +156,27 @@ function buildProxyTarget(url: string, filename: string): DownloadTarget {
   endpoint.searchParams.set("filename", filename);
   endpoint.searchParams.set("proxy", "1");
   return { strategy: "proxy", url: endpoint.toString() };
+}
+
+function buildBrowserDownloadUrl(url: string, filename: string) {
+  const endpoint = new URL("/api/download-image", window.location.origin);
+  endpoint.searchParams.set("url", url);
+  endpoint.searchParams.set("filename", filename);
+  return endpoint.toString();
+}
+
+function buildIndexedFilename(prefix: string, url: string, index: number) {
+  const safePrefix = prefix.replace(/\.(zip|png|jpe?g|webp|gif)$/i, "") || "results";
+  let extension = "png";
+  try {
+    const fromPath = new URL(url, window.location.origin).pathname.split(".").pop()?.toLowerCase();
+    if (fromPath && /^(png|jpe?g|webp|gif)$/.test(fromPath)) {
+      extension = fromPath === "jpeg" ? "jpg" : fromPath;
+    }
+  } catch {
+    // Keep the safe image default when a browser-local URL has no extension.
+  }
+  return `${safePrefix}-${String(index + 1).padStart(2, "0")}.${extension}`;
 }
 
 async function fetchBlobWithRetry(url: string, options: DownloadOptions) {

@@ -1920,7 +1920,7 @@
     "download": "Скачать",
     "downloadSingle": "Скачать один",
     "downloadZip": "В архив",
-    "downloadAllZip": "В архив все {count}",
+    "downloadAllZip": "Скачать все {count}",
     "enlarge": "Увеличить",
     "reset": "Сбросить",
     "zoomAria": "Масштаб результата",

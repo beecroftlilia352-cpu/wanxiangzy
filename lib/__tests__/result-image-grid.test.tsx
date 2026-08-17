@@ -24,10 +24,7 @@ vi.mock("@/lib/image-variants", () => ({
 
 vi.mock("@/lib/media-download", () => ({
   downloadMediaFile: vi.fn().mockResolvedValue(undefined),
-}));
-
-vi.mock("@/lib/download-batch", () => ({
-  downloadImagesAsZip: vi.fn().mockResolvedValue({ successCount: 3, failedCount: 0 }),
+  downloadMediaFiles: vi.fn().mockResolvedValue({ successCount: 3, failedCount: 0 }),
 }));
 
 const sampleUrls = [

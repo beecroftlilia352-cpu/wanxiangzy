@@ -7,15 +7,12 @@ import {
 
 const mediaMocks = vi.hoisted(() => ({
   downloadMediaFile: vi.fn(),
-  downloadImagesAsZip: vi.fn(),
+  downloadMediaFiles: vi.fn(),
 }));
 
 vi.mock("@/lib/media-download", () => ({
   downloadMediaFile: mediaMocks.downloadMediaFile,
-}));
-
-vi.mock("@/lib/download-batch", () => ({
-  downloadImagesAsZip: mediaMocks.downloadImagesAsZip,
+  downloadMediaFiles: mediaMocks.downloadMediaFiles,
 }));
 
 afterEach(() => {
@@ -48,17 +45,17 @@ describe("StudioMediaDownloadButton", () => {
     await waitFor(() => expect(button.getAttribute("aria-busy")).toBe("false"));
   });
 
-  it("surfaces ZIP retrieval progress in the button label", async () => {
+  it("surfaces multi-file handoff progress in the button label", async () => {
     let finish!: (value: { successCount: number; failedCount: number }) => void;
-    mediaMocks.downloadImagesAsZip.mockImplementation((options: {
+    mediaMocks.downloadMediaFiles.mockImplementation((options: {
       onProgress?: (progress: {
-        phase: "downloading";
+        phase: "saving";
         completed: number;
         total: number;
         percent: number;
       }) => void;
     }) => {
-      options.onProgress?.({ phase: "downloading", completed: 1, total: 2, percent: 41 });
+      options.onProgress?.({ phase: "saving", completed: 1, total: 2, percent: 50 });
       return new Promise((resolve) => {
         finish = resolve;
       });

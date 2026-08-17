@@ -1916,7 +1916,7 @@
     "detailLoadingDesc": "Lese Ergebnisse, Eingabe-Assets und Generierungsparameter.",
     "detailLoadingTitle": "Werk wird geladen",
     "download": "Herunterladen",
-    "downloadAllZip": "Alle {count} packen",
+    "downloadAllZip": "Alle {count} herunterladen",
     "downloadSingle": "Einzeln herunterladen",
     "downloadZip": "Packen",
     "emptyMessage": "Nach einer Anprobe, Posen-Erweiterung, benutzerdefiniertem Model oder Kleidung 3D werden deine Werke automatisch hier gespeichert.",

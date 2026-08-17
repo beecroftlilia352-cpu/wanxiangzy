@@ -1920,7 +1920,7 @@
     "download": "Descargar",
     "downloadSingle": "Descargar individual",
     "downloadZip": "Empaquetar",
-    "downloadAllZip": "Empaquetar todo {count}",
+    "downloadAllZip": "Descargar todo {count}",
     "enlarge": "Ampliar",
     "reset": "Restablecer",
     "zoomAria": "Ampliar resultado",

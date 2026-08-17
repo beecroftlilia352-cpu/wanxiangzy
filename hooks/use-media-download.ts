@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { downloadImagesAsZip } from "@/lib/download-batch";
-import { downloadMediaFile, type MediaDownloadProgress } from "@/lib/media-download";
+import { downloadMediaFile, downloadMediaFiles, type MediaDownloadProgress } from "@/lib/media-download";
 
 export type MediaDownloadActionState = {
   status: "idle" | "running" | "success" | "error";
@@ -55,7 +54,7 @@ export function useMediaDownload() {
     singleControllerRef.current = controller;
     setSingleState({
       status: "running",
-      progress: { phase: "resolving", completed: 0, total: 1, percent: null },
+      progress: { phase: "saving", completed: 1, total: 1, percent: 100 },
     });
 
     try {
@@ -98,15 +97,13 @@ export function useMediaDownload() {
     batchControllerRef.current = controller;
     setBatchState({
       status: "running",
-      progress: { phase: "downloading", completed: 0, total: input.urls.length, percent: 0 },
+      progress: { phase: "saving", completed: 0, total: input.urls.length, percent: 0 },
     });
 
     try {
-      const result = await downloadImagesAsZip({
+      const result = await downloadMediaFiles({
         urls: input.urls,
-        filename: input.filename,
-        label: input.label,
-        signal: controller.signal,
+        filenamePrefix: input.filename,
         onProgress: (progress) => {
           if (mountedRef.current) setBatchState({ status: "running", progress });
         },
@@ -132,7 +129,7 @@ export function useMediaDownload() {
       if (controller.signal.aborted) return false;
       if (!mountedRef.current) return false;
       setBatchState({ status: "error", progress: null });
-      toast.error(error instanceof Error ? error.message : "打包失败，请重试");
+      toast.error(error instanceof Error ? error.message : "下载失败，请重试");
       scheduleReset("batch", setBatchState, ERROR_HOLD_MS);
       return false;
     } finally {
@@ -156,7 +153,7 @@ export function getBatchDownloadStatusLabel(
   if (state.status === "error") return defaultLabel;
   const progress = state.progress;
   if (state.status !== "running" || !progress) return defaultLabel;
-  if (progress.phase === "downloading" && progress.completed > 0) {
+  if ((progress.phase === "downloading" || progress.phase === "saving") && progress.completed > 0) {
     return `${progress.completed}/${progress.total}`;
   }
   if (progress.phase === "packing" && progress.percent !== null) {

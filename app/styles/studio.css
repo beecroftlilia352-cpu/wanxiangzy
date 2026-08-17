@@ -4597,14 +4597,15 @@
 
 .studio-result-card-pending-shell,
 .studio-result-card:has(.studio-result-pending-card) {
-  border-color: var(--codex-surface-soft);
+  border-color: rgba(255, 255, 255, 0.76);
+  border-radius: var(--codex-radius-lg);
   background:
-    linear-gradient(135deg, var(--codex-surface-72), rgba(187, 213, 255, 0.28)),
-    rgba(255, 255, 255, 0.4);
+    linear-gradient(135deg, rgba(251, 251, 252, 0.92), rgba(232, 235, 241, 0.52)),
+    rgba(255, 255, 255, 0.54);
   box-shadow:
-    0 26px 72px rgba(53, 84, 190, 0.2),
-    0 1px 0 rgba(255, 255, 255, 0.84) inset,
-    0 0 0 1px var(--codex-accent-16);
+    0 18px 46px rgba(47, 61, 91, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 0 0 1px var(--codex-accent-12);
 }
 
 .studio-result-card-pending-shell .studio-home-hero-loading-bg {
@@ -4754,7 +4755,7 @@
   pointer-events: none;
 }
 
-/* Full-card dark liquid aurora. framer-motion drives the blob drift so it runs on every route. */
+/* Full-card dark liquid aurora. Framer Motion owns the blob transforms. */
 .studio-liquid-scene {
   position: absolute;
   inset: -32%;
@@ -4765,59 +4766,33 @@
 .studio-liquid-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(32px) saturate(1.28);
-  mix-blend-mode: screen;
-  opacity: 0.96;
+  filter: blur(32px) saturate(1.12);
+  mix-blend-mode: normal;
+  opacity: 0.78;
+}
+
+.studio-liquid-scene-active .studio-liquid-blob {
+  will-change: transform;
 }
 
 .studio-liquid-blob-a {
   left: -12%; top: -14%; width: 72%; height: 72%;
-  background: radial-gradient(circle, rgba(110, 114, 255, 0.95) 0%, rgba(66, 79, 215, 0.58) 44%, transparent 72%);
-  animation: studio-liquid-blob-a 6.5s cubic-bezier(0.42, 0, 0.2, 1) infinite alternate;
+  background: radial-gradient(circle, rgba(255, 126, 157, 0.88) 0%, rgba(178, 94, 255, 0.54) 44%, transparent 72%);
 }
 
 .studio-liquid-blob-b {
   right: -14%; top: -8%; width: 64%; height: 64%;
-  background: radial-gradient(circle, rgba(152, 105, 255, 0.9) 0%, rgba(74, 61, 214, 0.52) 44%, transparent 72%);
-  animation: studio-liquid-blob-b 7.5s cubic-bezier(0.42, 0, 0.2, 1) infinite alternate;
+  background: radial-gradient(circle, rgba(153, 96, 255, 0.9) 0%, rgba(79, 111, 255, 0.58) 44%, transparent 72%);
 }
 
 .studio-liquid-blob-c {
   left: 8%; bottom: -18%; width: 68%; height: 68%;
-  background: radial-gradient(circle, rgba(66, 140, 255, 0.88) 0%, rgba(33, 70, 186, 0.55) 44%, transparent 72%);
-  animation: studio-liquid-blob-c 7s cubic-bezier(0.42, 0, 0.2, 1) infinite alternate;
+  background: radial-gradient(circle, rgba(47, 213, 255, 0.88) 0%, rgba(77, 126, 255, 0.54) 44%, transparent 72%);
 }
 
 .studio-liquid-blob-d {
   right: 4%; bottom: -22%; width: 60%; height: 60%;
-  background: radial-gradient(circle, rgba(88, 78, 240, 0.9) 0%, rgba(54, 50, 138, 0.55) 44%, transparent 72%);
-  animation: studio-liquid-blob-d 8s cubic-bezier(0.42, 0, 0.2, 1) infinite alternate;
-}
-
-/* 原 framer-motion animate 关键帧的 CSS 等价（3 关键帧均分 + reverse 缓动），
-   避免 framer-motion 被 ResultImageGrid 链静态引入所有 studio 页面共享包 */
-@keyframes studio-liquid-blob-a {
-  0%   { transform: translate(-26%, -14%) scale(1) rotate(-14deg); }
-  50%  { transform: translate(14%, 12%) scale(1.3) rotate(10deg); }
-  100% { transform: translate(-8%, -5%) scale(1.08) rotate(-5deg); }
-}
-
-@keyframes studio-liquid-blob-b {
-  0%   { transform: translate(14%, -6%) scale(1.06) rotate(10deg); }
-  50%  { transform: translate(-18%, 14%) scale(1.32) rotate(-10deg); }
-  100% { transform: translate(6%, -10%) scale(1.1) rotate(5deg); }
-}
-
-@keyframes studio-liquid-blob-c {
-  0%   { transform: translate(-12%, 16%) scale(1.04) rotate(-8deg); }
-  50%  { transform: translate(18%, -8%) scale(1.26) rotate(8deg); }
-  100% { transform: translate(-6%, 8%) scale(1.08) rotate(-3deg); }
-}
-
-@keyframes studio-liquid-blob-d {
-  0%   { transform: translate(8%, 10%) scale(1.1) rotate(7deg); }
-  50%  { transform: translate(-14%, -16%) scale(1.34) rotate(-9deg); }
-  100% { transform: translate(3%, 5%) scale(1.12) rotate(4deg); }
+  background: radial-gradient(circle, rgba(181, 230, 87, 0.78) 0%, rgba(55, 205, 205, 0.48) 44%, transparent 72%);
 }
 
 @keyframes studio-spin {
@@ -5148,32 +5123,14 @@ header .animate-spin {
 }
 
 .studio-home-hero-loading-bg {
-  background: linear-gradient(145deg, #30363d 0%, #20252b 100%);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(223, 244, 255, 0.88) 0%, transparent 42%),
+    linear-gradient(145deg, #87c5e4 0%, #6f91d7 48%, #6964c2 100%);
 }
 
 .studio-liquid-scene {
-  inset: 0;
-  background:
-    radial-gradient(circle at 38% 20%, rgba(255, 255, 255, 0.08), transparent 36%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.08));
-}
-
-.studio-liquid-blob {
-  display: none;
-}
-
-.studio-liquid-scan {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.07) 49%, transparent 60%);
-  transform: translateX(-72%);
-  animation: studio-render-scan 2.8s ease-in-out infinite;
-}
-
-@keyframes studio-render-scan {
-  0%, 22% { transform: translateX(-72%); opacity: 0; }
-  38% { opacity: 1; }
-  72%, 100% { transform: translateX(72%); opacity: 0; }
+  inset: -32%;
+  background: none;
 }
 
 .gen-ring {
@@ -8150,6 +8107,49 @@ header .animate-spin {
   background: #eceef1;
 }
 
+.studio-image-preview-batch-action {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 6;
+}
+
+.studio-image-preview-batch-download {
+  min-width: 132px !important;
+  height: 38px !important;
+  gap: 7px !important;
+  border: 1px solid rgba(188, 196, 211, 0.88) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  padding: 0 13px !important;
+  color: #3f4c67 !important;
+  font-size: 12px !important;
+  font-weight: 720 !important;
+  box-shadow: 0 8px 22px rgba(29, 38, 59, 0.13) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.studio-image-preview-batch-download:hover:not(:disabled) {
+  border-color: rgba(82, 103, 153, 0.46) !important;
+  background: #fff !important;
+  color: #415887 !important;
+  box-shadow: 0 10px 26px rgba(29, 38, 59, 0.17) !important;
+}
+
+.dark .studio-image-preview-batch-download {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: rgba(33, 36, 43, 0.9) !important;
+  color: #eef1f7 !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24) !important;
+}
+
+.dark .studio-image-preview-batch-download:hover:not(:disabled) {
+  border-color: rgba(139, 161, 215, 0.44) !important;
+  background: rgba(43, 48, 60, 0.96) !important;
+  color: #fff !important;
+}
+
 .studio-image-preview-result-rail {
   z-index: 2;
   display: flex;
@@ -8779,7 +8779,16 @@ header .animate-spin {
   gap: 8px;
 }
 
-.studio-image-preview-focus-downloads .studio-media-download-button {
+.studio-image-preview-focus-batch-download {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.studio-image-preview-focus-downloads .studio-media-download-button,
+.studio-image-preview-focus-batch-download .studio-media-download-button {
   min-width: 108px;
   height: 38px;
   border: 1px solid rgba(255, 255, 255, 0.24) !important;
@@ -8807,6 +8816,15 @@ header .animate-spin {
 
   .studio-image-preview-focus-downloads .studio-media-download-button > span:not(.studio-media-download-progress) {
     display: none;
+  }
+
+  .studio-image-preview-focus-batch-download {
+    top: 14px;
+    right: 62px;
+  }
+
+  .studio-image-preview-focus-batch-download .studio-media-download-button {
+    min-width: 118px;
   }
 }
 
@@ -8854,6 +8872,12 @@ header .animate-spin {
     flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
+    padding-right: 150px;
+  }
+
+  .studio-image-preview-batch-action {
+    top: 14px;
+    right: 12px;
   }
 
   .studio-image-preview-comparison {

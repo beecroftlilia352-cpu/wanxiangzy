@@ -140,6 +140,10 @@ export function StudioImagePreviewWorkspace({
   const activeResult = session.results[activeIndex] || getSelectedPreviewResult(session);
   const activeUrl = activeResult?.url || "";
   const inputReferences = useMemo(() => getPreviewCanvasInputReferences(session), [session]);
+  const resultUrls = useMemo(
+    () => session.results.map((item) => item.url).filter((url): url is string => Boolean(url)),
+    [session.results],
+  );
   const aspectConfig = useMemo(() => getPreviewAspectConfig(activeResult?.aspectRatio), [activeResult?.aspectRatio]);
   const usableActions = useMemo(() => filterUsableActions(actions, {
     hasUrl: Boolean(activeUrl),
@@ -260,6 +264,21 @@ export function StudioImagePreviewWorkspace({
       <div className={cn("studio-image-preview-workspace", className)}>
         <div className="studio-image-preview-main">
           <div className="studio-image-preview-stage-shell" aria-label={t("resultPreviewArea", { title: session.title })}>
+            {usableActions.some((action) => action.kind === "download") && resultUrls.length > 1 && (
+              <div className="studio-image-preview-batch-action">
+                <StudioBatchDownloadButton
+                  urls={resultUrls}
+                  filename={`pixel-diffusion-${filenamePrefix || "results"}`}
+                  resultLabel={t("results")}
+                  label={t("downloadAll", { count: resultUrls.length })}
+                  variant="secondary"
+                  size="sm"
+                  className="studio-image-preview-batch-download"
+                  disabled={usableActions.find((action) => action.kind === "download")?.disabled}
+                />
+              </div>
+            )}
+
             <ResultRail
               results={session.results}
               activeIndex={activeIndex}
@@ -307,7 +326,6 @@ export function StudioImagePreviewWorkspace({
             activeResult={activeResult}
             onRunAction={runAction}
             onRouteWithSource={routeWithSource}
-            resultUrls={session.results.map((item) => item.url).filter((url): url is string => Boolean(url))}
             filenamePrefix={filenamePrefix}
             extension={extension}
             activeIndex={activeIndex}
@@ -325,7 +343,7 @@ export function StudioImagePreviewWorkspace({
           <ImageFocusDialog
             image={focusImage}
             filename={generateDownloadFilename(filenamePrefix, activeIndex, extension)}
-            resultUrls={session.results.map((item) => item.url).filter((url): url is string => Boolean(url))}
+            resultUrls={resultUrls}
             filenamePrefix={filenamePrefix}
             onClose={() => setFocusImage(null)}
           />
@@ -630,7 +648,6 @@ function PreviewActionBar({
   activeResult,
   onRunAction,
   onRouteWithSource,
-  resultUrls,
   filenamePrefix,
   extension,
   activeIndex,
@@ -640,7 +657,6 @@ function PreviewActionBar({
   activeResult: ImagePreviewResult;
   onRunAction: (action: ImagePreviewAction) => void | Promise<void>;
   onRouteWithSource: (path: string) => void;
-  resultUrls?: string[];
   filenamePrefix?: string;
   extension: string;
   activeIndex: number;
@@ -702,18 +718,8 @@ function PreviewActionBar({
               variant="ghost"
               size="sm"
               className="studio-image-preview-action-download"
+              disabled={downloadAction.disabled}
             />
-            {resultUrls && resultUrls.length > 1 && (
-              <StudioBatchDownloadButton
-                urls={resultUrls}
-                filename={`pixel-diffusion-${filenamePrefix || "results"}`}
-                resultLabel={t("results")}
-                label={t("downloadAll", { count: resultUrls.length })}
-                variant="ghost"
-                size="sm"
-                className="studio-image-preview-action-download"
-              />
-            )}
           </div>
         )}
       </div>
@@ -955,7 +961,9 @@ function ImageFocusDialog({
               variant="secondary"
               size="sm"
             />
-            {resultUrls.length > 1 && (
+          </div>
+          {resultUrls.length > 1 && (
+            <div className="studio-image-preview-focus-batch-download" onClick={(event) => event.stopPropagation()}>
               <StudioBatchDownloadButton
                 urls={resultUrls}
                 filename={`pixel-diffusion-${filenamePrefix}`}
@@ -964,8 +972,8 @@ function ImageFocusDialog({
                 variant="secondary"
                 size="sm"
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

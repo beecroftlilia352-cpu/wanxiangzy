@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { downloadMediaFile } from "@/lib/media-download";
+import { downloadMediaFile, downloadMediaFiles, fetchMediaBlob } from "@/lib/media-download";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -7,82 +7,86 @@ afterEach(() => {
 });
 
 describe("downloadMediaFile", () => {
-  it("resolves OSS media to a direct attachment URL without proxying bytes", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      strategy: "direct",
-      url: "https://oss.example.com/signed-result.png",
-    }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    }));
+  it("hands remote media to the native browser download without buffering bytes", async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    let clickedHref = "";
+    let clickedFilename = "";
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      clickedHref = this.href;
+      clickedFilename = this.download;
+    });
     const progress: string[] = [];
 
     await downloadMediaFile("https://oss.example.com/result.png", "result.png", {
       onProgress: (state) => progress.push(state.phase),
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toContain("resolve=1");
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalledTimes(1);
-    expect(progress).toEqual(["resolving", "saving", "completed"]);
+    const downloadUrl = new URL(clickedHref);
+    expect(downloadUrl.pathname).toBe("/api/download-image");
+    expect(downloadUrl.searchParams.get("url")).toBe("https://oss.example.com/result.png");
+    expect(downloadUrl.searchParams.get("filename")).toBe("result.png");
+    expect(clickedFilename).toBe("result.png");
+    expect(progress).toEqual(["saving", "completed"]);
   });
 
-  it("streams proxied media and reports byte progress before saving", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        strategy: "proxy",
-        url: "/api/download-image?proxy=1",
-      }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }))
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3, 4]), {
-        status: 200,
-        headers: { "content-type": "image/png", "content-length": "4" },
-      }));
+  it("keeps byte progress for callers that need readable media blobs", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3, 4]), {
+      status: 200,
+      headers: { "content-type": "image/png", "content-length": "4" },
+    }));
     vi.stubGlobal("fetch", fetchMock);
-    const NativeURL = URL;
-    class MockURL extends NativeURL {
-      static createObjectURL = vi.fn(() => "blob:download");
-      static revokeObjectURL = vi.fn();
-    }
-    vi.stubGlobal("URL", MockURL);
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     const progress: Array<{ phase: string; percent: number | null }> = [];
 
-    await downloadMediaFile("https://provider.example.com/result.png", "result.png", {
+    const blob = await fetchMediaBlob("https://provider.example.com/result.png", "result.png", {
+      forceProxy: true,
       onProgress: ({ phase, percent }) => progress.push({ phase, percent }),
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("proxy=1");
+    expect(blob.size).toBe(4);
     expect(progress.some((state) => state.phase === "downloading" && state.percent === 100)).toBe(true);
-    expect(progress.at(-1)).toEqual({ phase: "completed", percent: 100 });
   });
 
-  it("falls back to the guarded proxy when target resolution is interrupted", async () => {
-    const fetchMock = vi.fn()
-      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2]), {
-        status: 200,
-        headers: { "content-type": "image/png", "content-length": "2" },
-      }));
+  it("downloads local blob URLs directly as well", async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const NativeURL = URL;
-    class MockURL extends NativeURL {
-      static createObjectURL = vi.fn(() => "blob:download");
-      static revokeObjectURL = vi.fn();
-    }
-    vi.stubGlobal("URL", MockURL);
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    let clickedHref = "";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      clickedHref = this.href;
+    });
 
-    await expect(downloadMediaFile(
-      "https://provider.example.com/result.png",
-      "result.png",
-    )).resolves.toBeUndefined();
+    await downloadMediaFile("blob:local-result", "local.png");
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toContain("proxy=1");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(clickedHref).toBe("blob:local-result");
+  });
+
+  it("hands every result directly to the browser with distinct filenames", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const downloads: Array<{ href: string; filename: string }> = [];
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push({ href: this.href, filename: this.download });
+    });
+
+    const result = await downloadMediaFiles({
+      urls: [
+        "https://oss.example.com/first.webp",
+        "https://oss.example.com/second.jpg?version=2",
+      ],
+      filenamePrefix: "tryon-results",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ successCount: 2, failedCount: 0 });
+    expect(downloads.map((item) => item.filename)).toEqual([
+      "tryon-results-01.webp",
+      "tryon-results-02.jpg",
+    ]);
+    expect(downloads.every((item) => new URL(item.href).pathname === "/api/download-image")).toBe(true);
   });
 });

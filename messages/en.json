@@ -1918,7 +1918,7 @@
     "download": "Download",
     "downloadSingle": "Download single",
     "downloadZip": "Pack",
-    "downloadAllZip": "Pack all {count}",
+    "downloadAllZip": "Download all {count}",
     "enlarge": "Enlarge",
     "reset": "Reset",
     "zoomAria": "Zoom result",

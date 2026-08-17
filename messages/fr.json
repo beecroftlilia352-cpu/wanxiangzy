@@ -1916,7 +1916,7 @@
     "detailLoadingDesc": "Lecture des résultats, assets d'entrée et paramètres de génération.",
     "detailLoadingTitle": "Chargement de la création",
     "download": "Télécharger",
-    "downloadAllZip": "Empaqueter les {count}",
+    "downloadAllZip": "Tout télécharger {count}",
     "downloadSingle": "Télécharger seul",
     "downloadZip": "Empaqueter",
     "emptyMessage": "Après un essayage, une variation de pose, un mannequin personnalisé ou un vêtement 3D, vos créations sont enregistrées ici automatiquement.",
