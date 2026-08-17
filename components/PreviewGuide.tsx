@@ -18,6 +18,8 @@ type PreviewGuideProps = {
   steps: PreviewGuideStep[];
   imageSrc?: string;
   imageAlt?: string;
+  imageFit?: "cover" | "contain";
+  imagePriority?: boolean;
   icon?: ReactNode;
   actions?: ReactNode;
   variant?: "default" | "editorial";
@@ -29,6 +31,8 @@ export function PreviewGuide({
   steps,
   imageSrc,
   imageAlt = "",
+  imageFit = "cover",
+  imagePriority = false,
   icon,
   actions,
   variant = "default",
@@ -66,14 +70,20 @@ export function PreviewGuide({
             </div>
           ) : (
             <div className="studio-preview-guide-overview">
-              <div className="studio-preview-guide-overview-media" aria-hidden={!imageSrc}>
+              <div
+                className={cn(
+                  "studio-preview-guide-overview-media",
+                  imageFit === "contain" && "studio-preview-guide-overview-media-contain",
+                )}
+                aria-hidden={!imageSrc}
+              >
                 {imageSrc ? (
                   <Image
                     src={imageSrc}
                     alt={imageAlt}
                     fill
-                    priority={false}
-                    sizes="(max-width: 768px) 86vw, 420px"
+                    priority={imagePriority}
+                    sizes="(max-width: 768px) 86vw, (max-width: 1280px) 48vw, 560px"
                     className="studio-preview-guide-overview-image"
                   />
                 ) : (

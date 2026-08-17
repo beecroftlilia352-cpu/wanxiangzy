@@ -9515,32 +9515,37 @@ header .animate-spin {
 .studio-preview-guide-panel {
   margin-top: 20px;
   overflow: hidden;
-  border: 1px solid #dfe2e8;
+  border: 1px solid #dedfdc;
   border-radius: 16px;
-  background: #fbfbfc;
+  background: #fff;
   padding: 16px;
-  box-shadow: 0 12px 34px rgba(25, 30, 40, 0.055);
+  box-shadow: 0 14px 38px rgba(31, 33, 38, 0.055);
 }
 
 .studio-preview-guide-overview {
   display: grid;
-  min-height: 258px;
-  grid-template-columns: minmax(220px, 1.12fr) minmax(230px, 0.88fr);
-  gap: 18px;
+  min-height: 284px;
+  grid-template-columns: minmax(360px, 1.42fr) minmax(220px, 0.72fr);
+  gap: 22px;
 }
 
 .studio-preview-guide-overview-media {
   position: relative;
-  min-height: 258px;
+  min-height: 284px;
   overflow: hidden;
-  border: 1px solid #e1e3e8;
-  border-radius: 11px;
-  background: #eff0f2;
+  border: 1px solid #e3e3df;
+  border-radius: 12px;
+  background: #f7f7f4;
 }
 
 .studio-preview-guide-overview-image {
   object-fit: cover;
   object-position: center 18%;
+}
+
+.studio-preview-guide-overview-media-contain .studio-preview-guide-overview-image {
+  object-fit: contain;
+  object-position: center;
 }
 
 .studio-preview-guide-overview-icon,
@@ -9601,7 +9606,7 @@ header .animate-spin {
   grid-template-columns: 30px minmax(0, 1fr);
   gap: 10px;
   border-bottom: 1px solid #e4e6eb;
-  padding: 13px 4px;
+  padding: 15px 4px;
 }
 
 .studio-preview-guide-overview-index,

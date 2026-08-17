@@ -322,7 +322,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         tooltip: t("imageToImageTooltip"),
         emptyTitle: t("imageToImageEmptyTitle"),
         emptySubtitle: t("imageToImageEmptySubtitle"),
-        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-grey-tank-denim.jpg",
+        emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/guides/image-to-image-guide-v1.png",
+        emptyImageFit: "contain" as const,
       }
     : {
         title: t("modeTextToImage"),
@@ -330,6 +331,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         emptyTitle: t("textToImageEmptyTitle"),
         emptySubtitle: t("textToImageEmptySubtitle"),
         emptyImage: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png",
+        emptyImageFit: "cover" as const,
       };
   const previewReferenceUrls = safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length
     ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails)
@@ -957,6 +959,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               title={modeMeta.emptyTitle}
               subtitle={modeMeta.emptySubtitle}
               imageSrc={modeMeta.emptyImage}
+              imageFit={modeMeta.emptyImageFit}
+              imagePriority={isImageMode}
               imageAlt={isImageMode ? t("guideImageAltImageToImage") : t("guideImageAltTextToImage")}
               steps={!isImageMode ? [
                 { title: t("stepInputTitle"), desc: t("stepInputDesc") },
