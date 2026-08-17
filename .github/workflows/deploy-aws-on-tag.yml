@@ -112,12 +112,19 @@ jobs:
       - name: Update AI router runtime secrets
         env:
           ADMIN_SECRETS_ENCRYPTION_KEY: ${{ secrets.ADMIN_SECRETS_ENCRYPTION_KEY }}
+          AI_TOOL_ASSET_REF_SECRET: ${{ secrets.AI_TOOL_ASSET_REF_SECRET }}
+          RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET: ${{ secrets.RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
         run: |
           set -euo pipefail
 
-          for key in ADMIN_SECRETS_ENCRYPTION_KEY UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN; do
+          for key in \
+            ADMIN_SECRETS_ENCRYPTION_KEY \
+            AI_TOOL_ASSET_REF_SECRET \
+            RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET \
+            UPSTASH_REDIS_REST_URL \
+            UPSTASH_REDIS_REST_TOKEN; do
             if [[ -z "${!key:-}" ]]; then
               echo "::error::GitHub Actions secret is empty: $key"
               exit 1
@@ -125,7 +132,7 @@ jobs:
           done
 
           quote() { printf '%q' "$1"; }
-          REMOTE_ENV="ADMIN_SECRETS_ENCRYPTION_KEY=$(quote "$ADMIN_SECRETS_ENCRYPTION_KEY") UPSTASH_REDIS_REST_URL=$(quote "$UPSTASH_REDIS_REST_URL") UPSTASH_REDIS_REST_TOKEN=$(quote "$UPSTASH_REDIS_REST_TOKEN")"
+          REMOTE_ENV="ADMIN_SECRETS_ENCRYPTION_KEY=$(quote "$ADMIN_SECRETS_ENCRYPTION_KEY") AI_TOOL_ASSET_REF_SECRET=$(quote "$AI_TOOL_ASSET_REF_SECRET") RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET=$(quote "$RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET") UPSTASH_REDIS_REST_URL=$(quote "$UPSTASH_REDIS_REST_URL") UPSTASH_REDIS_REST_TOKEN=$(quote "$UPSTASH_REDIS_REST_TOKEN")"
 
           ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
             -o StrictHostKeyChecking=accept-new \
@@ -158,10 +165,14 @@ jobs:
           }
 
           set_env_var ADMIN_SECRETS_ENCRYPTION_KEY "$ADMIN_SECRETS_ENCRYPTION_KEY"
+          set_env_var AI_TOOL_ASSET_REF_SECRET "$AI_TOOL_ASSET_REF_SECRET"
+          set_env_var RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET "$RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET"
           set_env_var UPSTASH_REDIS_REST_URL "$UPSTASH_REDIS_REST_URL"
           set_env_var UPSTASH_REDIS_REST_TOKEN "$UPSTASH_REDIS_REST_TOKEN"
           set_env_var AI_ROUTER_CAPACITY_MODE redis
-          echo "Updated AI router runtime configuration in $ENV_FILE"
+          set_env_var AI_TOOLS_EXECUTION_MODE live
+          set_env_var AI_TOOLS_PROVIDER_OPERATIONS ""
+          echo "Updated AI router and AI toolbox runtime configuration in $ENV_FILE"
           REMOTE
 
       - name: Fetch .env.production from EC2
