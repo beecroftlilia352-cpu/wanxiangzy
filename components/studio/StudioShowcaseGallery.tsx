@@ -238,13 +238,13 @@ function normalizeAspectRatio(value: string) {
 }
 
 const zhCopy = {
-  title: "创建相似",
+  title: "做同款",
   imageSubtitle: "从案例开始，替换参考图或调整描述，快速得到你的版本。",
   textSubtitle: "从案例开始，调整描述，快速生成你的专属视觉素材。",
   preview: "预览",
-  create: "创建相似",
+  create: "做同款",
   loading: "正在加载创作案例",
-  detailDescription: "查看示例详情并创建相似图片",
+  detailDescription: "查看示例详情并生成同款图片",
   curated: "精选案例",
   workInfo: "作品信息",
   copyPrompt: "复制描述",

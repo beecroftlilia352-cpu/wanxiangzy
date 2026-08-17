@@ -129,7 +129,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
       views: 0,
       createCount: 0,
       sourceId: "",
-      reason: "新增创建相似案例",
+      reason: "新增做同款案例",
     });
     setOpen(true);
   }
@@ -139,7 +139,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
     form.setFieldsValue({
       ...item,
       referenceImagesText: item.referenceImageUrls.join("\n"),
-      reason: "更新创建相似案例",
+      reason: "更新做同款案例",
     });
     setOpen(true);
   }
@@ -195,7 +195,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
       const response = await fetch("/api/admin/showcase-examples", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "toggle", module: registry.module, enabled, reason: enabled ? "启用创建相似案例区" : "停用创建相似案例区" }),
+        body: JSON.stringify({ action: "toggle", module: registry.module, enabled, reason: enabled ? "启用做同款案例区" : "停用做同款案例区" }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "状态更新失败");
@@ -210,7 +210,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
     <Space orientation="vertical" size={18} className="w-full">
       <AdminPageHeader
         eyebrow="Content showcase"
-        title="创建相似案例"
+        title="做同款案例"
         description={`管理${isTextToImage ? "文生图" : "图生图"}右侧的瀑布流案例。图片请使用已上传至阿里云 OSS 的稳定地址；发布后前台会自动刷新。`}
         actions={<Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={startCreate}>新增案例</Button>}
       />
@@ -250,7 +250,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
       </Card>
 
       <Modal
-        title={editing ? `编辑 ${editing.title}` : "新增创建相似案例"}
+        title={editing ? `编辑 ${editing.title}` : "新增做同款案例"}
         open={open}
         onCancel={() => setOpen(false)}
         onOk={() => form.submit()}
@@ -274,7 +274,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
               className="md:col-span-2"
               extra={isTextToImage
                 ? "文生图案例无需参考图；留空时卡片只展示生成结果。"
-                : "每行一个 HTTPS 地址；聚焦卡片时显示在左下角，创建相似时优先带入第一张。"}
+                : "每行一个 HTTPS 地址；聚焦卡片时显示在左下角，做同款时优先带入第一张。"}
             >
               <Input.TextArea rows={3} placeholder={"https://.../reference-1.png\nhttps://.../reference-2.png"} />
             </Form.Item>
@@ -286,7 +286,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
             <Form.Item name="authorAvatarUrl" label="作者头像 OSS 地址"><Input disabled /></Form.Item>
           </div>
           <Form.Item name="enabled" label="前台展示" valuePropName="checked"><Switch checkedChildren="启用" unCheckedChildren="停用" /></Form.Item>
-          <Form.Item name="prompt" label="创建相似描述" rules={[{ required: true, message: "请输入描述" }]}><Input.TextArea rows={7} maxLength={4000} /></Form.Item>
+          <Form.Item name="prompt" label="做同款描述" rules={[{ required: true, message: "请输入描述" }]}><Input.TextArea rows={7} maxLength={4000} /></Form.Item>
           <Form.Item name="reason" label="发布原因" rules={[{ required: true, min: 4, message: "请填写至少 4 个字" }]}><Input.TextArea rows={2} maxLength={240} /></Form.Item>
           <Form.Item name="publishedAt" className="hidden"><Input /></Form.Item>
           <Form.Item name="views" className="hidden"><InputNumber /></Form.Item>
