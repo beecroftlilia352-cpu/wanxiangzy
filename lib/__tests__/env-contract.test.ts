@@ -32,6 +32,14 @@ describe("environment contract", () => {
     delete process.env.YUNWU_API_KEY;
     delete process.env.XIAOMI_MIMO_API_KEY;
     delete process.env.ANALYZE_LLM_PROVIDER;
+    delete process.env.AI_TOOLS_EXECUTION_MODE;
+    delete process.env.AI_TOOLS_PROVIDER_GATEWAY_URL;
+    delete process.env.AI_TOOLS_PROVIDER_GATEWAY_TOKEN;
+    delete process.env.AI_TOOLS_PROVIDER_OPERATIONS;
+    delete process.env.AI_TOOLS_PROVIDER_TIMEOUT_MS;
+    delete process.env.AI_TOOL_ASSET_REF_SECRET;
+    delete process.env.RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET;
+    delete process.env.AI_TOOL_MASK_REF_TTL_SECONDS;
   });
 
   afterEach(() => {
@@ -168,6 +176,86 @@ describe("environment contract", () => {
     expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "SUPABASE_SERVICE_ROLE_KEY" }),
+      ])
+    );
+  });
+
+  it("allows explicit mock AI toolbox mode only outside production", () => {
+    process.env.AI_TOOLS_EXECUTION_MODE = "mock";
+
+    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "AI_TOOLS_EXECUTION_MODE" }),
+      ])
+    );
+    expect(validateEnv({ nodeEnv: "production" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "AI_TOOLS_EXECUTION_MODE",
+          severity: "error",
+        }),
+      ])
+    );
+  });
+
+  it("requires an explicit live operation allowlist", () => {
+    process.env.AI_TOOLS_EXECUTION_MODE = "live";
+
+    expect(validateEnv({ nodeEnv: "production" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "AI_TOOLS_PROVIDER_OPERATIONS",
+          severity: "error",
+        }),
+      ])
+    );
+
+    process.env.AI_TOOLS_PROVIDER_OPERATIONS = "";
+    const disabledRemoteIssues = validateEnv({ nodeEnv: "production" });
+    expect(disabledRemoteIssues).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "AI_TOOLS_PROVIDER_GATEWAY_URL" }),
+    ]));
+    expect(disabledRemoteIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "AI_TOOL_ASSET_REF_SECRET" }),
+      expect.objectContaining({ name: "RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET" }),
+    ]));
+  });
+
+  it("validates live AI toolbox gateway, secrets, timeout, and operation names", () => {
+    process.env.AI_TOOLS_EXECUTION_MODE = "live";
+    process.env.AI_TOOLS_PROVIDER_OPERATIONS = "outpaint,resize";
+    process.env.AI_TOOLS_PROVIDER_GATEWAY_URL = "http://gateway.example.com";
+    process.env.AI_TOOLS_PROVIDER_GATEWAY_TOKEN = "short";
+    process.env.AI_TOOL_ASSET_REF_SECRET = "replace-with-secret";
+    process.env.RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET = "replace-with-secret";
+    process.env.AI_TOOLS_PROVIDER_TIMEOUT_MS = "999999";
+    process.env.AI_TOOL_MASK_REF_TTL_SECONDS = "10";
+
+    const invalidIssues = validateEnv({ nodeEnv: "production" });
+    expect(invalidIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "AI_TOOLS_PROVIDER_OPERATIONS" }),
+    ]));
+
+    process.env.AI_TOOLS_PROVIDER_OPERATIONS = "matting,upscale";
+    const gatewayIssues = validateEnv({ nodeEnv: "production" });
+    expect(gatewayIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "AI_TOOLS_PROVIDER_GATEWAY_URL" }),
+      expect.objectContaining({ name: "AI_TOOLS_PROVIDER_GATEWAY_TOKEN" }),
+      expect.objectContaining({ name: "AI_TOOL_ASSET_REF_SECRET" }),
+      expect.objectContaining({ name: "RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET" }),
+      expect.objectContaining({ name: "AI_TOOLS_PROVIDER_TIMEOUT_MS" }),
+      expect.objectContaining({ name: "AI_TOOL_MASK_REF_TTL_SECONDS" }),
+    ]));
+
+    process.env.AI_TOOLS_PROVIDER_GATEWAY_URL = "https://gateway.example.com/v1/";
+    process.env.AI_TOOLS_PROVIDER_GATEWAY_TOKEN = "a".repeat(32);
+    process.env.AI_TOOL_ASSET_REF_SECRET = "b".repeat(64);
+    process.env.RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET = "c".repeat(64);
+    process.env.AI_TOOLS_PROVIDER_TIMEOUT_MS = "45000";
+    process.env.AI_TOOL_MASK_REF_TTL_SECONDS = "1800";
+    expect(validateEnv({ nodeEnv: "production" })).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: expect.stringMatching(/^AI_TOOL/) }),
       ])
     );
   });

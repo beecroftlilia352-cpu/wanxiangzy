@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio: AspectRatio = normalizeAspectRatio(aspect_ratio, "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
-    const costPerImage = getCreditCost(model, size, aspectRatio);
+    const costPerImage = await getConfiguredImageCreditCost(model, size);
     const totalCost = costPerImage * genCount;
     const hairReferenceIndex = hair_reference_url ? reference_urls.length + 1 : null;
     const hairColorReferenceIndex = hair_color_reference_url ? reference_urls.length + (hair_reference_url ? 2 : 1) : null;

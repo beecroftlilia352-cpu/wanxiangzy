@@ -167,6 +167,7 @@ describe("lingya async task response parsing", () => {
         quality: "auto",
       },
       imageUrls: ["data:image/png;base64,aGVsbG8="],
+      maskUrl: "data:image/png;base64,bWFzaw==",
     });
 
     expect(request.url).toBe("https://yunwu.ai/v1/images/edits");
@@ -175,6 +176,11 @@ describe("lingya async task response parsing", () => {
       Accept: "application/json",
     });
     expect(request.init.body).toBeInstanceOf(FormData);
+    const form = request.init.body as FormData;
+    expect(form.getAll("image")).toHaveLength(1);
+    expect(form.get("image")).toBeInstanceOf(Blob);
+    expect(form.get("mask")).toBeInstanceOf(Blob);
+    expect(form.get("n")).toBe("1");
   });
 
   it("rejects too many gpt-image-2 edit reference images before calling the provider", async () => {

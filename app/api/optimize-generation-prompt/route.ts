@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
@@ -75,7 +75,7 @@ ${userContext || "无"}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), OPTIMIZE_TIMEOUT_MS);
-    const res = await fetch(getChatCompletionsUrl(llm), {
+    const res = await fetchLlmChat(images.length ? "vision" : "text", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${llm.apiKey}`,

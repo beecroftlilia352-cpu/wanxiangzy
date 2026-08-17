@@ -1,0 +1,336 @@
+.editor {
+  display: flex;
+  width: 100%;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.toolbar {
+  z-index: 2;
+  display: flex;
+  min-height: 46px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--codex-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--codex-surface-strong) 96%, transparent);
+  padding: 6px;
+  box-shadow: var(--codex-shadow-sm);
+}
+
+.toolbarTitle {
+  flex: none;
+  padding: 0 6px;
+  color: var(--codex-ink);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolGroup svg {
+  width: 14px;
+  height: 14px;
+}
+
+.brushSize {
+  display: flex;
+  width: 82px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  color: var(--codex-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.brushSize input {
+  min-width: 0;
+  width: 82px;
+  accent-color: var(--codex-accent);
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--codex-border);
+}
+
+.zoomValue {
+  min-width: 44px;
+  color: var(--codex-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 780;
+  text-align: center;
+}
+
+.toolbarActions {
+  position: sticky;
+  z-index: 3;
+  right: 0;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 8px;
+  border-left: 1px solid var(--codex-border);
+  background: var(--codex-surface-strong);
+}
+
+.workspace {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  gap: 10px;
+}
+
+.canvasColumn {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.canvasLabel {
+  color: var(--codex-muted);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 18px;
+  text-align: center;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  min-height: 480px;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid var(--codex-border);
+  border-radius: 14px;
+  background: #f5f6f8;
+  box-shadow: var(--codex-shadow-md);
+  outline: none;
+  touch-action: none;
+}
+
+.selectionStage {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+    linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  background-size: 20px 20px;
+}
+
+.editor[data-presentation="dialog"] {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+}
+
+.editor[data-presentation="dialog"] .toolbar {
+  min-height: 54px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border: 0;
+  border-bottom: 1px solid var(--codex-border);
+  border-radius: 0;
+  padding: 8px 12px;
+  box-shadow: none;
+}
+
+.editor[data-presentation="dialog"] .brushSize {
+  min-width: 82px;
+  order: initial;
+}
+
+.editor[data-presentation="dialog"] .workspace {
+  padding: 10px 12px 8px;
+}
+
+.editor[data-presentation="dialog"] .canvasColumn {
+  position: relative;
+  gap: 0;
+}
+
+.editor[data-presentation="dialog"] .canvasLabel {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  left: 50%;
+  min-width: 48px;
+  transform: translateX(-50%);
+  border-radius: 3px;
+  background: rgba(32, 35, 42, 0.82);
+  padding: 3px 8px;
+  color: #fff;
+  line-height: 20px;
+  pointer-events: none;
+}
+
+.editor[data-presentation="dialog"] .toolGroup button {
+  height: 30px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.editor[data-presentation="dialog"] .toolGroup button[aria-pressed="true"] {
+  border-color: transparent;
+  background: #f3f6fa;
+  color: #1677ff;
+}
+
+.editor[data-presentation="dialog"] .toolbarActions button {
+  min-width: 64px;
+  height: 36px;
+  border-radius: 18px;
+}
+
+.editor[data-presentation="dialog"] .stage {
+  min-height: 0;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.editor[data-presentation="dialog"] .help {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.stage:focus-visible {
+  border-color: var(--codex-accent-48);
+  box-shadow: 0 0 0 3px var(--codex-accent-12), var(--codex-shadow-md);
+}
+
+.stage[data-tool="brush"],
+.stage[data-tool="eraser"],
+.stage[data-tool="ellipse"],
+.stage[data-tool="rectangle"] {
+  cursor: crosshair;
+}
+
+.stage[data-tool="pan"] {
+  cursor: grab;
+}
+
+.stage[data-tool="pan"]:active {
+  cursor: grabbing;
+}
+
+.disabled {
+  cursor: not-allowed !important;
+  opacity: 0.68;
+}
+
+.loading,
+.error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--codex-muted);
+  font-size: 12px;
+  font-weight: 720;
+  text-align: center;
+}
+
+.error {
+  color: var(--destructive, #b42318);
+}
+
+.help {
+  margin: 0;
+  color: var(--codex-faint);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.loadingFallback {
+  display: grid;
+  min-height: 420px;
+  place-items: center;
+  color: var(--codex-muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+@media (max-width: 1023px) {
+  .stage {
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 799px) {
+  .workspace[data-dual-view="true"] {
+    overflow-y: auto;
+    flex-direction: column;
+  }
+
+  .workspace[data-dual-view="true"] .canvasColumn {
+    min-height: min(360px, calc(100dvh - 150px));
+  }
+}
+
+@media (max-width: 639px) {
+  .editor {
+    padding: 8px;
+  }
+
+  .toolbar {
+    align-items: stretch;
+  }
+
+  .brushSize {
+    min-width: 100%;
+    order: 3;
+  }
+
+  .stage {
+    min-height: 360px;
+  }
+
+  .toolGroup:first-child {
+    flex: 1;
+  }
+
+  .toolGroup:first-child button {
+    min-width: 0;
+    flex: 1;
+    padding-inline: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage {
+    scroll-behavior: auto;
+  }
+}

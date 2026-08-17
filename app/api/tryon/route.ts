@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       : normalizeLingyaModel(ai_model);
     const aspectRatio = normalizeAspectRatio(aspect_ratio, "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
-    const costPerImage = getCreditCost(model, size, aspectRatio);
+    const costPerImage = await getConfiguredImageCreditCost(model, size);
     const sceneMode = scene_mode === undefined && requestedReferenceUrls.length
       ? "upload_reference"
       : normalizeSceneMode(scene_mode);

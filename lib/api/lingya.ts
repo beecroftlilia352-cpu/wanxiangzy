@@ -4,6 +4,8 @@
  */
 
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
+import { buildAiAdapterAuthHeaders, mergeAiAdapterParameters, resolveAiAdapterUrl } from "@/lib/ai-control-plane/adapters";
+import type { AiDeploymentAdapterConfig } from "@/lib/ai-control-plane/types";
 import { getEnvModelProviderOverride, type ModelProviderOverride } from "@/lib/api/model-provider-registry";
 import { resolveExactAspectPixelSize, resolveSmartImageAspectRatio } from "@/lib/api/image-size";
 import {
@@ -56,10 +58,13 @@ import { logger } from "@/lib/logger";
 import {
   getImageCreditCost,
   IMAGE_CREDIT_COSTS,
-  IMAGE_MODEL_DISPLAY_ORDER,
-  type PricedImageModel,
   type PricedImageSize,
 } from "@/lib/model-pricing";
+import {
+  getRegisteredImageCreditCost,
+  getRegisteredImageSizes,
+  isPricedImageModel,
+} from "@/lib/image-model-catalog";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
@@ -82,12 +87,11 @@ const IMAGE_EDIT_FETCH_TIMEOUT_MS = 60_000;
 const TRYON_REAL_HUMAN_SKIN_RULE = "真人皮肤质感：保留可见毛孔、细微纹理、自然油光、局部红润、轻微瑕疵、法令纹/眼下细纹等真实人像细节；不要磨成瓷肌、塑料皮、蜡像皮、过度美颜、过度锐化或无瑕 AI 网红脸。";
 const TRYON_REAL_HUMAN_SKIN_RULE_EN = "Real human skin texture: preserve visible pores, fine skin texture, natural shine, subtle redness, tiny blemishes, under-eye lines, and believable camera grain; no porcelain retouch, plastic/waxy skin, over-smoothing, over-sharpening, flawless AI influencer skin, or beauty-filter face.";
 
-export type LingyaModel = PricedImageModel;
+/** Logical image model IDs are admin-defined. The legacy union remains the pricing fallback only. */
+export type LingyaModel = string;
 export type AspectRatio = "auto" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4" | "2:3" | "3:2" | "4:5" | "5:4" | "21:9";
 export type ImageSize = PricedImageSize;
 export const DEFAULT_LINGYA_MODEL: LingyaModel = "nano-banana-2";
-
-const LINGYA_MODELS: LingyaModel[] = [...IMAGE_MODEL_DISPLAY_ORDER];
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "auto",
@@ -106,8 +110,10 @@ const ASPECT_RATIOS: AspectRatio[] = [
 export const CREDIT_COSTS = IMAGE_CREDIT_COSTS;
 
 export function normalizeLingyaModel(value: unknown): LingyaModel {
-  return typeof value === "string" && LINGYA_MODELS.includes(value as LingyaModel)
-    ? (value as LingyaModel)
+  if (typeof value !== "string") return DEFAULT_LINGYA_MODEL;
+  const normalized = value.trim();
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(normalized)
+    ? normalized
     : DEFAULT_LINGYA_MODEL;
 }
 
@@ -118,10 +124,18 @@ export function normalizeAspectRatio(value: unknown, fallback: AspectRatio = "3:
 }
 
 export function getCreditCost(model: LingyaModel, size: ImageSize = "1K", aspectRatio?: AspectRatio): number {
-  return getImageCreditCost(model, normalizeImageSize(model, size, aspectRatio));
+  const normalizedSize = normalizeImageSize(model, size, aspectRatio);
+  const configured = getRegisteredImageCreditCost(model, normalizedSize);
+  if (typeof configured === "number" && configured > 0) return configured;
+  if (isPricedImageModel(model)) return getImageCreditCost(model, normalizedSize);
+  // Client-side defensive display only. Server charging rejects models without
+  // an explicit published price, so this fallback can never undercharge.
+  return Math.max(...Object.values(IMAGE_CREDIT_COSTS).flatMap((prices) => Object.values(prices)));
 }
 
-export function getSupportedImageSizes(model: LingyaModel, aspectRatio?: AspectRatio): ImageSize[] {
+export function getSupportedImageSizes(model: LingyaModel, _aspectRatio?: AspectRatio): ImageSize[] {
+  const configured = getRegisteredImageSizes(model);
+  if (configured?.length) return configured;
   if (isSeedreamModel(model)) return ["2K", "4K"];
   return ["1K", "2K", "4K"];
 }
@@ -137,6 +151,8 @@ interface GenerateInput {
   prompt_kind?: ImagePromptKind;
   aspect_ratio?: AspectRatio;
   image?: string[];
+  /** Optional OpenAI-compatible edit mask. Transparent pixels are editable. */
+  mask?: string;
   smart_aspect_image?: string;
   image_size?: ImageSize;
   search?: boolean;
@@ -168,6 +184,10 @@ type ImageProvider = {
   upstreamModel?: string;
   responseType?: ModelProviderOverride["responseType"];
   enabled?: boolean;
+  asyncMode?: boolean;
+  metadata?: Record<string, string | number | boolean>;
+  adapterConfig?: AiDeploymentAdapterConfig;
+  signal?: AbortSignal;
 };
 
 interface BatchTryOnInput {
@@ -209,7 +229,44 @@ type TryOnRequestPromptOptions = {
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
   const requestInput = await resolveGenerateInputAspectRatio(input);
+
+  // Production requests use the unified control plane. The public API remains
+  // unchanged so every existing generation module receives provider pooling,
+  // capacity protection, telemetry and failover without page-level rewrites.
+  if (typeof window === "undefined" && process.env.NODE_ENV !== "test") {
+    const { executeAiRouted } = await import("@/lib/ai-control-plane/router.server");
+    return executeAiRouted({
+      modelId: requestInput.model,
+      modality: "image",
+      execute: async (deployment) => {
+        if (deployment.protocol !== "openai-image" && deployment.protocol !== "gemini-native") {
+          throw new Error(`图片部署 ${deployment.id} 的协议 ${deployment.protocol} 不受当前执行器支持`);
+        }
+        return generateImageWithProvider(requestInput, {
+          name: "admin",
+          apiBase: deployment.provider.baseUrl,
+          apiKey: deployment.apiKey,
+          upstreamModel: deployment.upstreamModel,
+          responseType: deployment.protocol,
+          enabled: deployment.enabled,
+          asyncMode: deployment.asyncMode,
+          metadata: deployment.metadata,
+          adapterConfig: deployment.adapterConfig,
+          signal: deployment.abortSignal,
+        }, 1);
+      },
+    });
+  }
+
   const provider = await getImageProvider(requestInput.model);
+  return generateImageWithProvider(requestInput, provider, retries);
+}
+
+async function generateImageWithProvider(
+  requestInput: GenerateInput,
+  provider: ImageProvider,
+  retries: number,
+): Promise<GenerateResult> {
   if (provider.enabled === false) {
     throw new Error(`模型 ${requestInput.model} 已在后台关闭，暂不可用`);
   }
@@ -224,7 +281,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
 
   const useLaozhangNativeEndpoint = shouldUseLaozhangNativeEndpoint(requestInput, provider);
   const useImageEditEndpoint = !useLaozhangNativeEndpoint && shouldUseImageEditEndpoint(requestInput, provider);
-  const body = buildGenerateRequestBody(requestInput, compiledPrompt);
+  const body = buildGenerateRequestBody(requestInput, compiledPrompt, provider);
   body.model = resolveProviderImageModel(requestInput.model, provider);
 
   // 日志（不含完整 base64、不含完整 prompt 内容）
@@ -259,9 +316,19 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
               imageUrls: requestInput.image || [],
               aspectRatio: requestInput.aspect_ratio,
               imageSize: requestInput.image_size,
+              signal: provider.signal,
+              adapterConfig: provider.adapterConfig,
             })
           : useImageEditEndpoint
-            ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: requestInput.image || [] })
+            ? await buildImageEditRequest({
+                apiBase,
+                apiKey,
+                body,
+                imageUrls: requestInput.image || [],
+                maskUrl: requestInput.mask,
+                signal: provider.signal,
+                adapterConfig: provider.adapterConfig,
+              })
             : buildImageGenerationRequest({ apiBase, apiKey, provider, body });
         res = await fetch(request.url, request.init);
 
@@ -565,13 +632,14 @@ function buildTryOnMultiOutputDirective(input: TryOnRequestPromptOptions) {
   return `多图输出规则：保持同一身份、脸部、表情、视线、头部姿态、身体比例、姿势族、镜头/裁切边界和${referenceRef}的影调；仅允许服装褶皱、下摆、接触阴影和布料自然贴合有轻微差异。`;
 }
 
-function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {
-  const body: Record<string, any> = {
+function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string, provider?: Pick<ImageProvider, "responseType" | "metadata" | "adapterConfig">): Record<string, any> {
+  const body: Record<string, any> = mergeAiAdapterParameters({
     model: input.model,
     prompt: compiledPrompt,
-  };
+  }, provider?.adapterConfig);
 
-  if (input.model !== "gpt-image-2") {
+  const isOpenAiImages = provider?.responseType === "openai-image";
+  if (input.model !== "gpt-image-2" || isOpenAiImages) {
     body.response_format = "url";
   }
   if (!isSeedreamModel(input.model) && input.model !== "gpt-image-2") {
@@ -582,6 +650,17 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
     // gpt-image-2 /images/edits uses the documented size field, not image_size.
     body.size = input.image_size ? resolveGptImage2Size(input.image_size, input.aspect_ratio || "auto") : "auto";
     body.quality = GPT_IMAGE_2_QUALITY;
+  }
+  if (isOpenAiImages && input.model !== "gpt-image-2") {
+    body.size = input.image_size
+      ? resolveExactAspectPixelSize(input.image_size, input.aspect_ratio || "auto")
+      : "auto";
+    body.quality = typeof provider?.metadata?.quality === "string"
+      ? provider.metadata.quality
+      : GPT_IMAGE_2_QUALITY;
+    delete body.aspect_ratio;
+    delete body.image_size;
+    if (provider?.metadata?.imageEditEndpoint !== false) delete body.image;
   }
   if (input.image_size && isSeedreamModel(input.model)) {
     body.size = normalizeImageSize(input.model, input.image_size, input.aspect_ratio);
@@ -597,8 +676,8 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
   return body;
 }
 
-function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image">, provider: Pick<ImageProvider, "name" | "responseType">): boolean {
-  if (provider.responseType === "openai-image") return input.model === "gpt-image-2" && Boolean(input.image?.length);
+function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image">, provider: Pick<ImageProvider, "name" | "responseType" | "metadata">): boolean {
+  if (provider.responseType === "openai-image") return provider.metadata?.imageEditEndpoint !== false && Boolean(input.image?.length);
   if (provider.responseType === "gemini-native") return false;
   return (provider.name === "plato" || provider.name === "catrouter") && input.model === "gpt-image-2" && Boolean(input.image?.length);
 }
@@ -612,15 +691,16 @@ function shouldUseLaozhangNativeEndpoint(input: Pick<GenerateInput, "model">, pr
 function buildImageGenerationRequest(params: {
   apiBase: string;
   apiKey: string;
-  provider: Pick<ImageProvider, "name">;
+  provider: Pick<ImageProvider, "name" | "signal" | "adapterConfig">;
   body: Record<string, any>;
 }): { url: string; init: RequestInit } {
   return {
     url: getImageGenerationUrl(params.apiBase, params.provider),
     init: {
       method: "POST",
-      headers: { Authorization: `Bearer ${params.apiKey}`, "Content-Type": "application/json" },
+      headers: { ...buildAiAdapterAuthHeaders({ protocol: "openai-image", apiKey: params.apiKey, adapterConfig: params.provider.adapterConfig }), "Content-Type": "application/json" },
       body: JSON.stringify(params.body),
+      signal: params.provider.signal,
     },
   };
 }
@@ -633,6 +713,8 @@ async function buildLaozhangNativeImageRequest(params: {
   imageUrls: string[];
   aspectRatio?: AspectRatio;
   imageSize?: ImageSize;
+  signal?: AbortSignal;
+  adapterConfig?: AiDeploymentAdapterConfig;
 }): Promise<{ url: string; init: RequestInit }> {
   const imageParts = await Promise.all(params.imageUrls.map(fetchImageInlineDataPart));
   const parts = [
@@ -641,11 +723,11 @@ async function buildLaozhangNativeImageRequest(params: {
   ];
 
   return {
-    url: getLaozhangGenerateContentUrl(params.apiBase, params.model),
+    url: getLaozhangGenerateContentUrl(params.apiBase, params.model, params.adapterConfig),
     init: {
       method: "POST",
-      headers: { "x-goog-api-key": params.apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
+      headers: { ...buildAiAdapterAuthHeaders({ protocol: "gemini-native", apiKey: params.apiKey, adapterConfig: params.adapterConfig }), "Content-Type": "application/json" },
+      body: JSON.stringify(mergeAiAdapterParameters({
         contents: [{ role: "user", parts }],
         generationConfig: {
           responseModalities: ["IMAGE"],
@@ -654,7 +736,8 @@ async function buildLaozhangNativeImageRequest(params: {
             imageSize: params.imageSize || "1K",
           },
         },
-      }),
+      }, params.adapterConfig)),
+      signal: params.signal,
     },
   };
 }
@@ -675,6 +758,9 @@ async function buildImageEditRequest(params: {
   apiKey: string;
   body: Record<string, any>;
   imageUrls: string[];
+  maskUrl?: string;
+  signal?: AbortSignal;
+  adapterConfig?: AiDeploymentAdapterConfig;
 }): Promise<{ url: string; init: RequestInit }> {
   if (!params.imageUrls.length) {
     throw new Error("gpt-image-2 image edit requires at least one reference image");
@@ -696,13 +782,18 @@ async function buildImageEditRequest(params: {
   for (const image of images) {
     form.append("image", image.blob, image.filename);
   }
+  if (params.maskUrl) {
+    const mask = await fetchImageFormPart(params.maskUrl, params.imageUrls.length);
+    form.append("mask", mask.blob, `mask-${mask.filename}`);
+  }
 
   return {
-    url: getImageEditUrl(params.apiBase),
+    url: getImageEditUrl(params.apiBase, params.adapterConfig),
     init: {
       method: "POST",
-      headers: { Authorization: `Bearer ${params.apiKey}`, Accept: "application/json" },
+      headers: { ...buildAiAdapterAuthHeaders({ protocol: "openai-image", apiKey: params.apiKey, adapterConfig: params.adapterConfig }), Accept: "application/json" },
       body: form,
+      signal: params.signal,
     },
   };
 }
@@ -753,7 +844,7 @@ async function fetchImageFormPart(src: string, index: number): Promise<{ blob: B
 }
 
 async function pollImageTask(params: {
-  provider: { name: string };
+  provider: { name: string; signal?: AbortSignal; adapterConfig?: AiDeploymentAdapterConfig };
   apiBase: string;
   apiKey: string;
   taskId: string;
@@ -772,8 +863,15 @@ async function pollImageTask(params: {
 
   while (Date.now() - startedAt < timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, getImageTaskPollIntervalMs()));
-    const res = await fetch(`${params.apiBase}/images/tasks/${encodeURIComponent(params.taskId)}`, {
-      headers: { Authorization: `Bearer ${params.apiKey}` },
+    const res = await fetch(resolveAiAdapterUrl({
+      baseUrl: params.apiBase,
+      protocol: "openai-image",
+      operation: "status",
+      adapterConfig: params.provider.adapterConfig,
+      taskId: params.taskId,
+    }), {
+      headers: buildAiAdapterAuthHeaders({ protocol: "openai-image", apiKey: params.apiKey, adapterConfig: params.provider.adapterConfig }),
+      signal: params.provider.signal,
     });
     const resText = await res.text();
     if (!res.ok) {
@@ -1231,6 +1329,7 @@ async function getImageProvider(model: LingyaModel): Promise<ImageProvider> {
   }
 
   if (process.env.NODE_ENV === "test") {
+    if (!isPricedImageModel(model)) throw new Error(`测试环境未配置动态模型 ${model}`);
     const env = getEnvModelProviderOverride(model);
     return {
       name: inferTestProviderName(model, env),
@@ -1247,6 +1346,7 @@ async function getImageProvider(model: LingyaModel): Promise<ImageProvider> {
 
 async function resolveAdminModelProviderOverride(model: LingyaModel): Promise<ModelProviderOverride | null> {
   if (typeof window !== "undefined") return null;
+  if (!isPricedImageModel(model)) return null;
   try {
     const { getAdminModelProviderOverride } = await import("@/lib/api/model-provider-registry.server");
     return await getAdminModelProviderOverride(model);
@@ -1264,20 +1364,21 @@ function inferTestProviderName(model: LingyaModel, env: ModelProviderOverride): 
   return "yunwu-native";
 }
 
-function getImageGenerationUrl(apiBase: string, provider: Pick<ImageProvider, "name">): string {
-  const endpoint = `${apiBase}/images/generations`;
+function getImageGenerationUrl(apiBase: string, provider: Pick<ImageProvider, "name" | "adapterConfig">): string {
+  const endpoint = resolveAiAdapterUrl({ baseUrl: apiBase, protocol: "openai-image", operation: "generation", adapterConfig: provider.adapterConfig });
   return shouldRequestAsyncImageTask(provider) ? `${endpoint}?async=true` : endpoint;
 }
 
-function getImageEditUrl(apiBase: string): string {
-  return `${apiBase}/images/edits`;
+function getImageEditUrl(apiBase: string, adapterConfig?: AiDeploymentAdapterConfig): string {
+  return resolveAiAdapterUrl({ baseUrl: apiBase, protocol: "openai-image", operation: "edit", adapterConfig });
 }
 
-function getLaozhangGenerateContentUrl(apiBase: string, model: string): string {
-  return `${apiBase}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+function getLaozhangGenerateContentUrl(apiBase: string, model: string, adapterConfig?: AiDeploymentAdapterConfig): string {
+  return resolveAiAdapterUrl({ baseUrl: apiBase, protocol: "gemini-native", operation: "generation", adapterConfig, model });
 }
 
-function shouldRequestAsyncImageTask(provider: Pick<ImageProvider, "name">): boolean {
+function shouldRequestAsyncImageTask(provider: Pick<ImageProvider, "name" | "asyncMode">): boolean {
+  if (typeof provider.asyncMode === "boolean") return provider.asyncMode;
   if (provider.name === "admin") return false;
   return provider.name !== "plato" && provider.name !== "laozhang" && provider.name !== "yunwu-native" && provider.name !== "catrouter";
 }
@@ -1408,7 +1509,7 @@ function isSeedreamModel(model: LingyaModel): boolean {
 }
 
 function isRetryableStatus(status: number): boolean {
-  return status === 500 || status === 502 || status === 503 || status === 504;
+  return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
 function buildStructuredTryOnUserInstruction(value?: string, options: {

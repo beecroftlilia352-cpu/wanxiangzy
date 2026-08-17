@@ -167,7 +167,7 @@ export async function POST(request: Request) {
 
 async function runPosePlan(input: {
   configs: Array<{
-    provider: "xiaomi" | "yunwu" | "lingya" | "minimax";
+    provider: string;
     apiKey: string;
     baseUrl: string;
     model: string;
@@ -234,7 +234,7 @@ async function runPosePlan(input: {
 }
 
 async function requestPosePlan(input: {
-  provider: "xiaomi" | "yunwu" | "lingya" | "minimax";
+  provider: string;
   apiKey: string;
   baseUrl: string;
   model: string;

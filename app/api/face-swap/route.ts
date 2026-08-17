@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  getCreditCost,
   normalizeAspectRatio,
   normalizeImageSize,
   normalizeLingyaModel,
@@ -9,6 +8,7 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       textureEnhance,
       faceSwapMode,
     ), faceSwapMode);
-    const costPerImage = getCreditCost(model, imageSize, aspectRatio);
+    const costPerImage = await getConfiguredImageCreditCost(model, imageSize);
     const totalCost = costPerImage * expectedCount;
 
     const jobPayload: GenerationJobPayload = {

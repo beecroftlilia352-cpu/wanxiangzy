@@ -6,6 +6,7 @@ import type {
   AiVideoResolution,
 } from "@/lib/ai-video";
 import type { VideoProviderName } from "@/lib/api/video-catalog";
+import type { AiDeploymentAdapterConfig } from "@/lib/ai-control-plane/types";
 
 export type VideoTaskProgress = {
   taskId?: string;
@@ -80,4 +81,6 @@ export type NewApiVideoProviderConfig = {
   provider: "minimax" | "seedance";
   apiBase: string;
   apiKey: string;
+  signal?: AbortSignal;
+  adapterConfig?: AiDeploymentAdapterConfig;
 };

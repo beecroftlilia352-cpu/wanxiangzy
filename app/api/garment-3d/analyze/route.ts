@@ -1,7 +1,7 @@
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { GARMENT_3D_QUALITY } from "@/lib/garment-3d-prompt";
 import { buildGarment3dDisplayStylePrompt, getGarment3dDisplayStyleLabel, normalizeGarment3dDisplayStyle } from "@/lib/module-style-presets";
@@ -66,7 +66,7 @@ ${prompt || ""}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetch(getChatCompletionsUrl(llm), {
+    const res = await fetchLlmChat("vision", {
       method: "POST",
       headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
       signal: controller.signal,

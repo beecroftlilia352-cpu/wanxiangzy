@@ -8,7 +8,6 @@ import {
 import {
   clampVideoDuration,
   resolveUpstreamVideoModel,
-  type VideoProviderName,
 } from "@/lib/api/video-catalog";
 import type {
   NewApiVideoProviderConfig,
@@ -18,14 +17,13 @@ import type {
   VideoMotionControlInput,
   VideoTaskProgress,
 } from "@/lib/api/video-types";
+import { buildAiAdapterAuthHeaders, mergeAiAdapterParameters, resolveAiAdapterUrl } from "@/lib/ai-control-plane/adapters";
 
 // Generic new.bi new-api "openai-video" gateway:
 //   POST /v1/video/generations
 //   GET  /v1/video/generations/{task_id}
 // Used by both MiniMax H3 and Seedance 2.0. Resolution is chosen via the
 // upstream model id from `lib/api/video-catalog.ts`.
-const SUBMIT_PATH = "/v1/video/generations";
-const QUERY_PATH = "/v1/video/generations";
 const VIDEO_SUBMIT_PROGRESS_MAX = 10;
 const VIDEO_POLL_INTERVAL_MS = 10_000;
 const VIDEO_POLL_TIMEOUT_MS = 20 * 60 * 1000;
@@ -184,14 +182,20 @@ async function runTask(
   body: Record<string, unknown>,
   onProgress: VideoImageToVideoInput["onProgress"],
 ): Promise<PollState> {
+  const requestBody = mergeAiAdapterParameters(body, provider.adapterConfig);
   await onProgress?.({
     status: "queued",
     providerStatus: "SUBMITTING",
     progress: 1,
-    providerDetails: buildProviderDetails({ requestBody: body }),
+    providerDetails: buildProviderDetails({ requestBody }),
   });
 
-  const submitted = await submitJson(`${provider.apiBase}${SUBMIT_PATH}`, provider.apiKey, body);
+  const submitted = await submitJson(resolveAiAdapterUrl({
+    baseUrl: provider.apiBase,
+    protocol: "newapi-video",
+    operation: "generation",
+    adapterConfig: provider.adapterConfig,
+  }), provider.apiKey, requestBody, provider.signal, provider.adapterConfig);
   const video = extractVideoObject(submitted) || {};
   const taskId = typeof video.task_id === "string" && video.task_id ? video.task_id : extractTaskId(submitted);
   if (!taskId) throw new Error(`视频接口未返回 task_id，响应字段: ${describeResponseKeys(submitted)}`);
@@ -204,7 +208,7 @@ async function runTask(
     status: "queued",
     providerStatus,
     progress: VIDEO_SUBMIT_PROGRESS_MAX,
-    providerDetails: buildProviderDetails({ requestBody: body, submitResponse: submitted, taskId, requestId }),
+    providerDetails: buildProviderDetails({ requestBody, submitResponse: submitted, taskId, requestId }),
   });
 
   const startedAt = Date.now();
@@ -218,11 +222,17 @@ async function runTask(
   };
 
   while (Date.now() - startedAt < VIDEO_POLL_TIMEOUT_MS) {
-    await sleep(VIDEO_POLL_INTERVAL_MS);
+    await sleep(VIDEO_POLL_INTERVAL_MS, provider.signal);
     const elapsed = Date.now() - startedAt;
     let json: unknown;
     try {
-      json = await getJson(`${provider.apiBase}${QUERY_PATH}/${encodeURIComponent(taskId)}`, provider.apiKey);
+      json = await getJson(resolveAiAdapterUrl({
+        baseUrl: provider.apiBase,
+        protocol: "newapi-video",
+        operation: "status",
+        adapterConfig: provider.adapterConfig,
+        taskId,
+      }), provider.apiKey, provider.signal, provider.adapterConfig);
     } catch {
       lastState = {
         ...lastState,
@@ -453,23 +463,28 @@ function redactSignedUrl(value: string) {
   }
 }
 
-async function submitJson(url: string, apiKey: string, body: Record<string, unknown>) {
+async function submitJson(url: string, apiKey: string, body: Record<string, unknown>, signal?: AbortSignal, adapterConfig?: NewApiVideoProviderConfig["adapterConfig"]) {
   const response = await fetch(url, {
     method: "POST",
-    headers: buildHeaders(apiKey),
+    headers: buildHeaders(apiKey, adapterConfig),
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(60_000),
+    signal: requestSignal(signal, 60_000),
   });
   return readJsonResponse(response, "视频任务提交失败");
 }
 
-async function getJson(url: string, apiKey: string) {
+async function getJson(url: string, apiKey: string, signal?: AbortSignal, adapterConfig?: NewApiVideoProviderConfig["adapterConfig"]) {
   const response = await fetch(url, {
     method: "GET",
-    headers: buildHeaders(apiKey),
-    signal: AbortSignal.timeout(60_000),
+    headers: buildHeaders(apiKey, adapterConfig),
+    signal: requestSignal(signal, 60_000),
   });
   return readJsonResponse(response, "视频任务查询失败");
+}
+
+function requestSignal(parent: AbortSignal | undefined, timeoutMs: number) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return parent ? AbortSignal.any([parent, timeout]) : timeout;
 }
 
 async function readJsonResponse(response: Response, prefix: string) {
@@ -483,9 +498,9 @@ async function readJsonResponse(response: Response, prefix: string) {
   }
 }
 
-function buildHeaders(apiKey: string) {
+function buildHeaders(apiKey: string, adapterConfig?: NewApiVideoProviderConfig["adapterConfig"]) {
   return {
-    Authorization: `Bearer ${apiKey}`,
+    ...buildAiAdapterAuthHeaders({ protocol: "newapi-video", apiKey, adapterConfig }),
     "Content-Type": "application/json",
     Accept: "application/json",
     "Accept-Encoding": "identity",
@@ -505,6 +520,17 @@ function formatErrorBody(text: string) {
   }
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal) {
+  if (signal?.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    const abort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }

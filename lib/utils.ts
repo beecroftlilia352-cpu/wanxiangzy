@@ -195,6 +195,7 @@ export const MAX_AUDIO_FILE_SIZE = MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024;
 const IMAGE_PREPROCESS_TIMEOUT_MS = 20_000;
 const IMAGE_UPLOAD_CLIENT_TIMEOUT_MS = 75_000;
 const IMAGE_UPLOAD_RETRY_DELAYS_MS = [0, 700, 1_600] as const;
+const IMAGE_UPLOAD_MAX_RETRY_AFTER_MS = 75_000;
 export const MAX_CLOTHING_FILES = 5;
 
 export interface UploadResult {
@@ -203,6 +204,8 @@ export interface UploadResult {
   delete_url: string;
   width: number;
   height: number;
+  content_type?: string;
+  byte_size?: number;
   object_key?: string;
   asset?: unknown;
   resource_registration_token?: string;
@@ -244,9 +247,9 @@ async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): 
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
-        // The product limit is 15MB. When recompression is necessary, reduce
-        // encoded bytes only; never silently turn a native 4K upload into a
-        // smaller image.
+        // Preserve the native pixel grid. Compression may reduce encoded
+        // bytes, but must not silently downgrade a 4K source before the
+        // server establishes the canonical image used by masks.
         canvas.width = img.width;
         canvas.height = img.height;
         const ctx = canvas.getContext("2d");
@@ -343,10 +346,13 @@ export async function uploadImage(
 ): Promise<UploadResult> {
   const compressed = await compressImage(file, MAX_FILE_SIZE_MB);
   let lastError: unknown;
+  let retryAfterMs = 0;
   for (let attempt = 0; attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      if (IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt] > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt]));
+      const delayMs = Math.max(IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt], retryAfterMs);
+      retryAfterMs = 0;
+      if (delayMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs));
         options.onProgress?.(0);
       }
       const uploadResponse = await sendImageUpload(compressed, file.name, options.onProgress);
@@ -356,6 +362,7 @@ export async function uploadImage(
         const error = new Error(data.error || `上传失败 (${uploadResponse.status})`);
         if (attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length - 1 && isRetryableUploadStatus(uploadResponse.status)) {
           lastError = error;
+          retryAfterMs = parseUploadRetryAfter(uploadResponse.retryAfter);
           continue;
         }
         throw error;
@@ -385,7 +392,7 @@ function sendImageUpload(
   form.append("name", originalName.replace(/\.[^.]+$/, ""));
 
   // XHR 上传以支持进度回调（fetch 不支持 upload progress）
-  return new Promise<{ status: number; responseText: string }>((resolve, reject) => {
+  return new Promise<{ status: number; responseText: string; retryAfter: string | null }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let settled = false;
     xhr.open("POST", "/api/upload-image");
@@ -397,7 +404,7 @@ function sendImageUpload(
       xhr.onabort = null;
       xhr.ontimeout = null;
     };
-    const finishResolve = (value: { status: number; responseText: string }) => {
+    const finishResolve = (value: { status: number; responseText: string; retryAfter: string | null }) => {
       if (settled) return;
       settled = true;
       cleanup();
@@ -425,13 +432,23 @@ function sendImageUpload(
         finishReject(new Error("网络连接异常，上传失败"));
         return;
       }
-      finishResolve({ status, responseText });
+      finishResolve({ status, responseText, retryAfter: xhr.getResponseHeader("Retry-After") });
     };
     xhr.onerror = () => finishReject(new Error("网络连接异常，上传失败"));
     xhr.onabort = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.ontimeout = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.send(form);
   });
+}
+
+function parseUploadRetryAfter(value: string | null) {
+  if (!value) return 0;
+  const seconds = Number(value);
+  const delay = Number.isFinite(seconds)
+    ? Math.max(0, seconds * 1_000)
+    : Math.max(0, Date.parse(value) - Date.now());
+  if (!Number.isFinite(delay) || delay <= 0) return 0;
+  return Math.min(IMAGE_UPLOAD_MAX_RETRY_AFTER_MS, Math.ceil(delay));
 }
 
 function parseUploadResponse(responseText: string) {

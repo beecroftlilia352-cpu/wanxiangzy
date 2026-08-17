@@ -9,6 +9,7 @@ export type StudioUploadSectionProps = {
   onFiles: (files: File[]) => void | Promise<void>;
   multiple?: boolean;
   accept?: string;
+  disabled?: boolean;
   isDragging?: boolean;
   setDragging?: (dragging: boolean) => void;
   className?: string;
@@ -22,24 +23,29 @@ export function StudioUploadSection({
   onFiles,
   multiple,
   accept = "image/*",
+  disabled = false,
   isDragging,
   setDragging,
   className,
   children,
 }: StudioUploadSectionProps) {
-  const openFileDialog = () => inputRef.current?.click();
+  const openFileDialog = () => {
+    if (!disabled) inputRef.current?.click();
+  };
   const { dragHandlers, finishDragging } = useStableFileDrag<HTMLElement>({
     isDragging,
     setDragging,
     onFiles,
     accept,
     multiple: Boolean(multiple),
+    disabled,
   });
 
   return (
     <section
       {...dragHandlers}
       className={cn("studio-upload-section", isDragging && "studio-upload-section-dragging", className)}
+      aria-disabled={disabled || undefined}
     >
       <div className="studio-upload-header">
         <h3 className="studio-upload-title">{title}</h3>
@@ -51,9 +57,14 @@ export function StudioUploadSection({
         type="file"
         accept={accept}
         multiple={multiple}
+        disabled={disabled}
         className="hidden"
         onChange={(event) => {
           const input = event.currentTarget;
+          if (disabled) {
+            input.value = "";
+            return;
+          }
           void Promise.resolve(onFiles(Array.from(input.files || []))).finally(() => {
             input.value = "";
           });

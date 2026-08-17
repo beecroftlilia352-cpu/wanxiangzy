@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import type { ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { ResolutionOption } from "@/components/studio/ResolutionSelector";
+import { useVisibleImageModels } from "@/lib/use-visible-image-models";
 
 const STUDIO_MODEL_ASSET_BASE =
   "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-covers";
@@ -20,7 +21,7 @@ const STUDIO_MODEL_ASSET_BASE =
  * 只剩 gpt-image-2）。新增/下架模型 = 更新本表 + 后台 catalog 开关。
  */
 export const STUDIO_IMAGE_MODEL_META: Record<
-  LingyaModel,
+  string,
   { label: string; englishLabel: string; descKey: string; badgeKey: string; icon: string }
 > = {
   "gpt-image-2": {
@@ -115,11 +116,15 @@ export function useStudioImageModelOptions() {
   const tRoot = useTranslations();
   const locale = useLocale();
   const isChinese = locale.toLowerCase().startsWith("zh");
+  const { catalog } = useVisibleImageModels();
 
   return useMemo(
-    () =>
-      ALL_CURATED_MODELS.map((value) => {
+    () => {
+      const publishedById = new Map((catalog || []).map((item) => [item.id, item]));
+      const curated = ALL_CURATED_MODELS.map((value) => {
         const meta = STUDIO_IMAGE_MODEL_META[value];
+        const published = publishedById.get(value);
+        const localized = resolveCatalogLocale(published?.locales, locale);
         const compactBadge = value === "gpt-image-2"
           ? "NEW"
           : value === "nano-banana-2"
@@ -127,12 +132,38 @@ export function useStudioImageModelOptions() {
             : "PRO";
         return {
           value,
-          label: isChinese ? meta.label : meta.englishLabel,
-          desc: tRoot(meta.descKey),
-          badge: isChinese ? tRoot(meta.badgeKey) : compactBadge,
-          icon: meta.icon,
+          label: localized?.title || published?.shortTitle || published?.displayName || (isChinese ? meta.label : meta.englishLabel),
+          desc: localized?.description || published?.description || tRoot(meta.descKey),
+          badge: localized?.badge || published?.badge || (isChinese ? tRoot(meta.badgeKey) : compactBadge),
+          icon: published?.iconUrl || published?.coverUrl || meta.icon,
         };
-      }),
-    [isChinese, tRoot],
+      });
+      const curatedIds = new Set(curated.map((item) => item.value));
+      const dynamic = (catalog || [])
+        .filter((item) => !curatedIds.has(item.id))
+        .map((item) => {
+          const localized = resolveCatalogLocale(item.locales, locale);
+          return {
+            value: item.id as LingyaModel,
+            label: localized?.title || item.shortTitle || item.displayName,
+            desc: localized?.description || item.description || `${item.supportedSizes.join(" / ")} · ${item.capabilities.join(" · ")}`,
+            badge: localized?.badge || item.badge || (item.featured ? "REC" : "NEW"),
+            icon: item.iconUrl || item.coverUrl,
+          };
+        });
+      const combined = [...curated, ...dynamic];
+      if (!catalog?.length) return combined;
+      const publishedOrder = new Map(catalog.map((item, index) => [item.id, index]));
+      return combined.sort((a, b) => (publishedOrder.get(a.value) ?? Number.MAX_SAFE_INTEGER) - (publishedOrder.get(b.value) ?? Number.MAX_SAFE_INTEGER));
+    },
+    [catalog, isChinese, locale, tRoot],
   );
+}
+
+function resolveCatalogLocale<T>(locales: Record<string, T> | undefined, locale: string): T | undefined {
+  if (!locales) return undefined;
+  return locales[locale]
+    || locales[locale.toLowerCase()]
+    || locales[locale.split("-")[0]]
+    || locales[Object.keys(locales).find((key) => key.toLowerCase() === locale.toLowerCase()) || ""];
 }

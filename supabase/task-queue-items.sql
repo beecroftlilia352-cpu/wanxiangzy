@@ -36,7 +36,7 @@ CREATE TRIGGER generations_set_updated_at
 CREATE TABLE IF NOT EXISTS public.task_queue_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  source_type TEXT NOT NULL CHECK (source_type IN ('generation', 'workflow')),
+  source_type TEXT NOT NULL CHECK (source_type IN ('generation', 'workflow', 'ai_tool')),
   source_id UUID NOT NULL,
   module TEXT NOT NULL DEFAULT 'tryon',
   title TEXT NOT NULL DEFAULT U&'\4EFB\52A1',
@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS public.task_queue_items (
   completed_at TIMESTAMPTZ,
   UNIQUE (source_type, source_id)
 );
+
+-- Existing installations may still carry the original two-value check.
+ALTER TABLE public.task_queue_items
+  DROP CONSTRAINT IF EXISTS task_queue_items_source_type_check;
+ALTER TABLE public.task_queue_items
+  ADD CONSTRAINT task_queue_items_source_type_check
+  CHECK (source_type IN ('generation', 'workflow', 'ai_tool'));
 
 CREATE INDEX IF NOT EXISTS task_queue_items_user_module_created_idx
   ON public.task_queue_items(user_id, module, created_at DESC);
@@ -113,6 +120,7 @@ BEGIN
   IF v IN ('model-background', 'model_background', 'modelbackground', 'background') THEN RETURN 'modelBackground'; END IF;
   IF v IN ('garment-3d', 'garment3d', 'clothing3d', '3d') THEN RETURN 'garment3d'; END IF;
   IF v IN ('general-image', 'general_image', 'generalimage') THEN RETURN 'generalImage'; END IF;
+  IF v IN ('toolbox', 'ai-tool', 'ai_tools', 'ai-tools') THEN RETURN 'toolbox'; END IF;
   IF v IN ('grass', 'seeding') THEN RETURN 'grass'; END IF;
   IF v LIKE '%pose%' THEN RETURN 'pose'; END IF;
   IF v = '' THEN RETURN 'workflow'; END IF;
@@ -138,6 +146,7 @@ BEGIN
     WHEN 'garment3d' THEN RETURN U&'\670D\88C5 3D';
     WHEN 'generalImage' THEN RETURN U&'\521B\610F\751F\56FE';
     WHEN 'workflow' THEN RETURN U&'\5DE5\4F5C\6D41';
+    WHEN 'toolbox' THEN RETURN U&'AI \5DE5\5177\7BB1';
     ELSE RETURN U&'AI \4EFB\52A1';
   END CASE;
 END;
@@ -160,6 +169,7 @@ BEGIN
     WHEN 'pose' THEN RETURN '/pose';
     WHEN 'garment3d' THEN RETURN '/garment-3d';
     WHEN 'generalImage' THEN RETURN '/general-image';
+    WHEN 'toolbox' THEN RETURN '/ai-tools/matting';
     ELSE RETURN '/history';
   END CASE;
 END;
@@ -210,6 +220,7 @@ AS $$
 DECLARE
   v_kind TEXT := coalesce(p_payload ->> 'kind', p_payload ->> 'module', '');
 BEGIN
+  IF jsonb_typeof(p_payload -> 'aiTool') = 'object' THEN RETURN 'toolbox'; END IF;
   IF v_kind <> '' THEN RETURN public.task_queue_normalize_module(v_kind); END IF;
   IF coalesce(array_length(p_clothing_urls, 1), 0) > 0 THEN RETURN 'tryon'; END IF;
   IF coalesce(p_model_face_url, '') <> '' THEN RETURN 'faceSwap'; END IF;
@@ -219,6 +230,44 @@ BEGIN
   IF jsonb_typeof(p_payload -> 'referenceUrls') = 'array' THEN RETURN 'model'; END IF;
   RETURN 'tryon';
 END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.task_queue_ai_tool_path(p_operation TEXT)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog
+AS $$
+  SELECT CASE p_operation
+    WHEN 'matting' THEN '/ai-tools/matting'
+    WHEN 'upscale' THEN '/ai-tools/upscale'
+    WHEN 'outpaint' THEN '/ai-tools/outpaint'
+    WHEN 'erase' THEN '/ai-tools/erase'
+    WHEN 'repair-limbs' THEN '/ai-tools/hand-foot-repair'
+    WHEN 'repair-garment' THEN '/ai-tools/clothing-repair'
+    WHEN 'repair-footwear' THEN '/ai-tools/shoe-repair'
+    WHEN 'resize' THEN '/ai-tools/resize'
+    ELSE '/ai-tools/matting'
+  END
+$$;
+
+CREATE OR REPLACE FUNCTION public.task_queue_ai_tool_title(p_operation TEXT)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog
+AS $$
+  SELECT CASE p_operation
+    WHEN 'matting' THEN U&'AI\62A0\56FE'
+    WHEN 'upscale' THEN U&'\56FE\7247\8D85\6E05'
+    WHEN 'outpaint' THEN U&'AI\6269\56FE'
+    WHEN 'erase' THEN U&'AI\6D88\9664'
+    WHEN 'repair-limbs' THEN U&'\624B\811A\4FEE\590D'
+    WHEN 'repair-garment' THEN U&'\670D\9970\4FEE\590D'
+    WHEN 'repair-footwear' THEN U&'\978B\9774\4FEE\590D'
+    WHEN 'resize' THEN U&'\65E0\635F\6539\5C3A\5BF8'
+    ELSE U&'AI \5DE5\5177\7BB1'
+  END
 $$;
 
 CREATE OR REPLACE FUNCTION public.task_queue_generation_expected_count(
@@ -309,11 +358,17 @@ BEGIN
     apply_url, created_at, updated_at, completed_at
   )
   VALUES (
-    p_item.user_id, 'generation', p_item.id, v_module, public.task_queue_module_title(v_module),
+    p_item.user_id, 'generation', p_item.id, v_module,
+    CASE
+      WHEN v_module = 'toolbox' THEN public.task_queue_ai_tool_title(v_payload -> 'aiTool' ->> 'operation')
+      ELSE public.task_queue_module_title(v_module)
+    END,
     coalesce(p_item.status, 'queued'), v_status_group, v_progress,
     public.task_queue_generation_expected_count(v_payload, p_item.reference_url, v_result_count),
     v_result_count, v_input_thumbnails, v_result_thumbnails, p_item.error_message,
     CASE
+      WHEN v_module = 'toolbox'
+        THEN public.task_queue_ai_tool_path(v_payload -> 'aiTool' ->> 'operation') || '?task=' || p_item.id::TEXT
       WHEN v_module = 'generalImage' AND (
         v_payload ->> 'mode' = 'image-to-image'
         OR (
@@ -322,9 +377,9 @@ BEGIN
           AND jsonb_array_length(v_payload -> 'referenceUrls') > 0
         )
       )
-        THEN '/general-image/image-to-image'
-      ELSE public.task_queue_module_path(v_module)
-    END || '?apply=' || p_item.id::TEXT,
+        THEN '/general-image/image-to-image?apply=' || p_item.id::TEXT
+      ELSE public.task_queue_module_path(v_module) || '?apply=' || p_item.id::TEXT
+    END,
     p_item.created_at, coalesce(p_item.updated_at, p_item.completed_at, p_item.processing_started_at, p_item.created_at), p_item.completed_at
   )
   ON CONFLICT (source_type, source_id) DO UPDATE SET
@@ -366,3 +421,9 @@ CREATE TRIGGER generations_task_queue_items_sync
 -- Backfill is idempotent. Re-run safely after deploying this migration.
 SELECT public.task_queue_upsert_generation(g)
 FROM public.generations AS g;
+
+-- These functions are internal trigger/migration helpers. Keep them out of the
+-- exposed PostgREST RPC surface while retaining service-role maintenance access.
+REVOKE ALL ON FUNCTION public.task_queue_upsert_generation(public.generations) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.task_queue_sync_generation_trigger() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.task_queue_upsert_generation(public.generations) TO service_role;

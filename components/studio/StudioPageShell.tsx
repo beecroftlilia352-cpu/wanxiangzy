@@ -1,6 +1,7 @@
 import { FeatureTabs } from "@/components/FeatureTabs";
 import type { FeatureKey } from "@/lib/navigation";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 export type StudioPageShellProps = {
   activeFeature: FeatureKey;
@@ -9,6 +10,7 @@ export type StudioPageShellProps = {
   canvas: ReactNode;
   runBar: ReactNode;
   taskRail?: ReactNode;
+  className?: string;
 };
 
 export function StudioPageShell({
@@ -18,9 +20,10 @@ export function StudioPageShell({
   canvas,
   runBar,
   taskRail,
+  className,
 }: StudioPageShellProps) {
   return (
-    <div className="studio-workbench studio-page-shell min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)]">
+    <div className={cn("studio-workbench studio-page-shell min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)]", className)}>
       <FeatureTabs active={activeFeature} />
       {taskRail && (
         <section className="studio-shell-task-rail" aria-label="Workspace tasks">

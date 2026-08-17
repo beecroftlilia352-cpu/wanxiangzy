@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
@@ -176,7 +176,7 @@ ${userStyle || "无"}
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetch(getChatCompletionsUrl(llm), {
+    const res = await fetchLlmChat("vision", {
       method: "POST",
       headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),

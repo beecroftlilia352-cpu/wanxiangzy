@@ -109,6 +109,61 @@ jobs:
 
           echo "::warning::ssh-keyscan failed; continuing with StrictHostKeyChecking=accept-new"
 
+      - name: Update AI router runtime secrets
+        env:
+          ADMIN_SECRETS_ENCRYPTION_KEY: ${{ secrets.ADMIN_SECRETS_ENCRYPTION_KEY }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          for key in ADMIN_SECRETS_ENCRYPTION_KEY UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "::error::GitHub Actions secret is empty: $key"
+              exit 1
+            fi
+          done
+
+          quote() { printf '%q' "$1"; }
+          REMOTE_ENV="ADMIN_SECRETS_ENCRYPTION_KEY=$(quote "$ADMIN_SECRETS_ENCRYPTION_KEY") UPSTASH_REDIS_REST_URL=$(quote "$UPSTASH_REDIS_REST_URL") UPSTASH_REDIS_REST_TOKEN=$(quote "$UPSTASH_REDIS_REST_TOKEN")"
+
+          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=60 \
+            -o ConnectionAttempts=3 \
+            -o ServerAliveInterval=30 \
+            "$AWS_USER_NORM@$AWS_HOST_NORM" \
+            "$REMOTE_ENV bash -s" <<'REMOTE'
+          set -euo pipefail
+          ENV_FILE="$HOME/apps/wanxiangzy/shared/.env.production"
+          mkdir -p "$(dirname "$ENV_FILE")"
+          touch "$ENV_FILE"
+          chmod 600 "$ENV_FILE"
+
+          escape_sed_replacement() {
+            printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
+          }
+
+          set_env_var() {
+            local key="$1"
+            local value="$2"
+            local escaped
+            escaped="$(escape_sed_replacement "$value")"
+            if grep -q "^${key}=" "$ENV_FILE"; then
+              sed -i.bak "s/^${key}=.*/${key}=${escaped}/" "$ENV_FILE"
+            else
+              printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+            fi
+          }
+
+          set_env_var ADMIN_SECRETS_ENCRYPTION_KEY "$ADMIN_SECRETS_ENCRYPTION_KEY"
+          set_env_var UPSTASH_REDIS_REST_URL "$UPSTASH_REDIS_REST_URL"
+          set_env_var UPSTASH_REDIS_REST_TOKEN "$UPSTASH_REDIS_REST_TOKEN"
+          set_env_var AI_ROUTER_CAPACITY_MODE redis
+          echo "Updated AI router runtime configuration in $ENV_FILE"
+          REMOTE
+
       - name: Fetch .env.production from EC2
         run: |
           set -euo pipefail
@@ -126,15 +181,66 @@ jobs:
 
           # Verify required keys exist (Next.js auto-loads .env.production at build time)
           missing=0
-          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_APP_URL; do
-            if grep -q "^${key}=" .env.production; then
+          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_APP_URL ADMIN_SECRETS_ENCRYPTION_KEY UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN AI_ROUTER_CAPACITY_MODE; do
+            if grep -Eq "^${key}=.+$" .env.production; then
               echo "  ✓ $key"
             else
-              echo "::error::Missing required key in .env.production: $key"
+              echo "::error::Missing or empty required key in .env.production: $key"
               missing=1
             fi
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
+
+          env_value() {
+            local key="$1"
+            sed -n "s/^${key}=//p" .env.production | tail -n 1 | tr -d '\r'
+          }
+
+          AI_TOOLS_MODE="$(env_value AI_TOOLS_EXECUTION_MODE)"
+          AI_TOOLS_OPERATIONS="$(env_value AI_TOOLS_PROVIDER_OPERATIONS)"
+          if [[ "${AI_TOOLS_MODE,,}" == "mock" ]]; then
+            echo "::error::AI_TOOLS_EXECUTION_MODE=mock is forbidden in production"
+            exit 1
+          fi
+
+          if [[ -n "$AI_TOOLS_MODE" && "${AI_TOOLS_MODE,,}" != "live" ]]; then
+            echo "::error::AI_TOOLS_EXECUTION_MODE must be live in production"
+            exit 1
+          fi
+
+          # Generative edit tools and local resize are live even while the
+          # external Aliyun matting/upscale allowlist remains empty.
+          ai_tools_common_missing=0
+          for key in \
+            AI_TOOL_ASSET_REF_SECRET \
+            RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET \
+            ALIYUN_OSS_ACCESS_KEY_ID \
+            ALIYUN_OSS_ACCESS_KEY_SECRET \
+            ALIYUN_OSS_BUCKET \
+            ALIYUN_OSS_REGION \
+            ALIYUN_OSS_PUBLIC_BASE_URL; do
+            if [[ -z "$(env_value "$key")" ]]; then
+              echo "::error::Missing AI toolbox production key in .env.production: $key"
+              ai_tools_common_missing=1
+            fi
+          done
+          if [[ "$ai_tools_common_missing" -ne 0 ]]; then exit 1; fi
+
+          if [[ -n "${AI_TOOLS_OPERATIONS//[[:space:],]/}" ]]; then
+            ai_tools_gateway_missing=0
+            for key in \
+              AI_TOOLS_PROVIDER_GATEWAY_URL \
+              AI_TOOLS_PROVIDER_GATEWAY_TOKEN; do
+              if [[ -z "$(env_value "$key")" ]]; then
+                echo "::error::Missing external AI toolbox Gateway key in .env.production: $key"
+                ai_tools_gateway_missing=1
+              fi
+            done
+            if [[ "$ai_tools_gateway_missing" -ne 0 ]]; then exit 1; fi
+            echo "✓ AI toolbox external operations are enabled"
+          else
+            echo "✓ Aliyun matting/upscale operations are disabled; generative edit and local resize remain enabled"
+          fi
 
           echo "✓ .env.production ready — Next.js will auto-load it during build"
 

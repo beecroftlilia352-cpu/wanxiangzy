@@ -24,6 +24,10 @@ class MockXMLHttpRequest {
 
   open() {}
 
+  getResponseHeader(_name: string): string | null {
+    return null;
+  }
+
   send() {
     queueMicrotask(() => this.onload?.(new ProgressEvent("load")));
   }
@@ -88,6 +92,33 @@ describe("uploadImage", () => {
 
     const result = uploadImage(new File(["image"], "source.jpg", { type: "image/jpeg" }));
     await vi.advanceTimersByTimeAsync(700);
+
+    await expect(result).resolves.toEqual(SUCCESS_RESULT);
+    expect(attempts).toBe(2);
+  });
+
+  it("honors Retry-After before retrying a rate-limited upload", async () => {
+    vi.useFakeTimers();
+    let attempts = 0;
+    class RateLimitedXMLHttpRequest extends MockXMLHttpRequest {
+      status = attempts === 0 ? 429 : 200;
+      responseText = attempts === 0 ? JSON.stringify({ error: "稍后重试" }) : JSON.stringify(SUCCESS_RESULT);
+
+      getResponseHeader(name: string) {
+        return name.toLowerCase() === "retry-after" && this.status === 429 ? "2" : null;
+      }
+
+      send() {
+        attempts += 1;
+        queueMicrotask(() => this.onload?.(new ProgressEvent("load")));
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", RateLimitedXMLHttpRequest);
+
+    const result = uploadImage(new File(["image"], "source.jpg", { type: "image/jpeg" }));
+    await vi.advanceTimersByTimeAsync(1_999);
+    expect(attempts).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
 
     await expect(result).resolves.toEqual(SUCCESS_RESULT);
     expect(attempts).toBe(2);
