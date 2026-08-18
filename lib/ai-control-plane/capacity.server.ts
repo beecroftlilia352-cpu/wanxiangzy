@@ -1,55 +1,101 @@
-import { Redis } from "@upstash/redis";
+import IORedis from "ioredis";
 
 export type AiCapacityLease = {
   deploymentId: string;
   token: string;
   inFlight: number;
   source: "redis" | "local";
+  expiresAt?: number;
 };
 
-let redis: Redis | null | undefined;
+export type AiCapacityRejectionReason = "concurrency" | "rate_limit" | "backend_unavailable";
+
+export type AiCapacityDecision = {
+  lease: AiCapacityLease | null;
+  reason?: AiCapacityRejectionReason;
+  inFlight: number;
+  requestCount: number;
+  maxConcurrency: number;
+  rateLimit: number;
+  retryAfterSeconds: number;
+  backend: "redis" | "local";
+};
+
+type CapacityRedisClient = Pick<IORedis, "eval" | "zrem"> & Partial<Pick<IORedis, "disconnect">>;
+
+let redis: CapacityRedisClient | null | undefined;
+let redisConnecting: Promise<CapacityRedisClient | null> | undefined;
+let redisReconnectAfter = 0;
 const localLeases = new Map<string, Map<string, number>>();
 const localRequests = new Map<string, number[]>();
 
+// Both keys share a Redis Cluster hash tag. Redis TIME prevents application
+// clock skew from admitting excess concurrency or extending stale leases.
 const ACQUIRE_SCRIPT = `
 local leaseKey = KEYS[1]
 local rateKey = KEYS[2]
-local now = tonumber(ARGV[1])
-local expiresAt = tonumber(ARGV[2])
-local token = ARGV[3]
-local capacity = tonumber(ARGV[4])
-local rateLimit = tonumber(ARGV[5])
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+local ttlMs = tonumber(ARGV[1])
+local expiresAt = now + ttlMs
+local token = ARGV[2]
+local capacity = tonumber(ARGV[3])
+local rateLimit = tonumber(ARGV[4])
 redis.call('ZREMRANGEBYSCORE', leaseKey, '-inf', now)
 redis.call('ZREMRANGEBYSCORE', rateKey, '-inf', now - 60000)
 local inFlight = redis.call('ZCARD', leaseKey)
 local rateCount = redis.call('ZCARD', rateKey)
-if inFlight >= capacity or rateCount >= rateLimit then
-  return {0, inFlight, rateCount}
+if rateCount >= rateLimit then
+  local oldest = redis.call('ZRANGE', rateKey, 0, 0, 'WITHSCORES')
+  local retryMs = 1000
+  if oldest[2] then retryMs = math.max(1000, tonumber(oldest[2]) + 60000 - now) end
+  return {0, 2, inFlight, rateCount, math.ceil(retryMs / 1000)}
 end
+if inFlight >= capacity then return {0, 1, inFlight, rateCount, 5} end
 redis.call('ZADD', leaseKey, expiresAt, token)
 redis.call('ZADD', rateKey, now, token)
-redis.call('PEXPIRE', leaseKey, math.max(expiresAt - now + 60000, 60000))
+redis.call('PEXPIRE', leaseKey, math.max(ttlMs + 60000, 60000))
 redis.call('PEXPIRE', rateKey, 120000)
-return {1, inFlight + 1, rateCount + 1}
+return {1, 0, inFlight + 1, rateCount + 1, 0}
 `;
 
 const COUNT_SCRIPT = `
-redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', tonumber(ARGV[1]))
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
 return redis.call('ZCARD', KEYS[1])
 `;
 
+const RENEW_SCRIPT = `
+local leaseKey = KEYS[1]
+local token = ARGV[1]
+local ttlMs = tonumber(ARGV[2])
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+local expiresAt = now + ttlMs
+redis.call('ZREMRANGEBYSCORE', leaseKey, '-inf', now)
+if not redis.call('ZSCORE', leaseKey, token) then return 0 end
+redis.call('ZADD', leaseKey, expiresAt, token)
+redis.call('PEXPIRE', leaseKey, math.max(ttlMs + 60000, 60000))
+return 1
+`;
+
 export function getAiCapacityBackendStatus() {
-  const requestedMode = (process.env.AI_ROUTER_CAPACITY_MODE || "redis").trim().toLowerCase() === "local"
+  const requestedMode = process.env.NODE_ENV !== "production"
+    && (process.env.AI_ROUTER_CAPACITY_MODE || "redis").trim().toLowerCase() === "local"
     ? "local" as const
     : "redis" as const;
-  const redisConfigured = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  const configured = isStandardRedisUrl(process.env.REDIS_URL);
   return {
     requestedMode,
-    activeMode: requestedMode === "redis" && redisConfigured ? "redis" as const : "local" as const,
-    distributed: requestedMode === "redis" && redisConfigured,
+    activeMode: requestedMode,
+    distributed: requestedMode === "redis" && configured,
+    configured: requestedMode === "local" || configured,
+    failClosed: requestedMode === "redis",
   };
 }
 
+/** Backwards-compatible lease-only API. Routing should use the detailed decision. */
 export async function acquireAiProviderCapacity(input: {
   deploymentId: string;
   maxConcurrency: number;
@@ -57,56 +103,128 @@ export async function acquireAiProviderCapacity(input: {
   burst: number;
   ttlSeconds: number;
 }): Promise<AiCapacityLease | null> {
+  return (await acquireAiProviderCapacityDetailed(input)).lease;
+}
+
+export async function acquireAiProviderCapacityDetailed(input: {
+  deploymentId: string;
+  maxConcurrency: number;
+  requestsPerMinute: number;
+  burst: number;
+  ttlSeconds: number;
+}): Promise<AiCapacityDecision> {
   const token = crypto.randomUUID();
   const now = Date.now();
-  const expiresAt = now + Math.max(30, input.ttlSeconds) * 1000;
-  const rateLimit = Math.max(1, input.requestsPerMinute + input.burst);
-  const client = getCapacityRedis();
-  if (client) {
-    try {
-      const result = await client.eval(ACQUIRE_SCRIPT, [leaseKey(input.deploymentId), rateKey(input.deploymentId)], [
-        now,
-        expiresAt,
-        token,
-        Math.max(1, input.maxConcurrency),
-        rateLimit,
-      ]) as unknown;
-      const values = Array.isArray(result) ? result.map(Number) : [];
-      if (values[0] !== 1) return null;
-      return { deploymentId: input.deploymentId, token, inFlight: values[1] || 1, source: "redis" };
-    } catch (error) {
-      console.warn("[ai-router] Redis capacity reservation unavailable, using process-local guard:", error);
-    }
+  const ttlSeconds = Math.max(30, Math.ceil(finiteOr(input.ttlSeconds, 30)));
+  const expiresAt = now + ttlSeconds * 1000;
+  const maxConcurrency = Math.max(1, Math.floor(finiteOr(input.maxConcurrency, 1)));
+  const rateLimit = Math.max(1, Math.floor(finiteOr(input.requestsPerMinute, 1)) + Math.max(0, Math.floor(finiteOr(input.burst, 0))));
+  const status = getAiCapacityBackendStatus();
+
+  if (status.requestedMode === "local") {
+    return acquireLocal(input.deploymentId, token, now, expiresAt, maxConcurrency, rateLimit);
   }
-  return acquireLocal(input, token, now, expiresAt, rateLimit);
+  const client = await getCapacityRedis();
+  if (!client) return backendUnavailable(maxConcurrency, rateLimit);
+  try {
+    const result = await client.eval(
+      ACQUIRE_SCRIPT,
+      2,
+      leaseKey(input.deploymentId),
+      rateKey(input.deploymentId),
+      ttlSeconds * 1000,
+      token,
+      maxConcurrency,
+      rateLimit,
+    ) as unknown;
+    const values = Array.isArray(result) ? result.map(Number) : [];
+    if (values.length < 5 || !values.every(Number.isFinite) || (values[0] !== 0 && values[0] !== 1)) {
+      throw new Error("invalid Redis capacity decision");
+    }
+    if (values[0] === 1) {
+      const inFlight = positiveInteger(values[2], 1);
+      return {
+        lease: { deploymentId: input.deploymentId, token, inFlight, source: "redis", expiresAt },
+        inFlight,
+        requestCount: positiveInteger(values[3], 1),
+        maxConcurrency,
+        rateLimit,
+        retryAfterSeconds: 0,
+        backend: "redis",
+      };
+    }
+    if (values[1] !== 1 && values[1] !== 2) throw new Error("invalid Redis capacity rejection reason");
+    return rejected(
+      values[1] === 2 ? "rate_limit" : "concurrency",
+      nonNegativeInteger(values[2]),
+      nonNegativeInteger(values[3]),
+      maxConcurrency,
+      rateLimit,
+      values[4],
+      "redis",
+    );
+  } catch (error) {
+    markCapacityRedisUnavailable(client);
+    console.error("[ai-router] Redis capacity reservation failed closed:", safeRedisErrorKind(error));
+    return backendUnavailable(maxConcurrency, rateLimit);
+  }
+}
+
+export async function renewAiProviderCapacity(lease: AiCapacityLease, ttlSeconds: number): Promise<boolean> {
+  const ttl = Math.max(30, Math.ceil(finiteOr(ttlSeconds, 30)));
+  const expiresAt = Date.now() + ttl * 1000;
+  if (lease.source === "local") {
+    const leases = localLeases.get(lease.deploymentId);
+    if (!leases?.has(lease.token)) return false;
+    leases.set(lease.token, expiresAt);
+    lease.expiresAt = expiresAt;
+    return true;
+  }
+  const client = await getCapacityRedis();
+  if (!client) return false;
+  try {
+    const renewed = await client.eval(RENEW_SCRIPT, 1, leaseKey(lease.deploymentId), lease.token, ttl * 1000);
+    if (Number(renewed) !== 1) return false;
+    lease.expiresAt = expiresAt;
+    return true;
+  } catch (error) {
+    markCapacityRedisUnavailable(client);
+    console.error("[ai-router] Redis capacity lease renewal failed closed:", safeRedisErrorKind(error));
+    return false;
+  }
 }
 
 export async function releaseAiProviderCapacity(lease: AiCapacityLease): Promise<void> {
   if (lease.source === "redis") {
-    const client = getCapacityRedis();
+    const client = await getCapacityRedis();
     if (client) {
       try {
         await client.zrem(leaseKey(lease.deploymentId), lease.token);
         return;
       } catch (error) {
-        console.warn("[ai-router] Redis capacity release unavailable:", error);
+        markCapacityRedisUnavailable(client);
+        console.warn("[ai-router] Redis capacity release unavailable; lease will expire:", safeRedisErrorKind(error));
       }
     }
+    return;
   }
   localLeases.get(lease.deploymentId)?.delete(lease.token);
 }
 
 export async function getAiProviderInFlight(deploymentId: string): Promise<number> {
-  const now = Date.now();
-  const client = getCapacityRedis();
-  if (client) {
+  const status = getAiCapacityBackendStatus();
+  if (status.requestedMode === "redis") {
+    const client = await getCapacityRedis();
+    if (!client) return 0;
     try {
-      const value = await client.eval(COUNT_SCRIPT, [leaseKey(deploymentId)], [now]);
-      return Math.max(0, Number(value) || 0);
-    } catch {
-      // Fall through to the process-local view.
+      return Math.max(0, Number(await client.eval(COUNT_SCRIPT, 1, leaseKey(deploymentId))) || 0);
+    } catch (error) {
+      markCapacityRedisUnavailable(client);
+      console.warn("[ai-router] Redis capacity count unavailable:", safeRedisErrorKind(error));
+      return 0;
     }
   }
+  const now = Date.now();
   const leases = localLeases.get(deploymentId);
   if (!leases) return 0;
   for (const [token, expiry] of leases) if (expiry <= now) leases.delete(token);
@@ -114,38 +232,131 @@ export async function getAiProviderInFlight(deploymentId: string): Promise<numbe
 }
 
 function acquireLocal(
-  input: { deploymentId: string; maxConcurrency: number },
+  deploymentId: string,
   token: string,
   now: number,
   expiresAt: number,
+  maxConcurrency: number,
   rateLimit: number,
-): AiCapacityLease | null {
-  const leases = localLeases.get(input.deploymentId) || new Map<string, number>();
+): AiCapacityDecision {
+  const leases = localLeases.get(deploymentId) || new Map<string, number>();
   for (const [leaseToken, expiry] of leases) if (expiry <= now) leases.delete(leaseToken);
-  const requests = (localRequests.get(input.deploymentId) || []).filter((at) => at > now - 60_000);
-  if (leases.size >= Math.max(1, input.maxConcurrency) || requests.length >= rateLimit) return null;
+  const requests = (localRequests.get(deploymentId) || []).filter((at) => at > now - 60_000);
+  localLeases.set(deploymentId, leases);
+  localRequests.set(deploymentId, requests);
+  if (requests.length >= rateLimit) {
+    return rejected("rate_limit", leases.size, requests.length, maxConcurrency, rateLimit, Math.ceil((requests[0] + 60_000 - now) / 1000), "local");
+  }
+  if (leases.size >= maxConcurrency) return rejected("concurrency", leases.size, requests.length, maxConcurrency, rateLimit, 5, "local");
   leases.set(token, expiresAt);
   requests.push(now);
-  localLeases.set(input.deploymentId, leases);
-  localRequests.set(input.deploymentId, requests);
-  return { deploymentId: input.deploymentId, token, inFlight: leases.size, source: "local" };
+  return {
+    lease: { deploymentId, token, inFlight: leases.size, source: "local", expiresAt },
+    inFlight: leases.size,
+    requestCount: requests.length,
+    maxConcurrency,
+    rateLimit,
+    retryAfterSeconds: 0,
+    backend: "local",
+  };
 }
 
-function getCapacityRedis(): Redis | null {
+function rejected(
+  reason: AiCapacityRejectionReason,
+  inFlight: number,
+  requestCount: number,
+  maxConcurrency: number,
+  rateLimit: number,
+  retryAfterSeconds: number | undefined,
+  backend: "redis" | "local",
+): AiCapacityDecision {
+  return { lease: null, reason, inFlight, requestCount, maxConcurrency, rateLimit, retryAfterSeconds: clampRetryAfter(retryAfterSeconds), backend };
+}
+
+function backendUnavailable(maxConcurrency: number, rateLimit: number) {
+  return rejected("backend_unavailable", 0, 0, maxConcurrency, rateLimit, 5, "redis");
+}
+
+async function getCapacityRedis(): Promise<CapacityRedisClient | null> {
   if (redis !== undefined) return redis;
+  if (redisConnecting) return redisConnecting;
+  if (Date.now() < redisReconnectAfter) return null;
   if (getAiCapacityBackendStatus().requestedMode === "local") return (redis = null);
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  return (redis = url && token ? new Redis({ url, token }) : null);
+  const url = process.env.REDIS_URL?.trim();
+  if (!isStandardRedisUrl(url)) return (redis = null);
+  const client = new IORedis(url!, {
+    connectionName: "wanxiangzy:ai-capacity",
+    connectTimeout: 5_000,
+    enableOfflineQueue: false,
+    keepAlive: 10_000,
+    lazyConnect: true,
+    maxRetriesPerRequest: 1,
+    retryStrategy: (attempt) => attempt >= 3 ? null : Math.min(250 * 2 ** Math.max(0, attempt - 1), 1_000),
+  });
+  client.on("error", (error) => console.error("[ai-router] Redis capacity connection error:", safeRedisErrorKind(error)));
+  redisConnecting = client.connect()
+    .then(() => {
+      redis = client;
+      redisReconnectAfter = 0;
+      return client;
+    })
+    .catch((error) => {
+      client.disconnect();
+      redisReconnectAfter = Date.now() + 2_000;
+      console.error("[ai-router] Redis capacity initial connection failed closed:", safeRedisErrorKind(error));
+      return null;
+    })
+    .finally(() => {
+      redisConnecting = undefined;
+    });
+  return redisConnecting;
 }
 
-function leaseKey(deploymentId: string) { return `ai:route:leases:${deploymentId}`; }
-function rateKey(deploymentId: string) { return `ai:route:rpm:${deploymentId}`; }
+function markCapacityRedisUnavailable(client: CapacityRedisClient) {
+  if (redis === client) redis = undefined;
+  redisReconnectAfter = Date.now() + 1_000;
+  try {
+    client.disconnect?.();
+  } catch {
+    // A new connection will be attempted after the bounded outage backoff.
+  }
+}
+
+function redisHashTag(deploymentId: string) { return deploymentId.replace(/[{}]/g, "_"); }
+function leaseKey(deploymentId: string) { return `ai:route:{${redisHashTag(deploymentId)}}:leases`; }
+function rateKey(deploymentId: string) { return `ai:route:{${redisHashTag(deploymentId)}}:rpm`; }
+function finiteOr(value: number, fallback: number) { return Number.isFinite(value) ? value : fallback; }
+function positiveInteger(value: number | undefined, fallback: number) { return Number.isFinite(value) && value! > 0 ? Math.floor(value!) : fallback; }
+function nonNegativeInteger(value: number | undefined) { return Number.isFinite(value) && value! > 0 ? Math.floor(value!) : 0; }
+function clampRetryAfter(value: number | undefined) { return Math.min(300, Math.max(1, Math.ceil(Number.isFinite(value) ? value! : 5))); }
+function safeRedisErrorKind(error: unknown) {
+  const candidate = error && typeof error === "object" ? error as { name?: unknown; code?: unknown } : {};
+  const name = typeof candidate.name === "string" && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(candidate.name) ? candidate.name : "RedisError";
+  const code = typeof candidate.code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(candidate.code) ? candidate.code : "";
+  return code ? `${name}:${code}` : name;
+}
+function isStandardRedisUrl(value: string | undefined) {
+  if (!value?.trim()) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === "redis:" || url.protocol === "rediss:") && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export const __aiCapacityTestUtils = {
   reset() {
     redis = undefined;
+    redisConnecting = undefined;
+    redisReconnectAfter = 0;
     localLeases.clear();
     localRequests.clear();
+  },
+  setRedisClient(client: CapacityRedisClient | null) {
+    redis = client;
+  },
+  keys(deploymentId: string) {
+    return { lease: leaseKey(deploymentId), rate: rateKey(deploymentId) };
   },
 };

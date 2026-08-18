@@ -2104,7 +2104,7 @@ function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
     { key: "SUPABASE_SERVICE_ROLE_KEY", label: "后台管理密钥", configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY), scope: "后台" },
     { key: "ADMIN_BOOTSTRAP_EMAILS", label: "初始管理员邮箱", configured: Boolean(process.env.ADMIN_BOOTSTRAP_EMAILS || process.env.ADMIN_EMAILS), scope: "后台" },
     { key: "TASK_QUEUE_CACHE_MODE", label: "任务缓存模式", configured: Boolean(process.env.TASK_QUEUE_CACHE_MODE), scope: "任务队列" },
-    { key: "UPSTASH_REDIS_REST_URL", label: "任务队列缓存", configured: Boolean(process.env.UPSTASH_REDIS_REST_URL), scope: "任务队列" },
+    { key: "REDIS_URL", label: "BullMQ / 分布式容量 Redis", configured: Boolean(process.env.REDIS_URL), scope: "任务队列" },
     { key: "IMAGE_STORAGE_PROVIDER", label: "图片存储服务", configured: Boolean(process.env.IMAGE_STORAGE_PROVIDER), scope: "存储" },
     { key: "ALIYUN_OSS_BUCKET", label: "对象存储空间", configured: Boolean(process.env.ALIYUN_OSS_BUCKET), scope: "存储" },
     { key: "LAOZHANG_API_KEY", label: "旧版生图通道", configured: Boolean(process.env.LAOZHANG_API_KEY), scope: "供应商（已废弃）" },

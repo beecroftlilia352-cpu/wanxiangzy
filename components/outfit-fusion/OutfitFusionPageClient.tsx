@@ -748,7 +748,7 @@ export function OutfitFusionPageClient() {
   async function submitGeneration(task: OutfitFusionTask): Promise<{ generationId: string | null; creditsRemaining?: number }> {
     const response = await fetch("/api/general-image", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${task.id}` },
       body: JSON.stringify({
         mode: "image-to-image",
         prompt: task.requestPrompt,

@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `图片翻译 ${sourceUrls.length} 张原图 × ${languages.length} 种语言 × ${genCount} (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
     });
 
     startGenerationJob(debit.generationId);

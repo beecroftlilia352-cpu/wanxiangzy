@@ -478,7 +478,7 @@ export default function MaterialEnhancementPage() {
     try {
       const res = await fetch("/api/material-enhancement", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           source_url: sourceUrl,
           garment_url: garmentUrl,

@@ -576,7 +576,7 @@ export default function ModelBackgroundPage() {
     try {
       const res = await fetch("/api/model-background", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           source_url: runSourceUrls[0] || "",
           source_urls: runSourceUrls,

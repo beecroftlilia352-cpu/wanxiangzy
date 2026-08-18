@@ -19,6 +19,10 @@ const developmentDeploymentId =
     : undefined;
 
 const nextConfig: NextConfig = {
+  // BullMQ 6 exposes optional Valkey backends that are selected at runtime.
+  // Keep queue clients as Node server dependencies so webpack does not try to
+  // bundle optional drivers into admin route chunks.
+  serverExternalPackages: ["bullmq", "ioredis"],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -99,7 +103,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://*.supabase.co https://replicate.delivery https://*.fashn.ai https://*.sssai.vip https://i.ibb.co https://*.ibb.co https://t.filesystem.site https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vasthk.cn-hongkong.thepacificgls.com https://cn-hongkong.thepacificgls.com https://webstatic.aiproxy.vip https://oss.filenest.top https://yunwu.ai",
               "media-src 'self' data: blob: https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vasthk.cn-hongkong.thepacificgls.com https://cn-hongkong.thepacificgls.com",
               "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co https://api.lingyaai.cn https://api.bltcy.ai https://api.xiaomimimo.com https://api.imgbb.com https://value.apiqik.online https://yunwu.ai https://api.laozhang.ai https://*.ibb.co https://helping-bug-126905.upstash.io",
+              "connect-src 'self' https://*.supabase.co https://api.lingyaai.cn https://api.bltcy.ai https://api.xiaomimimo.com https://api.imgbb.com https://value.apiqik.online https://yunwu.ai https://api.laozhang.ai https://*.ibb.co https://*.aliyuncs.com",
               "frame-ancestors 'none'",
             ].join("; "),
           },

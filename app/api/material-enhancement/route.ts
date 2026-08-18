@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `材质增强 ${genCount} 张 (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
     });
 
     startGenerationJob(debit.generationId);

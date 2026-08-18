@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { isRecord } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import {
@@ -9,7 +11,7 @@ import {
   type LingyaModel,
 } from "@/lib/api/lingya";
 import { completeGenerationWithCreditAdjustment, failGenerationWithRefund } from "@/lib/api/credits";
-import { resolveImageInputs } from "@/lib/api/image-inputs.server";
+import { resolveImageInputs, resolveMediaInput } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { persistGeneratedMediaUrls } from "@/lib/api/result-media-storage";
 import {
@@ -22,8 +24,18 @@ import type { VideoProviderName } from "@/lib/api/video-catalog";
 import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
-import { runWithAiRouteContext } from "@/lib/ai-control-plane/context.server";
-import { AiCapacityUnavailableError } from "@/lib/ai-control-plane/router.server";
+import { dispatchGenerationJob } from "@/lib/api/generation-job-dispatch";
+import { isAiCapacityUnavailableError } from "@/lib/ai-control-plane/router.server";
+import {
+  isRetryableGenerationError,
+  RetryableGenerationError,
+  sanitizeGenerationErrorMessage,
+} from "@/lib/api/generation-errors";
+import {
+  attachGenerationMediaAssetReferences,
+  collectGenerationInputMediaAssetIds,
+  parseCanonicalMediaAssetId,
+} from "@/lib/api/media-asset-references.server";
 // Agent module is temporarily disabled; the visual quality evaluator
 // (applyQualityRepairToPrompt / evaluateGeneratedImages) is stubbed locally.
 // Restore the import from "@/lib/agent/brain/visual-quality" once the
@@ -159,10 +171,27 @@ import {
 
 type GenerationJobPayloadBase = {
   publicBaseUrl?: string | null;
-  aiTool?: {
-    requestId: string;
-    operation: "outpaint" | "erase" | "repair-limbs" | "repair-garment" | "repair-footwear";
-    nativeMaskUrl?: string;
+  asyncTask?: {
+    taskId?: string;
+    requestId?: string;
+    status?: string;
+    progress?: unknown;
+    providerDetails?: Record<string, unknown>;
+    slots?: Array<{
+      slot: number;
+      taskId: string;
+      requestId?: string;
+      status?: string;
+      progress?: number;
+      updatedAt: string;
+    }>;
+    updatedAt?: string;
+  };
+  generationBatchProgress?: {
+    version: 1;
+    expectedCount: number;
+    resultUrls: string[];
+    updatedAt: string;
   };
 };
 
@@ -401,16 +430,8 @@ interface ClaimedJob {
   job_payload: unknown;
   credits_cost: number;
   job_attempts: number;
-}
-
-interface ExhaustedJob {
-  id: string;
-  user_id: string;
-  credits_cost: number | null;
-  job_attempts: number | null;
-  job_payload: unknown;
-  processing_started_at: string | null;
-  error_message: string | null;
+  delivery_version: number;
+  execution_token: string;
 }
 
 type PromptTraceItem = {
@@ -431,6 +452,7 @@ type GenerationExecutionResult = {
   externalTaskId?: string;
   externalRequestId?: string;
   externalStatus?: string;
+  externalSlotIndex?: number;
   providerDetails?: Record<string, unknown>;
   failedCount?: number;
   partialError?: string;
@@ -441,88 +463,101 @@ type GenerationProgressUpdate = GenerationExecutionResult;
 type GenerationProgressCallback = (update: GenerationProgressUpdate) => Promise<void>;
 
 export function startGenerationJob(generationId: string) {
-  runGenerationJobById(generationId).catch((err) => {
-    logger.error(`[jobs] background job ${generationId} failed:`, err);
+  return dispatchGenerationJob({
+    generationId,
+    execute: (id) => runGenerationJobById(id, 1),
+    onError: (err) => logger.error(`[jobs] local job ${generationId} failed:`, err),
   });
 }
 
-export async function runGenerationJobById(generationId: string) {
+export async function runGenerationJobById(generationId: string, deliveryVersion: number) {
   const supabase = createAdminClient();
+  if (!Number.isInteger(deliveryVersion) || deliveryVersion < 1) {
+    throw new Error("任务投递版本无效");
+  }
+  const executionToken = randomUUID();
   const { data, error } = await supabase.rpc("claim_generation_job", {
     p_generation_id: generationId,
+    p_delivery_version: deliveryVersion,
+    p_execution_token: executionToken,
+    p_lease_seconds: 45,
   });
 
   if (error) {
     throw new Error(`任务认领失败: ${error.message}`);
   }
 
-  const job = getFirstRow(data);
+  const claimed = getFirstRow(data);
+  const job = claimed
+    ? { ...claimed, delivery_version: deliveryVersion, execution_token: executionToken }
+    : null;
   if (!job) return { processed: 0, skipped: 1 };
 
-  await runClaimedJob(supabase, job);
-  return { processed: 1, skipped: 0 };
+  const result = await runWithExecutionHeartbeat(supabase, job, () => runClaimedJob(supabase, job));
+  return {
+    processed: result.deferred ? 0 : 1,
+    deferred: result.deferred ? 1 : 0,
+    skipped: 0,
+    failed: result.businessFailed ? 1 : 0,
+  };
 }
 
-export async function runNextGenerationJobs(
-  limit = 2,
-  options?: { staleAfterMinutes?: number; concurrency?: number },
+async function runWithExecutionHeartbeat<T>(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  execute: () => Promise<T>,
 ) {
-  const supabase = createAdminClient();
-  const staleAfterMinutes = options?.staleAfterMinutes ?? 8;
-  const concurrency = Math.min(Math.max(Math.floor(options?.concurrency ?? 2), 1), 8);
-  const { data, error } = await supabase.rpc("claim_next_generation_jobs", {
-    p_limit: limit,
-    p_stale_after: `${staleAfterMinutes} minutes`,
-  });
-
-  if (error) {
-    throw new Error(`任务批量认领失败: ${error.message}`);
-  }
-
-  const jobs = Array.isArray(data) ? (data as ClaimedJob[]) : [];
-  const results: Array<{ id: string; ok: boolean; error?: string }> = [];
-
-  // Concurrent execution with bounded worker pool (same pattern as
-  // executeParallelImageBatch). Each job operates on its own DB row
-  // claimed via FOR UPDATE SKIP LOCKED, so concurrent execution is safe.
-  // This is critical for productRetouch child tasks where each job
-  // generates only one image — without concurrency they run fully serial.
-  let nextJobIndex = 0;
-  await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length || 1) }, async () => {
-    while (nextJobIndex < jobs.length) {
-      const index = nextJobIndex++;
-      const job = jobs[index];
-      try {
-        await runClaimedJob(supabase, job);
-        results[index] = { id: job.id, ok: true };
-      } catch (err) {
-        results[index] = {
-          id: job.id,
-          ok: false,
-          error: err instanceof Error ? err.message : "任务失败",
-        };
+  let heartbeatInFlight = false;
+  let heartbeatError: Error | null = null;
+  const timer = setInterval(() => {
+    if (heartbeatInFlight || heartbeatError) return;
+    heartbeatInFlight = true;
+    void Promise.resolve(supabase.rpc("heartbeat_generation_job", {
+      p_generation_id: job.id,
+      p_delivery_version: job.delivery_version,
+      p_execution_token: job.execution_token,
+      p_lease_seconds: 45,
+    })).then(({ data, error }) => {
+      if (error || data !== true) {
+        heartbeatError = new Error(`任务执行租约已丢失: ${error?.message || "stale execution fence"}`);
       }
-    }
-  }));
-  const compacted = results.filter((r): r is { id: string; ok: boolean; error?: string } => Boolean(r));
+    }).catch((error: unknown) => {
+      heartbeatError = new Error(`任务执行心跳失败: ${error instanceof Error ? error.message : String(error)}`);
+    }).finally(() => {
+      heartbeatInFlight = false;
+    });
+  }, 15_000);
+  timer.unref?.();
 
-  const exhaustedRefunded = await refundExhaustedJobs(supabase);
-  return { claimed: jobs.length, exhausted_refunded: exhaustedRefunded, results: compacted };
+  try {
+    const result = await execute();
+    if (heartbeatError) throw heartbeatError;
+    return result;
+  } finally {
+    clearInterval(timer);
+  }
 }
 
 async function runClaimedJob(
   supabase: ReturnType<typeof createAdminClient>,
   job: ClaimedJob
-) {
+): Promise<{ businessFailed: boolean; deferred: boolean }> {
   let parsedPayload: GenerationJobPayload | null = null;
-  let hasPartialOutput = false;
+  let partialResultUrls: string[] = [];
+  let partialModuleResults: ProductSetModuleResult[] = [];
   try {
     await syncGenerationQueueIndex(job.id, "claim");
     const payload = parseJobPayload(job.job_payload);
     parsedPayload = payload;
-    const partialResultUrls: string[] = [];
+    await attachGenerationMediaAssetReferences({
+      client: supabase,
+      generationId: job.id,
+      ownerUserId: job.user_id,
+      assetIds: collectGenerationInputMediaAssetIds(payload),
+      role: "generation_input",
+    });
+    partialResultUrls = readResumableBatchResultUrls(payload, getExpectedResultCount(payload));
     const partialPromptTrace: PromptTraceItem[] = [];
-    let partialModuleResults: ProductSetModuleResult[] = [];
     const rawModuleUrlByKey = new Map<string, string>();
     const persistedModuleUrlByKey = new Map<string, string>();
     const persistedResultUrlByRawUrl = new Map<string, string>();
@@ -545,7 +580,6 @@ async function runClaimedJob(
           mediaType: isVideoPayload(payload) ? "video" : "image",
         });
         const finalUrl = persisted || rawUrl;
-        hasPartialOutput = true;
         persistedResultUrlByRawUrl.set(rawUrl, finalUrl);
         persistedUrls[index] = finalUrl;
       }
@@ -567,7 +601,6 @@ async function runClaimedJob(
             rawModuleUrlByKey.set(moduleResult.moduleKey, resultUrl);
             persistedModuleUrlByKey.set(moduleResult.moduleKey, persisted || resultUrl);
             resultUrl = persisted || resultUrl;
-            hasPartialOutput = true;
           } else {
             resultUrl = persistedModuleUrlByKey.get(moduleResult.moduleKey) || resultUrl;
           }
@@ -580,20 +613,7 @@ async function runClaimedJob(
       return persistedModules;
     };
 
-    const { data: routingPreference } = await supabase
-      .from("ai_user_routing_preferences")
-      .select("routing_mode,allow_cross_model_fallback")
-      .eq("user_id", job.user_id)
-      .maybeSingle();
-    const execution = await runWithAiRouteContext({
-      generationId: job.id,
-      userId: job.user_id,
-      routingMode: routingPreference?.routing_mode === "smart" ? "smart" : "stable",
-      // Provider fallback is safe because the logical model and customer
-      // price stay unchanged. Cross-model substitution needs a separate,
-      // explicit capability and pricing consent flow, so it is fail-closed.
-      allowCrossModelFallback: false,
-    }, () => executePayload(payload, async (update) => {
+    const execution = await executePayload(payload, async (update) => {
       if (update.moduleResults?.length) {
         const persistedModules = await persistModuleResults(update.moduleResults);
         const nextProgress = typeof update.progress === "number" ? update.progress : lastProgress;
@@ -607,6 +627,7 @@ async function runClaimedJob(
           externalTaskId: update.externalTaskId,
           externalRequestId: update.externalRequestId,
           externalStatus: update.externalStatus,
+          externalSlotIndex: update.externalSlotIndex,
           providerDetails: update.providerDetails,
         });
         return;
@@ -636,9 +657,10 @@ async function runClaimedJob(
         externalTaskId: update.externalTaskId,
         externalRequestId: update.externalRequestId,
         externalStatus: update.externalStatus,
+        externalSlotIndex: update.externalSlotIndex,
         providerDetails: update.providerDetails,
       });
-    }));
+    }, job.user_id, job.id);
     if (payload.kind === "productRetouch" && execution.hardValidation) {
       await assertProductRetouchResultUnique(supabase, payload, execution.hardValidation);
     }
@@ -688,7 +710,7 @@ async function runClaimedJob(
       .join("; ");
     const refundAmount = calculatePartialRefund(Number(job.credits_cost || 0), finalUrls.length, expectedCount);
     const settlementError = execution.partialError || moduleFailureSummary;
-    const finalPayload = appendGenerationSettlementMetadata(appendProductSetModuleResults(
+    const finalPayload = clearResumableBatchProgress(appendGenerationSettlementMetadata(appendProductSetModuleResults(
       appendProductRetouchHardValidation(
         appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
         execution.hardValidation,
@@ -700,21 +722,37 @@ async function runClaimedJob(
       failedCount: Math.max(Number(execution.failedCount || 0), Math.max(0, expectedCount - finalUrls.length)),
       refundAmount,
       errorMessage: settlementError,
-    });
+    }));
 
+    await attachGenerationMediaAssetReferences({
+      client: supabase,
+      generationId: job.id,
+      ownerUserId: job.user_id,
+      assetIds: finalUrls.map(parseCanonicalMediaAssetId).filter((id): id is string => Boolean(id)),
+      role: "generation_result",
+    });
     await completeGenerationRecord(supabase, job, finalUrls, finalPayload, {
       refundAmount,
       errorMessage: settlementError,
     });
+    return { businessFailed: false, deferred: false };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "生成失败";
-    if (err instanceof AiCapacityUnavailableError && !hasPartialOutput) {
-      await deferGenerationForAiCapacity(supabase, job, err);
-      return;
+    const message = sanitizeGenerationErrorMessage(err, "生成失败");
+    const hasPartialOutput = partialResultUrls.some(Boolean)
+      || partialModuleResults.some((item) => Boolean(item.resultUrl));
+    if (isAiCapacityUnavailableError(err) && !hasPartialOutput) {
+      await deferGenerationForAiCapacity(supabase, job, err.retryAfterSeconds, message);
+      return { businessFailed: false, deferred: true };
+    }
+    // Transient provider/DB/Redis/OSS faults must remain retryable. Settling
+    // and refunding here would turn a short outage into a user-visible terminal
+    // failure and make BullMQ's durable retry policy ineffective.
+    if (isRetryableGenerationError(err)) {
+      throw new RetryableGenerationError(message, "GENERATION_EXECUTION_RETRYABLE", { cause: err });
     }
     if (parsedPayload?.kind === "productRetouch" && Number(job.credits_cost || 0) === 0) {
       await failZeroCostProductRetouchChild(supabase, job, parsedPayload, message);
-      throw err;
+      return { businessFailed: true, deferred: false };
     }
     const settled = await settleFailedGenerationFromProgress(supabase, job, message);
     if (!settled) {
@@ -722,29 +760,33 @@ async function runClaimedJob(
         userId: job.user_id,
         generationId: job.id,
         amount: Number(job.credits_cost || 0),
+        deliveryVersion: job.delivery_version,
+        executionToken: job.execution_token,
         reason: "生成失败退还",
         errorMessage: message,
       });
       await annotateFailedGenerationPayload(supabase, job, message);
     }
-    throw err;
+    return { businessFailed: true, deferred: false };
   }
 }
 
 async function deferGenerationForAiCapacity(
   supabase: ReturnType<typeof createAdminClient>,
   job: ClaimedJob,
-  error: AiCapacityUnavailableError,
+  retryAfterSeconds: number,
+  reason: string,
 ) {
-  const { data: deferred, error: deferError } = await supabase.rpc("defer_generation_for_ai_capacity", {
+  const { data, error } = await supabase.rpc("defer_generation_for_ai_capacity", {
     p_generation_id: job.id,
     p_user_id: job.user_id,
-    p_delay_seconds: error.retryAfterSeconds,
-    p_reason: error.message,
+    p_delivery_version: job.delivery_version,
+    p_execution_token: job.execution_token,
+    p_delay_seconds: Math.min(Math.max(Math.ceil(retryAfterSeconds), 5), 300),
+    p_reason: reason.slice(0, 500),
   });
-  if (deferError) throw new Error(`模型容量排队失败: ${deferError.message}`);
-  if (deferred !== true) throw new Error("模型容量排队失败: 任务状态已变化");
-  logger.info(`[jobs] deferred ${job.id} for AI capacity (${error.retryAfterSeconds}s)`);
+  if (error) throw new Error(`模型容量排队失败: ${error.message}`);
+  if (data !== true) throw new Error("模型容量排队失败: execution fence 已变化");
   await syncGenerationQueueIndex(job.id, "capacity-defer");
 }
 
@@ -761,19 +803,24 @@ async function failZeroCostProductRetouchChild(
     refundAmount: 0,
     errorMessage,
   });
+  await failGenerationWithRefund(supabase, {
+    userId: job.user_id,
+    generationId: job.id,
+    amount: 0,
+    deliveryVersion: job.delivery_version,
+    executionToken: job.execution_token,
+    reason: "商品精修子任务失败",
+    errorMessage,
+  });
   const { error } = await supabase
     .from("generations")
     .update({
-      status: "failed",
       job_payload: failedPayload,
-      error_message: errorMessage,
-      processing_started_at: null,
-      completed_at: new Date().toISOString(),
-      credits_used: 0,
     })
     .eq("id", job.id)
     .eq("user_id", job.user_id)
-    .neq("status", "completed");
+    .eq("delivery_version", job.delivery_version)
+    .eq("status", "failed");
   if (error) throw new Error(`更新商品精修子任务失败: ${error.message}`);
   await syncGenerationQueueIndex(job.id, "product-retouch-fail");
 }
@@ -792,6 +839,8 @@ async function completeGenerationRecord(
     userId: job.user_id,
     generationId: job.id,
     resultUrls,
+    deliveryVersion: job.delivery_version,
+    executionToken: job.execution_token,
     jobPayload,
     creditsUsed,
     refundAmount,
@@ -799,38 +848,7 @@ async function completeGenerationRecord(
     errorMessage: options.errorMessage || null,
   });
 
-  if (adjusted) return;
-  if (refundAmount > 0) {
-    logger.error(`[jobs] generation ${job.id} completed partially but credit adjustment rpc is unavailable; run supabase/atomic-credit-rpc.sql`);
-  }
-
-  const { data, error } = await supabase
-    .from("generations")
-    .update({
-      status: "completed",
-      result_urls: resultUrls,
-      job_payload: jobPayload,
-      processing_started_at: null,
-      completed_at: new Date().toISOString(),
-      credits_used: refundAmount > 0 ? totalCost : creditsUsed,
-    })
-    .eq("id", job.id)
-    .eq("user_id", job.user_id)
-    .neq("status", "failed")
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    if (error.code === "23505" && error.message.includes("product_retouch_outputs_batch_hash_unique_idx")) {
-      throw new Error("结果与批次内已有图片重复");
-    }
-    throw new Error(`更新任务结果失败: ${error.message}`);
-  }
-  if (!data) {
-    logger.warn(`[jobs] generation ${job.id} was no longer completable; skipped completion write`);
-  } else {
-    await syncGenerationQueueIndex(job.id, "complete-fallback");
-  }
+  if (!adjusted) throw new Error(`任务完成结算失败: ${job.id}`);
 }
 
 async function assertProductRetouchResultUnique(
@@ -930,6 +948,7 @@ async function annotateFailedGenerationPayload(
     .update({ job_payload: failedPayload })
     .eq("id", job.id)
     .eq("user_id", job.user_id)
+    .eq("delivery_version", job.delivery_version)
     .neq("status", "completed");
 
   if (updateError) {
@@ -984,6 +1003,11 @@ function compactResultUrls(urls: string[]) {
   return urls.filter((url): url is string => typeof url === "string" && url.trim().length > 0);
 }
 
+function isCanonicalMediaAssetUrl(value: unknown): value is string {
+  return typeof value === "string"
+    && /^\/api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i.test(value);
+}
+
 function readExpectedCountFromRecord(payload: Record<string, unknown>, fallback: number) {
   const moduleResults = normalizeProductSetModuleResults(payload.moduleResults);
   if (moduleResults.length) return moduleResults.length;
@@ -1011,7 +1035,7 @@ async function regenerateForQuality(
       resultUrls: persisted,
       promptTrace: [...previousPromptTrace, ...update.promptTrace],
     });
-  });
+  }, job.user_id, job.id);
   const persisted = await persistGeneratedImageUrls(execution.resultUrls, `${job.id}-quality-repair`, {
     forceServerDownload: isSeedreamPayload(repairedPayload),
   });
@@ -1085,11 +1109,19 @@ async function evaluateProductSetModuleResults(params: {
 
 async function executePayload(
   payload: GenerationJobPayload,
-  onProgress?: GenerationProgressCallback
+  onProgress: GenerationProgressCallback | undefined,
+  ownerUserId: string,
+  generationId?: string,
 ): Promise<GenerationExecutionResult> {
   const promptTrace: PromptTraceItem[] = [];
   const resolvePayloadImageInputs = (input: Parameters<typeof resolveImageInputs>[0]) =>
-    resolveImageInputs(input, { publicBaseUrl: payload.publicBaseUrl });
+    resolveImageInputs(input, { publicBaseUrl: payload.publicBaseUrl, ownerUserId });
+  const resolvePayloadMediaInput = (src: string, expectedKind: "audio" | "image" | "video") =>
+    resolveMediaInput(src, {
+      publicBaseUrl: payload.publicBaseUrl,
+      ownerUserId,
+      expectedKind,
+    });
   type ParallelImageRunResult = {
     resultUrl?: string;
     resultUrls?: string[];
@@ -1117,11 +1149,13 @@ async function executePayload(
   }): Promise<GenerationExecutionResult> => {
     const expectedCount = Math.max(1, Math.floor(params.count || 1));
     const maxAttemptsPerSlot = Math.max(1, Math.floor(params.maxAttemptsPerSlot || 1));
-    const resultUrlSlots: string[][] = Array.from({ length: expectedCount }, () => []);
+    const resumedUrls = readResumableBatchResultUrls(payload, expectedCount)
+      .map((url) => isCanonicalMediaAssetUrl(url) ? url : "");
+    const resultUrlSlots: string[][] = resumedUrls.map((url) => url ? [url] : []);
     const traceSlots: Array<PromptTraceItem | null> = Array.from({ length: expectedCount }, () => null);
-    const failures: Array<{ index: number; message: string }> = [];
-    const taskProgress = Array.from({ length: expectedCount }, () => 0);
-    let completedCount = 0;
+    const failures: Array<{ index: number; message: string; retryable: boolean }> = [];
+    const taskProgress: number[] = resumedUrls.map((url) => url ? 100 : 0);
+    let completedCount = resumedUrls.filter(Boolean).length;
     let progressQueue = Promise.resolve();
     const getCompletedResultUrls = () => resultUrlSlots.flat();
     const getSlottedResultUrls = () => resultUrlSlots.map((slot) => slot[0] || "");
@@ -1194,7 +1228,7 @@ async function executePayload(
         }
       }
 
-      failures.push({ index, message: lastMessage });
+      failures.push({ index, message: lastMessage, retryable: isRetryableSlotError(lastMessage) });
       taskProgress[index] = 100;
       await emitProgress({
         resultUrls: getSlottedResultUrls(),
@@ -1213,6 +1247,7 @@ async function executePayload(
       while (nextIndex < expectedCount) {
         const index = nextIndex;
         nextIndex += 1;
+        if (resultUrlSlots[index]?.length) continue;
         await runOne(index);
       }
     }));
@@ -1220,6 +1255,13 @@ async function executePayload(
     await progressQueue;
     const resultUrls = getCompletedResultUrls();
     const traces = getCompletedPromptTrace();
+    const retryableFailures = failures.filter((item) => item.retryable);
+    if (retryableFailures.length) {
+      throw new RetryableGenerationError(
+        `图片批次仍有 ${retryableFailures.length} 个槽位因上游临时故障待重试`,
+        "IMAGE_BATCH_RETRYABLE",
+      );
+    }
     if (!resultUrls.length && failures.length) {
       throw new Error(failures[0]?.message || "image task failed");
     }
@@ -1234,18 +1276,27 @@ async function executePayload(
 
   const runVideoBatch = async (
     promptKind: string,
-    runOne: (index: number, onVideoProgress: (progress: VideoTaskProgress) => Promise<void>) => Promise<VideoGenerationResult>
+    runOne: (
+      index: number,
+      onVideoProgress: (progress: VideoTaskProgress) => Promise<void>,
+      resumeTask?: { taskId: string; requestId?: string },
+    ) => Promise<VideoGenerationResult>
   ) => {
     const expectedCount = normalizeAiVideoGenCount(payload.genCount);
-    const resultUrls: string[] = [];
+    const resultSlots = readResumableBatchResultUrls(payload, expectedCount)
+      .map((url) => isCanonicalMediaAssetUrl(url) ? url : "");
+    const externalSlots = readExistingAsyncTask(payload).slots || [];
     let externalTaskId: string | undefined;
     let externalRequestId: string | undefined;
     let externalStatus: string | undefined;
     let providerDetails: Record<string, unknown> | undefined;
 
     for (let index = 0; index < expectedCount; index += 1) {
+      if (resultSlots[index]) continue;
+      const checkpoint = externalSlots.find((item) => item.slot === index);
       const result = await runOne(index, async (progress) => {
-        const currentUrls = progress.urls?.length ? [...resultUrls, ...progress.urls] : resultUrls;
+        const currentUrls = [...resultSlots];
+        if (progress.urls?.[0]) currentUrls[index] = progress.urls[0];
         await onProgress?.({
           resultUrls: currentUrls,
           promptTrace,
@@ -1253,11 +1304,12 @@ async function executePayload(
           externalTaskId: progress.taskId,
           externalRequestId: progress.requestId,
           externalStatus: progress.providerStatus || progress.status,
+          externalSlotIndex: index,
           providerDetails: progress.providerDetails,
         });
-      });
+      }, checkpoint ? { taskId: checkpoint.taskId, requestId: checkpoint.requestId } : undefined);
 
-      resultUrls.push(...result.urls);
+      resultSlots[index] = result.urls[0];
       externalTaskId = result.taskId;
       externalRequestId = result.requestId || externalRequestId;
       externalStatus = result.providerStatus;
@@ -1272,18 +1324,19 @@ async function executePayload(
       }));
 
       await onProgress?.({
-        resultUrls,
+        resultUrls: [...resultSlots],
         promptTrace,
         progress: Math.min(99, Math.round(((index + 1) / expectedCount) * 100)),
         externalTaskId,
         externalRequestId,
         externalStatus,
+        externalSlotIndex: index,
         providerDetails,
       });
     }
 
     return {
-      resultUrls,
+      resultUrls: compactResultUrls(resultSlots),
       promptTrace,
       progress: 100,
       externalTaskId,
@@ -1296,18 +1349,26 @@ async function executePayload(
   if (payload.kind === "videoImageToVideo") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateVideoImageToVideo({
+    const [imageUrl, audioUrl] = await Promise.all([
+      resolvePayloadMediaInput(payload.imageUrl, "image"),
+      audioMode === "custom" && payload.audioUrl
+        ? resolvePayloadMediaInput(payload.audioUrl, "audio")
+        : undefined,
+    ]);
+    return runVideoBatch("video:image-to-video", (index, onVideoProgress, resumeTask) => generateVideoImageToVideo({
       provider: payload.provider,
-      imageUrl: payload.imageUrl,
+      imageUrl,
       prompt: payload.prompt,
       modelMode,
       duration: normalizeAiVideoDuration(payload.duration),
       resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
       aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
       audioMode,
-      audioUrl: payload.audioUrl,
+      audioUrl,
       audioPrompt: payload.audioPrompt,
       generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
+      idempotencyKey: generationId ? `gen-${generationId}-video-${index}` : undefined,
+      resumeTask,
       onProgress: onVideoProgress,
     }));
   }
@@ -1315,19 +1376,28 @@ async function executePayload(
   if (payload.kind === "videoMotion") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateVideoMotionControl({
+    const [modelImageUrl, referenceVideoUrl] = await Promise.all([
+      resolvePayloadMediaInput(payload.modelImageUrl, "image"),
+      resolvePayloadMediaInput(payload.referenceVideoUrl, "video"),
+    ]);
+    const audioUrl = audioMode === "custom" && payload.audioUrl
+      ? await resolvePayloadMediaInput(payload.audioUrl, "audio")
+      : undefined;
+    return runVideoBatch("video:motion-control", (index, onVideoProgress, resumeTask) => generateVideoMotionControl({
       provider: payload.provider,
-      modelImageUrl: payload.modelImageUrl,
-      referenceVideoUrl: payload.referenceVideoUrl,
+      modelImageUrl,
+      referenceVideoUrl,
       prompt: payload.prompt,
       modelMode,
       duration: normalizeAiVideoDuration(payload.duration),
       resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
       aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
       audioMode,
-      audioUrl: payload.audioUrl,
+      audioUrl,
       audioPrompt: payload.audioPrompt,
       generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
+      idempotencyKey: generationId ? `gen-${generationId}-video-${index}` : undefined,
+      resumeTask,
       onProgress: onVideoProgress,
     }));
   }
@@ -1335,19 +1405,28 @@ async function executePayload(
   if (payload.kind === "videoFirstLastFrame") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateVideoFirstLastFrame({
+    const [firstFrameUrl, lastFrameUrl] = await Promise.all([
+      resolvePayloadMediaInput(payload.firstFrameUrl, "image"),
+      resolvePayloadMediaInput(payload.lastFrameUrl, "image"),
+    ]);
+    const audioUrl = audioMode === "custom" && payload.audioUrl
+      ? await resolvePayloadMediaInput(payload.audioUrl, "audio")
+      : undefined;
+    return runVideoBatch("video:first-last-frame", (index, onVideoProgress, resumeTask) => generateVideoFirstLastFrame({
       provider: payload.provider,
-      firstFrameUrl: payload.firstFrameUrl,
-      lastFrameUrl: payload.lastFrameUrl,
+      firstFrameUrl,
+      lastFrameUrl,
       prompt: payload.prompt,
       modelMode,
       duration: normalizeAiVideoDuration(payload.duration),
       resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
       aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
       audioMode,
-      audioUrl: payload.audioUrl,
+      audioUrl,
       audioPrompt: payload.audioPrompt,
       generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
+      idempotencyKey: generationId ? `gen-${generationId}-video-${index}` : undefined,
+      resumeTask,
       onProgress: onVideoProgress,
     }));
   }
@@ -1642,9 +1721,7 @@ async function executePayload(
     });
     const resultUrl = getResultUrl(result);
     const hardValidation = payload.hardValidationPolicy.enabled
-      ? await validateGeneratedProductImage(resultUrl, payload.hardValidationPolicy, {
-          expectedAspectRatio: payload.aspectRatio,
-        })
+      ? await validateGeneratedProductImage(resultUrl, payload.hardValidationPolicy)
       : undefined;
     const trace = createPromptTraceItem({
       index: 1,
@@ -1676,9 +1753,6 @@ async function executePayload(
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
-    const nativeMaskInput = payload.aiTool?.nativeMaskUrl
-      ? await resolvePayloadImageInputs({ clothingUrls: [payload.aiTool.nativeMaskUrl] })
-      : { clothingUrls: [] };
     const smartAspectImage = payload.kind === "outfitFusion"
       ? resolveOutfitFusionSmartAspectImage({
           assets: payload.assets,
@@ -1700,7 +1774,6 @@ async function executePayload(
           prompt_kind: payload.kind === "outfitFusion" ? "outfitFusion" : undefined,
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
-          mask: nativeMaskInput.clothingUrls[0],
           smart_aspect_image: smartAspectImage,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
@@ -2259,6 +2332,24 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
   }
 
   const existingAsyncTask = readExistingAsyncTask(payload);
+  const nextSlots = [...(existingAsyncTask.slots || [])];
+  if (Number.isInteger(update.externalSlotIndex) && update.externalTaskId) {
+    const slot = Math.max(0, Math.floor(update.externalSlotIndex!));
+    const checkpoint = {
+      slot,
+      taskId: update.externalTaskId,
+      requestId: update.externalRequestId,
+      status: update.externalStatus,
+      progress: typeof update.progress === "number"
+        ? Math.min(Math.max(Math.round(update.progress), 0), 100)
+        : undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    const previousIndex = nextSlots.findIndex((item) => item.slot === slot);
+    if (previousIndex >= 0) nextSlots[previousIndex] = checkpoint;
+    else nextSlots.push(checkpoint);
+    nextSlots.sort((left, right) => left.slot - right.slot);
+  }
   const nextPayload = {
     ...payload,
     asyncTask: {
@@ -2269,6 +2360,7 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
         ? Math.min(Math.max(Math.round(update.progress), 0), 100)
         : existingAsyncTask.progress,
       providerDetails: update.providerDetails || existingAsyncTask.providerDetails,
+      slots: nextSlots,
       updatedAt: new Date().toISOString(),
     },
   } as unknown as GenerationJobPayload;
@@ -2281,6 +2373,14 @@ function readExistingAsyncTask(payload: GenerationJobPayload): {
   status?: string;
   progress?: unknown;
   providerDetails?: Record<string, unknown>;
+  slots?: Array<{
+    slot: number;
+    taskId: string;
+    requestId?: string;
+    status?: string;
+    progress?: number;
+    updatedAt: string;
+  }>;
 } {
   const maybePayload = payload as unknown as { asyncTask?: unknown };
   const asyncTask = maybePayload.asyncTask;
@@ -2293,6 +2393,7 @@ function readExistingAsyncTask(payload: GenerationJobPayload): {
     status?: unknown;
     progress?: unknown;
     providerDetails?: unknown;
+    slots?: unknown;
   };
   return {
     taskId: typeof task.taskId === "string"
@@ -2308,7 +2409,30 @@ function readExistingAsyncTask(payload: GenerationJobPayload): {
     status: typeof task.status === "string" ? task.status : undefined,
     progress: task.progress,
     providerDetails: isRecord(task.providerDetails) ? task.providerDetails : undefined,
+    slots: normalizeExternalTaskSlots(task.slots),
   };
+}
+
+function normalizeExternalTaskSlots(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const slots: NonNullable<ReturnType<typeof readExistingAsyncTask>["slots"]> = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const slot = Number(entry.slot);
+    const taskId = typeof entry.taskId === "string" ? entry.taskId.trim() : "";
+    if (!Number.isInteger(slot) || slot < 0 || slot > 999 || !/^[A-Za-z0-9._-]{1,256}$/.test(taskId)) continue;
+    slots.push({
+      slot,
+      taskId,
+      requestId: typeof entry.requestId === "string" && /^[A-Za-z0-9._-]{1,256}$/.test(entry.requestId)
+        ? entry.requestId
+        : undefined,
+      status: typeof entry.status === "string" ? entry.status.slice(0, 80) : undefined,
+      progress: Number.isFinite(Number(entry.progress)) ? clampProgress(Number(entry.progress)) : undefined,
+      updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : "",
+    });
+  }
+  return slots.slice(0, 1000);
 }
 
 function appendQualityMetadata(
@@ -2359,7 +2483,7 @@ function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
 }
 
 function shouldSkipVisualQualityEvaluation(payload: GenerationJobPayload) {
-  if (payload.aiTool || payload.kind === "tryon" || payload.kind === "pose" || payload.kind === "productRetouch" || isVideoPayload(payload)) return true;
+  if (payload.kind === "tryon" || payload.kind === "pose" || payload.kind === "productRetouch" || isVideoPayload(payload)) return true;
   return false;
 }
 
@@ -2706,19 +2830,65 @@ async function writeGenerationProgress(
   const { error } = await supabase
     .from("generations")
     .update({
-      // Parallel image execution keeps empty slot placeholders in memory so
-      // result order remains stable. Never persist those placeholders: the
-      // settlement RPC must distinguish real partial output from no output.
-      result_urls: compactResultUrls(update.resultUrls),
-      job_payload: appendAsyncProgress(appendPromptTrace(payload, update.promptTrace), update),
+      result_urls: update.resultUrls,
+      job_payload: appendResumableBatchProgress(
+        appendAsyncProgress(appendPromptTrace(payload, update.promptTrace), update),
+        update,
+      ),
     })
     .eq("id", job.id)
     .eq("user_id", job.user_id)
-    .eq("status", "processing_tryon");
+    .eq("status", "processing_tryon")
+    .eq("delivery_version", job.delivery_version)
+    .eq("execution_token", job.execution_token);
 
   if (error) throw new Error(`更新任务进度失败: ${error.message}`);
   await syncGenerationQueueIndex(job.id, "progress");
 }
+
+function appendResumableBatchProgress<T extends GenerationJobPayload>(
+  payload: T,
+  update: Pick<GenerationProgressUpdate, "resultUrls" | "progress" | "promptTrace">,
+): T {
+  const expectedCount = getExpectedResultCount(payload);
+  const previous = readResumableBatchResultUrls(payload, expectedCount);
+  const next = Array.from({ length: expectedCount }, (_, index) => {
+    const value = update.resultUrls[index];
+    return typeof value === "string" && value.trim() ? value : previous[index] || "";
+  });
+  return {
+    ...payload,
+    generationBatchProgress: {
+      version: 1,
+      expectedCount,
+      resultUrls: next,
+      updatedAt: new Date().toISOString(),
+    },
+  };
+}
+
+function readResumableBatchResultUrls(payload: GenerationJobPayload, expectedCount: number) {
+  const state = payload.generationBatchProgress;
+  if (!state || state.version !== 1 || state.expectedCount !== expectedCount) {
+    return Array.from({ length: expectedCount }, () => "");
+  }
+  return Array.from({ length: expectedCount }, (_, index) => {
+    const value = state.resultUrls[index];
+    return typeof value === "string" ? value : "";
+  });
+}
+
+function clearResumableBatchProgress<T extends GenerationJobPayload>(payload: T): T {
+  const { generationBatchProgress: _discarded, ...rest } = payload;
+  return rest as T;
+}
+
+export const __generationJobTestUtils = {
+  appendResumableBatchProgress,
+  readResumableBatchResultUrls,
+  clearResumableBatchProgress,
+  isCanonicalMediaAssetUrl,
+};
 
 function normalizePoseOutputMode(value: unknown): PoseOutputMode {
   return value === "grid" ? "grid" : "separate";
@@ -2793,68 +2963,6 @@ function isSeedreamPayload(payload: GenerationJobPayload) {
 
 function isVideoPayload(payload: GenerationJobPayload): payload is Extract<GenerationJobPayload, { kind: "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame" }> {
   return payload.kind === "videoImageToVideo" || payload.kind === "videoMotion" || payload.kind === "videoFirstLastFrame";
-}
-
-async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient>) {
-  const cutoffMs = Date.now() - getStaleMinutes() * 60 * 1000;
-  const { data, error } = await supabase
-    .from("generations")
-    .select("id,user_id,credits_cost,job_attempts,job_payload,processing_started_at,error_message")
-    .eq("status", "processing_tryon")
-    .gte("job_attempts", 3)
-    .order("created_at", { ascending: true })
-    .limit(10);
-
-  if (error) {
-    logger.error("[jobs] query exhausted jobs failed:", error.message);
-    return 0;
-  }
-
-  const jobs = (Array.isArray(data) ? data : []) as ExhaustedJob[];
-  const staleJobs = jobs.filter((job) => {
-    if (!job.processing_started_at) return true;
-    return Date.parse(job.processing_started_at) < cutoffMs;
-  });
-
-  for (const job of staleJobs) {
-    const rawPayload = isRecord(job.job_payload) ? job.job_payload : null;
-    if (rawPayload?.kind === "productRetouch"
-      && rawPayload.internalTask === true
-      && Number(job.credits_cost || 0) === 0) {
-      const payload = parseJobPayload(rawPayload);
-      if (payload.kind !== "productRetouch") {
-        throw new Error(`商品精修子任务载荷类型不匹配: ${job.id}`);
-      }
-      await failZeroCostProductRetouchChild(
-        supabase,
-        {
-          id: job.id,
-          user_id: job.user_id,
-          job_payload: job.job_payload,
-          credits_cost: 0,
-          job_attempts: Number(job.job_attempts || 3),
-        },
-        payload,
-        job.error_message || "任务多次重试后仍未完成",
-      );
-      continue;
-    }
-    await failGenerationWithRefund(supabase, {
-      userId: job.user_id,
-      generationId: job.id,
-      amount: Number(job.credits_cost || 0),
-      reason: "生成多次失败退还",
-      errorMessage: job.error_message || "任务多次重试后仍未完成",
-    });
-  }
-
-  return staleJobs.length;
-}
-
-function getStaleMinutes() {
-  const value = Number(process.env.GENERATION_JOB_STALE_MINUTES || 45);
-  if (!Number.isFinite(value)) return 45;
-  return Math.min(Math.max(value, 1), 60);
 }
 
 async function syncGenerationQueueIndex(generationId: string, phase: string) {

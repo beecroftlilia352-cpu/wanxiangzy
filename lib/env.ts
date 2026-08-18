@@ -151,7 +151,7 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "XIAOMI_MIMO_MODEL", category: "optional", description: "Default Xiaomi model override." },
   { name: "XIAOMI_MIMO_TEXT_MODEL", category: "optional", description: "Xiaomi text model override." },
   { name: "XIAOMI_MIMO_VISION_MODEL", category: "optional", description: "Xiaomi vision model override." },
-  { name: "IMAGE_STORAGE_PROVIDER", category: "optional", description: "Image storage adapter: imgbb or aliyun-oss." },
+  { name: "IMAGE_STORAGE_PROVIDER", category: "optional", description: "Image storage adapter. Production uses aliyun-oss exclusively." },
   { name: "NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS", category: "optional", description: "Comma-separated public OSS image hosts that can use x-oss-process thumbnails." },
   { name: "ALIYUN_OSS_PREFIX", category: "optional", description: "Fallback object key prefix when IMAGE_STORAGE_PROVIDER=aliyun-oss." },
   { name: "ALIYUN_OSS_SITE_ASSET_PREFIX", category: "optional", description: "OSS prefix for permanent site assets." },
@@ -191,19 +191,6 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "AGENT_BRAIN_V2_ROLLOUT_PERCENT", category: "optional", description: "Agent brain v2 percentage rollout." },
   { name: "FASHN_API_KEY", category: "optional", description: "Legacy FASHN provider token." },
   { name: "REPLICATE_API_TOKEN", category: "optional", description: "Legacy Replicate provider token." },
-  { name: "WORKER_ENABLED", category: "optional", description: "Toggle the async generation worker (PM2-managed). Default true." },
-  { name: "WORKER_DRY_RUN", category: "optional", description: "Worker logs would-be claims without mutating state. Default false." },
-  { name: "WORKER_POLL_INTERVAL_MS", category: "optional", description: "Worker idle poll interval in milliseconds. Default 1000." },
-  { name: "WORKER_IDLE_BACKOFF_MAX_MS", category: "optional", description: "Cap for adaptive exponential backoff when consecutive polls return no jobs, in milliseconds. Default 60000 (60s). Idle worker then issues ~60 RPCs/hr instead of ~3600." },
-  { name: "WORKER_ERROR_BACKOFF_MS", category: "optional", description: "Initial backoff after a worker tick error in milliseconds. Default 5000." },
-  { name: "WORKER_MAX_ERROR_BACKOFF_MS", category: "optional", description: "Cap for exponential backoff in milliseconds. Default 30000." },
-  { name: "WORKER_BATCH_SIZE", category: "optional", description: "Worker claim batch size (1-10). Default 2." },
-  { name: "WORKER_STALE_MINUTES", category: "optional", description: "Minutes before a processing row is reclaimable. Default 8. Must be > WORKER_MAX_INFLIGHT_TIMEOUT_MS / 60_000." },
-  { name: "WORKER_SHUTDOWN_TIMEOUT_MS", category: "optional", description: "Worker graceful shutdown window in milliseconds. Default 30000." },
-  { name: "WORKER_HEARTBEAT_INTERVAL_MS", category: "optional", description: "Worker heartbeat log cadence in milliseconds. Default 60000." },
-  { name: "WORKER_MAX_INFLIGHT_TIMEOUT_MS", category: "optional", description: "Worker per-batch watchdog timeout in milliseconds. Default 420000 (7 minutes). Must be < WORKER_STALE_MINUTES * 60_000." },
-  { name: "WORKER_MAX_CONSECUTIVE_ERRORS", category: "optional", description: "Worker exits after this many consecutive errors so PM2 can restart. Default 10." },
-  { name: "WORKER_LOG_FORMAT", category: "optional", description: "Worker log format: text (default) or json." },
 ];
 
 const WEAK_PROCESSOR_SECRETS = new Set([
@@ -231,8 +218,17 @@ export function getEnvContract(): EnvContractEntry[] {
 export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): EnvValidationIssue[] {
   const nodeEnv = options.nodeEnv || process.env.NODE_ENV;
   const isProduction = nodeEnv === "production";
-  const imageStorageProvider = (process.env.IMAGE_STORAGE_PROVIDER || "imgbb").trim().toLowerCase();
+  const imageStorageProvider = (process.env.IMAGE_STORAGE_PROVIDER || "aliyun-oss").trim().toLowerCase();
   const issues: EnvValidationIssue[] = [];
+
+  if (imageStorageProvider !== "aliyun-oss" && isProduction) {
+    issues.push({
+      name: "IMAGE_STORAGE_PROVIDER",
+      category: "optional",
+      severity: "error",
+      message: "IMAGE_STORAGE_PROVIDER must be aliyun-oss in production.",
+    });
+  }
 
   for (const entry of PRODUCTION_REQUIRED_ENV) {
     if (!process.env[entry.name]) {

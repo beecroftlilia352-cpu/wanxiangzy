@@ -195,7 +195,6 @@ export const MAX_AUDIO_FILE_SIZE = MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024;
 const IMAGE_PREPROCESS_TIMEOUT_MS = 20_000;
 const IMAGE_UPLOAD_CLIENT_TIMEOUT_MS = 75_000;
 const IMAGE_UPLOAD_RETRY_DELAYS_MS = [0, 700, 1_600] as const;
-const IMAGE_UPLOAD_MAX_RETRY_AFTER_MS = 75_000;
 export const MAX_CLOTHING_FILES = 5;
 
 export interface UploadResult {
@@ -204,11 +203,9 @@ export interface UploadResult {
   delete_url: string;
   width: number;
   height: number;
-  content_type?: string;
-  byte_size?: number;
-  object_key?: string;
-  asset?: unknown;
-  resource_registration_token?: string;
+  status?: "verified" | "pending_validation";
+  media_asset_id?: string;
+  canonical_url?: string;
 }
 
 /**
@@ -247,17 +244,24 @@ async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): 
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
-        // Preserve the native pixel grid. Compression may reduce encoded
-        // bytes, but must not silently downgrade a 4K source before the
-        // server establishes the canonical image used by masks.
-        canvas.width = img.width;
-        canvas.height = img.height;
+        let { width, height } = img;
+
+        // 按比例缩小（最大边 2048px）
+        const maxDim = 2048;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           finish(file);
           return;
         }
-        ctx.drawImage(img, 0, 0, img.width, img.height);
+        ctx.drawImage(img, 0, 0, width, height);
 
         // 逐步降低质量直到小于限制
         let quality = 0.85;
@@ -346,15 +350,14 @@ export async function uploadImage(
 ): Promise<UploadResult> {
   const compressed = await compressImage(file, MAX_FILE_SIZE_MB);
   let lastError: unknown;
-  let retryAfterMs = 0;
   for (let attempt = 0; attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      const delayMs = Math.max(IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt], retryAfterMs);
-      retryAfterMs = 0;
-      if (delayMs > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+      if (IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt] > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt]));
         options.onProgress?.(0);
       }
+      const direct = await tryDirectOssUpload(compressed, "/api/upload-image", "image-input", options.onProgress);
+      if (direct) return direct;
       const uploadResponse = await sendImageUpload(compressed, file.name, options.onProgress);
       const data = parseUploadResponse(uploadResponse.responseText);
 
@@ -362,7 +365,6 @@ export async function uploadImage(
         const error = new Error(data.error || `上传失败 (${uploadResponse.status})`);
         if (attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length - 1 && isRetryableUploadStatus(uploadResponse.status)) {
           lastError = error;
-          retryAfterMs = parseUploadRetryAfter(uploadResponse.retryAfter);
           continue;
         }
         throw error;
@@ -392,7 +394,7 @@ function sendImageUpload(
   form.append("name", originalName.replace(/\.[^.]+$/, ""));
 
   // XHR 上传以支持进度回调（fetch 不支持 upload progress）
-  return new Promise<{ status: number; responseText: string; retryAfter: string | null }>((resolve, reject) => {
+  return new Promise<{ status: number; responseText: string }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let settled = false;
     xhr.open("POST", "/api/upload-image");
@@ -404,7 +406,7 @@ function sendImageUpload(
       xhr.onabort = null;
       xhr.ontimeout = null;
     };
-    const finishResolve = (value: { status: number; responseText: string; retryAfter: string | null }) => {
+    const finishResolve = (value: { status: number; responseText: string }) => {
       if (settled) return;
       settled = true;
       cleanup();
@@ -432,23 +434,13 @@ function sendImageUpload(
         finishReject(new Error("网络连接异常，上传失败"));
         return;
       }
-      finishResolve({ status, responseText, retryAfter: xhr.getResponseHeader("Retry-After") });
+      finishResolve({ status, responseText });
     };
     xhr.onerror = () => finishReject(new Error("网络连接异常，上传失败"));
     xhr.onabort = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.ontimeout = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.send(form);
   });
-}
-
-function parseUploadRetryAfter(value: string | null) {
-  if (!value) return 0;
-  const seconds = Number(value);
-  const delay = Number.isFinite(seconds)
-    ? Math.max(0, seconds * 1_000)
-    : Math.max(0, Date.parse(value) - Date.now());
-  if (!Number.isFinite(delay) || delay <= 0) return 0;
-  return Math.min(IMAGE_UPLOAD_MAX_RETRY_AFTER_MS, Math.ceil(delay));
 }
 
 function parseUploadResponse(responseText: string) {
@@ -473,6 +465,8 @@ function isRetryableUploadError(error: unknown) {
 }
 
 export async function uploadVideo(file: File): Promise<UploadResult> {
+  const direct = await tryDirectOssUpload(file, "/api/upload-video", "video-input");
+  if (direct) return direct;
   const form = new FormData();
   form.append("video", file);
   form.append("name", file.name.replace(/\.[^.]+$/, ""));
@@ -482,12 +476,187 @@ export async function uploadVideo(file: File): Promise<UploadResult> {
     body: form,
   });
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({})) as Partial<UploadResult> & { error?: string };
+  if (!res.ok && res.status !== 202) {
     throw new Error(data.error || `上传失败 (${res.status})`);
   }
+  if (data.status === "pending_validation" && data.media_asset_id) {
+    return waitForMediaAssetValidation(data.media_asset_id);
+  }
+  if (!data.url || data.status !== "verified") throw new Error("视频上传校验服务返回了无效结果");
+  return data as UploadResult;
+}
 
-  return res.json();
+type DirectUploadPrepareResponse = {
+  mode?: "direct" | "server" | "ready" | "pending_validation";
+  uploadUrl?: string;
+  fields?: Record<string, string>;
+  token?: string;
+  status?: "verified" | "pending_validation";
+  media_asset_id?: string;
+  canonical_url?: string;
+  url?: string;
+  display_url?: string;
+  delete_url?: string;
+  width?: number;
+  height?: number;
+  error?: string;
+};
+
+class DirectOssTransportError extends Error {}
+
+async function tryDirectOssUpload(
+  file: File,
+  apiPath: "/api/upload-image" | "/api/upload-video",
+  purpose: "image-input" | "video-input",
+  onProgress?: (percent: number) => void,
+): Promise<UploadResult | null> {
+  let sha256: string;
+  try {
+    sha256 = await sha256File(file);
+  } catch {
+    return null;
+  }
+
+  let prepareResponse: Response;
+  try {
+    prepareResponse = await fetch(apiPath, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "prepare",
+        purpose,
+        file: { name: file.name, size: file.size, contentType: normalizeBrowserUploadType(file), sha256 },
+      }),
+    });
+  } catch {
+    return null;
+  }
+  const prepared = await prepareResponse.json().catch(() => ({})) as DirectUploadPrepareResponse;
+  if (!prepareResponse.ok) throw new Error(prepared.error || `上传签发失败 (${prepareResponse.status})`);
+  if (prepared.mode === "server") return null;
+  if (prepared.mode === "ready" && prepared.status === "verified" && prepared.url) {
+    return prepared as UploadResult;
+  }
+  if (prepared.mode === "pending_validation" && prepared.media_asset_id) {
+    return waitForMediaAssetValidation(prepared.media_asset_id);
+  }
+  if (prepared.mode !== "direct" || !prepared.uploadUrl || !prepared.fields || !prepared.token) {
+    throw new Error("上传签发服务返回了无效结果");
+  }
+
+  try {
+    await sendDirectOssForm(prepared.uploadUrl, prepared.fields, file, onProgress);
+  } catch (error) {
+    if (error instanceof DirectOssTransportError) return null;
+    throw error;
+  }
+
+  const { response: completed, result } = await completeDirectUploadReceipt(apiPath, prepared.token);
+  if (!completed.ok) throw new Error(result.error || `上传校验失败 (${completed.status})`);
+  if (result.status === "pending_validation" && result.media_asset_id) {
+    return waitForMediaAssetValidation(result.media_asset_id);
+  }
+  if (!result.url || result.status !== "verified") throw new Error(result.error || "上传校验服务返回了无效结果");
+  onProgress?.(100);
+  return result as UploadResult;
+}
+
+async function completeDirectUploadReceipt(apiPath: string, token: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(apiPath, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const result = await response.json().catch(() => ({})) as Partial<UploadResult> & { error?: string; code?: string };
+      const uncertainSettlement = response.status === 503 && result.code === "ASSET_REGISTRY_UNAVAILABLE";
+      if (!uncertainSettlement || attempt === 2) return { response, result };
+      lastError = new Error(result.error || "媒体资产结算暂不可用");
+    } catch (error) {
+      lastError = error;
+      if (attempt === 2) throw error;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 500 * (attempt + 1)));
+  }
+  throw lastError instanceof Error ? lastError : new Error("媒体资产结算暂不可用");
+}
+
+async function waitForMediaAssetValidation(assetId: string): Promise<UploadResult> {
+  const deadline = Date.now() + 3 * 60_000;
+  let delayMs = 1_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`/api/media-assets/${encodeURIComponent(assetId)}?status=1`, {
+      method: "GET",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    const result = await response.json().catch(() => ({})) as Partial<UploadResult> & { error?: string; status?: string };
+    if (response.ok && result.status === "verified" && result.url) return result as UploadResult;
+    if (response.status !== 202) throw new Error(result.error || "媒体安全校验失败，请重新上传");
+    await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+    delayMs = Math.min(5_000, Math.ceil(delayMs * 1.5));
+  }
+  throw new Error("媒体安全校验超时，请稍后重试");
+}
+
+function sendDirectOssForm(
+  uploadUrl: string,
+  fields: Record<string, string>,
+  file: File,
+  onProgress?: (percent: number) => void,
+) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
+  // OSS requires the file form field to be last.
+  form.append("file", file, file.name);
+
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let settled = false;
+    xhr.open("POST", uploadUrl);
+    xhr.timeout = Math.max(IMAGE_UPLOAD_CLIENT_TIMEOUT_MS, 180_000);
+    xhr.withCredentials = false;
+    const cleanup = () => {
+      xhr.upload.onprogress = null;
+      xhr.onload = null;
+      xhr.onerror = null;
+      xhr.onabort = null;
+      xhr.ontimeout = null;
+    };
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else resolve();
+    };
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    };
+    xhr.onload = () => {
+      if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 409) finish();
+      else if (xhr.status === 0 || xhr.status >= 500) finish(new DirectOssTransportError("OSS direct upload unavailable"));
+      else finish(new Error(`OSS 上传失败 (${xhr.status})`));
+    };
+    xhr.onerror = () => finish(new DirectOssTransportError("OSS direct upload network error"));
+    xhr.onabort = () => finish(new DirectOssTransportError("OSS direct upload aborted"));
+    xhr.ontimeout = () => finish(new DirectOssTransportError("OSS direct upload timeout"));
+    xhr.send(form);
+  });
+}
+
+async function sha256File(file: File) {
+  if (!globalThis.crypto?.subtle) throw new Error("Web Crypto is unavailable");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function normalizeBrowserUploadType(file: File) {
+  const type = (file.type || "").split(";", 1)[0].trim().toLowerCase();
+  return type === "video/mov" ? "video/quicktime" : type;
 }
 
 export async function uploadAudio(file: File): Promise<UploadResult> {

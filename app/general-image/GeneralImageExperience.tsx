@@ -744,7 +744,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     try {
       const res = await fetch("/api/general-image", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           mode,
           prompt,

@@ -112,6 +112,28 @@ type Snapshot = {
       lastCompletedAt: string | null;
       error: string | null;
     };
+    mediaValidation?: null | {
+      pendingCount: number;
+      processingCount: number;
+      completedCount: number;
+      deadCount: number;
+      staleProcessingCount: number;
+      uploadedWithoutJobCount: number;
+      oldestPendingAgeSeconds: number;
+    };
+    mediaValidationError?: boolean;
+    mediaAssets?: null | {
+      pendingCount: number;
+      uploadedCount: number;
+      verifiedCount: number;
+      quarantinedCount: number;
+      deletedCount: number;
+      cleanupReadyCount: number;
+      expiredLeaseCount: number;
+      oldestPendingAgeSeconds: number;
+      oldestCleanupReadyAgeSeconds: number;
+    };
+    mediaAssetsError?: boolean;
   };
   versions: Version[];
 };
@@ -261,6 +283,8 @@ export function AdminModelControlPlane() {
   const bullmqHealth = snapshot.generationQueue?.bullmq;
   const ossMirrorHealth = snapshot.generationQueue?.ossMirror;
   const ossMirrorEnabled = ossMirrorHealth?.configured ?? false;
+  const mediaValidationHealth = snapshot.generationQueue?.mediaValidation;
+  const mediaAssetHealth = snapshot.generationQueue?.mediaAssets;
 
   return (
     <>
@@ -414,6 +438,85 @@ export function AdminModelControlPlane() {
             </div>
             {ossMirrorHealth?.error && (
               <p className="border-t border-[var(--admin-border)] px-4 py-3 text-xs font-bold text-[var(--admin-warning)]">OSS 镜像健康 RPC 异常：{ossMirrorHealth.error}</p>
+            )}
+          </AdminSection>
+          <AdminSection title="媒体安全验证与资产生命周期" description="上排是视频安全验证流水线，下排是私有媒体资产账本；仅展示聚合计数与等待时长，不返回 Bucket、Object Key 或签名 URL。">
+            <div className="grid gap-3 border-b border-[var(--admin-border)] p-4 sm:grid-cols-2 xl:grid-cols-5">
+              <AdminMetricCard
+                label="待安全验证"
+                value={mediaValidationHealth?.pendingCount ?? "—"}
+                tone={(mediaValidationHealth?.pendingCount || 0) > 0 ? "warning" : "good"}
+                hint={`最老 ${mediaValidationHealth ? formatDuration(mediaValidationHealth.oldestPendingAgeSeconds * 1000) : "—"}`}
+                icon={<ShieldCheck className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="验证处理中"
+                value={mediaValidationHealth?.processingCount ?? "—"}
+                tone={(mediaValidationHealth?.staleProcessingCount || 0) > 0 ? "danger" : "neutral"}
+                hint={`过期租约 ${mediaValidationHealth?.staleProcessingCount ?? "—"}`}
+                icon={<Activity className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="验证死信"
+                value={mediaValidationHealth?.deadCount ?? "—"}
+                tone={(mediaValidationHealth?.deadCount || 0) > 0 ? "danger" : "good"}
+                hint={`累计完成 ${mediaValidationHealth?.completedCount ?? "—"}`}
+                icon={<CircuitBoard className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="缺失验证任务"
+                value={mediaValidationHealth?.uploadedWithoutJobCount ?? "—"}
+                tone={(mediaValidationHealth?.uploadedWithoutJobCount || 0) > 0 ? "danger" : "good"}
+                hint="uploaded_without_job"
+                icon={<Boxes className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="最老待验证"
+                value={mediaValidationHealth ? formatDuration(mediaValidationHealth.oldestPendingAgeSeconds * 1000) : "—"}
+                tone={(mediaValidationHealth?.oldestPendingAgeSeconds || 0) > 120 ? "warning" : "good"}
+                hint="持续增长表示验证 Worker 堵塞"
+                icon={<Gauge className="h-4 w-4" />}
+              />
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
+              <AdminMetricCard
+                label="资产待上传"
+                value={mediaAssetHealth?.pendingCount ?? "—"}
+                tone={(mediaAssetHealth?.oldestPendingAgeSeconds || 0) > 600 ? "warning" : "neutral"}
+                hint={`最老 ${mediaAssetHealth ? formatDuration(mediaAssetHealth.oldestPendingAgeSeconds * 1000) : "—"}`}
+                icon={<UploadCloud className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="待完整验证"
+                value={mediaAssetHealth?.uploadedCount ?? "—"}
+                tone={(mediaAssetHealth?.uploadedCount || 0) > 0 ? "warning" : "good"}
+                hint={`已验证 ${mediaAssetHealth?.verifiedCount ?? "—"}`}
+                icon={<ShieldCheck className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="已隔离资产"
+                value={mediaAssetHealth?.quarantinedCount ?? "—"}
+                tone={(mediaAssetHealth?.quarantinedCount || 0) > 0 ? "danger" : "good"}
+                hint={`累计删除 ${mediaAssetHealth?.deletedCount ?? "—"}`}
+                icon={<CircuitBoard className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="待清理资产"
+                value={mediaAssetHealth?.cleanupReadyCount ?? "—"}
+                tone={(mediaAssetHealth?.cleanupReadyCount || 0) > 0 ? "warning" : "good"}
+                hint={`最老 ${mediaAssetHealth ? formatDuration(mediaAssetHealth.oldestCleanupReadyAgeSeconds * 1000) : "—"}`}
+                icon={<Trash2 className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="资产过期租约"
+                value={mediaAssetHealth?.expiredLeaseCount ?? "—"}
+                tone={(mediaAssetHealth?.expiredLeaseCount || 0) > 0 ? "danger" : "good"}
+                hint="上传或清理租约等待恢复"
+                icon={<RefreshCw className="h-4 w-4" />}
+              />
+            </div>
+            {(snapshot.generationQueue?.mediaValidationError || snapshot.generationQueue?.mediaAssetsError) && (
+              <p className="border-t border-[var(--admin-border)] px-4 py-3 text-xs font-bold text-[var(--admin-warning)]">媒体健康 RPC 不可用，请确认媒体资产 migration 已应用并检查数据库连通性。</p>
             )}
           </AdminSection>
           <AdminSection title="路由工作方式" description="优先级、同级池与自动兜底分层执行，不会相互冲突。">
@@ -735,7 +838,7 @@ function AdapterStaticParametersEditor({ value, onChange }: { value: Record<stri
 
 function PolicyEditor({ policy, onChange }: { policy: AiRoutingPolicy; onChange: (value: AiRoutingPolicy) => void }) {
   const fields: Array<[keyof Omit<AiRoutingPolicy, "smartWeights">, string, number, number]> = [
-    ["maxAttempts", "最大供应商尝试", 1, 10], ["leaseTtlSeconds", "容量租约（秒）", 30, 2700], ["retryBaseDelayMs", "基础退避（ms）", 0, 30000], ["retryMaxDelayMs", "最大退避（ms）", 0, 120000], ["circuitFailureThreshold", "连续失败阈值", 1, 100], ["circuitMinimumSamples", "最小熔断样本", 1, 10000], ["circuitOpenSeconds", "熔断时长（秒）", 5, 86400], ["halfOpenMaxRequests", "半开探测并发", 1, 100],
+    ["maxAttempts", "最大供应商尝试", 1, 10], ["leaseTtlSeconds", "容量租约（秒）", 30, 120], ["retryBaseDelayMs", "基础退避（ms）", 0, 30000], ["retryMaxDelayMs", "最大退避（ms）", 0, 120000], ["circuitFailureThreshold", "连续失败阈值", 1, 100], ["circuitMinimumSamples", "最小熔断样本", 1, 10000], ["circuitOpenSeconds", "熔断时长（秒）", 5, 86400], ["halfOpenMaxRequests", "半开探测并发", 1, 100],
   ];
   return (
     <AdminSection title="全局可靠性策略" description="这些值是系统保护上限；单个模型仍由部署优先级和容量决定实际路由。">

@@ -1,134 +1,79 @@
-import { createHash, createHmac } from "node:crypto";
-import { hasExactMirrorRule } from "./oss-mirror-rule.mjs";
+import { createHmac } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+const mode = (process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE || "stream").trim().toLowerCase();
+if (!process.argv.includes("--check")) fail("this command is a read-only gate; pass --check");
+if (mode !== "stream" && mode !== "mirror") fail("ALIYUN_OSS_REMOTE_TRANSFER_MODE must be stream or mirror");
 
 const bucket = required("ALIYUN_OSS_BUCKET");
 const region = required("ALIYUN_OSS_REGION");
 const accessKeyId = required("ALIYUN_OSS_ACCESS_KEY_ID");
 const accessKeySecret = required("ALIYUN_OSS_ACCESS_KEY_SECRET");
 const securityToken = process.env.ALIYUN_OSS_SECURITY_TOKEN?.trim() || "";
-const signingSecret = required("ALIYUN_OSS_MIRROR_SIGNING_SECRET");
-const encryptionKey = required("ADMIN_SECRETS_ENCRYPTION_KEY");
-const allowedHosts = required("ALIYUN_OSS_MIRROR_ALLOWED_HOSTS")
-  .split(",")
-  .map((host) => host.trim().toLowerCase())
-  .filter(Boolean);
-if (signingSecret.length < 32 || /replace-with|change-me/i.test(signingSecret)) {
-  fail("ALIYUN_OSS_MIRROR_SIGNING_SECRET must be a non-placeholder secret with at least 32 characters");
-}
-if (!/^(?:hex:)?[a-f0-9]{64}$/i.test(encryptionKey)) {
+const endpoint = (process.env.ALIYUN_OSS_ENDPOINT || `${bucket}.${region}.aliyuncs.com`)
+  .trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+if (endpoint !== `${bucket}.${region}.aliyuncs.com`) fail("ALIYUN_OSS_ENDPOINT must match bucket.region.aliyuncs.com");
+if (!/^(?:hex:)?[a-f0-9]{64}$/i.test(required("ADMIN_SECRETS_ENCRYPTION_KEY"))) {
   fail("ADMIN_SECRETS_ENCRYPTION_KEY must be a 32-byte hex key");
 }
-if (!allowedHosts.length || allowedHosts.some((host) => (
-  host === "*"
-  || host.includes(":")
-  || host.includes("/")
-  || !/^(?:\*\.)?[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(host)
-))) {
-  fail("ALIYUN_OSS_MIRROR_ALLOWED_HOSTS must contain explicit valid provider hostnames");
+if (required("ALIYUN_OSS_MIRROR_SIGNING_SECRET").length < 32) {
+  fail("ALIYUN_OSS_MIRROR_SIGNING_SECRET must contain at least 32 characters");
+}
+const allowedHosts = required("ALIYUN_OSS_REMOTE_ALLOWED_HOSTS").split(",").map((value) => value.trim()).filter(Boolean);
+if (!allowedHosts.length || allowedHosts.some((host) => host === "*" || host.includes(":") || host.includes("/"))) {
+  fail("ALIYUN_OSS_REMOTE_ALLOWED_HOSTS must contain explicit provider hostnames");
 }
 
-const generatedPrefix = normalizePrefix(
-  process.env.ALIYUN_OSS_GENERATED_PREFIX || process.env.ALIYUN_OSS_PREFIX || "generated-results/original",
-);
-const mirrorPrefix = normalizePrefix(process.env.ALIYUN_OSS_MIRROR_PREFIX || `${generatedPrefix}/mirror`);
-const appUrl = (process.env.ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "")
-  .trim()
-  .replace(/\/+$/, "");
-const resolverUrl = process.env.ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL
-  ? `${appUrl}/`
-  : `${appUrl}/api/oss-mirror-source/`;
+await checkFfprobe();
+const acl = await bucketRequest("GET", "acl");
+const aclXml = await acl.text();
+if (!acl.ok) fail(`OSS_ACL_CHECK_FAILED HTTP ${acl.status}`);
+if (!/<Grant>private<\/Grant>/i.test(aclXml)) fail("generated media bucket ACL must be private");
 
-let parsedResolver;
-try {
-  parsedResolver = new URL(resolverUrl);
-} catch {
-  fail("set NEXT_PUBLIC_APP_URL or ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL to the public resolver URL");
-}
-if (parsedResolver.protocol !== "https:" || ["localhost", "127.0.0.1", "::1"].includes(parsedResolver.hostname)) {
-  fail("OSS mirror resolver must be a public HTTPS URL");
-}
-
-const endpoint = `${bucket}.${region}.aliyuncs.com`;
-const checkOnly = process.argv.includes("--check");
-await checkResolverHealth();
-const existing = await websiteRequest("GET");
-
-if (existing.status === 200) {
-  const xml = await existing.text();
-  const configured = hasExactMirrorRule(xml, { mirrorPrefix, resolverUrl });
-  if (!configured) {
-    fail(
-      "bucket already has a Website configuration; refusing to overwrite it. "
-      + "Merge the generated RoutingRule manually or remove the old configuration after review.",
-    );
+if (mode === "mirror") {
+  const website = await bucketRequest("GET", "website");
+  const websiteXml = await website.text();
+  if (!website.ok) fail(`OSS_WEBSITE_CHECK_FAILED HTTP ${website.status}`);
+  const generatedPrefix = normalizePrefix(process.env.ALIYUN_OSS_GENERATED_PREFIX || "generated-results/original");
+  const mirrorPrefix = normalizePrefix(process.env.ALIYUN_OSS_MIRROR_PREFIX || `${generatedPrefix}/mirror`);
+  if (!websiteXml.includes(`<KeyPrefixEquals>${mirrorPrefix}/</KeyPrefixEquals>`)
+      || !websiteXml.includes("<RedirectType>Mirror</RedirectType>")) {
+    fail(`OSS Website mirror rule for ${mirrorPrefix}/ is missing`);
   }
-  console.log(`OSS mirror rule is configured for prefix ${mirrorPrefix}/`);
-  process.exit(0);
+  const resolverBase = required("NEXT_PUBLIC_APP_URL").replace(/\/+$/, "");
+  const health = await fetch(`${resolverBase}/api/oss-mirror-source/__health`, {
+    method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(15_000),
+  }).catch(() => fail("OSS_RESOLVER_HEALTH_UNREACHABLE"));
+  if (health.status !== 204) fail(`OSS mirror resolver health failed: HTTP ${health.status}`);
 }
 
-if (existing.status !== 404) {
-  fail(`GetBucketWebsite failed: HTTP ${existing.status} ${(await existing.text()).slice(0, 300)}`);
-}
-if (checkOnly) fail("OSS mirror rule is not configured");
+console.log(`[oss-mirror] check passed mode=${mode} bucket=${bucket} acl=private ffprobe=ready`);
 
-const websiteXml = `<?xml version="1.0" encoding="UTF-8"?>
-<WebsiteConfiguration>
-  <RoutingRules>
-    <RoutingRule>
-      <RuleNumber>1</RuleNumber>
-      <Condition>
-        <KeyPrefixEquals>${escapeXml(mirrorPrefix)}/</KeyPrefixEquals>
-        <HttpErrorCodeReturnedEquals>404</HttpErrorCodeReturnedEquals>
-      </Condition>
-      <Redirect>
-        <RedirectType>Mirror</RedirectType>
-        <MirrorURL>${escapeXml(resolverUrl)}</MirrorURL>
-        <MirrorPassQueryString>false</MirrorPassQueryString>
-        <MirrorFollowRedirect>true</MirrorFollowRedirect>
-        <MirrorCheckMd5>false</MirrorCheckMd5>
-      </Redirect>
-    </RoutingRule>
-  </RoutingRules>
-</WebsiteConfiguration>`;
-
-const put = await websiteRequest("PUT", websiteXml);
-if (!put.ok) fail(`PutBucketWebsite failed: HTTP ${put.status} ${(await put.text()).slice(0, 500)}`);
-
-const verify = await websiteRequest("GET");
-const verifyXml = await verify.text();
-if (!verify.ok || !hasExactMirrorRule(verifyXml, { mirrorPrefix, resolverUrl })) {
-  fail(`OSS mirror rule verification failed: HTTP ${verify.status}`);
-}
-console.log(`Configured OSS mirror rule for prefix ${mirrorPrefix}/ -> ${parsedResolver.origin}`);
-
-async function websiteRequest(method, body = "") {
+async function bucketRequest(method, subresource) {
   const date = new Date().toUTCString();
-  const contentType = body ? "application/xml" : "";
-  const contentMd5 = body ? createHash("md5").update(body).digest("base64") : "";
-  const canonicalizedResource = `/${bucket}/?website`;
-  const canonicalizedOssHeaders = securityToken
-    ? `x-oss-security-token:${securityToken}\n`
-    : "";
-  const stringToSign = [
-    method,
-    contentMd5,
-    contentType,
-    date,
-    `${canonicalizedOssHeaders}${canonicalizedResource}`,
-  ].join("\n");
-  const signature = createHmac("sha1", accessKeySecret).update(stringToSign).digest("base64");
-  return fetch(`https://${endpoint}/?website`, {
+  const canonicalHeaders = securityToken ? `x-oss-security-token:${securityToken}\n` : "";
+  const signature = createHmac("sha1", accessKeySecret)
+    .update([method, "", "", date, `${canonicalHeaders}/${bucket}/?${subresource}`].join("\n"))
+    .digest("base64");
+  return fetch(`https://${endpoint}/?${subresource}`, {
     method,
     headers: {
       Authorization: `OSS ${accessKeyId}:${signature}`,
       Date: date,
       ...(securityToken ? { "x-oss-security-token": securityToken } : {}),
-      ...(contentType ? { "Content-Type": contentType } : {}),
-      ...(contentMd5 ? { "Content-MD5": contentMd5 } : {}),
     },
-    body: body || undefined,
     signal: AbortSignal.timeout(30_000),
   });
+}
+
+async function checkFfprobe() {
+  try {
+    await execFileAsync("ffprobe", ["-version"], { timeout: 10_000, maxBuffer: 256_000 });
+  } catch {
+    fail("ffprobe is required by the durable video validation worker");
+  }
 }
 
 function required(name) {
@@ -143,33 +88,6 @@ function normalizePrefix(value) {
   return prefix;
 }
 
-async function checkResolverHealth() {
-  const healthUrl = new URL("__health", resolverUrl).toString();
-  let response;
-  try {
-    response = await fetch(healthUrl, {
-      method: "HEAD",
-      redirect: "manual",
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch (error) {
-    fail(`OSS mirror resolver health check failed: ${error instanceof Error ? error.message : String(error)}`);
-  }
-  if (response.status !== 204) {
-    fail(`OSS mirror resolver health check failed: HTTP ${response.status}`);
-  }
-}
-
-function escapeXml(value) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
 function fail(message) {
-  console.error(`[oss-mirror] ${message}`);
-  process.exit(1);
+  throw new Error(`[oss-mirror] ${message}`);
 }

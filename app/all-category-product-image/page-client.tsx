@@ -572,7 +572,7 @@ export default function AllCategoryProductImagePage() {
     try {
       const res = await fetch("/api/product-set", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${crypto.randomUUID()}` },
         body: JSON.stringify(buildGenerationBody(regenerateIndex)),
       });
       const data = (await res.json().catch(() => ({}))) as GenerationResponse;

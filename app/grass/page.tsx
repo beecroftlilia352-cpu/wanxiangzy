@@ -513,7 +513,7 @@ export default function GrassPage() {
     try {
       const res = await fetch("/api/grass", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           garment_url: garmentUrl,
           template_id: templateId,

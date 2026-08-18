@@ -7,7 +7,7 @@
  */
 
 import {
-  isAliyunOssMirrorEnabled,
+  isAliyunOssRemoteTransferEnabled,
   processPendingOssMirrorTransfers,
 } from "@/lib/api/oss-mirror-transfer";
 
@@ -68,7 +68,7 @@ export async function runOssMirrorRecoveryLoop(options: OssMirrorRecoveryOptions
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const now = options.now ?? (() => new Date());
   while (!options.control.isStopping()) {
-    if (!isAliyunOssMirrorEnabled()) {
+    if (!isAliyunOssRemoteTransferEnabled()) {
       emit(options, { event: "oss_mirror.recovery.disabled" });
       return;
     }

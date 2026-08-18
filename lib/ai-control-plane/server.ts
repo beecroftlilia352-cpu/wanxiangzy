@@ -197,7 +197,7 @@ async function buildLegacyControlPlaneConfig(): Promise<AiControlPlaneConfig | n
       if (!override) continue;
       const providerId = `legacy-${modelId}`;
       config.providers.push({ id: providerId, name: `Legacy ${modelId}`, baseUrl: override.baseUrl, apiKey: override.apiKey, enabled: override.enabled, timeoutMs: 120_000 });
-      config.deployments.push({ id: `${providerId}-deployment`, modelId, providerId, upstreamModel: override.upstreamModel, protocol: override.responseType, enabled: override.enabled, priority: 10, weight: 100, maxConcurrency: 4, requestsPerMinute: 60, burst: 4, qualityScore: 0.8 });
+      config.deployments.push({ id: `${providerId}-deployment`, modelId, providerId, upstreamModel: override.upstreamModel, protocol: override.responseType, enabled: override.enabled, priority: 10, weight: 100, maxConcurrency: 16, requestsPerMinute: 240, burst: 16, qualityScore: 0.8 });
     }
 
     const llm = llmModule.parseLlmProviderOverrides(llmRaw);

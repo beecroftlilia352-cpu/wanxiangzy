@@ -529,7 +529,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             };
       const res = await fetch(apiPath, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${crypto.randomUUID()}` },
         body: JSON.stringify(requestBody),
       });
       const data = await res.json().catch(() => ({}));

@@ -12,10 +12,8 @@ export async function GET(
 ) {
   try {
     const { path } = await context.params;
-    const objectKey = path.join("/");
-    const sourceUrl = await resolveOssMirrorSource(objectKey);
+    const sourceUrl = await resolveOssMirrorSource(path.join("/"));
     if (!sourceUrl) return notFound();
-
     return new Response(null, {
       status: 302,
       headers: {
@@ -25,15 +23,13 @@ export async function GET(
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch (error) {
-    console.warn(
-      "[oss-mirror-source] resolver rejected request:",
-      error instanceof Error ? error.message : String(error),
-    );
+  } catch {
+    // Provider capabilities and OSS identifiers are deliberately excluded from
+    // logs. Operators correlate failures through the durable transfer id.
+    console.warn("[oss-mirror-source] resolver rejected request");
     return notFound();
   }
 }
-
 export async function HEAD(
   _request: Request,
   context: { params: Promise<{ path: string[] }> },
@@ -49,11 +45,8 @@ export async function HEAD(
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch (error) {
-    console.error(
-      "[oss-mirror-source] runtime configuration is invalid:",
-      error instanceof Error ? error.message : String(error),
-    );
+  } catch {
+    console.error("[oss-mirror-source] runtime configuration is invalid");
     return new Response(null, {
       status: 503,
       headers: { "Cache-Control": "private, no-store, max-age=0" },

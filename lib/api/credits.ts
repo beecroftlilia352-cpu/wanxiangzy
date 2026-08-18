@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
 
 type SupabaseLike = {
   rpc: (
@@ -34,11 +36,13 @@ export async function createDebitedGeneration(
     imageSize: string;
     reason: string;
     jobPayload?: Record<string, unknown>;
+    idempotencyKey: string;
   }
 ): Promise<{ generationId: string; creditsRemaining: number }> {
+  const idempotencyKey = normalizeGenerationIdempotencyKey(params.idempotencyKey);
   await assertUserCanGenerate(params.userId);
 
-  const { data, error } = await supabase.rpc("create_generation_with_credit_debit", {
+  const { data, error } = await supabase.rpc("create_generation_with_credit_debit_v2", {
     p_user_id: params.userId,
     p_clothing_urls: params.clothingUrls,
     p_model_face_url: params.modelFaceUrl ?? null,
@@ -48,6 +52,8 @@ export async function createDebitedGeneration(
     p_image_size: params.imageSize,
     p_reason: params.reason,
     p_job_payload: params.jobPayload ?? {},
+    p_idempotency_key: idempotencyKey,
+    p_max_active_jobs: readMaxActiveJobs(),
   });
 
   if (error) {
@@ -73,6 +79,8 @@ export async function failGenerationWithRefund(
     userId: string;
     generationId: string;
     amount: number;
+    deliveryVersion: number;
+    executionToken: string;
     reason: string;
     errorMessage: string;
   }
@@ -83,6 +91,8 @@ export async function failGenerationWithRefund(
       p_user_id: params.userId,
       p_generation_id: params.generationId,
       p_amount: params.amount,
+      p_delivery_version: params.deliveryVersion,
+      p_execution_token: params.executionToken,
       p_reason: params.reason,
       p_error_message: params.errorMessage,
     });
@@ -101,8 +111,8 @@ export async function failGenerationWithRefund(
     }
   }
 
-  console.error(
-    `[credits] CRITICAL: refund failed after ${maxRetries} attempts for generation ${params.generationId}, user ${params.userId}, amount ${params.amount}`
+  throw new CreditError(
+    `退款结算失败：generation=${params.generationId}，已重试 ${maxRetries} 次`,
   );
 }
 
@@ -152,6 +162,8 @@ export async function completeGenerationWithCreditAdjustment(
     userId: string;
     generationId: string;
     resultUrls: string[];
+    deliveryVersion: number;
+    executionToken: string;
     jobPayload: Record<string, unknown>;
     creditsUsed: number;
     refundAmount: number;
@@ -165,6 +177,8 @@ export async function completeGenerationWithCreditAdjustment(
       p_user_id: params.userId,
       p_generation_id: params.generationId,
       p_result_urls: params.resultUrls,
+      p_delivery_version: params.deliveryVersion,
+      p_execution_token: params.executionToken,
       p_job_payload: params.jobPayload,
       p_credits_used: params.creditsUsed,
       p_refund_amount: params.refundAmount,
@@ -178,10 +192,6 @@ export async function completeGenerationWithCreditAdjustment(
     }
 
     const message = error.message || "";
-    if (message.includes("complete_generation_with_credit_adjustment") || message.includes("Could not find the function")) {
-      return false;
-    }
-
     if (process.env.NODE_ENV === "development") {
       console.error(`[credits] completion adjustment rpc failed (attempt ${attempt}/${maxRetries}):`, message);
     }
@@ -191,14 +201,13 @@ export async function completeGenerationWithCreditAdjustment(
     }
   }
 
-  console.error(
-    `[credits] CRITICAL: completion credit adjustment failed for generation ${params.generationId}, user ${params.userId}, refund ${params.refundAmount}`
+  throw new CreditError(
+    `完成结算失败：generation=${params.generationId}，refund=${params.refundAmount}`,
   );
-  return false;
 }
 
 export function errorToResponsePayload(err: unknown) {
-  if (err instanceof CreditError) {
+  if (err instanceof CreditError && err.status < 500) {
     return {
       status: err.status,
       body: {
@@ -209,8 +218,12 @@ export function errorToResponsePayload(err: unknown) {
     };
   }
 
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return { status: 500, body: { error: message } };
+  const errorId = randomUUID();
+  console.error(`[generation-api] ${errorId}: ${sanitizeGenerationErrorMessage(err, "internal error")}`);
+  return {
+    status: err instanceof CreditError && err.status === 503 ? 503 : 500,
+    body: { error: "生成服务暂时不可用，请稍后重试", error_id: errorId },
+  };
 }
 
 function normalizeCreditRpcError(message = "", required: number) {
@@ -224,17 +237,45 @@ function normalizeCreditRpcError(message = "", required: number) {
   }
 
   if (
-    message.includes("create_generation_with_credit_debit") ||
+    message.includes("create_generation_with_credit_debit_v2") ||
     message.includes("Could not find the function")
   ) {
-    return new CreditError("数据库缺少灵点事务函数，请先运行 supabase/atomic-credit-rpc.sql");
+    return new CreditError("数据库缺少 BullMQ 事务 Outbox，请先应用生产队列迁移");
   }
 
-  if (/\bNOT_ALLOWED\b/i.test(message)) {
-    return new CreditError("登录状态校验失败，请刷新页面后重新登录", 401);
+  if (message.includes("IDEMPOTENCY_CONFLICT")) {
+    return new CreditError("幂等键已用于不同的生成请求，请创建新的任务", 409);
+  }
+  if (message.includes("ACTIVE_JOB_LIMIT_EXCEEDED")) {
+    return new CreditError("当前进行中的任务已达到套餐上限，请等待部分任务完成后重试", 429);
+  }
+  if (message.includes("INVALID_IDEMPOTENCY_KEY")) {
+    return new CreditError("生成请求幂等键无效", 400);
   }
 
-  return new CreditError(message || "灵点事务失败");
+  return new CreditError("生成请求事务暂时不可用", 503);
+}
+
+export function requireGenerationIdempotencyKey(request: Pick<Request, "headers">): string {
+  return normalizeGenerationIdempotencyKey(request.headers.get("idempotency-key") || "");
+}
+
+function normalizeGenerationIdempotencyKey(value: string) {
+  const normalized = value.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{19,159}$/.test(normalized)) {
+    throw new CreditError("缺少或无效的 Idempotency-Key（20-160 位）", 400);
+  }
+  return normalized;
+}
+
+function readMaxActiveJobs() {
+  const raw = process.env.GENERATION_MAX_ACTIVE_PER_USER;
+  if (!raw) return 20;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1_000) {
+    throw new CreditError("GENERATION_MAX_ACTIVE_PER_USER 必须是 1-1000 的整数", 500);
+  }
+  return parsed;
 }
 
 function isDebitedGenerationRow(
@@ -252,6 +293,6 @@ async function syncGenerationQueueIndex(generationId: string, phase: string) {
   try {
     await syncGenerationTaskQueueById(generationId);
   } catch (error) {
-    console.warn(`[task-queue-index] generation ${phase} sync skipped:`, error);
+    console.warn(`[task-queue-index] generation ${phase} sync skipped: ${sanitizeGenerationErrorMessage(error)}`);
   }
 }

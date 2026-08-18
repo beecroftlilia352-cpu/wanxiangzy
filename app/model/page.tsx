@@ -565,7 +565,7 @@ export default function ModelPage() {
     try {
       const res = await fetch("/api/model", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           reference_urls: referenceUrls,
           ai_model: aiModel,

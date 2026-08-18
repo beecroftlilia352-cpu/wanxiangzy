@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `姿势裂变 · ${effectivePoseCount} 个姿势${effectiveOutputMode === "separate" ? " · 独立图" : " · 自动宫格"}${poseCreationMode === "reference" ? " · 参考图模式" : ""}${poseReferenceUrls.length ? ` · ${poseReferenceUrls.length} 张姿势参考` : ""}${garmentAngleUrls.length ? ` · ${garmentAngleUrls.length} 张服装角度` : ""} (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
     });
 
     startGenerationJob(debit.generationId);

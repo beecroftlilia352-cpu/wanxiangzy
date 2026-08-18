@@ -2225,7 +2225,7 @@ export default function CreatePage() {
       // ---- Step 2: 调用生成 API ----
       const res = await fetch("/api/tryon", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${provisionalTask.id}` },
         signal: submitController.signal,
         body: JSON.stringify({
           clothing_urls: uploadedClothingUrls,

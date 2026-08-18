@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
       imageSize: `${resolution} · ${aspectRatio} · ${effectiveDuration}s`,
       reason: `首尾帧视频 (${modelMode}, ${aiModel}, ${resolution}, ${aspectRatio}, ${effectiveDuration}s, ${getAudioReasonLabel(audioMode)} × ${genCount})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
     });
 
     startGenerationJob(debit.generationId);

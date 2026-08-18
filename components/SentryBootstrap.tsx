@@ -11,13 +11,9 @@ export function SentryBootstrap() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/monitoring/public-config", { cache: "no-store" });
-        const payload = await res.json().catch(() => ({}));
+        const { initializeClientSentryFromPublicConfig } = await import("@/instrumentation-client");
         if (cancelled) return;
-        const dsn = typeof payload.sentryDsn === "string" ? payload.sentryDsn : "";
-        if (!dsn) return;
-        const { initClientSentry } = await import("@/sentry.client.config");
-        initClientSentry(dsn);
+        await initializeClientSentryFromPublicConfig();
       } catch {
         // 配置获取失败静默
       }

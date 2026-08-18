@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { uploadImage, type UploadResult } from "@/lib/utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { uploadImage, uploadVideo, type UploadResult } from "@/lib/utils";
 
 const SUCCESS_RESULT: UploadResult = {
   url: "https://example.com/original.jpg",
@@ -7,6 +7,7 @@ const SUCCESS_RESULT: UploadResult = {
   delete_url: "",
   width: 1200,
   height: 1600,
+  status: "verified",
 };
 
 class MockXMLHttpRequest {
@@ -61,11 +62,49 @@ afterEach(() => {
 });
 
 describe("uploadImage", () => {
+  beforeEach(() => {
+    vi.stubGlobal("crypto", {});
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ mode: "server" })));
+  });
+
   it("returns a successful JSON upload response", async () => {
     installMockXhr();
 
     await expect(uploadImage(new File(["image"], "source.jpg", { type: "image/jpeg" })))
       .resolves.toEqual(SUCCESS_RESULT);
+  });
+
+  it("uploads directly to the signed OSS form and completes the server receipt", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        mode: "direct",
+        uploadUrl: "https://bucket.oss-cn-hongkong.aliyuncs.com",
+        fields: { key: "uploads/hash.jpg", policy: "signed-policy", Signature: "signature" },
+        token: "signed-receipt",
+      }))
+      .mockResolvedValueOnce(Response.json(SUCCESS_RESULT));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("crypto", {
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).buffer) },
+    });
+    const submittedFields: string[] = [];
+    class DirectXMLHttpRequest extends MockXMLHttpRequest {
+      open(_method?: string, url?: string) {
+        expect(url).toBe("https://bucket.oss-cn-hongkong.aliyuncs.com");
+      }
+
+      send(body?: Document | XMLHttpRequestBodyInit | null) {
+        submittedFields.push(...Array.from((body as FormData).keys()));
+        queueMicrotask(() => this.onload?.(new ProgressEvent("load")));
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", DirectXMLHttpRequest);
+
+    await expect(uploadImage(new File(["image"], "source.jpg", { type: "image/jpeg" })))
+      .resolves.toEqual(SUCCESS_RESULT);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/upload-image", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/upload-image", expect.objectContaining({ method: "PATCH" }));
+    expect(submittedFields.at(-1)).toBe("file");
   });
 
   it("rejects an invalid XHR status instead of leaving the upload pending", async () => {
@@ -143,5 +182,35 @@ describe("uploadImage", () => {
 
     await expect(result).resolves.toEqual(SUCCESS_RESULT);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:hanging-image");
+  });
+});
+
+describe("uploadVideo", () => {
+  it("polls the owner-only asset status until the durable validator marks a direct video verified", async () => {
+    const assetId = "11111111-1111-4111-8111-111111111111";
+    const verified = { ...SUCCESS_RESULT, media_asset_id: assetId, canonical_url: `/api/media-assets/${assetId}` };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        mode: "direct",
+        uploadUrl: "https://bucket.oss-cn-hongkong.aliyuncs.com",
+        fields: { key: "uploads/hash.mp4", policy: "signed-policy", Signature: "signature" },
+        token: "signed-receipt",
+      }))
+      .mockResolvedValueOnce(Response.json({
+        status: "pending_validation",
+        media_asset_id: assetId,
+        url: "",
+      }))
+      .mockResolvedValueOnce(Response.json(verified));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("crypto", { subtle: { digest: vi.fn(async () => new Uint8Array(32).buffer) } });
+    installMockXhr();
+
+    await expect(uploadVideo(new File(["video"], "source.mp4", { type: "video/mp4" })))
+      .resolves.toEqual(verified);
+    expect(fetchMock).toHaveBeenNthCalledWith(3, `/api/media-assets/${assetId}?status=1`, expect.objectContaining({
+      method: "GET",
+      cache: "no-store",
+    }));
   });
 });

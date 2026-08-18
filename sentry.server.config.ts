@@ -14,7 +14,7 @@ async function resolveDsn(): Promise<string | undefined> {
   }
 }
 
-void (async () => {
+export const sentryServerReady = (async () => {
   const dsn = await resolveDsn();
   Sentry.init({
     dsn,

@@ -593,7 +593,7 @@ export default function ImageTranslationPage() {
     try {
       const res = await fetch("/api/image-translation", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           source_url: runSourceUrls[0] || "",
           source_urls: runSourceUrls,

@@ -1378,7 +1378,7 @@ export default function PosePage() {
     try {
       const res = await fetch("/api/pose", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           main_image_url: mainImage,
           ai_model: aiModel,

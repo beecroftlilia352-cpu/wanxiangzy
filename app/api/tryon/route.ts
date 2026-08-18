@@ -160,6 +160,7 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `生成 ${expectedCount} 张，输入 ${clothing_urls.length} 件服装、${effectiveReferenceUrls.length || 1} 组参考${activeGarmentDetailUrls.length ? `、${activeGarmentDetailUrls.length} 张细节` : ""} (${model}, ${size}, ${TRYON_GARMENT_CATEGORY_LABELS[garmentCategory]})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
     });
 
     startGenerationJob(debit.generationId);

@@ -30,7 +30,19 @@ export type VideoGenerationResult = {
   providerDetails?: Record<string, unknown>;
 };
 
-export type VideoImageToVideoInput = {
+export type VideoTaskResume = {
+  taskId: string;
+  requestId?: string;
+};
+
+type VideoExecutionControl = {
+  /** Stable per-generation/slot key forwarded to providers that support it. */
+  idempotencyKey?: string;
+  /** Persisted upstream task checkpoint. When present, submission is skipped. */
+  resumeTask?: VideoTaskResume;
+};
+
+export type VideoImageToVideoInput = VideoExecutionControl & {
   provider: VideoProviderName;
   imageUrl: string;
   prompt: string;
@@ -45,7 +57,7 @@ export type VideoImageToVideoInput = {
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
-export type VideoMotionControlInput = {
+export type VideoMotionControlInput = VideoExecutionControl & {
   provider: VideoProviderName;
   modelImageUrl: string;
   referenceVideoUrl: string;
@@ -61,7 +73,7 @@ export type VideoMotionControlInput = {
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
-export type VideoFirstLastFrameInput = {
+export type VideoFirstLastFrameInput = VideoExecutionControl & {
   provider: VideoProviderName;
   firstFrameUrl: string;
   lastFrameUrl: string;

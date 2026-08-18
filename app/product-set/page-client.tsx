@@ -1361,7 +1361,7 @@ export default function ProductSetPage() {
       };
       const res = await fetch("/api/product-set", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           product_image_urls: productImages.map((item) => item.url),
           product_info: productInfo,
@@ -1479,7 +1479,7 @@ export default function ProductSetPage() {
       };
       const res = await fetch("/api/product-set", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${crypto.randomUUID()}` },
         body: JSON.stringify({
           product_image_urls: productImages.map((item) => item.url),
           product_info: productInfo,

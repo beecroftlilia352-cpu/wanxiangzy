@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
-import { runNextGenerationJobs } from "@/lib/api/generation-jobs";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,7 +62,17 @@ export async function POST(request: Request) {
 
 async function runWorker(target: WorkerTarget, limit: number) {
   if (target === "generations") {
-    return runNextGenerationJobs(limit);
+    const admin = getAdminClient();
+    const recovery = await admin.rpc("recover_generation_outbox", { p_limit: limit });
+    if (recovery.error) throw new Error(`Outbox recovery failed: ${recovery.error.message}`);
+    const health = await admin.rpc("get_generation_queue_health");
+    if (health.error) throw new Error(`Queue health read failed: ${health.error.message}`);
+    return {
+      action: "outbox-recovery",
+      executedBusinessJobs: 0,
+      recovery: firstRow(recovery.data),
+      health: firstRow(health.data),
+    };
   }
   // agent-workflows and agent-evals are disabled while the agent module
   // is archived on `refactor/extract-agent-module`.
@@ -76,9 +86,13 @@ function normalizeTarget(value: unknown): WorkerTarget | null {
 }
 
 function clampRunLimit(value: unknown, target: WorkerTarget | null) {
-  const max = target === "agent-evals" ? 100 : 10;
-  const fallback = target === "agent-evals" ? 20 : 2;
+  const max = target === "generations" ? 1_000 : target === "agent-evals" ? 100 : 10;
+  const fallback = target === "generations" ? 100 : target === "agent-evals" ? 20 : 2;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(1, Math.floor(parsed)));
+}
+
+function firstRow(value: unknown) {
+  return Array.isArray(value) ? value[0] ?? null : value;
 }

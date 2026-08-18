@@ -558,7 +558,7 @@ export default function Garment3dPage() {
       const referencePayload = outputMode === "reference" ? await urlToBase64(activeReferenceUrl) : null;
       const res = await fetch("/api/garment-3d", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           garment_url: garmentUrl,
           garment_type: garmentType,

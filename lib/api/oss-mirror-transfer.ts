@@ -7,6 +7,7 @@ import {
   RemoteImageFetchError,
 } from "@/lib/api/remote-image-fetch";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
 
 const MIRROR_TABLE = "oss_mirror_transfers";
 const DEFAULT_MIRROR_TTL_SECONDS = 30 * 60;
@@ -35,9 +36,13 @@ type MirrorTransferRow = {
   source_url_sha256: string | null;
   source_host: string;
   generation_ref: string;
+  owner_user_id: string | null;
+  media_asset_id: string | null;
+  transfer_mode: "mirror" | "stream";
   status: MirrorStatus;
   attempts: number;
   lease_token: string | null;
+  lease_version: number;
   lease_expires_at: string | null;
   next_attempt_at: string;
   expires_at: string;
@@ -53,20 +58,33 @@ type MirrorTransferRow = {
 type MirrorResult = {
   contentLength: number;
   contentType: SupportedImageType;
+  contentSha256: string;
+  checksumKind: "sha256" | "oss-etag" | "oss-crc64";
+  etag: string | null;
+  width?: number;
+  height?: number;
 };
+type MirrorExpected = Pick<MirrorResult, "contentLength" | "contentType">;
 
 type SupportedImageType =
+  | "audio/aac"
+  | "audio/mp4"
+  | "audio/mpeg"
+  | "audio/wav"
   | "image/avif"
   | "image/gif"
   | "image/jpeg"
   | "image/png"
-  | "image/webp";
+  | "image/webp"
+  | "video/mp4"
+  | "video/quicktime"
+  | "video/webm";
 
 type MirrorConfig = ReturnType<typeof getMirrorConfig>;
 
 export class OssMirrorTransferError extends Error {
   constructor(message: string, public readonly retryable: boolean) {
-    super(message);
+    super(sanitizeGenerationErrorMessage(message, "OSS mirror transfer failed", 500));
     this.name = "OssMirrorTransferError";
   }
 }
@@ -81,12 +99,19 @@ export function isAliyunOssRemoteTransferEnabled() {
 
 export function getAliyunOssRemoteTransferMode(): AliyunOssRemoteTransferMode {
   if ((process.env.IMAGE_STORAGE_PROVIDER || "").trim().toLowerCase() !== "aliyun-oss") {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("production generated results require IMAGE_STORAGE_PROVIDER=aliyun-oss");
+    }
     return "disabled";
   }
   const configured = (process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE || "").trim().toLowerCase();
   if (configured === "stream" || configured === "mirror" || configured === "disabled") {
+    if (configured === "disabled" && process.env.NODE_ENV === "production") {
+      throw new Error("production generated results require ALIYUN_OSS_REMOTE_TRANSFER_MODE=stream|mirror");
+    }
     return configured;
   }
+  if (process.env.NODE_ENV === "production") return "stream";
   return /^(1|true|yes)$/i.test((process.env.ALIYUN_OSS_MIRROR_ENABLED || "").trim())
     ? "mirror"
     : "disabled";
@@ -112,7 +137,6 @@ export async function mirrorRemoteImageToAliyunOss(
   const source = new URL(sourceUrl);
   const expected = await inspectRemoteImage(source, config);
   const id = randomUUID();
-  const leaseToken = randomUUID();
   const now = Date.now();
   const expiresAtMs = now + config.ttlSeconds * 1000;
   const objectKey = buildMirrorObjectKey(
@@ -131,18 +155,22 @@ export async function mirrorRemoteImageToAliyunOss(
     generationRef: normalizedGenerationRef,
     expected,
     expiresAt: new Date(expiresAtMs).toISOString(),
-    leaseToken,
   });
 
   const completed = await waitForTransferCompletion(
     admin,
     row,
-    leaseToken,
     config,
-    transferMode === "mirror",
   );
-  return buildObjectUrl(config.publicBaseUrl, completed.object_key);
+  const mediaAssetId = String(completed.media_asset_id || "");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(mediaAssetId)) {
+    throw retryableError("OSS mirror completed without a verified media asset");
+  }
+  return `/api/media-assets/${mediaAssetId}`;
 }
+
+/** Same durable transfer contract for provider video/audio results. */
+export const mirrorRemoteMediaToAliyunOss = mirrorRemoteImageToAliyunOss;
 
 /** Claim and process retryable rows. Safe to run in multiple worker processes. */
 export async function processPendingOssMirrorTransfers(
@@ -154,13 +182,12 @@ export async function processPendingOssMirrorTransfers(
   }
 
   const config = getMirrorConfig();
-  const leaseToken = randomUUID();
   const { data, error } = await admin.rpc("claim_oss_mirror_transfers", {
     // Never lease more rows than this process can actively stream. Otherwise
     // queued rows can lose their lease before backpressure lets them start.
     p_limit: Math.min(clampInt(limit, 1, 100, 50), config.networkConcurrency),
-    p_lease_token: leaseToken,
-    p_lease_expires_at: new Date(Date.now() + getTransferLeaseMs(config)).toISOString(),
+    p_lease_seconds: Math.ceil(getTransferLeaseMs(config) / 1_000),
+    p_worker_id: `oss-mirror-${process.pid}`,
   });
   if (error) throw retryableError(`claim OSS mirror mappings failed: ${error.message}`);
 
@@ -305,11 +332,11 @@ async function registerTransfer(
     sourceUrl: string;
     sourceHost: string;
     generationRef: string;
-    expected: MirrorResult;
+    expected: MirrorExpected;
     expiresAt: string;
-    leaseToken: string;
   },
 ) {
+  const ownerUserId = await resolveGenerationOwnerUserId(admin, input.generationRef);
   const sharedParams = {
     p_id: input.id,
     p_object_key: input.objectKey,
@@ -317,17 +344,16 @@ async function registerTransfer(
     p_source_url_sha256: sha256(input.sourceUrl),
     p_source_host: input.sourceHost,
     p_generation_ref: input.generationRef,
+    p_owner_user_id: ownerUserId,
     p_expected_content_length: input.expected.contentLength,
     p_expected_content_type: input.expected.contentType,
     p_expires_at: input.expiresAt,
   };
-  const { data, error } = transferMode === "stream"
-    ? await admin.rpc("register_oss_stream_transfer", sharedParams)
-    : await admin.rpc("register_oss_mirror_transfer", {
-        ...sharedParams,
-        p_lease_token: input.leaseToken,
-        p_lease_expires_at: new Date(Date.now() + MIRROR_LEASE_MS).toISOString(),
-      });
+  const { data, error } = await admin.rpc("register_oss_mirror_transfer", {
+    ...sharedParams,
+    p_transfer_mode: transferMode,
+    p_max_attempts: getMirrorConfig().maxAttempts,
+  });
   if (error) throw retryableError(`register OSS mirror mapping failed: ${error.message}`);
   const row = asRows(data)[0];
   if (!row) throw retryableError("register OSS mirror mapping returned no row");
@@ -337,13 +363,10 @@ async function registerTransfer(
 async function waitForTransferCompletion(
   admin: AdminClient,
   initialRow: MirrorTransferRow,
-  initialLeaseToken: string,
   config: MirrorConfig,
-  allowInlineProcessing: boolean,
 ) {
   const deadline = Date.now() + config.waitTimeoutMs;
   let row = initialRow;
-  let leaseToken = initialLeaseToken;
 
   while (Date.now() < deadline) {
     if (row.status === "completed") return row;
@@ -351,39 +374,13 @@ async function waitForTransferCompletion(
       throw terminalError(`OSS remote transfer failed: ${row.last_error || "unknown failure"}`);
     }
 
-    if (allowInlineProcessing && row.status === "processing" && row.lease_token === leaseToken) {
-      try {
-        row = await processOwnedTransfer(admin, row, config);
-        continue;
-      } catch (error) {
-        row = await deferOwnedTransfer(admin, row, config, error);
-        continue;
-      }
-    }
-
     const nextAttemptAt = new Date(row.next_attempt_at).getTime();
     const waitMs = Math.max(100, Math.min(2_000, nextAttemptAt - Date.now()));
     await delay(waitMs);
-    if (allowInlineProcessing) {
-      leaseToken = randomUUID();
-      const claimed = await claimSpecificTransfer(admin, row.id, leaseToken);
-      row = claimed || await readTransfer(admin, row.id);
-    } else {
-      row = await readTransfer(admin, row.id);
-    }
+    row = await readTransfer(admin, row.id);
   }
 
   throw retryableError("OSS mirror transfer did not complete within the publish timeout");
-}
-
-async function claimSpecificTransfer(admin: AdminClient, id: string, leaseToken: string) {
-  const { data, error } = await admin.rpc("claim_oss_mirror_transfer", {
-    p_id: id,
-    p_lease_token: leaseToken,
-    p_lease_expires_at: new Date(Date.now() + MIRROR_LEASE_MS).toISOString(),
-  });
-  if (error) throw retryableError(`claim OSS mirror mapping failed: ${error.message}`);
-  return asRows(data)[0] || null;
 }
 
 async function readTransfer(admin: AdminClient, id: string) {
@@ -398,14 +395,82 @@ async function processOwnedTransfer(
   row: MirrorTransferRow,
   config: MirrorConfig,
 ) {
-  const mirrored = getAliyunOssRemoteTransferMode() === "stream"
-    ? await streamRemoteImageToOss(row, config)
-    : await triggerMirrorTransfer(row, config);
+  if (!row.lease_token || !Number.isInteger(row.lease_version)) {
+    throw terminalError("OSS transfer is missing its lease fence");
+  }
+  let leaseLost = false;
+  let heartbeatRunning = false;
+  const heartbeat = async () => {
+    if (heartbeatRunning || leaseLost) return;
+    heartbeatRunning = true;
+    try {
+      const { data, error } = await admin.rpc("heartbeat_oss_mirror_transfer", {
+        p_id: row.id,
+        p_lease_token: row.lease_token,
+        p_lease_version: row.lease_version,
+        p_lease_seconds: Math.ceil(getTransferLeaseMs(config) / 1_000),
+      });
+      if (error || data !== true) leaseLost = true;
+    } finally {
+      heartbeatRunning = false;
+    }
+  };
+  const timer = setInterval(() => void heartbeat(), 30_000);
+  timer.unref?.();
+  try {
+    const result = await processOwnedTransferWithFence(admin, row, config);
+    if (leaseLost) throw retryableError("OSS transfer lease was lost during processing");
+    return result;
+  } finally {
+    clearInterval(timer);
+  }
+}
+
+async function processOwnedTransferWithFence(
+  admin: AdminClient,
+  row: MirrorTransferRow,
+  config: MirrorConfig,
+) {
+  let mirrored: MirrorResult;
+  if (row.transfer_mode === "stream") {
+    mirrored = await streamRemoteImageToOss(row, config);
+  } else {
+    try {
+      await assertOssBucketPrivate(config);
+      mirrored = await triggerMirrorTransfer(row, config);
+    } catch (mirrorError) {
+      // OSS Website mirror is the preferred data plane, but it is an optional
+      // bucket capability and can be temporarily unavailable. Fall back to the
+      // same SSRF-guarded, byte-bounded server stream under the active fence.
+      console.warn("[oss-mirror] cloud pull failed; using bounded stream fallback", {
+        transferId: row.id,
+        error: mirrorError instanceof Error ? mirrorError.message : String(mirrorError),
+      });
+      mirrored = await streamRemoteImageToOss(row, config);
+    }
+  }
+  await enforcePrivateOssObjectAcl(config, row.object_key);
+  if (mirrored.contentType.startsWith("image/") || mirrored.checksumKind !== "sha256") {
+    const hashed = await hashStoredOssObject(config, row.object_key, mirrored.contentLength, mirrored.contentType);
+    mirrored = {
+      ...mirrored,
+      contentSha256: hashed.sha256,
+      checksumKind: "sha256",
+      width: hashed.width,
+      height: hashed.height,
+    };
+  }
+  const mediaAssetId = await registerVerifiedMirrorAsset(admin, row, config, mirrored);
   const { data, error } = await admin.rpc("complete_oss_mirror_transfer", {
     p_id: row.id,
     p_lease_token: row.lease_token,
+    p_lease_version: row.lease_version,
     p_content_length: mirrored.contentLength,
     p_content_type: mirrored.contentType,
+    p_content_sha256: mirrored.contentSha256,
+    p_checksum_kind: mirrored.checksumKind,
+    p_etag: mirrored.etag,
+    p_media_asset_id: mediaAssetId,
   });
   if (error) throw retryableError(`complete OSS mirror mapping failed: ${error.message}`);
   const completed = asRows(data)[0];
@@ -417,6 +482,209 @@ async function processOwnedTransfer(
   return completed;
 }
 
+async function resolveGenerationOwnerUserId(admin: AdminClient, generationRef: string) {
+  const generationId = parseGenerationIdFromResultRef(generationRef);
+  if (!generationId) throw terminalError("OSS mirror generation reference does not start with a generation UUID");
+  const { data, error } = await admin
+    .from("generations")
+    .select("user_id")
+    .eq("id", generationId)
+    .maybeSingle();
+  if (error) throw retryableError(`resolve OSS mirror owner failed: ${error.message}`);
+  const ownerUserId = String(data?.user_id || "");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ownerUserId)) {
+    throw terminalError("OSS mirror generation owner is missing");
+  }
+  return ownerUserId;
+}
+
+export function parseGenerationIdFromResultRef(generationRef: string) {
+  return /^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:-|$)/i
+    .exec(generationRef)?.[1] || null;
+}
+
+async function registerVerifiedMirrorAsset(
+  admin: AdminClient,
+  row: MirrorTransferRow,
+  config: MirrorConfig,
+  mirrored: MirrorResult,
+) {
+  const ownerUserId = row.owner_user_id || await resolveGenerationOwnerUserId(admin, row.generation_ref);
+  const { data: createdData, error: createError } = await admin.rpc("create_media_asset_upload", {
+    p_owner_user_id: ownerUserId,
+    p_idempotency_key: `oss-mirror:${row.id}`,
+    p_object_key: row.object_key,
+    p_purpose: "generation_result",
+    p_visibility: "private",
+    p_storage_class: "standard",
+    p_expected_sha256: mirrored.contentSha256,
+    p_expected_size_bytes: mirrored.contentLength,
+    p_expected_mime_type: mirrored.contentType,
+    p_expected_width: mirrored.width ?? null,
+    p_expected_height: mirrored.height ?? null,
+    p_retention_until: null,
+    p_lease_seconds: 900,
+    p_bucket_name: config.bucket,
+  });
+  if (createError) throw retryableError(`register mirrored media asset failed: ${createError.message}`);
+  const created = firstRecord(createdData);
+  if (!created?.asset_id) throw retryableError("register mirrored media asset returned no asset");
+
+  let status = String(created.status || "");
+  let fenceVersion = Number(created.fence_version);
+  if (status === "pending") {
+    if (!created.lease_token || !Number.isSafeInteger(fenceVersion)) {
+      throw retryableError("mirrored media asset returned an invalid upload fence");
+    }
+    const { data: completedData, error: completeError } = await admin.rpc("complete_media_asset_upload", {
+      p_asset_id: created.asset_id,
+      p_lease_token: created.lease_token,
+      p_fence_version: fenceVersion,
+      p_sha256: mirrored.contentSha256,
+      p_size_bytes: mirrored.contentLength,
+      p_mime_type: mirrored.contentType,
+      p_width: mirrored.width ?? null,
+      p_height: mirrored.height ?? null,
+    });
+    if (completeError) throw retryableError(`complete mirrored media asset failed: ${completeError.message}`);
+    const completed = firstRecord(completedData);
+    if (!completed?.asset_id) throw retryableError("complete mirrored media asset returned no asset");
+    status = String(completed.status || "");
+    fenceVersion = Number(completed.fence_version);
+    if (completed.metadata_matches !== true) {
+      throw terminalError("mirrored media asset metadata did not match its registration");
+    }
+  }
+
+  if (status === "quarantined" || status === "deleted") {
+    throw terminalError(`mirrored media asset is ${status}`);
+  }
+  if (status === "verified") return String(created.asset_id);
+
+  if (mirrored.contentType.startsWith("video/")) {
+    await waitForMediaAssetVerification(admin, String(created.asset_id), ownerUserId, config.waitTimeoutMs);
+    return String(created.asset_id);
+  }
+
+  if (status !== "uploaded" || !Number.isSafeInteger(fenceVersion)) {
+    throw retryableError(`mirrored media asset is not ready to verify: ${status || "unknown"}`);
+  }
+  const { data: verifiedData, error: verifyError } = await admin.rpc("verify_media_asset", {
+    p_asset_id: created.asset_id,
+    p_fence_version: fenceVersion,
+  });
+  if (verifyError) throw retryableError(`verify mirrored media asset failed: ${verifyError.message}`);
+  const verified = firstRecord(verifiedData);
+  if (verified?.status !== "verified") throw retryableError("mirrored media asset verification did not settle");
+  return String(created.asset_id);
+}
+
+async function waitForMediaAssetVerification(
+  admin: AdminClient,
+  assetId: string,
+  ownerUserId: string,
+  timeoutMs: number,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const { data, error } = await admin.rpc("get_media_asset_status", {
+      p_asset_id: assetId,
+      p_expected_owner_user_id: ownerUserId,
+    });
+    if (error) throw retryableError(`read mirrored media asset status failed: ${error.message}`);
+    const current = firstRecord(data);
+    if (current?.status === "verified") return;
+    if (current?.status === "quarantined" || current?.status === "deleted") {
+      throw terminalError(`mirrored media asset is ${current.status}`);
+    }
+    await delay(500);
+  }
+  throw retryableError("mirrored media asset validation did not complete before the publish deadline");
+}
+
+async function hashStoredOssObject(
+  config: MirrorConfig,
+  objectKey: string,
+  expectedLength: number,
+  expectedType: SupportedImageType,
+) {
+  const response = await withNetworkPermit(config.networkConcurrency, () => fetch(
+    buildObjectUrl(`https://${config.endpoint}`, objectKey),
+    {
+      method: "GET",
+      cache: "no-store",
+      redirect: "manual",
+      headers: signOssRequest(config, "GET", objectKey, { "Accept-Encoding": "identity" }),
+      signal: AbortSignal.timeout(config.streamTimeoutMs),
+    },
+  ));
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw httpError("OSS full-object checksum", response.status);
+  }
+  const storedLength = Number(response.headers.get("content-length") || 0);
+  const storedType = normalizeSupportedImageType(response.headers.get("content-type"));
+  if (storedLength !== expectedLength || storedType !== expectedType || !response.body) {
+    await response.body?.cancel().catch(() => undefined);
+    throw terminalError("OSS full-object metadata differs from the mirrored source");
+  }
+
+  const reader = response.body.getReader();
+  const hash = createHash("sha256");
+  const imageChunks: Buffer[] = [];
+  let prefix = Buffer.alloc(0);
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > expectedLength || total > config.maxBytes) {
+        throw terminalError("OSS full-object stream exceeded its validated size");
+      }
+      hash.update(value);
+      if (expectedType.startsWith("image/")) imageChunks.push(Buffer.from(value));
+      if (prefix.byteLength < SOURCE_PROBE_BYTES) {
+        prefix = Buffer.concat([
+          prefix,
+          Buffer.from(value.subarray(0, SOURCE_PROBE_BYTES - prefix.byteLength)),
+        ]);
+      }
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  }
+  if (total !== expectedLength || !matchesImageMagic(prefix, expectedType)) {
+    throw terminalError("OSS full-object bytes failed length or media signature verification");
+  }
+  let dimensions: { width?: number; height?: number } = {};
+  if (expectedType.startsWith("image/")) {
+    try {
+      const sharp = (await import("sharp")).default;
+      const image = sharp(Buffer.concat(imageChunks, total), {
+        failOn: "error",
+        limitInputPixels: 40_000_000,
+      });
+      const metadata = await image.metadata();
+      // stats() forces a complete pixel decode instead of trusting container
+      // headers. libvips applies the pixel limit before allocating the raster.
+      await image.stats();
+      const width = Number(metadata.width);
+      const height = Number(metadata.height);
+      if (!Number.isInteger(width) || !Number.isInteger(height)
+          || width < 1 || height < 1 || width > 12_000 || height > 12_000
+          || width * height > 40_000_000) {
+        throw new Error("image dimensions exceed the generated-result safety limits");
+      }
+      dimensions = { width, height };
+    } catch (error) {
+      throw terminalError(`OSS image decode verification failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return { sha256: hash.digest("hex"), ...dimensions };
+}
+
 async function deferOwnedTransfer(
   admin: AdminClient,
   row: MirrorTransferRow,
@@ -424,7 +692,6 @@ async function deferOwnedTransfer(
   error: unknown,
 ) {
   const retryable = !(error instanceof OssMirrorTransferError) || error.retryable;
-  const maxAttempts = retryable ? config.maxAttempts : Math.max(1, row.attempts);
   const retryDelayMs = Math.min(
     60_000,
     config.retryBaseMs * Math.pow(2, Math.max(0, row.attempts - 1)),
@@ -433,9 +700,10 @@ async function deferOwnedTransfer(
   const { data, error: updateError } = await admin.rpc("defer_oss_mirror_transfer", {
     p_id: row.id,
     p_lease_token: row.lease_token,
-    p_last_error: message,
-    p_next_attempt_at: new Date(Date.now() + retryDelayMs).toISOString(),
-    p_max_attempts: maxAttempts,
+    p_lease_version: row.lease_version,
+    p_error: message,
+    p_retryable: retryable,
+    p_delay_seconds: Math.max(1, Math.ceil(retryDelayMs / 1_000)),
   });
   if (updateError) throw retryableError(`defer OSS mirror mapping failed: ${updateError.message}`);
   const updated = asRows(data)[0];
@@ -470,8 +738,8 @@ async function streamRemoteImageToOss(
   }
 
   const existing = await inspectStoredOssObject(config, row.object_key, expectedLength, expectedType);
-  if (existing === "matching") return { contentLength: expectedLength, contentType: expectedType };
-  if (existing === "mismatch") await deleteOssObject(config, row.object_key);
+  if (existing.status === "matching") return existing.result;
+  if (existing.status === "mismatch") await deleteOssObject(config, row.object_key);
 
   let remote;
   try {
@@ -479,6 +747,7 @@ async function streamRemoteImageToOss(
       source.toString(),
       {
         allowedHosts: config.allowedHosts,
+        allowedContentTypes: ["audio", "image", "video"],
         maxBytes: config.maxBytes,
         timeoutMs: config.streamTimeoutMs,
         requestHeaders: { "Accept-Encoding": "identity" },
@@ -512,35 +781,46 @@ async function streamRemoteImageToOss(
       headers: signOssRequest(config, "PUT", row.object_key, {
         "Content-Length": String(expectedLength),
         "Content-Type": expectedType,
+        "x-oss-forbid-overwrite": "true",
+        "x-oss-object-acl": "private",
       }),
       signal: AbortSignal.timeout(config.streamTimeoutMs),
       duplex: "half",
     } as RequestInit & { duplex: "half" }));
   } catch (error) {
     const recovered = await inspectStoredOssObject(config, row.object_key, expectedLength, expectedType)
-      .catch(() => "missing" as const);
-    if (recovered === "matching") return { contentLength: expectedLength, contentType: expectedType };
+      .catch(() => ({ status: "missing" as const }));
+    if (recovered.status === "matching") return recovered.result;
     await deleteOssObject(config, row.object_key);
     if (error instanceof OssMirrorTransferError) throw error;
     throw retryableError(`OSS stream upload failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   if (!response.ok) {
-    const snippet = await readResponseSnippet(response, 2_048);
+    await response.body?.cancel().catch(() => undefined);
     await deleteOssObject(config, row.object_key);
-    throw httpError("OSS stream upload", response.status, snippet);
+    throw httpError("OSS stream upload", response.status);
   }
   if (validated.bytesRead() !== expectedLength) {
     await deleteOssObject(config, row.object_key);
     throw terminalError(`remote image stream length changed: ${validated.bytesRead()}/${expectedLength}`);
   }
 
-  const stored = await inspectStoredOssObject(config, row.object_key, expectedLength, expectedType);
-  if (stored !== "matching") {
+  const contentSha256 = validated.contentSha256();
+  const contentMd5 = validated.contentMd5();
+  const stored = await inspectStoredOssObject(
+    config,
+    row.object_key,
+    expectedLength,
+    expectedType,
+    undefined,
+    contentMd5,
+  );
+  if (stored.status !== "matching") {
     await deleteOssObject(config, row.object_key);
     throw retryableError("OSS stream upload verification failed");
   }
-  return { contentLength: expectedLength, contentType: expectedType };
+  return { ...stored.result, contentSha256, checksumKind: "sha256" };
 }
 
 function createValidatedImageStream(
@@ -550,6 +830,8 @@ function createValidatedImageStream(
   maxBytes: number,
 ) {
   let totalBytes = 0;
+  const contentHash = createHash("sha256");
+  const md5Hash = createHash("md5");
   let prefix = Buffer.alloc(0);
   let pending: Uint8Array[] = [];
   let magicValidated = false;
@@ -557,6 +839,8 @@ function createValidatedImageStream(
   const body = source.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
       totalBytes += chunk.byteLength;
+      contentHash.update(chunk);
+      md5Hash.update(chunk);
       if (totalBytes > maxBytes || totalBytes > expectedLength) {
         throw terminalError(`remote image stream exceeds ${Math.min(maxBytes, expectedLength)} bytes`);
       }
@@ -596,7 +880,20 @@ function createValidatedImageStream(
     },
   }));
 
-  return { body, bytesRead: () => totalBytes };
+  let digest: string | null = null;
+  let md5Digest: string | null = null;
+  return {
+    body,
+    bytesRead: () => totalBytes,
+    contentSha256: () => {
+      digest ??= contentHash.digest("hex");
+      return digest;
+    },
+    contentMd5: () => {
+      md5Digest ??= md5Hash.digest("hex");
+      return md5Digest;
+    },
+  };
 }
 
 async function inspectStoredOssObject(
@@ -604,7 +901,9 @@ async function inspectStoredOssObject(
   objectKey: string,
   expectedLength: number,
   expectedType: SupportedImageType,
-): Promise<"matching" | "mismatch" | "missing"> {
+  expectedSha256?: string,
+  expectedEtag?: string,
+): Promise<{ status: "matching"; result: MirrorResult } | { status: "mismatch" | "missing" }> {
   const objectUrl = buildObjectUrl(`https://${config.endpoint}`, objectKey);
   const response = await withNetworkPermit(config.networkConcurrency, () => fetch(objectUrl, {
     method: "HEAD",
@@ -613,11 +912,36 @@ async function inspectStoredOssObject(
     headers: signOssRequest(config, "HEAD", objectKey),
     signal: AbortSignal.timeout(config.triggerTimeoutMs),
   }));
-  if (response.status === 404) return "missing";
+  if (response.status === 404) return { status: "missing" };
   if (!response.ok) throw httpError("OSS stream verification", response.status);
   const storedLength = Number(response.headers.get("content-length") || 0);
   const storedType = normalizeSupportedImageType(response.headers.get("content-type"));
-  return storedLength === expectedLength && storedType === expectedType ? "matching" : "mismatch";
+  const metadataSha256 = (response.headers.get("x-oss-meta-sha256") || "").toLowerCase();
+  const etag = (response.headers.get("etag") || "").replace(/^"|"$/g, "") || null;
+  const crc64 = response.headers.get("x-oss-hash-crc64ecma") || null;
+  const checksum = metadataSha256 || etag || crc64 || "";
+  const checksumKind: MirrorResult["checksumKind"] = metadataSha256
+    ? "sha256"
+    : etag
+      ? "oss-etag"
+      : "oss-crc64";
+  const matches = storedLength === expectedLength
+    && storedType === expectedType
+    && Boolean(checksum)
+    && (!expectedSha256 || metadataSha256 === expectedSha256)
+    && (!expectedEtag || etag?.toLowerCase() === expectedEtag.toLowerCase());
+  return matches
+    ? {
+        status: "matching",
+        result: {
+          contentLength: storedLength,
+          contentType: storedType!,
+          contentSha256: checksum,
+          checksumKind,
+          etag,
+        },
+      }
+    : { status: "mismatch" };
 }
 
 function classifyRemoteStreamError(error: unknown) {
@@ -671,8 +995,8 @@ async function triggerMirrorTransfer(row: MirrorTransferRow, config: MirrorConfi
   }));
 
   if (response.status !== 206) {
-    const snippet = await readResponseSnippet(response, 2_048);
-    throw httpError("OSS mirror Range trigger", response.status, snippet);
+    await response.body?.cancel().catch(() => undefined);
+    throw httpError("OSS mirror Range trigger", response.status);
   }
 
   const match = /^bytes 0-0\/(\d+)$/.exec(response.headers.get("content-range") || "");
@@ -710,10 +1034,21 @@ async function triggerMirrorTransfer(row: MirrorTransferRow, config: MirrorConfi
     );
   }
 
-  return { contentLength: expectedLength, contentType: expectedType };
+  const metadataSha256 = (head.headers.get("x-oss-meta-sha256") || "").toLowerCase();
+  const etag = (head.headers.get("etag") || "").replace(/^"|"$/g, "") || null;
+  const crc64 = head.headers.get("x-oss-hash-crc64ecma") || null;
+  const checksum = metadataSha256 || etag || crc64;
+  if (!checksum) throw retryableError("OSS mirror HEAD did not return an integrity checksum");
+  return {
+    contentLength: expectedLength,
+    contentType: expectedType,
+    contentSha256: checksum,
+    checksumKind: metadataSha256 ? "sha256" : etag ? "oss-etag" : "oss-crc64",
+    etag,
+  };
 }
 
-async function inspectRemoteImage(source: URL, config: MirrorConfig): Promise<MirrorResult> {
+async function inspectRemoteImage(source: URL, config: MirrorConfig): Promise<MirrorExpected> {
   if (source.username || source.password || source.hash || (source.port && source.port !== "443")) {
     throw terminalError("remote image URL credentials, fragments, and non-HTTPS ports are not allowed");
   }
@@ -744,8 +1079,8 @@ async function inspectRemoteImage(source: URL, config: MirrorConfig): Promise<Mi
     throw terminalError("remote image redirects are not allowed for OSS mirror sources");
   }
   if (response.status !== 200 && response.status !== 206) {
-    const snippet = await readResponseSnippet(response, 512);
-    throw httpError("remote image preflight", response.status, snippet);
+    await response.body?.cancel().catch(() => undefined);
+    throw httpError("remote image preflight", response.status);
   }
 
   const contentType = normalizeSupportedImageType(response.headers.get("content-type"));
@@ -797,26 +1132,67 @@ async function deleteOssObject(config: MirrorConfig, objectKey: string) {
   }
 }
 
+let privateBucketCheck: { endpoint: string; checkedAt: number } | null = null;
+
+async function assertOssBucketPrivate(config: MirrorConfig) {
+  if (privateBucketCheck?.endpoint === config.endpoint && Date.now() - privateBucketCheck.checkedAt < 60_000) return;
+  const response = await withNetworkPermit(config.networkConcurrency, () => fetch(`https://${config.endpoint}/?acl`, {
+    method: "GET",
+    cache: "no-store",
+    redirect: "manual",
+    headers: signOssRequest(config, "GET", "", {}, "?acl"),
+    signal: AbortSignal.timeout(config.triggerTimeoutMs),
+  }));
+  const body = await readResponseSnippet(response, 8_192);
+  if (!response.ok) throw httpError("OSS bucket ACL verification", response.status);
+  if (!/<Grant>private<\/Grant>/i.test(body)) {
+    throw terminalError("OSS cloud mirror requires a private bucket ACL");
+  }
+  privateBucketCheck = { endpoint: config.endpoint, checkedAt: Date.now() };
+}
+
+async function enforcePrivateOssObjectAcl(config: MirrorConfig, objectKey: string) {
+  const url = `${buildObjectUrl(`https://${config.endpoint}`, objectKey)}?acl`;
+  const response = await withNetworkPermit(config.networkConcurrency, () => fetch(url, {
+    method: "PUT",
+    cache: "no-store",
+    redirect: "manual",
+    headers: signOssRequest(config, "PUT", objectKey, { "x-oss-object-acl": "private" }, "?acl"),
+    signal: AbortSignal.timeout(config.triggerTimeoutMs),
+  }));
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw httpError("OSS object private ACL", response.status);
+  }
+}
+
 function signOssRequest(
   config: MirrorConfig,
   method: "DELETE" | "GET" | "HEAD" | "PUT",
   objectKey: string,
   extraHeaders: Record<string, string> = {},
+  canonicalQuery = "",
 ) {
   const date = new Date().toUTCString();
-  const contentType = extraHeaders["Content-Type"] || extraHeaders["content-type"] || "";
-  const canonicalizedOssHeaders = config.securityToken
-    ? `x-oss-security-token:${config.securityToken}\n`
-    : "";
-  const canonicalizedResource = `/${config.bucket}/${objectKey}`;
+  const signedHeaders: Record<string, string> = { ...extraHeaders };
+  if (config.securityToken) signedHeaders["x-oss-security-token"] = config.securityToken;
+  const contentTypeEntry = Object.entries(signedHeaders)
+    .find(([name]) => name.toLowerCase() === "content-type");
+  const contentType = contentTypeEntry?.[1] || "";
+  const canonicalizedOssHeaders = Object.entries(signedHeaders)
+    .map(([name, value]) => [name.toLowerCase(), value.trim()] as const)
+    .filter(([name]) => name.startsWith("x-oss-"))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}:${value}\n`)
+    .join("");
+  const canonicalizedResource = `/${config.bucket}/${objectKey}${canonicalQuery}`;
   const signature = createHmac("sha1", config.accessKeySecret)
     .update([method, "", contentType, date, `${canonicalizedOssHeaders}${canonicalizedResource}`].join("\n"))
     .digest("base64");
   return {
-    ...extraHeaders,
+    ...signedHeaders,
     Authorization: `OSS ${config.accessKeyId}:${signature}`,
     Date: date,
-    ...(config.securityToken ? { "x-oss-security-token": config.securityToken } : {}),
   };
 }
 
@@ -960,7 +1336,7 @@ function buildMirrorObjectKey(
 
 function verifyMirrorObjectKey(objectKey: string, config: MirrorConfig) {
   if (objectKey.length > 1_023 || !objectKey.startsWith(`${config.mirrorPrefix}/`)) return false;
-  const match = /^(.*\/([0-9a-f-]{36})\.([0-9a-z]+))\.([A-Za-z0-9_-]{43})\.(avif|gif|jpg|png|webp)$/.exec(objectKey);
+  const match = /^(.*\/([0-9a-f-]{36})\.([0-9a-z]+))\.([A-Za-z0-9_-]{43})\.(aac|avif|gif|jpg|m4a|mov|mp3|mp4|png|wav|webm|webp)$/.exec(objectKey);
   if (!match) return false;
   const expirySeconds = Number.parseInt(match[3], 36);
   if (!Number.isSafeInteger(expirySeconds) || expirySeconds * 1_000 <= Date.now()) return false;
@@ -971,6 +1347,23 @@ function verifyMirrorObjectKey(objectKey: string, config: MirrorConfig) {
 }
 
 function matchesImageMagic(bytes: Uint8Array, contentType: SupportedImageType) {
+  if (contentType === "video/mp4" || contentType === "video/quicktime" || contentType === "audio/mp4") {
+    return bytes.length >= 12 && Buffer.from(bytes.subarray(4, 8)).toString("ascii") === "ftyp";
+  }
+  if (contentType === "video/webm") {
+    return bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3;
+  }
+  if (contentType === "audio/mpeg") {
+    return Buffer.from(bytes.subarray(0, 3)).toString("ascii") === "ID3"
+      || (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
+  }
+  if (contentType === "audio/wav") {
+    return Buffer.from(bytes.subarray(0, 4)).toString("ascii") === "RIFF"
+      && Buffer.from(bytes.subarray(8, 12)).toString("ascii") === "WAVE";
+  }
+  if (contentType === "audio/aac") {
+    return bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0;
+  }
   if (contentType === "image/jpeg") {
     return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   }
@@ -998,17 +1391,28 @@ function normalizeSupportedImageType(value: unknown): SupportedImageType | null 
   if (normalized === "image/jpg") return "image/jpeg";
   if (
     normalized === "image/avif"
+    || normalized === "audio/aac"
+    || normalized === "audio/mp4"
+    || normalized === "audio/mpeg"
+    || normalized === "audio/wav"
     || normalized === "image/gif"
     || normalized === "image/jpeg"
     || normalized === "image/png"
     || normalized === "image/webp"
+    || normalized === "video/mp4"
+    || normalized === "video/quicktime"
+    || normalized === "video/webm"
   ) return normalized;
   return null;
 }
 
 function extensionForType(contentType: SupportedImageType) {
   if (contentType === "image/jpeg") return "jpg";
-  return contentType.slice("image/".length);
+  if (contentType === "audio/mpeg") return "mp3";
+  if (contentType === "audio/mp4") return "m4a";
+  if (contentType === "audio/wav") return "wav";
+  if (contentType === "video/quicktime") return "mov";
+  return contentType.split("/")[1];
 }
 
 function parseAllowedHosts(value?: string) {
@@ -1084,6 +1488,11 @@ function asRows(value: unknown) {
   return (Array.isArray(value) ? value : []) as MirrorTransferRow[];
 }
 
+function firstRecord(value: unknown) {
+  const row = Array.isArray(value) ? value[0] : null;
+  return row && typeof row === "object" ? row as Record<string, unknown> : null;
+}
+
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -1094,10 +1503,10 @@ function safeEqual(actual: string, expected: string) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function httpError(context: string, status: number, snippet = "") {
+function httpError(context: string, status: number) {
   const retryable = status === 408 || status === 429 || status >= 500;
   return new OssMirrorTransferError(
-    `${context} HTTP ${status}${snippet ? `: ${snippet}` : ""}`,
+    `${context} HTTP ${status}`,
     retryable,
   );
 }

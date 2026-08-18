@@ -20,7 +20,10 @@ const PROTOCOLS: readonly AiProviderProtocol[] = [
 
 export const DEFAULT_AI_ROUTING_POLICY: AiRoutingPolicy = {
   maxAttempts: 3,
-  leaseTtlSeconds: 30 * 60,
+  // Leases are heartbeated throughout long jobs. A short TTL makes a crashed
+  // Worker release scarce provider capacity within about a minute instead of
+  // leaving ghost slots occupied for half an hour.
+  leaseTtlSeconds: 60,
   retryBaseDelayMs: 800,
   retryMaxDelayMs: 8_000,
   circuitFailureThreshold: 5,
@@ -51,7 +54,6 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
     providers: [
       provider("yunwu-openai", "云雾 OpenAI 兼容", "https://yunwu.ai/v1", "env:PLATO_API_KEY"),
       provider("yunwu-native", "云雾 Gemini Native", "https://yunwu.ai", "env:YUNWU_NATIVE_API_KEY"),
-      provider("newapi-image", "NewAPI 图片备用", "https://api.new.bi/v1", "env:VIDEO_API_KEY"),
       provider("minimax", "MiniMax", "https://api.minimaxi.com/v1", "env:MINIMAX_API_KEY"),
       provider("newapi-video", "NewAPI 视频", "https://api.new.bi", "env:VIDEO_API_KEY"),
     ],
@@ -59,9 +61,6 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
       deployment("banana2-yunwu", "nano-banana-2", "yunwu-native", "gemini-3.1-flash-image-preview", "gemini-native", 10),
       deployment("gpt2-yunwu", "gpt-image-2", "yunwu-openai", "gpt-image-2", "openai-image", 10),
       deployment("banana-pro-yunwu", "nano-banana-pro", "yunwu-native", "gemini-3-pro-image-preview", "gemini-native", 10),
-      deployment("banana2-newapi", "nano-banana-2", "newapi-image", "nano-banana-2", "openai-image", 20),
-      deployment("gpt2-newapi", "gpt-image-2", "newapi-image", "gpt-image-2", "openai-image", 20),
-      deployment("banana-pro-newapi", "nano-banana-pro", "newapi-image", "nano-banana-pro", "openai-image", 20),
       deployment("text-minimax", "text-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
       deployment("vision-minimax", "vision-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
       deployment("video-minimax-newapi", "video-minimax", "newapi-video", "minimax", "newapi-video", 10, false),
@@ -209,9 +208,9 @@ function parseDeployment(value: unknown, index: number, issues: AiControlPlaneIs
     enabled: item.enabled !== false,
     priority: integer(item.priority, 100, 0, 10_000),
     weight: integer(item.weight, 100, 1, 10_000),
-    maxConcurrency: integer(item.maxConcurrency, 4, 1, 10_000),
-    requestsPerMinute: integer(item.requestsPerMinute, 60, 1, 1_000_000),
-    burst: integer(item.burst, 4, 1, 10_000),
+    maxConcurrency: integer(item.maxConcurrency, 16, 1, 10_000),
+    requestsPerMinute: integer(item.requestsPerMinute, 240, 1, 1_000_000),
+    burst: integer(item.burst, 16, 1, 10_000),
     asyncMode: item.asyncMode === true,
     capabilities: strings(item.capabilities),
     cost: numericRecord(item.cost),
@@ -274,7 +273,9 @@ function parsePolicy(value: unknown, issues: AiControlPlaneIssue[]): AiRoutingPo
   const weights = record(item.smartWeights);
   const policy: AiRoutingPolicy = {
     maxAttempts: integer(item.maxAttempts, DEFAULT_AI_ROUTING_POLICY.maxAttempts, 1, 10),
-    leaseTtlSeconds: integer(item.leaseTtlSeconds, DEFAULT_AI_ROUTING_POLICY.leaseTtlSeconds, 30, 45 * 60),
+    // Clamp legacy published values as well as new drafts. Long-running jobs
+    // rely on renewal, not on an oversized crash-recovery window.
+    leaseTtlSeconds: integer(item.leaseTtlSeconds, DEFAULT_AI_ROUTING_POLICY.leaseTtlSeconds, 30, 120),
     retryBaseDelayMs: integer(item.retryBaseDelayMs, DEFAULT_AI_ROUTING_POLICY.retryBaseDelayMs, 0, 30_000),
     retryMaxDelayMs: integer(item.retryMaxDelayMs, DEFAULT_AI_ROUTING_POLICY.retryMaxDelayMs, 0, 120_000),
     circuitFailureThreshold: integer(item.circuitFailureThreshold, DEFAULT_AI_ROUTING_POLICY.circuitFailureThreshold, 1, 100),
@@ -316,7 +317,7 @@ function provider(id: string, name: string, baseUrl: string, apiKey: string): Ai
 }
 
 function deployment(id: string, modelId: string, providerId: string, upstreamModel: string, protocol: AiProviderProtocol, priority: number, enabled = true): AiModelDeployment {
-  return { id, modelId, providerId, upstreamModel, protocol, enabled, priority, weight: 100, maxConcurrency: 4, requestsPerMinute: 60, burst: 4, qualityScore: 0.8 };
+  return { id, modelId, providerId, upstreamModel, protocol, enabled, priority, weight: 100, maxConcurrency: 16, requestsPerMinute: 240, burst: 16, qualityScore: 0.8 };
 }
 
 function checkUnique(items: Array<{ id: string }>, path: string, issues: AiControlPlaneIssue[]) {

@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `${moduleLabel}${mode === "text-to-image" ? "文生图" : "图生图"} ${genCount} 张 (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
     });
 
     startGenerationJob(debit.generationId);

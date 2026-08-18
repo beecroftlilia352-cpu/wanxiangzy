@@ -5,12 +5,19 @@ import {
   AiProviderHttpError,
   classifyAiProviderError,
   getAiRoutingCandidateScore,
+  isAiCapacityUnavailableError,
 } from "@/lib/ai-control-plane/router.server";
 
 describe("AI router error policy", () => {
   it("normalizes the queue backpressure retry window", () => {
     expect(new AiCapacityUnavailableError("busy", 1).retryAfterSeconds).toBe(5);
     expect(new AiCapacityUnavailableError("busy", 900).retryAfterSeconds).toBe(300);
+  });
+
+  it("recognizes capacity errors across bundle boundaries", () => {
+    expect(isAiCapacityUnavailableError({ name: "AiCapacityUnavailableError", retryAfterSeconds: 30 })).toBe(true);
+    expect(isAiCapacityUnavailableError({ name: "AiCapacityUnavailableError", retryAfterSeconds: 301 })).toBe(false);
+    expect(isAiCapacityUnavailableError(new Error("busy"))).toBe(false);
   });
 
   it("fails over on rate limit and preserves retry-after", () => {

@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import {
-  acquireAiProviderCapacity,
+  acquireAiProviderCapacityDetailed,
   getAiProviderInFlight,
   releaseAiProviderCapacity,
+  renewAiProviderCapacity,
+  type AiCapacityDecision,
 } from "@/lib/ai-control-plane/capacity.server";
 import { getAiRouteContext } from "@/lib/ai-control-plane/context.server";
 import {
@@ -42,6 +44,17 @@ export class AiCapacityUnavailableError extends Error {
     this.name = "AiCapacityUnavailableError";
     this.retryAfterSeconds = Math.min(Math.max(Math.ceil(retryAfterSeconds), 5), 300);
   }
+}
+
+/** Cross-bundle guard used by durable job dispatchers; never rely on instanceof. */
+export function isAiCapacityUnavailableError(error: unknown): error is AiCapacityUnavailableError {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { name?: unknown; retryAfterSeconds?: unknown };
+  return candidate.name === "AiCapacityUnavailableError"
+    && typeof candidate.retryAfterSeconds === "number"
+    && Number.isFinite(candidate.retryAfterSeconds)
+    && candidate.retryAfterSeconds >= 1
+    && candidate.retryAfterSeconds <= 300;
 }
 
 export type AiRouteExecutionInput<T> = {
@@ -93,6 +106,7 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
   const maxAttempts = Math.min(config.policy.maxAttempts, Math.max(1, resolved.length));
   const attempted = new Set<string>();
   const capacitySkipped = new Set<string>();
+  const capacityDecisions: AiCapacityDecision[] = [];
   let lastError: unknown = null;
   let providerAttempt = 0;
 
@@ -101,7 +115,7 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
     if (attempted.has(deployment.id)) continue;
     attempted.add(deployment.id);
     const leaseStartedAt = Date.now();
-    const lease = await acquireAiProviderCapacity({
+    const capacityDecision = await acquireAiProviderCapacityDetailed({
       deploymentId: deployment.id,
       maxConcurrency: deployment.health.circuitState === "half_open"
         ? Math.min(deployment.maxConcurrency, config.policy.halfOpenMaxRequests)
@@ -110,8 +124,10 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
       burst: deployment.burst,
       ttlSeconds: config.policy.leaseTtlSeconds,
     });
+    const lease = capacityDecision.lease;
     if (!lease) {
       capacitySkipped.add(deployment.id);
+      capacityDecisions.push(capacityDecision);
       continue;
     }
 
@@ -129,6 +145,7 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
     });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), deployment.provider.timeoutMs);
+    const heartbeat = startCapacityHeartbeat(lease, config.policy.leaseTtlSeconds, controller);
     try {
       const result = await input.execute({ ...deployment, abortSignal: controller.signal, selectionReason: { ...deployment.selectionReason, inFlightAfterLease: lease.inFlight } }, providerAttempt);
       const latency = Date.now() - startedAt;
@@ -161,15 +178,57 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
       if (providerAttempt < maxAttempts) await delay(backoffMs(config, providerAttempt, requestId));
     } finally {
       clearTimeout(timeout);
+      clearInterval(heartbeat);
       await releaseAiProviderCapacity(lease);
     }
   }
 
   if (capacitySkipped.size > 0 && providerAttempt < maxAttempts) {
-    throw new AiCapacityUnavailableError(`模型 ${input.modelId} 的供应商池当前已满，将在队列中稍后重试`);
+    const backendUnavailable = capacityDecisions.some((item) => item.reason === "backend_unavailable");
+    const rateLimited = capacityDecisions.length > 0 && capacityDecisions.every((item) => item.reason === "rate_limit");
+    const retryAfter = capacityDecisions.length
+      ? Math.max(1, Math.min(...capacityDecisions.map((item) => item.retryAfterSeconds)))
+      : 15;
+    throw new AiCapacityUnavailableError(
+      backendUnavailable
+        ? `模型 ${input.modelId} 的分布式容量服务暂不可用，将在队列中稍后重试`
+        : rateLimited
+          ? `模型 ${input.modelId} 的供应商池已达到 RPM 上限，将在队列中稍后重试`
+          : `模型 ${input.modelId} 的供应商池当前已满，将在队列中稍后重试`,
+      retryAfter,
+    );
   }
   if (lastError) throw lastError;
   throw new AiCapacityUnavailableError(`模型 ${input.modelId} 的供应商池当前已满，将在队列中稍后重试`);
+}
+
+function startCapacityHeartbeat(
+  lease: Parameters<typeof renewAiProviderCapacity>[0],
+  ttlSeconds: number,
+  controller: AbortController,
+) {
+  const intervalMs = Math.max(10_000, Math.floor(Math.max(30, ttlSeconds) * 1000 / 3));
+  let renewing = false;
+  let consecutiveFailures = 0;
+  return setInterval(() => {
+    if (renewing) return;
+    renewing = true;
+    void renewAiProviderCapacity(lease, ttlSeconds)
+      .then((renewed) => {
+        if (renewed) {
+          consecutiveFailures = 0;
+          return;
+        }
+        consecutiveFailures += 1;
+        const expiresAt = lease.expiresAt || 0;
+        if (consecutiveFailures >= 2 || Date.now() + intervalMs >= expiresAt) {
+          controller.abort(new Error("provider capacity lease lost"));
+        }
+      })
+      .finally(() => {
+        renewing = false;
+      });
+  }, intervalMs);
 }
 
 async function resolveOrder(

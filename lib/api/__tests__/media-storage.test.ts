@@ -55,12 +55,13 @@ describe("media storage", () => {
       storageClass: "generated",
     });
 
-    expect(stored.url).toMatch(/generated-video\.mp4$/);
+    expect(new URL(stored.url).pathname).toMatch(/generated-video-[0-9a-f]{20}\.mp4$/);
     expect(calls).toHaveLength(2);
     expect(calls[0].url).toBe("https://93.184.216.34/generated-video.mp4");
     expect(calls[0].init?.redirect).toBe("manual");
     expect(calls[1].url).toContain("https://vasthk.oss-cn-hongkong.aliyuncs.com/");
     expect((calls[1].init?.headers as Record<string, string>)["Content-Type"]).toBe("video/mp4");
+    expect((calls[1].init?.headers as Record<string, string>)["x-oss-object-acl"]).toBe("private");
   });
 
   it("blocks private remote media URLs before issuing a network request", async () => {

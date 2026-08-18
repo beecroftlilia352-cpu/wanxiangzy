@@ -576,7 +576,7 @@ export default function FaceSwapPage() {
     try {
       const res = await fetch("/api/face-swap", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           source_urls: runSourceUrls,
           face_url: faceUrl,

@@ -49,13 +49,16 @@ describe("errorToResponsePayload", () => {
     const err = new Error("something broke");
     const payload = errorToResponsePayload(err);
     expect(payload.status).toBe(500);
-    expect(payload.body.error).toBe("something broke");
+    expect(payload.body.error).toBe("生成服务暂时不可用，请稍后重试");
+    expect(payload.body.error_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(payload.body.error).not.toContain("something broke");
   });
 
   it("returns 500 for non-Error values", () => {
     const payload = errorToResponsePayload("string error");
     expect(payload.status).toBe(500);
-    expect(payload.body.error).toBe("Internal server error");
+    expect(payload.body.error).toBe("生成服务暂时不可用，请稍后重试");
+    expect(payload.body.error_id).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
 

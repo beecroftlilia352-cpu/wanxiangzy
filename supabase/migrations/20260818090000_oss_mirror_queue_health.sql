@@ -107,7 +107,9 @@ BEGIN
     FROM public.oss_mirror_transfers AS transfer
     WHERE transfer.status = 'processing'
       AND transfer.lease_expires_at IS NOT NULL
-      AND transfer.lease_expires_at <= now() - make_interval(secs => p_stale_lease_seconds)
+      -- lease_expires_at already includes the processing budget; reclaim as
+      -- soon as it expires. The stale argument is retained for API stability.
+      AND transfer.lease_expires_at <= now()
     ORDER BY transfer.lease_expires_at, transfer.created_at
     FOR UPDATE SKIP LOCKED
     LIMIT p_limit
@@ -116,7 +118,9 @@ BEGIN
     UPDATE public.oss_mirror_transfers AS transfer
     SET status = 'pending',
         lease_token = NULL,
+        lease_version = transfer.lease_version + 1,
         lease_expires_at = NULL,
+        claimed_by = NULL,
         next_attempt_at = now(),
         last_error = CASE
           WHEN transfer.last_error IS NULL

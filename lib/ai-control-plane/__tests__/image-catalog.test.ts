@@ -10,14 +10,14 @@ afterEach(() => registerImageModelCatalog([]));
 describe("dynamic image model catalog", () => {
   it("drives client price and supported size display from the published catalog", () => {
     registerImageModelCatalog([{
-      id: "qwen-image-3",
-      displayName: "Qwen Image 3",
+      id: "nano-banana-2",
+      displayName: "Nano Banana 2 custom",
       creditPrices: { "2K": 7, "4K": 11 },
       supportedSizes: ["2K", "4K"],
       capabilities: ["generation"],
     }]);
 
-    expect(getSupportedImageSizes("qwen-image-3")).toEqual(["2K", "4K"]);
-    expect(getCreditCost("qwen-image-3", "4K")).toBe(11);
+    expect(getSupportedImageSizes("nano-banana-2")).toEqual(["2K", "4K"]);
+    expect(getCreditCost("nano-banana-2", "4K")).toBe(11);
   });
 });
