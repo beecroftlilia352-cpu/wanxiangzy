@@ -1104,7 +1104,7 @@ AS $$
     COALESCE(
       FLOOR(EXTRACT(EPOCH FROM (now() - min(o.available_at) FILTER (
         WHERE o.status = 'pending'
-      )))::BIGINT,
+      ))))::BIGINT,
       0
     ) AS oldest_pending_age_seconds
   FROM private.generation_job_outbox AS o;
