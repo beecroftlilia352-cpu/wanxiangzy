@@ -410,7 +410,7 @@ export function normalizeAiToolTaskQueueItem(row: TaskQueueAiToolSourceRow): Tas
     thumbnails: resultUrls.length ? resultUrls.slice(0, TASK_RESULT_THUMBNAIL_LIMIT) : uniqueStrings([row.source_url]),
     applyUrl: `${getAiToolPath(row.operation)}?task=${encodeURIComponent(taskId)}`,
   };
-  return applyStaleRunningFallback(item);
+  return isPersistingOutput ? item : applyStaleRunningFallback(item);
 }
 
 export function normalizeWorkflowTaskQueueItem(row: TaskQueueWorkflowSourceRow): TaskQueueItem {

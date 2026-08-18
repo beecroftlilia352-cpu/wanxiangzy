@@ -36,11 +36,11 @@ export async function createDebitedGeneration(
     imageSize: string;
     reason: string;
     jobPayload?: Record<string, unknown>;
-    idempotencyKey: string;
+    idempotencyKey?: string;
   }
 ): Promise<{ generationId: string; creditsRemaining: number }> {
-  const idempotencyKey = normalizeGenerationIdempotencyKey(params.idempotencyKey);
   await assertUserCanGenerate(params.userId);
+  const idempotencyKey = normalizeGenerationIdempotencyKey(params.idempotencyKey);
 
   const { data, error } = await supabase.rpc("create_generation_with_credit_debit_v2", {
     p_user_id: params.userId,
@@ -252,6 +252,9 @@ function normalizeCreditRpcError(message = "", required: number) {
   if (message.includes("INVALID_IDEMPOTENCY_KEY")) {
     return new CreditError("生成请求幂等键无效", 400);
   }
+  if (message.includes("NOT_ALLOWED")) {
+    return new CreditError("登录状态校验失败，请刷新页面后重新登录", 401);
+  }
 
   return new CreditError("生成请求事务暂时不可用", 503);
 }
@@ -260,8 +263,8 @@ export function requireGenerationIdempotencyKey(request: Pick<Request, "headers"
   return normalizeGenerationIdempotencyKey(request.headers.get("idempotency-key") || "");
 }
 
-function normalizeGenerationIdempotencyKey(value: string) {
-  const normalized = value.trim();
+function normalizeGenerationIdempotencyKey(value: string | undefined) {
+  const normalized = (value || "").trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{19,159}$/.test(normalized)) {
     throw new CreditError("缺少或无效的 Idempotency-Key（20-160 位）", 400);
   }

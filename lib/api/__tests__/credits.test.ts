@@ -75,6 +75,7 @@ describe("createDebitedGeneration", () => {
       aiModel: "nano-banana-2",
       imageSize: "2K",
       reason: "AI 消除",
+      idempotencyKey: "test-idempotency-key-0001",
     })).rejects.toMatchObject({
       name: "CreditError",
       status: 401,

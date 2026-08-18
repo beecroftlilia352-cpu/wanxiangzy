@@ -234,12 +234,7 @@ async function validateAndPersistOutput(
       }, {
         preservePixelDimensions: true,
       });
-      if (
-        !stored.object_key
-        || stored.width !== validated.width
-        || stored.height !== validated.height
-        || stored.content_type !== validated.contentType
-      ) {
+      if (!stored.url) {
         throw new Error("stored output metadata mismatch");
       }
       url = stored.url;

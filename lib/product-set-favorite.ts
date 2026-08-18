@@ -112,7 +112,7 @@ export function normalizeFavoritePlanPayload(value: unknown): FavoritePlanPayloa
 
   const imageType = normalizeProductSetImageType(value.imageType);
   const mode = normalizeProductSetCreationMode(value.mode);
-  const aiModel = normalizeLingyaModel(value.aiModel);
+  const aiModel = normalizeFavoritePlanModel(value.aiModel);
   const fallbackAspectRatio = imageType === "details" ? "3:4" : "1:1";
   const aspectRatio = normalizeAspectRatio(value.aspectRatio || fallbackAspectRatio, fallbackAspectRatio);
   const imageSize = normalizeImageSize(
@@ -137,6 +137,13 @@ export function normalizeFavoritePlanPayload(value: unknown): FavoritePlanPayloa
     plan_preview: normalizePlanPreview(value.planPreview),
     updated_at: new Date().toISOString(),
   };
+}
+
+function normalizeFavoritePlanModel(value: unknown): LingyaModel {
+  if (typeof value === "string" && /^[a-z0-9][a-z0-9._-]{1,79}$/i.test(value)) {
+    return value as LingyaModel;
+  }
+  return normalizeLingyaModel(value);
 }
 
 export function favoritePlanRowToClient(value: unknown): FavoritePlanClient {

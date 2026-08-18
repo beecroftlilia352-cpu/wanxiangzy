@@ -42,59 +42,27 @@ describe("upload-image resource registration", () => {
     });
   });
 
-  it("returns the persisted resource asset with the upload response", async () => {
-    mocks.registerTrustedUploadedResourceAsset.mockResolvedValue({ id: "asset-1", sourceType: "upload" });
-
+  it("rejects the retired base64 JSON upload path", async () => {
     const response = await POST(uploadRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toMatchObject({ asset: { id: "asset-1" }, resource_registration_token: "signed-token" });
-    expect(mocks.registerTrustedUploadedResourceAsset).toHaveBeenCalledWith(
-      { admin: true },
-      "user-1",
-      expect.objectContaining({
-        url: "https://bucket.oss-cn-hongkong.aliyuncs.com/uploads/image.png",
-        objectKey: "uploads/image.png",
-        mediaType: "image",
-        mimeType: "image/webp",
-        byteSize: 4096,
-        width: 1024,
-        height: 1024,
-      }),
-    );
-    expect(body).toMatchObject({
-      content_type: "image/webp",
-      byte_size: 4096,
-      width: 1024,
-      height: 1024,
-    });
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: "无效的上传签发请求" });
+    expect(mocks.storeImage).not.toHaveBeenCalled();
   });
 
-  it("does not turn a successful OSS upload into a failure when catalog registration fails", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mocks.registerTrustedUploadedResourceAsset.mockRejectedValue(new Error("migration pending"));
-
-    const response = await POST(uploadRequest());
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.url).toContain("aliyuncs.com/uploads/image.png");
-    expect(body.asset).toBeUndefined();
-    expect(body.resource_registration_token).toBe("signed-token");
-    consoleError.mockRestore();
-  });
-
-  it("returns a payload-too-large response for decoded pixel-limit failures", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mocks.storeImage.mockRejectedValue(new Error("图片像素不能超过 3200 万"));
-
+  it("does not attempt the legacy catalog-registration path", async () => {
     const response = await POST(uploadRequest());
 
-    expect(response.status).toBe(413);
-    await expect(response.json()).resolves.toEqual({ error: "图片像素不能超过 3200 万" });
+    expect(response.status).toBe(400);
     expect(mocks.registerTrustedUploadedResourceAsset).not.toHaveBeenCalled();
-    consoleError.mockRestore();
+  });
+
+  it("requires a direct-upload prepare request instead of raw JSON bytes", async () => {
+    const response = await POST(uploadRequest());
+
+    expect(response.status).toBe(400);
+    expect(mocks.registerTrustedUploadedResourceAsset).not.toHaveBeenCalled();
   });
 });
 

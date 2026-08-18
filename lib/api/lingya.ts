@@ -708,6 +708,7 @@ async function buildImageEditRequest(params: {
   apiKey: string;
   body: Record<string, any>;
   imageUrls: string[];
+  maskUrl?: string;
 }): Promise<{ url: string; init: RequestInit }> {
   if (!params.imageUrls.length) {
     throw new Error("gpt-image-2 image edit requires at least one reference image");
@@ -728,6 +729,10 @@ async function buildImageEditRequest(params: {
   const images = await Promise.all(params.imageUrls.map(fetchImageFormPart));
   for (const image of images) {
     form.append("image", image.blob, image.filename);
+  }
+  if (params.maskUrl) {
+    const mask = await fetchImageFormPart(params.maskUrl, images.length);
+    form.append("mask", mask.blob, mask.filename);
   }
 
   return {

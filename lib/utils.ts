@@ -350,10 +350,12 @@ export async function uploadImage(
 ): Promise<UploadResult> {
   const compressed = await compressImage(file, MAX_FILE_SIZE_MB);
   let lastError: unknown;
+  let retryAfterMs: number | undefined;
   for (let attempt = 0; attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      if (IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt] > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt]));
+      const delayMs = attempt > 0 ? retryAfterMs ?? IMAGE_UPLOAD_RETRY_DELAYS_MS[attempt] : 0;
+      if (delayMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs));
         options.onProgress?.(0);
       }
       const direct = await tryDirectOssUpload(compressed, "/api/upload-image", "image-input", options.onProgress);
@@ -365,6 +367,7 @@ export async function uploadImage(
         const error = new Error(data.error || `上传失败 (${uploadResponse.status})`);
         if (attempt < IMAGE_UPLOAD_RETRY_DELAYS_MS.length - 1 && isRetryableUploadStatus(uploadResponse.status)) {
           lastError = error;
+          retryAfterMs = retryAfterMilliseconds(uploadResponse.retryAfter);
           continue;
         }
         throw error;
@@ -394,7 +397,7 @@ function sendImageUpload(
   form.append("name", originalName.replace(/\.[^.]+$/, ""));
 
   // XHR 上传以支持进度回调（fetch 不支持 upload progress）
-  return new Promise<{ status: number; responseText: string }>((resolve, reject) => {
+  return new Promise<{ status: number; responseText: string; retryAfter: string | null }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let settled = false;
     xhr.open("POST", "/api/upload-image");
@@ -406,7 +409,7 @@ function sendImageUpload(
       xhr.onabort = null;
       xhr.ontimeout = null;
     };
-    const finishResolve = (value: { status: number; responseText: string }) => {
+    const finishResolve = (value: { status: number; responseText: string; retryAfter: string | null }) => {
       if (settled) return;
       settled = true;
       cleanup();
@@ -434,13 +437,18 @@ function sendImageUpload(
         finishReject(new Error("网络连接异常，上传失败"));
         return;
       }
-      finishResolve({ status, responseText });
+      finishResolve({ status, responseText, retryAfter: xhr.getResponseHeader("Retry-After") });
     };
     xhr.onerror = () => finishReject(new Error("网络连接异常，上传失败"));
     xhr.onabort = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.ontimeout = () => finishReject(new Error("图片上传超时，请稍后重试"));
     xhr.send(form);
   });
+}
+
+function retryAfterMilliseconds(value: string | null) {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds * 1000) : undefined;
 }
 
 function parseUploadResponse(responseText: string) {
