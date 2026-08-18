@@ -162,6 +162,11 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET", category: "optional", description: "Optional HMAC secret for short-lived resource-library upload receipts; defaults to the OSS access key secret." },
   { name: "ALIYUN_OSS_ENDPOINT", category: "optional", description: "OSS upload endpoint override, without protocol." },
   { name: "ALIYUN_OSS_SECURITY_TOKEN", category: "optional", description: "Optional STS security token for temporary OSS credentials." },
+  { name: "ALIYUN_OSS_REMOTE_TRANSFER_MODE", category: "optional", description: "Durable provider URL transfer mode: disabled, stream (EC2/FC worker), or mirror." },
+  { name: "ALIYUN_OSS_REMOTE_ALLOWED_HOSTS", category: "optional", description: "Explicit provider image hostname allowlist for durable remote transfers." },
+  { name: "ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS", category: "optional", description: "Total timeout for each bounded remote-to-OSS stream upload (10000-600000ms)." },
+  { name: "ALIYUN_OSS_REMOTE_CONCURRENCY", category: "optional", description: "Per-process global remote transfer network concurrency (1-64)." },
+  { name: "ALIYUN_OSS_REMOTE_WORKER_BATCH_SIZE", category: "optional", description: "Durable remote transfer claim batch size (1-100)." },
   { name: "ALIYUN_OSS_MIRROR_ENABLED", category: "optional", description: "Use OSS mirror back-to-origin for generated provider URLs without downloading image bodies to EC2." },
   { name: "ALIYUN_OSS_MIRROR_SIGNING_SECRET", category: "optional", description: "Server-only HMAC key for expiring OSS mirror object capabilities." },
   { name: "ALIYUN_OSS_MIRROR_ALLOWED_HOSTS", category: "optional", description: "Required comma-separated provider image host allowlist; supports explicit *.example.com patterns." },
@@ -296,15 +301,22 @@ function validateOssMirrorEnv(params: {
   isProduction: boolean;
   imageStorageProvider: string;
 }) {
-  if (!/^(1|true|yes)$/i.test((process.env.ALIYUN_OSS_MIRROR_ENABLED || "").trim())) return;
-
   const severity: EnvSeverity = params.isProduction ? "error" : "warning";
   const report = (name: string, message: string) => {
     params.issues.push({ name, category: "feature-required", severity, message });
   };
+  const configuredMode = (process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE || "").trim().toLowerCase();
+  if (configuredMode && !["disabled", "mirror", "stream"].includes(configuredMode)) {
+    report("ALIYUN_OSS_REMOTE_TRANSFER_MODE", "ALIYUN_OSS_REMOTE_TRANSFER_MODE must be disabled, mirror, or stream.");
+    return;
+  }
+  const mode = configuredMode || (
+    /^(1|true|yes)$/i.test((process.env.ALIYUN_OSS_MIRROR_ENABLED || "").trim()) ? "mirror" : "disabled"
+  );
+  if (mode === "disabled") return;
 
   if (params.imageStorageProvider !== "aliyun-oss") {
-    report("IMAGE_STORAGE_PROVIDER", "ALIYUN_OSS_MIRROR_ENABLED requires IMAGE_STORAGE_PROVIDER=aliyun-oss.");
+    report("IMAGE_STORAGE_PROVIDER", "OSS remote transfer requires IMAGE_STORAGE_PROVIDER=aliyun-oss.");
   }
   if (!isStrongRuntimeSecret(process.env.ALIYUN_OSS_MIRROR_SIGNING_SECRET)) {
     report(
@@ -315,10 +327,15 @@ function validateOssMirrorEnv(params: {
   if (!/^(?:hex:)?[a-f0-9]{64}$/i.test((process.env.ADMIN_SECRETS_ENCRYPTION_KEY || "").trim())) {
     report(
       "ADMIN_SECRETS_ENCRYPTION_KEY",
-      "OSS mirror requires a 32-byte hex ADMIN_SECRETS_ENCRYPTION_KEY for encrypted source URLs.",
+      "OSS remote transfer requires a 32-byte hex ADMIN_SECRETS_ENCRYPTION_KEY for encrypted source URLs.",
     );
   }
-  const allowedHosts = (process.env.ALIYUN_OSS_MIRROR_ALLOWED_HOSTS || "")
+  const allowedHostsName = mode === "stream" || process.env.ALIYUN_OSS_REMOTE_ALLOWED_HOSTS !== undefined
+    ? "ALIYUN_OSS_REMOTE_ALLOWED_HOSTS"
+    : "ALIYUN_OSS_MIRROR_ALLOWED_HOSTS";
+  const allowedHosts = (
+    process.env.ALIYUN_OSS_REMOTE_ALLOWED_HOSTS || process.env.ALIYUN_OSS_MIRROR_ALLOWED_HOSTS || ""
+  )
     .split(",")
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean);
@@ -329,20 +346,22 @@ function validateOssMirrorEnv(params: {
     || !/^(?:\*\.)?[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(host)
   ))) {
     report(
-      "ALIYUN_OSS_MIRROR_ALLOWED_HOSTS",
-      "OSS mirror requires an explicit, valid provider hostname allowlist; a global wildcard is forbidden.",
+      allowedHostsName,
+      "OSS remote transfer requires an explicit, valid provider hostname allowlist; a global wildcard is forbidden.",
     );
   }
 
-  const resolverUrl = process.env.ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL
-    || (process.env.NEXT_PUBLIC_APP_URL
-      ? `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "")}/api/oss-mirror-source/`
-      : undefined);
-  if (!isValidConfiguredUrl(resolverUrl, true)) {
-    report(
-      "ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL",
-      "OSS mirror requires a public HTTPS resolver URL (or a public HTTPS NEXT_PUBLIC_APP_URL).",
-    );
+  if (mode === "mirror") {
+    const resolverUrl = process.env.ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL
+      || (process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "")}/api/oss-mirror-source/`
+        : undefined);
+    if (!isValidConfiguredUrl(resolverUrl, true)) {
+      report(
+        "ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL",
+        "OSS mirror requires a public HTTPS resolver URL (or a public HTTPS NEXT_PUBLIC_APP_URL).",
+      );
+    }
   }
 
   validateIntegerRange("ALIYUN_OSS_MIRROR_TTL_SECONDS", 300, 86_400, report);
@@ -353,6 +372,9 @@ function validateOssMirrorEnv(params: {
   validateIntegerRange("ALIYUN_OSS_MIRROR_MAX_ATTEMPTS", 1, 16, report);
   validateIntegerRange("ALIYUN_OSS_MIRROR_CONCURRENCY", 1, 64, report);
   validateIntegerRange("ALIYUN_OSS_MIRROR_WORKER_BATCH_SIZE", 1, 100, report);
+  validateIntegerRange("ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS", 10_000, 600_000, report);
+  validateIntegerRange("ALIYUN_OSS_REMOTE_CONCURRENCY", 1, 64, report);
+  validateIntegerRange("ALIYUN_OSS_REMOTE_WORKER_BATCH_SIZE", 1, 100, report);
 }
 
 function validateIntegerRange(

@@ -30,7 +30,7 @@ import { runNextGenerationJobs } from "@/lib/api/generation-jobs";
 import {
   cleanupOssMirrorTransfers,
   expireOssMirrorTransfers,
-  isAliyunOssMirrorEnabled,
+  isAliyunOssRemoteTransferEnabled,
   processPendingOssMirrorTransfers,
 } from "@/lib/api/oss-mirror-transfer";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -192,12 +192,17 @@ export async function runOssMirrorRecoveryLoop(
   clock: TickClock = createRealClock(),
   signals: LoopSignals = createSignalHook(),
 ) {
-  if (!isAliyunOssMirrorEnabled()) {
+  if (!isAliyunOssRemoteTransferEnabled()) {
     emit("oss_mirror.loop.disabled");
     return;
   }
 
-  const batchSize = parseBoundedEnv("ALIYUN_OSS_MIRROR_WORKER_BATCH_SIZE", 50, 1, 100);
+  const batchSize = parseBoundedEnv(
+    "ALIYUN_OSS_REMOTE_WORKER_BATCH_SIZE",
+    parseBoundedEnv("ALIYUN_OSS_MIRROR_WORKER_BATCH_SIZE", 8, 1, 100),
+    1,
+    100,
+  );
   const pollIntervalMs = parseBoundedEnv("ALIYUN_OSS_MIRROR_WORKER_POLL_INTERVAL_MS", 1_000, 100, 30_000);
   const idleBackoffMaxMs = parseBoundedEnv("ALIYUN_OSS_MIRROR_WORKER_IDLE_BACKOFF_MAX_MS", 10_000, pollIntervalMs, 60_000);
   const maxConsecutiveErrors = parseBoundedEnv("ALIYUN_OSS_MIRROR_WORKER_MAX_ERRORS", 20, 3, 100);

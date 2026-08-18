@@ -1,6 +1,6 @@
 import { getBase64Payload, isStableStoredImageUrl, storeImage } from "@/lib/api/image-storage";
 import {
-  isAliyunOssMirrorEnabled,
+  isAliyunOssRemoteTransferEnabled,
   mirrorRemoteImageToAliyunOss,
 } from "@/lib/api/oss-mirror-transfer";
 import { isRemoteUrl } from "@/lib/utils";
@@ -40,10 +40,10 @@ async function persistGeneratedImageUrl(
   }
 
   if (isRemoteUrl(urlOrDataUrl)) {
-    if (isAliyunOssMirrorEnabled()) {
-      // A mirror-enabled deployment has a strict durability contract: never
+    if (isAliyunOssRemoteTransferEnabled()) {
+      // A durable remote-transfer deployment has a strict contract: never
       // persist a short-lived provider URL and never publish an OSS object name
-      // until the cloud-side copy has been verified. The generation worker's
+      // until the transfer has been verified. The generation worker's
       // existing error path records the failure and refunds the task.
       return mirrorRemoteImageToAliyunOss(urlOrDataUrl, name);
     }

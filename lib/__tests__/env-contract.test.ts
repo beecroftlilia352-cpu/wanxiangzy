@@ -49,6 +49,11 @@ describe("environment contract", () => {
     delete process.env.ALIYUN_OSS_MIRROR_TRIGGER_TIMEOUT_MS;
     delete process.env.ALIYUN_OSS_MIRROR_MAX_BYTES;
     delete process.env.ALIYUN_OSS_MIRROR_MAX_ATTEMPTS;
+    delete process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE;
+    delete process.env.ALIYUN_OSS_REMOTE_ALLOWED_HOSTS;
+    delete process.env.ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS;
+    delete process.env.ALIYUN_OSS_REMOTE_CONCURRENCY;
+    delete process.env.ALIYUN_OSS_REMOTE_WORKER_BATCH_SIZE;
   });
 
   afterEach(() => {
@@ -294,6 +299,26 @@ describe("environment contract", () => {
     const issues = validateEnv({ nodeEnv: "production" });
     expect(issues).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ name: expect.stringMatching(/^ALIYUN_OSS_MIRROR_/) }),
+    ]));
+  });
+
+  it("validates stream mode without requiring a public mirror resolver", () => {
+    process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE = "stream";
+    process.env.ALIYUN_OSS_REMOTE_ALLOWED_HOSTS = "provider.example.com";
+    process.env.ALIYUN_OSS_MIRROR_SIGNING_SECRET = "m".repeat(40);
+    process.env.ADMIN_SECRETS_ENCRYPTION_KEY = "a".repeat(64);
+    process.env.ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS = "120000";
+    process.env.ALIYUN_OSS_REMOTE_CONCURRENCY = "8";
+    process.env.ALIYUN_OSS_REMOTE_WORKER_BATCH_SIZE = "16";
+
+    const issues = validateEnv({ nodeEnv: "production" });
+    expect(issues).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "ALIYUN_OSS_MIRROR_RESOLVER_BASE_URL" }),
+      expect.objectContaining({ name: "ALIYUN_OSS_REMOTE_ALLOWED_HOSTS" }),
+      expect.objectContaining({ name: "ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS" }),
+      expect.objectContaining({ name: "ALIYUN_OSS_REMOTE_CONCURRENCY" }),
+      expect.objectContaining({ name: "ALIYUN_OSS_REMOTE_WORKER_BATCH_SIZE" }),
     ]));
   });
 });

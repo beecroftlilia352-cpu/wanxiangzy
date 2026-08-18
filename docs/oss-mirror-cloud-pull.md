@@ -1,5 +1,10 @@
 # OSS 云侧直拉生成结果
 
+> 香港生产 Bucket 的 Website 镜像模式保留为兼容/回滚实现。当前推荐并启用的方案是
+> `ALIYUN_OSS_REMOTE_TRANSFER_MODE=stream`，见
+> `docs/oss-remote-stream-worker.md`。该模式使用 durable queue + EC2 流式 Worker，
+> 不创建整图 Buffer；后续可原样迁移到 Function Compute。
+
 普通生图的远程结果使用 OSS 镜像回源持久化。EC2 不下载完整图片、不写临时磁盘，
 也不创建整图 `Buffer`：应用只读取最多 64 字节做格式校验，并读取 OSS Range
 触发响应的 1 字节。完整图片由 OSS 直接从上游 URL 拉取并保存。

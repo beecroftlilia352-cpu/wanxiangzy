@@ -1,7 +1,11 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { decryptProviderSecret, encryptProviderSecret } from "@/lib/api/model-provider-secrets";
-import { assertRemoteImageUrlAllowed } from "@/lib/api/remote-image-fetch";
+import {
+  assertRemoteImageUrlAllowed,
+  fetchRemoteImageResponse,
+  RemoteImageFetchError,
+} from "@/lib/api/remote-image-fetch";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 const MIRROR_TABLE = "oss_mirror_transfers";
@@ -12,9 +16,14 @@ const DEFAULT_WAIT_TIMEOUT_MS = 4 * 60_000;
 const DEFAULT_MAX_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_ATTEMPTS = 8;
 const DEFAULT_RETRY_BASE_MS = 750;
-const DEFAULT_NETWORK_CONCURRENCY = 16;
+const DEFAULT_NETWORK_CONCURRENCY = 8;
+const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const MIRROR_LEASE_MS = 8 * 60_000;
+const STREAM_LEASE_GRACE_MS = 30_000;
 const SOURCE_PROBE_BYTES = 64;
+const MAGIC_PROBE_BYTES = 12;
+
+export type AliyunOssRemoteTransferMode = "disabled" | "mirror" | "stream";
 
 type AdminClient = ReturnType<typeof getAdminClient>;
 type MirrorStatus = "pending" | "processing" | "completed" | "failed";
@@ -63,8 +72,24 @@ export class OssMirrorTransferError extends Error {
 }
 
 export function isAliyunOssMirrorEnabled() {
-  return (process.env.IMAGE_STORAGE_PROVIDER || "").trim().toLowerCase() === "aliyun-oss"
-    && /^(1|true|yes)$/i.test((process.env.ALIYUN_OSS_MIRROR_ENABLED || "").trim());
+  return getAliyunOssRemoteTransferMode() === "mirror";
+}
+
+export function isAliyunOssRemoteTransferEnabled() {
+  return getAliyunOssRemoteTransferMode() !== "disabled";
+}
+
+export function getAliyunOssRemoteTransferMode(): AliyunOssRemoteTransferMode {
+  if ((process.env.IMAGE_STORAGE_PROVIDER || "").trim().toLowerCase() !== "aliyun-oss") {
+    return "disabled";
+  }
+  const configured = (process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE || "").trim().toLowerCase();
+  if (configured === "stream" || configured === "mirror" || configured === "disabled") {
+    return configured;
+  }
+  return /^(1|true|yes)$/i.test((process.env.ALIYUN_OSS_MIRROR_ENABLED || "").trim())
+    ? "mirror"
+    : "disabled";
 }
 
 /**
@@ -77,6 +102,8 @@ export async function mirrorRemoteImageToAliyunOss(
   generationRef: string,
   admin: AdminClient = getAdminClient(),
 ) {
+  const transferMode = getAliyunOssRemoteTransferMode();
+  if (transferMode === "disabled") throw terminalError("OSS remote transfer is disabled");
   const config = getMirrorConfig();
   if (sourceUrl.length > 8_000) throw terminalError("OSS mirror source URL is too long");
   const normalizedGenerationRef = generationRef.trim().slice(0, 240);
@@ -96,7 +123,7 @@ export async function mirrorRemoteImageToAliyunOss(
     config.signingSecret,
   );
 
-  const row = await registerTransfer(admin, {
+  const row = await registerTransfer(admin, transferMode, {
     id,
     objectKey,
     sourceUrl: source.toString(),
@@ -107,7 +134,13 @@ export async function mirrorRemoteImageToAliyunOss(
     leaseToken,
   });
 
-  const completed = await waitForTransferCompletion(admin, row, leaseToken, config);
+  const completed = await waitForTransferCompletion(
+    admin,
+    row,
+    leaseToken,
+    config,
+    transferMode === "mirror",
+  );
   return buildObjectUrl(config.publicBaseUrl, completed.object_key);
 }
 
@@ -116,16 +149,18 @@ export async function processPendingOssMirrorTransfers(
   limit = 50,
   admin: AdminClient = getAdminClient(),
 ) {
-  if (!isAliyunOssMirrorEnabled()) {
+  if (!isAliyunOssRemoteTransferEnabled()) {
     return { claimed: 0, completed: 0, deferred: 0, failed: 0 };
   }
 
   const config = getMirrorConfig();
   const leaseToken = randomUUID();
   const { data, error } = await admin.rpc("claim_oss_mirror_transfers", {
-    p_limit: clampInt(limit, 1, 100, 50),
+    // Never lease more rows than this process can actively stream. Otherwise
+    // queued rows can lose their lease before backpressure lets them start.
+    p_limit: Math.min(clampInt(limit, 1, 100, 50), config.networkConcurrency),
     p_lease_token: leaseToken,
-    p_lease_expires_at: new Date(Date.now() + MIRROR_LEASE_MS).toISOString(),
+    p_lease_expires_at: new Date(Date.now() + getTransferLeaseMs(config)).toISOString(),
   });
   if (error) throw retryableError(`claim OSS mirror mappings failed: ${error.message}`);
 
@@ -154,7 +189,7 @@ export async function expireOssMirrorTransfers(
   limit = 500,
   admin: AdminClient = getAdminClient(),
 ) {
-  if (!isAliyunOssMirrorEnabled()) return 0;
+  if (!isAliyunOssRemoteTransferEnabled()) return 0;
   const { data, error } = await admin.rpc("expire_oss_mirror_transfers", {
     p_limit: clampInt(limit, 1, 1_000, 500),
   });
@@ -166,7 +201,7 @@ export async function expireOssMirrorTransfers(
 export async function cleanupOssMirrorTransfers(
   admin: AdminClient = getAdminClient(),
 ) {
-  if (!isAliyunOssMirrorEnabled()) return { metadataDeleted: 0, failedObjectsDeleted: 0 };
+  if (!isAliyunOssRemoteTransferEnabled()) return { metadataDeleted: 0, failedObjectsDeleted: 0 };
   const config = getMirrorConfig();
   const now = Date.now();
   const completedBefore = new Date(now - config.completedRetentionDays * 86_400_000).toISOString();
@@ -210,6 +245,7 @@ export async function resolveOssMirrorSource(
   objectKey: string,
   admin: AdminClient = getAdminClient(),
 ) {
+  if (!isAliyunOssMirrorEnabled()) return null;
   const config = getMirrorConfig();
   if (!verifyMirrorObjectKey(objectKey, config)) return null;
 
@@ -262,6 +298,7 @@ export function validateOssMirrorRuntimeConfig() {
 
 async function registerTransfer(
   admin: AdminClient,
+  transferMode: AliyunOssRemoteTransferMode,
   input: {
     id: string;
     objectKey: string;
@@ -273,7 +310,7 @@ async function registerTransfer(
     leaseToken: string;
   },
 ) {
-  const { data, error } = await admin.rpc("register_oss_mirror_transfer", {
+  const sharedParams = {
     p_id: input.id,
     p_object_key: input.objectKey,
     p_source_url_ciphertext: encryptProviderSecret(input.sourceUrl),
@@ -283,9 +320,14 @@ async function registerTransfer(
     p_expected_content_length: input.expected.contentLength,
     p_expected_content_type: input.expected.contentType,
     p_expires_at: input.expiresAt,
-    p_lease_token: input.leaseToken,
-    p_lease_expires_at: new Date(Date.now() + MIRROR_LEASE_MS).toISOString(),
-  });
+  };
+  const { data, error } = transferMode === "stream"
+    ? await admin.rpc("register_oss_stream_transfer", sharedParams)
+    : await admin.rpc("register_oss_mirror_transfer", {
+        ...sharedParams,
+        p_lease_token: input.leaseToken,
+        p_lease_expires_at: new Date(Date.now() + MIRROR_LEASE_MS).toISOString(),
+      });
   if (error) throw retryableError(`register OSS mirror mapping failed: ${error.message}`);
   const row = asRows(data)[0];
   if (!row) throw retryableError("register OSS mirror mapping returned no row");
@@ -297,6 +339,7 @@ async function waitForTransferCompletion(
   initialRow: MirrorTransferRow,
   initialLeaseToken: string,
   config: MirrorConfig,
+  allowInlineProcessing: boolean,
 ) {
   const deadline = Date.now() + config.waitTimeoutMs;
   let row = initialRow;
@@ -305,10 +348,10 @@ async function waitForTransferCompletion(
   while (Date.now() < deadline) {
     if (row.status === "completed") return row;
     if (row.status === "failed") {
-      throw terminalError(`OSS mirror transfer failed: ${row.last_error || "unknown failure"}`);
+      throw terminalError(`OSS remote transfer failed: ${row.last_error || "unknown failure"}`);
     }
 
-    if (row.status === "processing" && row.lease_token === leaseToken) {
+    if (allowInlineProcessing && row.status === "processing" && row.lease_token === leaseToken) {
       try {
         row = await processOwnedTransfer(admin, row, config);
         continue;
@@ -321,9 +364,13 @@ async function waitForTransferCompletion(
     const nextAttemptAt = new Date(row.next_attempt_at).getTime();
     const waitMs = Math.max(100, Math.min(2_000, nextAttemptAt - Date.now()));
     await delay(waitMs);
-    leaseToken = randomUUID();
-    const claimed = await claimSpecificTransfer(admin, row.id, leaseToken);
-    row = claimed || await readTransfer(admin, row.id);
+    if (allowInlineProcessing) {
+      leaseToken = randomUUID();
+      const claimed = await claimSpecificTransfer(admin, row.id, leaseToken);
+      row = claimed || await readTransfer(admin, row.id);
+    } else {
+      row = await readTransfer(admin, row.id);
+    }
   }
 
   throw retryableError("OSS mirror transfer did not complete within the publish timeout");
@@ -351,7 +398,9 @@ async function processOwnedTransfer(
   row: MirrorTransferRow,
   config: MirrorConfig,
 ) {
-  const mirrored = await triggerMirrorTransfer(row, config);
+  const mirrored = getAliyunOssRemoteTransferMode() === "stream"
+    ? await streamRemoteImageToOss(row, config)
+    : await triggerMirrorTransfer(row, config);
   const { data, error } = await admin.rpc("complete_oss_mirror_transfer", {
     p_id: row.id,
     p_lease_token: row.lease_token,
@@ -392,6 +441,196 @@ async function deferOwnedTransfer(
   const updated = asRows(data)[0];
   if (updated) return updated;
   return readTransfer(admin, row.id);
+}
+
+async function streamRemoteImageToOss(
+  row: MirrorTransferRow,
+  config: MirrorConfig,
+): Promise<MirrorResult> {
+  if (!row.source_url_ciphertext || !row.source_url_sha256) {
+    throw terminalError("OSS stream mapping has no encrypted source URL");
+  }
+  if (!row.lease_token || new Date(row.expires_at).getTime() <= Date.now()) {
+    throw terminalError("OSS stream mapping is not actively leased");
+  }
+
+  const sourceUrl = decryptProviderSecret(row.source_url_ciphertext);
+  if (!sourceUrl || sha256(sourceUrl) !== row.source_url_sha256) {
+    throw terminalError("OSS stream source capability could not be decrypted or authenticated");
+  }
+  const source = new URL(sourceUrl);
+  if (source.hostname.toLowerCase() !== row.source_host) {
+    throw terminalError("OSS stream source host changed unexpectedly");
+  }
+
+  const expectedLength = Number(row.expected_content_length);
+  const expectedType = normalizeSupportedImageType(row.expected_content_type);
+  if (!Number.isSafeInteger(expectedLength) || expectedLength <= 0 || !expectedType) {
+    throw terminalError("OSS stream mapping has invalid expected metadata");
+  }
+
+  const existing = await inspectStoredOssObject(config, row.object_key, expectedLength, expectedType);
+  if (existing === "matching") return { contentLength: expectedLength, contentType: expectedType };
+  if (existing === "mismatch") await deleteOssObject(config, row.object_key);
+
+  let remote;
+  try {
+    remote = await withNetworkPermit(config.networkConcurrency, () => fetchRemoteImageResponse(
+      source.toString(),
+      {
+        allowedHosts: config.allowedHosts,
+        maxBytes: config.maxBytes,
+        timeoutMs: config.streamTimeoutMs,
+        requestHeaders: { "Accept-Encoding": "identity" },
+      },
+    ));
+  } catch (error) {
+    throw classifyRemoteStreamError(error);
+  }
+
+  const actualType = normalizeSupportedImageType(remote.contentType);
+  if (actualType !== expectedType || (remote.contentLength > 0 && remote.contentLength !== expectedLength)) {
+    await remote.response.body?.cancel().catch(() => undefined);
+    throw terminalError("remote image metadata changed before OSS stream upload");
+  }
+  if (!remote.response.body) throw retryableError("remote image stream body is empty");
+
+  const validated = createValidatedImageStream(
+    remote.response.body,
+    expectedLength,
+    expectedType,
+    config.maxBytes,
+  );
+  const objectUrl = buildObjectUrl(`https://${config.endpoint}`, row.object_key);
+  let response: Response;
+  try {
+    response = await withNetworkPermit(config.networkConcurrency, () => fetch(objectUrl, {
+      method: "PUT",
+      body: validated.body,
+      cache: "no-store",
+      redirect: "manual",
+      headers: signOssRequest(config, "PUT", row.object_key, {
+        "Content-Length": String(expectedLength),
+        "Content-Type": expectedType,
+      }),
+      signal: AbortSignal.timeout(config.streamTimeoutMs),
+      duplex: "half",
+    } as RequestInit & { duplex: "half" }));
+  } catch (error) {
+    const recovered = await inspectStoredOssObject(config, row.object_key, expectedLength, expectedType)
+      .catch(() => "missing" as const);
+    if (recovered === "matching") return { contentLength: expectedLength, contentType: expectedType };
+    await deleteOssObject(config, row.object_key);
+    if (error instanceof OssMirrorTransferError) throw error;
+    throw retryableError(`OSS stream upload failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  if (!response.ok) {
+    const snippet = await readResponseSnippet(response, 2_048);
+    await deleteOssObject(config, row.object_key);
+    throw httpError("OSS stream upload", response.status, snippet);
+  }
+  if (validated.bytesRead() !== expectedLength) {
+    await deleteOssObject(config, row.object_key);
+    throw terminalError(`remote image stream length changed: ${validated.bytesRead()}/${expectedLength}`);
+  }
+
+  const stored = await inspectStoredOssObject(config, row.object_key, expectedLength, expectedType);
+  if (stored !== "matching") {
+    await deleteOssObject(config, row.object_key);
+    throw retryableError("OSS stream upload verification failed");
+  }
+  return { contentLength: expectedLength, contentType: expectedType };
+}
+
+function createValidatedImageStream(
+  source: ReadableStream<Uint8Array>,
+  expectedLength: number,
+  expectedType: SupportedImageType,
+  maxBytes: number,
+) {
+  let totalBytes = 0;
+  let prefix = Buffer.alloc(0);
+  let pending: Uint8Array[] = [];
+  let magicValidated = false;
+
+  const body = source.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      totalBytes += chunk.byteLength;
+      if (totalBytes > maxBytes || totalBytes > expectedLength) {
+        throw terminalError(`remote image stream exceeds ${Math.min(maxBytes, expectedLength)} bytes`);
+      }
+
+      if (magicValidated) {
+        controller.enqueue(chunk);
+        return;
+      }
+
+      pending.push(chunk);
+      const needed = Math.max(0, MAGIC_PROBE_BYTES - prefix.byteLength);
+      if (needed > 0) {
+        prefix = Buffer.concat([
+          prefix,
+          Buffer.from(chunk.subarray(0, Math.min(needed, chunk.byteLength))),
+        ]);
+      }
+      if (prefix.byteLength < MAGIC_PROBE_BYTES) return;
+
+      if (!matchesImageMagic(prefix, expectedType)) {
+        throw terminalError(`remote image stream bytes do not match ${expectedType}`);
+      }
+      magicValidated = true;
+      for (const buffered of pending) controller.enqueue(buffered);
+      pending = [];
+    },
+    flush(controller) {
+      if (!magicValidated) {
+        if (!matchesImageMagic(prefix, expectedType)) {
+          throw terminalError(`remote image stream bytes do not match ${expectedType}`);
+        }
+        for (const buffered of pending) controller.enqueue(buffered);
+      }
+      if (totalBytes !== expectedLength) {
+        throw terminalError(`remote image stream length changed: ${totalBytes}/${expectedLength}`);
+      }
+    },
+  }));
+
+  return { body, bytesRead: () => totalBytes };
+}
+
+async function inspectStoredOssObject(
+  config: MirrorConfig,
+  objectKey: string,
+  expectedLength: number,
+  expectedType: SupportedImageType,
+): Promise<"matching" | "mismatch" | "missing"> {
+  const objectUrl = buildObjectUrl(`https://${config.endpoint}`, objectKey);
+  const response = await withNetworkPermit(config.networkConcurrency, () => fetch(objectUrl, {
+    method: "HEAD",
+    cache: "no-store",
+    redirect: "manual",
+    headers: signOssRequest(config, "HEAD", objectKey),
+    signal: AbortSignal.timeout(config.triggerTimeoutMs),
+  }));
+  if (response.status === 404) return "missing";
+  if (!response.ok) throw httpError("OSS stream verification", response.status);
+  const storedLength = Number(response.headers.get("content-length") || 0);
+  const storedType = normalizeSupportedImageType(response.headers.get("content-type"));
+  return storedLength === expectedLength && storedType === expectedType ? "matching" : "mismatch";
+}
+
+function classifyRemoteStreamError(error: unknown) {
+  if (!(error instanceof RemoteImageFetchError)) {
+    return retryableError(`remote image stream failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (error.code === "timeout" || error.code === "empty-body") {
+    return retryableError(error.message);
+  }
+  if (error.code === "bad-status") {
+    return httpError("remote image stream", error.status || 0);
+  }
+  return terminalError(error.message);
 }
 
 async function triggerMirrorTransfer(row: MirrorTransferRow, config: MirrorConfig): Promise<MirrorResult> {
@@ -490,7 +729,10 @@ async function inspectRemoteImage(source: URL, config: MirrorConfig): Promise<Mi
       method: "GET",
       cache: "no-store",
       redirect: "manual",
-      headers: { Range: `bytes=0-${SOURCE_PROBE_BYTES - 1}` },
+      headers: {
+        "Accept-Encoding": "identity",
+        Range: `bytes=0-${SOURCE_PROBE_BYTES - 1}`,
+      },
       signal: AbortSignal.timeout(config.preflightTimeoutMs),
     }));
   } catch (error) {
@@ -557,17 +799,18 @@ async function deleteOssObject(config: MirrorConfig, objectKey: string) {
 
 function signOssRequest(
   config: MirrorConfig,
-  method: "DELETE" | "GET" | "HEAD",
+  method: "DELETE" | "GET" | "HEAD" | "PUT",
   objectKey: string,
   extraHeaders: Record<string, string> = {},
 ) {
   const date = new Date().toUTCString();
+  const contentType = extraHeaders["Content-Type"] || extraHeaders["content-type"] || "";
   const canonicalizedOssHeaders = config.securityToken
     ? `x-oss-security-token:${config.securityToken}\n`
     : "";
   const canonicalizedResource = `/${config.bucket}/${objectKey}`;
   const signature = createHmac("sha1", config.accessKeySecret)
-    .update([method, "", "", date, `${canonicalizedOssHeaders}${canonicalizedResource}`].join("\n"))
+    .update([method, "", contentType, date, `${canonicalizedOssHeaders}${canonicalizedResource}`].join("\n"))
     .digest("base64");
   return {
     ...extraHeaders,
@@ -587,7 +830,9 @@ function getMirrorConfig() {
     ? `${bucket}.${region}.aliyuncs.com`
     : "")).replace(/^https?:\/\//i, "").replace(/\/+$/, "");
   const signingSecret = process.env.ALIYUN_OSS_MIRROR_SIGNING_SECRET?.trim() || "";
-  const allowedHosts = parseAllowedHosts(process.env.ALIYUN_OSS_MIRROR_ALLOWED_HOSTS);
+  const allowedHosts = parseAllowedHosts(
+    process.env.ALIYUN_OSS_REMOTE_ALLOWED_HOSTS || process.env.ALIYUN_OSS_MIRROR_ALLOWED_HOSTS,
+  );
   const generatedPrefix = normalizeObjectPrefix(
     process.env.ALIYUN_OSS_GENERATED_PREFIX || process.env.ALIYUN_OSS_PREFIX || "generated-results/original",
   );
@@ -596,7 +841,7 @@ function getMirrorConfig() {
   );
 
   if (!accessKeyId || !accessKeySecret || !bucket || !region || !publicBaseUrl || !endpoint) {
-    throw new Error("OSS mirror requires the standard ALIYUN_OSS_* storage configuration");
+    throw new Error("OSS remote transfer requires the standard ALIYUN_OSS_* storage configuration");
   }
   if (endpoint !== `${bucket}.${region}.aliyuncs.com`) {
     throw new Error("ALIYUN_OSS_ENDPOINT must be the bucket HTTPS endpoint for its configured region");
@@ -605,10 +850,10 @@ function getMirrorConfig() {
     throw new Error("ALIYUN_OSS_MIRROR_SIGNING_SECRET must contain at least 32 characters");
   }
   if (!allowedHosts.length) {
-    throw new Error("ALIYUN_OSS_MIRROR_ALLOWED_HOSTS must explicitly allow provider image hosts");
+    throw new Error("ALIYUN_OSS_REMOTE_ALLOWED_HOSTS must explicitly allow provider image hosts");
   }
   if (!/^(?:hex:)?[a-f0-9]{64}$/i.test(process.env.ADMIN_SECRETS_ENCRYPTION_KEY?.trim() || "")) {
-    throw new Error("ADMIN_SECRETS_ENCRYPTION_KEY must be a 32-byte hex key for encrypted mirror sources");
+    throw new Error("ADMIN_SECRETS_ENCRYPTION_KEY must be a 32-byte hex key for encrypted remote sources");
   }
 
   return {
@@ -639,6 +884,12 @@ function getMirrorConfig() {
       60_000,
       DEFAULT_TRIGGER_TIMEOUT_MS,
     ),
+    streamTimeoutMs: clampInt(
+      process.env.ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS,
+      10_000,
+      10 * 60_000,
+      DEFAULT_STREAM_TIMEOUT_MS,
+    ),
     waitTimeoutMs: clampInt(
       process.env.ALIYUN_OSS_MIRROR_WAIT_TIMEOUT_MS,
       10_000,
@@ -664,7 +915,7 @@ function getMirrorConfig() {
       DEFAULT_RETRY_BASE_MS,
     ),
     networkConcurrency: clampInt(
-      process.env.ALIYUN_OSS_MIRROR_CONCURRENCY,
+      process.env.ALIYUN_OSS_REMOTE_CONCURRENCY || process.env.ALIYUN_OSS_MIRROR_CONCURRENCY,
       1,
       64,
       DEFAULT_NETWORK_CONCURRENCY,
@@ -682,6 +933,11 @@ function getMirrorConfig() {
       3,
     ),
   };
+}
+
+function getTransferLeaseMs(config: MirrorConfig) {
+  if (getAliyunOssRemoteTransferMode() !== "stream") return MIRROR_LEASE_MS;
+  return Math.min(MIRROR_LEASE_MS, config.streamTimeoutMs + STREAM_LEASE_GRACE_MS);
 }
 
 function buildMirrorObjectKey(

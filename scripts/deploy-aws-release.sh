@@ -410,8 +410,8 @@ install_dependencies
 # resolver and the persistent Bucket Website rule pass an exact, read-only
 # check. First-time rollout must therefore be staged with the flag disabled,
 # then configured, then enabled in a later release.
-OSS_MIRROR_FLAG="$(node --env-file-if-exists=.env.production -e 'process.stdout.write(process.env.ALIYUN_OSS_MIRROR_ENABLED || "false")')"
-if [[ "${OSS_MIRROR_FLAG,,}" =~ ^(1|true|yes)$ ]]; then
+OSS_REMOTE_TRANSFER_MODE="$(node --env-file-if-exists=.env.production -e 'const configured=(process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE||"").trim().toLowerCase(); const legacy=/^(1|true|yes)$/i.test(process.env.ALIYUN_OSS_MIRROR_ENABLED||""); process.stdout.write(configured || (legacy ? "mirror" : "disabled"))')"
+if [[ "${OSS_REMOTE_TRANSFER_MODE,,}" == "mirror" ]]; then
   if ! npm run oss:configure-mirror -- --check; then
     echo "Pre-deploy OSS mirror configuration check failed for $APP_NAME from tag $TAG" >&2
     exit 1
@@ -431,7 +431,7 @@ fi
 # Once cloud-pull is enabled, every release must prove the persistent Bucket
 # rule still matches the deployed resolver. This is read-only and fails the
 # release before it can serve generated results with a missing mirror rule.
-if [[ "${OSS_MIRROR_FLAG,,}" =~ ^(1|true|yes)$ ]]; then
+if [[ "${OSS_REMOTE_TRANSFER_MODE,,}" == "mirror" ]]; then
   if ! npm run oss:configure-mirror -- --check; then
     echo "OSS mirror configuration check failed for $APP_NAME from tag $TAG" >&2
     rollback_previous_release
