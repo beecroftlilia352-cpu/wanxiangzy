@@ -14,7 +14,11 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { buildOutfitFusionRuntimePlan, type OutfitFusionAsset, type OutfitFusionConfig } from "@/lib/outfit-fusion";
-import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
+import {
+  containsInlineImageUrl,
+  findDisallowedProductionImageInputs,
+  normalizeGeneralImageReferenceUrls,
+} from "@/lib/api/general-image-inputs";
 
 export const maxDuration = 60;
 
@@ -46,7 +50,18 @@ export async function POST(request: NextRequest) {
         : undefined;
     if (!prompt) return NextResponse.json({ error: "请输入提示词" }, { status: 400 });
 
-    const referenceUrls = normalizeReferenceUrls(body.reference_urls);
+    const normalizedReferences = normalizeGeneralImageReferenceUrls(body.reference_urls);
+    const publicBaseUrl = getPublicBaseUrlFromRequest(request);
+    if (process.env.NODE_ENV === "production") {
+      const disallowedInputs = [
+        ...findDisallowedProductionImageInputs(normalizedReferences.urls, publicBaseUrl),
+        ...findDisallowedProductionImageInputs(body.input_assets, publicBaseUrl),
+      ];
+      if (normalizedReferences.hasInlineImage || containsInlineImageUrl(body.input_assets) || disallowedInputs.length) {
+        return NextResponse.json({ error: "生产环境参考图必须使用已验证的媒体资产或站点素材" }, { status: 400 });
+      }
+    }
+    const referenceUrls = normalizedReferences.urls;
     if (mode === "image-to-image" && referenceUrls.length === 0) {
       return NextResponse.json({ error: "请先上传参考图" }, { status: 400 });
     }
@@ -79,7 +94,7 @@ export async function POST(request: NextRequest) {
     const moduleLabel = moduleKind === "outfitFusion" ? "搭配融图" : "通用生图";
 
     const payloadBase = {
-      publicBaseUrl: getPublicBaseUrlFromRequest(request),
+      publicBaseUrl,
       mode,
       referenceUrls: mode === "image-to-image"
         ? moduleKind === "outfitFusion"
@@ -146,14 +161,6 @@ function normalizeModuleKind(value: unknown): GeneralImageModuleKind {
     return "outfitFusion";
   }
   return "generalImage";
-}
-
-function normalizeReferenceUrls(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => typeof item === "string" ? item.trim() : "")
-    .filter((url) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
-    .slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
 }
 
 function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): OutfitFusionAsset[] {

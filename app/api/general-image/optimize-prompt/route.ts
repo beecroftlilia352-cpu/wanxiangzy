@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
+import { normalizeGeneralImageReferenceUrls } from "@/lib/api/general-image-inputs";
 
 export const maxDuration = 60;
 
@@ -19,7 +19,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const mode = normalizeMode(body.mode);
     const userPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const referenceUrls = normalizeReferenceUrls(body.reference_urls);
+    const normalizedReferences = normalizeGeneralImageReferenceUrls(body.reference_urls);
+    if (process.env.NODE_ENV === "production" && normalizedReferences.hasInlineImage) {
+      return NextResponse.json({ error: "生产环境请先上传图片，使用已验证的媒体资产" }, { status: 400 });
+    }
+    const referenceUrls = normalizedReferences.urls;
 
     if (!userPrompt && referenceUrls.length === 0) {
       return NextResponse.json({ error: mode === "image-to-image" ? "请先输入基本想法或上传参考图" : "请先输入基本想法" }, { status: 400 });
@@ -82,14 +86,6 @@ ${userPrompt || "请根据参考图生成高质量商业摄影图片。"}`;
 
 function normalizeMode(value: unknown): GeneralImageMode {
   return value === "image-to-image" ? "image-to-image" : "text-to-image";
-}
-
-function normalizeReferenceUrls(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => typeof item === "string" ? item.trim() : "")
-    .filter((url) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
-    .slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
 }
 
 function extractMessageText(data: Record<string, unknown>) {
