@@ -49,7 +49,7 @@ export async function generateNewApiImageToVideo(
     duration: clampVideoDuration(provider.provider, input.duration),
   });
 
-  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey);
+  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey, input.abortSignal);
   return toVideoResult(completed, prompt, body);
 }
 
@@ -67,7 +67,7 @@ export async function generateNewApiMotionControl(
     duration: clampVideoDuration(provider.provider, input.duration),
   });
 
-  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey);
+  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey, input.abortSignal);
   return toVideoResult(completed, prompt, body);
 }
 
@@ -85,7 +85,7 @@ export async function generateNewApiFirstLastFrame(
     duration: clampVideoDuration(provider.provider, input.duration),
   });
 
-  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey);
+  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey, input.abortSignal);
   return toVideoResult(completed, prompt, body);
 }
 
@@ -191,6 +191,7 @@ async function runTask(
   onProgress: VideoImageToVideoInput["onProgress"],
   resumeTask?: VideoTaskResume,
   idempotencyKey?: string,
+  abortSignal?: AbortSignal,
 ): Promise<PollState> {
   const resumable = normalizeResumeTask(resumeTask);
   let taskId: string;
@@ -222,6 +223,7 @@ async function runTask(
       provider.apiKey,
       body,
       normalizeIdempotencyKey(idempotencyKey),
+      abortSignal,
     );
     const video = extractVideoObject(submitted) || {};
     taskId = typeof video.task_id === "string" && video.task_id ? video.task_id : extractTaskId(submitted);
@@ -250,11 +252,11 @@ async function runTask(
   };
 
   while (Date.now() - startedAt < VIDEO_POLL_TIMEOUT_MS) {
-    await sleep(VIDEO_POLL_INTERVAL_MS);
+    await sleep(VIDEO_POLL_INTERVAL_MS, abortSignal);
     const elapsed = Date.now() - startedAt;
     let json: unknown;
     try {
-      json = await getJson(`${provider.apiBase}${QUERY_PATH}/${encodeURIComponent(taskId)}`, provider.apiKey);
+      json = await getJson(`${provider.apiBase}${QUERY_PATH}/${encodeURIComponent(taskId)}`, provider.apiKey, abortSignal);
     } catch (error) {
       if (!isRetryableGenerationError(error)) throw error;
       lastState = {
@@ -304,7 +306,10 @@ async function runTask(
     }
   }
 
-  throw new Error(`视频生成超时，可稍后在任务队列或作品库查看。task_id: ${lastState.taskId}`);
+  throw new RetryableGenerationError(
+    `视频任务已提交，轮询窗口结束，将从持久断点继续。task_id: ${lastState.taskId}`,
+    "VIDEO_POLL_RESUME_REQUIRED",
+  );
 }
 
 function normalizePollState(json: unknown, fallbackTaskId: string, fallbackRequestId: string | undefined): PollState {
@@ -488,21 +493,21 @@ function redactSignedUrl(value: string) {
   }
 }
 
-async function submitJson(url: string, apiKey: string, body: Record<string, unknown>, idempotencyKey?: string) {
+async function submitJson(url: string, apiKey: string, body: Record<string, unknown>, idempotencyKey?: string, abortSignal?: AbortSignal) {
   const response = await fetch(url, {
     method: "POST",
     headers: buildHeaders(apiKey, idempotencyKey),
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(60_000),
+    signal: combineAbortSignals(abortSignal, 60_000),
   });
   return readJsonResponse(response, "视频任务提交失败");
 }
 
-async function getJson(url: string, apiKey: string) {
+async function getJson(url: string, apiKey: string, abortSignal?: AbortSignal) {
   const response = await fetch(url, {
     method: "GET",
     headers: buildHeaders(apiKey),
-    signal: AbortSignal.timeout(60_000),
+    signal: combineAbortSignals(abortSignal, 60_000),
   });
   return readJsonResponse(response, "视频任务查询失败");
 }
@@ -549,6 +554,30 @@ function normalizeIdempotencyKey(value?: string) {
   return /^[A-Za-z0-9._-]{8,200}$/.test(normalized) ? normalized : undefined;
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason || new DOMException("The operation was aborted", "AbortError"));
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      reject(signal?.reason || new DOMException("The operation was aborted", "AbortError"));
+    };
+    const done = () => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    timer = setTimeout(done, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function combineAbortSignals(signal: AbortSignal | undefined, timeoutMs: number) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!signal) return timeout;
+  if (signal.aborted) return signal;
+  return AbortSignal.any([signal, timeout]);
 }

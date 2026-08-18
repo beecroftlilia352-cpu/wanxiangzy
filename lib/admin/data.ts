@@ -5,7 +5,6 @@ import {
   type NanoBananaProviderName,
 } from "@/lib/api/model-routing-config";
 import { getActiveModelRoutingConfig } from "@/lib/api/model-routing-config.server";
-import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getPublishedLlmProviderRawValue } from "@/lib/api/llm-provider-registry.server";
 import { getAdminModelProviderSnapshot, getPublishedModelProviderRawValue } from "@/lib/api/model-provider-registry.server";
 import { getPublishedVideoProviderRawValue } from "@/lib/api/video-provider-registry.server";
@@ -13,6 +12,14 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
 import { withTimeout, isRecord } from "@/lib/utils";
+import { getGenerationBullMqHealth } from "@/lib/queue/generation-queue-health.server";
+import { getWorkerHeartbeats, type WorkerHeartbeat } from "@/lib/queue/worker-heartbeat.server";
+import {
+  DEFAULT_WORKER_RUNTIME_CONFIG,
+  WORKER_RUNTIME_CONFIG_KEY,
+  parseWorkerRuntimeConfig,
+  type WorkerRuntimeConfig,
+} from "@/lib/queue/worker-runtime-config";
 import type {
   AdminAssetLifecycleAction,
   AdminAssetLifecycleItem,
@@ -398,6 +405,29 @@ export type AdminWorkerProcessor = {
 };
 
 export type AdminWorkerOverview = {
+  runtime: {
+    desired: WorkerRuntimeConfig;
+    actual: {
+      onlineInstances: number;
+      workerConcurrency: number;
+      relayConcurrency: number;
+      activeCapacity: number;
+      mode: string;
+      drift: boolean;
+    };
+    bullmq: {
+      configured: boolean;
+      reachable: boolean;
+      latencyMs: number | null;
+      workers: number;
+      paused: boolean | null;
+      counts: Record<string, number>;
+      error: string | null;
+    };
+    outbox: Record<string, number>;
+    instances: WorkerHeartbeat[];
+    configVersion: { id: string; publishedAt: string | null } | null;
+  };
   processors: AdminWorkerProcessor[];
   queue: {
     sampled: number;
@@ -1453,6 +1483,31 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
 export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   const warnings: string[] = [];
   const staleMinutes = clampLimit(process.env.GENERATION_JOB_STALE_MINUTES, 5, 180, 20);
+  const admin = getAdminClient();
+  const [bullmqHealth, heartbeats, outboxResult, workerConfigResult] = await Promise.all([
+    getGenerationBullMqHealth(),
+    getWorkerHeartbeats().catch(() => []),
+    admin.rpc("get_generation_queue_health"),
+    admin
+      .from("admin_config_versions")
+      .select("id,value,published_at")
+      .eq("config_key", WORKER_RUNTIME_CONFIG_KEY)
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (outboxResult.error) warnings.push(`Outbox health: ${outboxResult.error.message}`);
+  if (workerConfigResult.error) warnings.push(`Worker config: ${workerConfigResult.error.message}`);
+  const desired = workerConfigResult.data?.value
+    ? parseWorkerRuntimeConfig(workerConfigResult.data.value)
+    : { ...DEFAULT_WORKER_RUNTIME_CONFIG };
+  const runtimeWorkerConcurrency = readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", desired.workerConcurrency, 1, 512);
+  const runtimeRelayConcurrency = readIntegerEnv("BULLMQ_RELAY_CONCURRENCY", desired.relayConcurrency, 1, 128);
+  const drift = bullmqHealth.reachable && bullmqHealth.workers !== desired.desiredInstances;
+  if (drift) warnings.push(`Worker 实例配置漂移：期望 ${desired.desiredInstances}，在线 ${bullmqHealth.workers}`);
+  if (!bullmqHealth.reachable && bullmqHealth.configured) warnings.push("BullMQ Redis 当前不可达");
+  if (bullmqHealth.workers > 0 && heartbeats.length === 0) warnings.push("BullMQ 检测到 Worker，但应用心跳尚未出现；旧版本 Worker 或心跳连接可能异常");
   const result = await runQuery<Record<string, unknown>[]>(
     getAdminClient()
       .from("task_queue_items")
@@ -1498,12 +1553,40 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   );
 
   return {
+    runtime: {
+      desired,
+      actual: {
+        onlineInstances: bullmqHealth.workers,
+        workerConcurrency: runtimeWorkerConcurrency,
+        relayConcurrency: runtimeRelayConcurrency,
+        activeCapacity: bullmqHealth.workers * runtimeWorkerConcurrency,
+        mode: process.env.GENERATION_QUEUE_MODE?.trim().toLowerCase() || (process.env.NODE_ENV === "production" ? "bullmq" : "inline"),
+        drift,
+      },
+      bullmq: bullmqHealth,
+      outbox: normalizeWorkerOutboxHealth(outboxResult.data),
+      instances: heartbeats,
+      configVersion: workerConfigResult.data
+        ? { id: String(workerConfigResult.data.id), publishedAt: workerConfigResult.data.published_at || null }
+        : null,
+    },
     processors: getWorkerProcessors(),
     queue,
     staleTasks,
     recentRuns: (auditResult.data || []).map(mapAuditRow),
     warnings: uniqueStrings(warnings),
   };
+}
+
+function normalizeWorkerOutboxHealth(value: unknown): Record<string, number> {
+  const row = Array.isArray(value) ? value[0] : value;
+  if (!row || typeof row !== "object" || Array.isArray(row)) return {};
+  return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, item]) => [key, Number(item) || 0]));
+}
+
+function readIntegerEnv(name: string, fallback: number, minimum: number, maximum: number) {
+  const value = Number(process.env[name] || fallback);
+  return Number.isInteger(value) && value >= minimum && value <= maximum ? value : fallback;
 }
 
 
@@ -2107,51 +2190,22 @@ function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
     { key: "REDIS_URL", label: "BullMQ / 分布式容量 Redis", configured: Boolean(process.env.REDIS_URL), scope: "任务队列" },
     { key: "IMAGE_STORAGE_PROVIDER", label: "图片存储服务", configured: Boolean(process.env.IMAGE_STORAGE_PROVIDER), scope: "存储" },
     { key: "ALIYUN_OSS_BUCKET", label: "对象存储空间", configured: Boolean(process.env.ALIYUN_OSS_BUCKET), scope: "存储" },
-    { key: "LAOZHANG_API_KEY", label: "旧版生图通道", configured: Boolean(process.env.LAOZHANG_API_KEY), scope: "供应商（已废弃）" },
-    { key: "MINIMAX_VIDEO_API_KEY", label: "视频生成服务", configured: Boolean(process.env.MINIMAX_VIDEO_API_KEY), scope: "供应商" },
-    { key: "PLATO_API_KEY", label: "旧版精修通道", configured: Boolean(process.env.PLATO_API_KEY), scope: "供应商（已废弃）" },
-    { key: "LINGYA_API_KEY", label: "生图主服务", configured: Boolean(process.env.LINGYA_API_KEY), scope: "供应商" },
+    { key: "ADMIN_SECRETS_ENCRYPTION_KEY", label: "后台供应商密钥加密", configured: Boolean(process.env.ADMIN_SECRETS_ENCRYPTION_KEY), scope: "统一模型控制面" },
   ];
 }
 
 function getWorkerProcessors(): AdminWorkerProcessor[] {
   return [
-    workerProcessor({
+    {
       key: "generations",
-      label: "生成任务处理",
-      endpoint: "/api/jobs/process-generations",
-      batchSize: clampLimit(process.env.GENERATION_JOB_BATCH_SIZE, 1, 10, 2),
-      candidates: [
-        { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
-        { name: "CRON_SECRET", value: process.env.CRON_SECRET },
-      ],
-    }),
+      label: "BullMQ 生成 Worker",
+      endpoint: process.env.BULLMQ_QUEUE_NAME || "generation-jobs",
+      batchSize: readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", 16, 1, 512),
+      configured: process.env.GENERATION_QUEUE_MODE === "bullmq" && Boolean(process.env.REDIS_URL),
+      secretNames: ["REDIS_URL"],
+      statusHint: "由 PM2 Worker 自动消费；恢复操作只处理事务 Outbox，不直接执行业务任务。",
+    },
   ];
-}
-
-function workerProcessor({
-  key,
-  label,
-  endpoint,
-  batchSize,
-  candidates,
-}: {
-  key: AdminWorkerProcessor["key"];
-  label: string;
-  endpoint: string;
-  batchSize: number;
-  candidates: Array<{ name: string; value?: string }>;
-}): AdminWorkerProcessor {
-  const validation = getConfiguredProcessorSecrets(candidates, label);
-  return {
-    key,
-    label,
-    endpoint,
-    configured: validation.ok,
-    batchSize,
-    secretNames: candidates.map((candidate) => candidate.name),
-    statusHint: validation.ok ? "secret 已配置，可手动触发" : validation.message,
-  };
 }
 
 function isTaskStale(row: AdminTaskListItem, staleMinutes: number) {

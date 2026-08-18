@@ -6,14 +6,15 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
 
 describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
-  it("runs Web as a readiness-gated cluster and Worker as a singleton", () => {
+  it("runs Web as a readiness-gated cluster and parameterized Worker replicas", () => {
     const ecosystem = read("ecosystem.production.cjs");
 
     expect(ecosystem).toContain('const webInstances = boundedInteger("PM2_WEB_INSTANCES", 2, 2, 32)');
+    expect(ecosystem).toContain('const workerInstances = boundedInteger("PM2_WORKER_INSTANCES", 1, 1, 32)');
     expect(ecosystem).toContain('exec_mode: "cluster"');
     expect(ecosystem).toContain("instances: webInstances");
     expect(ecosystem).toContain('exec_mode: "fork"');
-    expect(ecosystem).toContain("instances: 1");
+    expect(ecosystem).toContain("instances: workerInstances");
     expect(ecosystem).toContain("wait_ready: true");
     expect(ecosystem).toContain("kill_timeout: killTimeoutMs");
     expect(ecosystem).toContain('NODE_ENV: "production"');
@@ -42,6 +43,8 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
     expect(startFunction).toContain('pm2 startOrReload "$app_dir/ecosystem.production.cjs" --update-env');
     expect(startFunction).not.toContain('pm2 delete "$proc"');
     expect(deploy).toContain('verify_pm2_process_contract "$RELEASE_DIR"');
+    expect(deploy).toContain("scripts/apply-worker-runtime-config.mjs");
+    expect(deploy).toContain('PM2_WORKER_INSTANCES="$PM2_WORKER_INSTANCES"');
     expect(deploy.indexOf('start_app "$BASE_DIR/current"')).toBeLessThan(
       deploy.lastIndexOf('verify_pm2_process_contract "$RELEASE_DIR"'),
     );
@@ -49,8 +52,8 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
     const verifier = read("scripts/verify-pm2-contract.cjs");
     expect(verifier).toContain("web.length < 2");
     expect(verifier).toContain('exec_mode === "cluster_mode"');
-    expect(verifier).toContain("worker.length !== 1");
-    expect(verifier).toContain('exec_mode !== "fork_mode"');
+    expect(verifier).toContain("worker.length !== expectedWorkerInstances");
+    expect(verifier).toContain('exec_mode === "fork_mode"');
     expect(verifier).toContain('status === "online"');
   });
 
@@ -78,6 +81,7 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
     const snapshot = read("scripts/snapshot-pm2-config.cjs");
     expect(snapshot).toContain('safeRuntimeEnvironmentKeys = ["NODE_ENV", "PORT", "HOST", "TZ"]');
     expect(snapshot).not.toContain("env: pm2.env");
+    expect(snapshot).toContain("instances: group.length");
     expect(snapshot).toContain("mode: 0o600");
   });
 

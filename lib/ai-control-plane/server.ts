@@ -216,18 +216,26 @@ async function buildLegacyControlPlaneConfig(): Promise<AiControlPlaneConfig | n
       config.providers.push({ id: providerId, name: `Legacy ${providerName}`, baseUrl: override.baseUrl, apiKey: override.apiKey, enabled: override.enabled, timeoutMs: 20 * 60_000 });
       const modelId = `video-${providerName}`;
       if (!config.models.some((model) => model.id === modelId)) {
-        config.models.push({ id: modelId, displayName: `${providerName} 视频`, modality: "video", enabled: true, userVisible: true, capabilities: ["generation"], defaultRoutingMode: "stable" });
+        config.models.push({ id: modelId, displayName: `${providerName} 视频`, modality: "video", enabled: true, userVisible: true, capabilities: videoCapabilities(providerName), defaultRoutingMode: "smart" });
       }
-      config.deployments.push({ id: `${providerId}-deployment`, modelId, providerId, upstreamModel: providerName, protocol: "newapi-video", enabled: override.enabled, priority: 10, weight: 100, maxConcurrency: 2, requestsPerMinute: 30, burst: 2, asyncMode: true, qualityScore: 0.8 });
+      config.deployments.push({ id: `${providerId}-deployment`, modelId, providerId, upstreamModel: providerName, protocol: "newapi-video", enabled: override.enabled, priority: 10, weight: 100, maxConcurrency: 2, requestsPerMinute: 30, burst: 2, asyncMode: true, capabilities: videoCapabilities(providerName), qualityScore: 0.8 });
     }
     config.models = config.models.map((model) => ({
       ...model,
       enabled: config.deployments.some((item) => item.modelId === model.id && item.enabled),
+      ...(model.id === "video-minimax" ? { capabilities: videoCapabilities("minimax"), defaultRoutingMode: "smart" as const } : {}),
+      ...(model.id === "video-seedance" ? { capabilities: videoCapabilities("seedance"), defaultRoutingMode: "smart" as const } : {}),
     }));
     return config;
   } catch {
     return null;
   }
+}
+
+function videoCapabilities(providerName: string) {
+  return providerName === "seedance"
+    ? ["image-to-video", "motion-control", "first-last-frame"]
+    : ["image-to-video", "first-last-frame"];
 }
 
 function finite(value: unknown, fallback = 0) {

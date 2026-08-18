@@ -33,9 +33,11 @@
    supabase/migrations/20260818083000_oss_mirror_transfers.sql
    supabase/migrations/20260818090000_oss_mirror_queue_health.sql
    supabase/migrations/20260818093405_commercial_media_asset_registry.sql
+   supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+   supabase/migrations/20260818110000_worker_runtime_control.sql
    ```
 
-   四个时间戳迁移是 clean-slate 破坏性迁移：先备份，在停写维护窗口严格顺序执行，随后只允许向前修复。部署会精确校验 runtime contract，旧签名同名 RPC 不能通过。
+   前四个时间戳迁移是 clean-slate 破坏性迁移：先备份，在停写维护窗口严格顺序执行，随后只允许向前修复。统一模型和 Worker 控制面迁移是非破坏性的，必须在发布前紧随其后执行。部署会精确校验 runtime contract 和所需 RPC，旧签名同名 RPC 不能通过。
 
 4. 检查生产环境变量。EC2 上的文件位于 `AWS_APP_DIR`（未配置时默认 `~/apps/wanxiangzy`）下：
 
@@ -104,7 +106,7 @@ PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=true
    Run release checks
    Create deployment archive
    Upload deployment archive
-   Update production GPT image provider env
+   Update production rollout flags
    Deploy on EC2
    ```
 
@@ -120,11 +122,11 @@ PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=true
 1. 打开线上域名，确认首页和 `/create` 可访问。
 2. 登录普通用户，发起一次低风险生成或测试任务。
 3. 登录后台，确认用户、任务、资产、账单、运营配置页面可加载。
-4. 确认 PM2 同时拉起了 Next.js Web cluster 与单实例 worker（默认 Web 至少 2 个实例）：
+4. 确认 PM2 同时拉起了 Next.js Web cluster 与 Admin 期望数量的 Worker（默认 Web 至少 2 个实例、Worker 至少 1 个）：
 
    ```bash
    pm2 status
-   # 应显示至少 2 个 wanxiangzy (cluster/online) 与 1 个 wanxiangzy-worker (fork/online)
+   # Worker 数量必须与 /admin/workers 的期望实例一致
    ```
 
 5. 查看 worker 主管进程日志（新实例必须出现 `"event":"supervisor.ready"`）：

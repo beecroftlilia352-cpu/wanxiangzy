@@ -21,6 +21,7 @@ import { parseBullMqConfig } from "@/lib/queue/bullmq-config.server";
 import { runGenerationOutboxRelay } from "@/lib/queue/generation-outbox-relay.server";
 import { createConfiguredGenerationQueueRuntime } from "@/lib/queue/generation-queue.server";
 import { createConfiguredGenerationWorkerRuntime } from "@/lib/queue/generation-worker.server";
+import { createWorkerHeartbeat } from "@/lib/queue/worker-heartbeat.server";
 import { runOssMirrorRecoveryLoop } from "@/lib/queue/oss-mirror-recovery.server";
 import {
   parseMediaValidationConfig,
@@ -77,6 +78,7 @@ export async function runWorkerSupervisor() {
     execute: runGenerationJobById,
     onMetric: (metric) => emit("generation.queue", metric),
   });
+  const heartbeat = createWorkerHeartbeat(bull);
   const sleep = createInterruptibleSleep(control);
   const signalHandler = (signal: NodeJS.Signals) => control.requestStop(signal);
   process.once("SIGTERM", signalHandler);
@@ -121,13 +123,17 @@ export async function runWorkerSupervisor() {
     shutdownPromise ??= shutdownInOrder({
       workerClose: () => worker.close(),
       loops: [relay, mirror, validation, cleanup],
-      producerClose: () => producer.close(),
+      producerClose: async () => {
+        await heartbeat.close();
+        await producer.close();
+      },
     });
     return shutdownPromise;
   };
 
   try {
     await worker.start();
+    await heartbeat.start();
     emit("supervisor.ready", {
       queue: bull.queueName,
       generationConcurrency: bull.worker.concurrency,

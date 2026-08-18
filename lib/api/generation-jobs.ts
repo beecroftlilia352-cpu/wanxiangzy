@@ -4,12 +4,12 @@ import { isRecord } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import {
   batchTryOn,
-  generateImage,
   type AspectRatio,
   type ImageTaskProgress,
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { generateImageWithControlPlane as generateImage } from "@/lib/api/lingya-routing.server";
 import { completeGenerationWithCreditAdjustment, failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs, resolveMediaInput } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
@@ -181,6 +181,7 @@ type GenerationJobPayloadBase = {
       slot: number;
       taskId: string;
       requestId?: string;
+      deploymentId?: string;
       status?: string;
       progress?: number;
       updatedAt: string;
@@ -1279,7 +1280,7 @@ async function executePayload(
     runOne: (
       index: number,
       onVideoProgress: (progress: VideoTaskProgress) => Promise<void>,
-      resumeTask?: { taskId: string; requestId?: string },
+      resumeTask?: { taskId: string; requestId?: string; deploymentId?: string },
     ) => Promise<VideoGenerationResult>
   ) => {
     const expectedCount = normalizeAiVideoGenCount(payload.genCount);
@@ -1307,7 +1308,7 @@ async function executePayload(
           externalSlotIndex: index,
           providerDetails: progress.providerDetails,
         });
-      }, checkpoint ? { taskId: checkpoint.taskId, requestId: checkpoint.requestId } : undefined);
+      }, checkpoint ? { taskId: checkpoint.taskId, requestId: checkpoint.requestId, deploymentId: checkpoint.deploymentId } : undefined);
 
       resultSlots[index] = result.urls[0];
       externalTaskId = result.taskId;
@@ -1357,6 +1358,8 @@ async function executePayload(
     ]);
     return runVideoBatch("video:image-to-video", (index, onVideoProgress, resumeTask) => generateVideoImageToVideo({
       provider: payload.provider,
+      generationId,
+      userId: ownerUserId,
       imageUrl,
       prompt: payload.prompt,
       modelMode,
@@ -1385,6 +1388,8 @@ async function executePayload(
       : undefined;
     return runVideoBatch("video:motion-control", (index, onVideoProgress, resumeTask) => generateVideoMotionControl({
       provider: payload.provider,
+      generationId,
+      userId: ownerUserId,
       modelImageUrl,
       referenceVideoUrl,
       prompt: payload.prompt,
@@ -1414,6 +1419,8 @@ async function executePayload(
       : undefined;
     return runVideoBatch("video:first-last-frame", (index, onVideoProgress, resumeTask) => generateVideoFirstLastFrame({
       provider: payload.provider,
+      generationId,
+      userId: ownerUserId,
       firstFrameUrl,
       lastFrameUrl,
       prompt: payload.prompt,
@@ -1487,6 +1494,7 @@ async function executePayload(
           candidateIndex,
           candidateCount: perReferenceCount,
           onProgress: onTaskProgress,
+          imageGenerator: generateImage,
         });
         return {
           resultUrls: result.resultUrls,
@@ -2339,6 +2347,7 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
       slot,
       taskId: update.externalTaskId,
       requestId: update.externalRequestId,
+      deploymentId: typeof update.providerDetails?.deploymentId === "string" ? update.providerDetails.deploymentId : undefined,
       status: update.externalStatus,
       progress: typeof update.progress === "number"
         ? Math.min(Math.max(Math.round(update.progress), 0), 100)
@@ -2377,6 +2386,7 @@ function readExistingAsyncTask(payload: GenerationJobPayload): {
     slot: number;
     taskId: string;
     requestId?: string;
+    deploymentId?: string;
     status?: string;
     progress?: number;
     updatedAt: string;
@@ -2389,6 +2399,7 @@ function readExistingAsyncTask(payload: GenerationJobPayload): {
     taskId?: unknown;
     task_id?: unknown;
     requestId?: unknown;
+    deploymentId?: unknown;
     request_id?: unknown;
     status?: unknown;
     progress?: unknown;
@@ -2426,6 +2437,9 @@ function normalizeExternalTaskSlots(value: unknown) {
       taskId,
       requestId: typeof entry.requestId === "string" && /^[A-Za-z0-9._-]{1,256}$/.test(entry.requestId)
         ? entry.requestId
+        : undefined,
+      deploymentId: typeof entry.deploymentId === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(entry.deploymentId)
+        ? entry.deploymentId
         : undefined,
       status: typeof entry.status === "string" ? entry.status.slice(0, 80) : undefined,
       progress: Number.isFinite(Number(entry.progress)) ? clampProgress(Number(entry.progress)) : undefined,

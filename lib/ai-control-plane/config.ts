@@ -48,8 +48,8 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
       imageModel("nano-banana-pro", "Nano Banana Pro", { "1K": 8, "2K": 10, "4K": 12 }),
       baseModel("text-default", "默认文本模型", "text", false, false),
       baseModel("vision-default", "默认视觉模型", "vision", false, false),
-      baseModel("video-minimax", "MiniMax 视频", "video", false, false),
-      baseModel("video-seedance", "Seedance 视频", "video", false, false),
+      { ...baseModel("video-minimax", "MiniMax 视频", "video", false, false), capabilities: ["image-to-video", "first-last-frame"], defaultRoutingMode: "smart" },
+      { ...baseModel("video-seedance", "Seedance 视频", "video", false, false), capabilities: ["image-to-video", "motion-control", "first-last-frame"], defaultRoutingMode: "smart" },
     ],
     providers: [
       provider("yunwu-openai", "云雾 OpenAI 兼容", "https://yunwu.ai/v1", "env:PLATO_API_KEY"),
@@ -63,8 +63,8 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
       deployment("banana-pro-yunwu", "nano-banana-pro", "yunwu-native", "gemini-3-pro-image-preview", "gemini-native", 10),
       deployment("text-minimax", "text-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
       deployment("vision-minimax", "vision-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
-      deployment("video-minimax-newapi", "video-minimax", "newapi-video", "minimax", "newapi-video", 10, false),
-      deployment("video-seedance-newapi", "video-seedance", "newapi-video", "seedance", "newapi-video", 10, false),
+      { ...deployment("video-minimax-newapi", "video-minimax", "newapi-video", "minimax", "newapi-video", 10, false), capabilities: ["image-to-video", "first-last-frame"], maxConcurrency: 2, requestsPerMinute: 30, burst: 2 },
+      { ...deployment("video-seedance-newapi", "video-seedance", "newapi-video", "seedance", "newapi-video", 10, false), capabilities: ["image-to-video", "motion-control", "first-last-frame"], maxConcurrency: 2, requestsPerMinute: 30, burst: 2 },
     ],
     policy: DEFAULT_AI_ROUTING_POLICY,
   };
@@ -317,7 +317,8 @@ function provider(id: string, name: string, baseUrl: string, apiKey: string): Ai
 }
 
 function deployment(id: string, modelId: string, providerId: string, upstreamModel: string, protocol: AiProviderProtocol, priority: number, enabled = true): AiModelDeployment {
-  return { id, modelId, providerId, upstreamModel, protocol, enabled, priority, weight: 100, maxConcurrency: 16, requestsPerMinute: 240, burst: 16, qualityScore: 0.8 };
+  const capabilities = protocol === "openai-image" || protocol === "gemini-native" ? ["generation", "edit"] : [];
+  return { id, modelId, providerId, upstreamModel, protocol, enabled, priority, weight: 100, maxConcurrency: 16, requestsPerMinute: 240, burst: 16, capabilities, qualityScore: 0.8 };
 }
 
 function checkUnique(items: Array<{ id: string }>, path: string, issues: AiControlPlaneIssue[]) {

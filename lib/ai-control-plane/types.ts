@@ -143,6 +143,8 @@ export type AiRouteContext = {
   routingMode?: AiRoutingMode;
   allowCrossModelFallback?: boolean;
   requiredCapabilities?: string[];
+  /** Async provider tasks must resume on the deployment that created them. */
+  requiredDeploymentId?: string;
 };
 
 export type AiResolvedDeployment = AiModelDeployment & {

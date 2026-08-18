@@ -62,6 +62,8 @@ export type AiRouteExecutionInput<T> = {
   modality: AiModality;
   context?: AiRouteContext;
   execute: (deployment: AiResolvedDeployment, attemptNo: number) => Promise<T>;
+  /** Return false after an irreversible upstream submission to prevent duplicates. */
+  canFailover?: (error: unknown, deployment: AiResolvedDeployment, attemptNo: number) => boolean;
   describeResult?: (result: T) => {
     inputUnits?: number;
     outputUnits?: number;
@@ -86,7 +88,10 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
   const modelIds = [model.id];
   if (context.allowCrossModelFallback) modelIds.push(...(model.compatibleFallbackModelIds || []));
   const baseCandidates = config.deployments.filter((deployment) =>
-    deployment.enabled && modelIds.includes(deployment.modelId) && hasCapabilities(deployment, context.requiredCapabilities),
+    deployment.enabled
+      && modelIds.includes(deployment.modelId)
+      && (!context.requiredDeploymentId || deployment.id === context.requiredDeploymentId)
+      && hasCapabilities(deployment, context.requiredCapabilities),
   );
   const providers = new Map(config.providers.filter((provider) => provider.enabled).map((provider) => [provider.id, provider]));
   const candidates = baseCandidates.filter((deployment) => providers.has(deployment.providerId));
@@ -174,7 +179,7 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
         recordOutcome(config, deployment, false, latency, classified),
       ]);
       logger.warn(`[ai-router] ${input.modelId} via ${deployment.providerId}/${deployment.id} failed: ${classified.category} ${classified.status || ""}`);
-      if (!classified.retryable) throw error;
+      if (!classified.retryable || input.canFailover?.(error, deployment, providerAttempt) === false) throw error;
       if (providerAttempt < maxAttempts) await delay(backoffMs(config, providerAttempt, requestId));
     } finally {
       clearTimeout(timeout);
@@ -416,7 +421,13 @@ async function recordOutcome(config: AiControlPlaneConfig, deployment: AiResolve
 }
 
 function hasDatabase() { return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY); }
-function hasCapabilities(deployment: AiModelDeployment, required?: string[]) { return !required?.length || required.every((item) => (deployment.capabilities || []).includes(item)); }
+function hasCapabilities(deployment: AiModelDeployment, required?: string[]) {
+  if (!required?.length) return true;
+  // Published legacy deployments predate per-operation capabilities. Their
+  // logical model boundary remains authoritative until the next Admin publish.
+  if (!deployment.capabilities?.length) return true;
+  return required.every((item) => deployment.capabilities!.includes(item));
+}
 function healthyDefault(deploymentId: string): AiProviderHealth { return { deploymentId, circuitState: "closed", consecutiveFailures: 0, sampleCount: 0, ewmaSuccessRate: 1, ewmaLatencyMs: 0 }; }
 function validUuid(value?: string) { return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)); }
 function parseStatus(message: string) { const match = message.match(/(?:HTTP|API\s*错误|status)\s*[:：]?\s*(\d{3})/i); return match ? Number(match[1]) : undefined; }

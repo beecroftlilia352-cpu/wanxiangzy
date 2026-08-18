@@ -1,8 +1,3 @@
-// Agent module is temporarily disabled. The agent-workflows and agent-evals
-// targets here are no-ops; only `generations` runs the real worker.
-// The full agent worker implementation lives on the
-// `refactor/extract-agent-module` branch.
-
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
@@ -12,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-type WorkerTarget = "generations" | "agent-workflows" | "agent-evals";
+type WorkerTarget = "generations";
 
 export async function POST(request: Request) {
   const auth = await requireAdminApi("workers:write");
@@ -28,7 +23,7 @@ export async function POST(request: Request) {
   const limit = clampRunLimit(body.limit, target);
 
   if (!target) {
-    return NextResponse.json({ error: "target 必须是 generations、agent-workflows 或 agent-evals" }, { status: 400 });
+    return NextResponse.json({ error: "target 必须是 generations" }, { status: 400 });
   }
   if (reason.length < 6) {
     return NextResponse.json({ error: "请填写至少 6 个字符的触发原因" }, { status: 400 });
@@ -61,33 +56,26 @@ export async function POST(request: Request) {
 }
 
 async function runWorker(target: WorkerTarget, limit: number) {
-  if (target === "generations") {
-    const admin = getAdminClient();
-    const recovery = await admin.rpc("recover_generation_outbox", { p_limit: limit });
-    if (recovery.error) throw new Error(`Outbox recovery failed: ${recovery.error.message}`);
-    const health = await admin.rpc("get_generation_queue_health");
-    if (health.error) throw new Error(`Queue health read failed: ${health.error.message}`);
-    return {
-      action: "outbox-recovery",
-      executedBusinessJobs: 0,
-      recovery: firstRow(recovery.data),
-      health: firstRow(health.data),
-    };
-  }
-  // agent-workflows and agent-evals are disabled while the agent module
-  // is archived on `refactor/extract-agent-module`.
-  return { disabled: "agent module disabled", processed: 0, succeeded: 0, failed: 0, skipped: 0 };
+  const admin = getAdminClient();
+  const recovery = await admin.rpc("recover_generation_outbox", { p_limit: limit });
+  if (recovery.error) throw new Error(`Outbox recovery failed: ${recovery.error.message}`);
+  const health = await admin.rpc("get_generation_queue_health");
+  if (health.error) throw new Error(`Queue health read failed: ${health.error.message}`);
+  return {
+    action: "outbox-recovery",
+    executedBusinessJobs: 0,
+    recovery: firstRow(recovery.data),
+    health: firstRow(health.data),
+  };
 }
 
 function normalizeTarget(value: unknown): WorkerTarget | null {
-  return value === "generations" || value === "agent-workflows" || value === "agent-evals"
-    ? value
-    : null;
+  return value === "generations" ? value : null;
 }
 
 function clampRunLimit(value: unknown, target: WorkerTarget | null) {
-  const max = target === "generations" ? 1_000 : target === "agent-evals" ? 100 : 10;
-  const fallback = target === "generations" ? 100 : target === "agent-evals" ? 20 : 2;
+  const max = target === "generations" ? 1_000 : 100;
+  const fallback = 100;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(1, Math.floor(parsed)));

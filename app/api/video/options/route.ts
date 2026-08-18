@@ -7,14 +7,13 @@ import {
   supportsVideoMotionControl,
   type VideoProviderName,
 } from "@/lib/api/video-catalog";
-import { getEnabledVideoProviderOverrides } from "@/lib/api/video-provider-registry.server";
+import { getEnabledVideoProviders } from "@/lib/api/video-provider";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const overrides = await getEnabledVideoProviderOverrides();
-  const providers = overrides.map((override) => {
-    const provider = override.provider as VideoProviderName;
+  const enabledProviders = await getEnabledVideoProviders();
+  const providers = enabledProviders.map((provider: VideoProviderName) => {
     return {
       provider,
       modes: getVideoModes(provider),

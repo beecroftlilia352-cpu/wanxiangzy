@@ -4,13 +4,15 @@
 
 ## 商用队列 / OSS clean-slate 迁移（强制顺序）
 
-以下四个迁移是破坏性的，不兼容旧 generation 队列数据。必须在停写维护窗口内、完成数据库备份后严格顺序应用：
+前四个迁移是破坏性的，不兼容旧 generation 队列数据。必须在停写维护窗口内、完成数据库备份后严格顺序应用；第 5、6 个是非破坏性的统一模型与 Worker 控制面，应紧随其后应用：
 
 ```text
 1. supabase/migrations/20260818072132_bullmq_generation_outbox.sql
 2. supabase/migrations/20260818083000_oss_mirror_transfers.sql
 3. supabase/migrations/20260818090000_oss_mirror_queue_health.sql
 4. supabase/migrations/20260818093405_commercial_media_asset_registry.sql
+5. supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+6. supabase/migrations/20260818110000_worker_runtime_control.sql
 ```
 
 最后一个迁移提供 `get_runtime_contract_version()`；发布脚本会精确校验 version/hash，而不只检查同名 RPC。迁移完成前不得启动新 API/Worker，完成后不得回滚到旧轮询代码；故障恢复采用数据库备份或向前修复。
@@ -20,6 +22,8 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818072132
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818083000_oss_mirror_transfers.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818090000_oss_mirror_queue_health.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818093405_commercial_media_asset_registry.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818110000_worker_runtime_control.sql
 ```
 
 ## 推荐基础顺序
@@ -43,6 +47,8 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818093405
 16. supabase/product-set-favorite-plans.sql
 17. supabase/product-retouch.sql
 18. 上述四个 clean-slate 时间戳迁移（严格按顺序）
+19. supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+20. supabase/migrations/20260818110000_worker_runtime_control.sql
 ```
 
 关键依赖：

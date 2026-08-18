@@ -33,6 +33,7 @@ export type VideoGenerationResult = {
 export type VideoTaskResume = {
   taskId: string;
   requestId?: string;
+  deploymentId?: string;
 };
 
 type VideoExecutionControl = {
@@ -40,6 +41,9 @@ type VideoExecutionControl = {
   idempotencyKey?: string;
   /** Persisted upstream task checkpoint. When present, submission is skipped. */
   resumeTask?: VideoTaskResume;
+  generationId?: string;
+  userId?: string;
+  abortSignal?: AbortSignal;
 };
 
 export type VideoImageToVideoInput = VideoExecutionControl & {

@@ -50,7 +50,7 @@ for (const name of processNames) {
     interpreter: pm2.exec_interpreter,
     node_args: Array.isArray(pm2.node_args) ? pm2.node_args : undefined,
     exec_mode: pm2.exec_mode,
-    instances: pm2.exec_mode === "cluster_mode" ? group.length : 1,
+    instances: group.length,
     wait_ready: Boolean(pm2.wait_ready),
     listen_timeout: pm2.listen_timeout,
     kill_timeout: pm2.kill_timeout,

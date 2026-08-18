@@ -62,6 +62,7 @@ import {
 } from "@/lib/model-pricing";
 import { getRegisteredImageCreditCost, getRegisteredImageSizes } from "@/lib/image-model-catalog";
 import { RetryableGenerationError, sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
+import type { AiResolvedDeployment } from "@/lib/ai-control-plane/types";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
@@ -136,7 +137,7 @@ export function normalizeImageSize(model: LingyaModel, size: ImageSize = "1K", a
   return supported.includes(size) ? size : supported[0] || "1K";
 }
 
-interface GenerateInput {
+export interface GenerateInput {
   model: LingyaModel;
   prompt: string;
   prompt_kind?: ImagePromptKind;
@@ -146,9 +147,10 @@ interface GenerateInput {
   image_size?: ImageSize;
   search?: boolean;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
+  routingDeployment?: AiResolvedDeployment;
 }
 
-interface GenerateResult {
+export interface GenerateResult {
   url?: string;
   b64_json?: string;
   prompt?: string;
@@ -196,6 +198,7 @@ interface BatchTryOnInput {
   candidateIndex?: number;
   candidateCount?: number;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
+  imageGenerator?: (input: GenerateInput, retries?: number) => Promise<GenerateResult>;
 }
 
 type TryOnRequestPromptOptions = {
@@ -214,7 +217,9 @@ type TryOnRequestPromptOptions = {
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
   const requestInput = await resolveGenerateInputAspectRatio(input);
-  const provider = await getImageProvider(requestInput.model);
+  const provider = requestInput.routingDeployment
+    ? imageProviderFromDeployment(requestInput.routingDeployment)
+    : await getImageProvider(requestInput.model);
   if (provider.enabled === false) {
     throw new Error(`模型 ${requestInput.model} 已在后台关闭，暂不可用`);
   }
@@ -268,7 +273,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
           : useImageEditEndpoint
             ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: requestInput.image || [] })
             : buildImageGenerationRequest({ apiBase, apiKey, provider, body });
-        res = await fetch(request.url, request.init);
+        res = await fetch(request.url, { ...request.init, signal: requestInput.routingDeployment?.abortSignal });
 
         resText = await res.text();
       } finally {
@@ -342,6 +347,23 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   }
 
   throw new Error("API 多次重试后失败");
+}
+
+function imageProviderFromDeployment(deployment: AiResolvedDeployment): ImageProvider {
+  if (deployment.protocol !== "openai-image" && deployment.protocol !== "gemini-native") {
+    throw new Error(`图片部署 ${deployment.id} 的协议 ${deployment.protocol} 不受支持`);
+  }
+  const apiBase = deployment.protocol === "gemini-native"
+    ? normalizeGeminiNativeApiBaseUrl(deployment.provider.baseUrl, deployment.provider.baseUrl)
+    : normalizeOpenAiCompatibleBaseUrl(deployment.provider.baseUrl);
+  return {
+    name: "admin",
+    apiBase,
+    apiKey: deployment.apiKey,
+    upstreamModel: deployment.upstreamModel,
+    responseType: deployment.protocol,
+    enabled: deployment.enabled,
+  };
 }
 
 async function resolveGenerateInputAspectRatio(input: GenerateInput): Promise<GenerateInput> {
@@ -473,7 +495,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     garmentDetailUrls,
   });
 
-  const result = await generateImage({
+  const result = await (input.imageGenerator || generateImage)({
     model: input.model,
     prompt: finalPrompt,
     prompt_kind: "tryon",

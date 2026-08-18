@@ -65,6 +65,7 @@ docker compose --env-file infra/redis/.env -f infra/redis/compose.yml exec redis
 REDIS_URL=redis://:percent-encoded-password@127.0.0.1:6379/0
 GENERATION_QUEUE_MODE=bullmq
 AI_ROUTER_CAPACITY_MODE=redis
+PM2_WORKER_INSTANCES=1
 BULLMQ_WORKER_CONCURRENCY=16
 BULLMQ_RELAY_BATCH_SIZE=100
 BULLMQ_RELAY_CONCURRENCY=8
@@ -85,6 +86,23 @@ GENERATION_EXECUTION_HEARTBEAT_MS=15000
 - 租户准入限制保护 Redis 和数据库不被 noisy neighbor 灌满；后续有套餐差异时，可把 `p_max_active_jobs` 按套餐传入。
 
 推荐从 1 个 Worker、并发 16 起步，压测后按 CPU、RSS、数据库连接、Provider 容量和 P95 队列等待共同调整。长图像/视频任务主要是 I/O，不要在 Worker event loop 执行长时间同步 CPU 工作。
+
+### 1000 用户容量基线
+
+“1000 用户”不是并发值。初始容量规划按 5% 用户在峰值同时提交、每人 1 个任务估算，即 50 个并发生成。建议基线：
+
+```text
+PM2 Worker 实例             4
+单 Worker 并发              16
+理论 Worker active 上限     64
+建议 EC2                    4 vCPU / 8 GiB 或更高
+Redis                       托管 Redis/Tair/ElastiCache，noeviction
+Provider 可用并发总和       至少 64（否则实际吞吐以 Provider 上限为准）
+```
+
+在 `/admin/workers` 发布 `4 / 16 / 8` 后，下次 tag 部署会由发布控制器读取 `worker.runtime.v1`，原子写入共享 `.env.production` 并启动 4 个 PM2 Worker。当前 2 vCPU / 2 GiB EC2 不应直接套用 4×16；它适合 1×16 验证环境。生产扩容前必须把 Redis 移出单机 loopback，并完成 10k 任务、Provider 429、Worker kill -9 和 Redis 故障转移演练。
+
+Admin 只保存版本化期望配置，不能执行 shell 或直接调用 PM2。页面同时显示期望实例、BullMQ 实际在线实例、总 active 容量和配置漂移；部署控制器是唯一基础设施写入者。
 
 ## 重试与恢复语义
 
@@ -109,6 +127,8 @@ Provider 业务失败在 PostgreSQL 原子结算/退款后让当前 Bull job 正
 - BullMQ：reachable、latency、workers、waiting、active、delayed、failed；
 - Provider：deployment in-flight、RPM、熔断状态、429、成功率、P95；
 - Worker：active/completed/deferred/skipped/failed/stalled、RSS、优雅停机结果。
+
+统一模型控制面是图片和视频的实际执行入口：同优先级 deployment 使用加权智能分流，失败按优先级 fallback，Redis 容量租约限制并发/RPM，健康表驱动熔断和半开恢复。异步视频在拿到上游 task_id 后固定 deployment，后续恢复不会切换供应商并造成重复生成。
 
 建议初始告警：
 

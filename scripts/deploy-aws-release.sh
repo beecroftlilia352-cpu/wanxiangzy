@@ -42,6 +42,7 @@ PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
 PM2_KILL_TIMEOUT_MS=45000
 PM2_READY_TIMEOUT_MS="${PM2_READY_TIMEOUT_MS:-60000}"
 PM2_WEB_INSTANCES="${PM2_WEB_INSTANCES:-2}"
+PM2_WORKER_INSTANCES="${PM2_WORKER_INSTANCES:-}"
 PM2_ROLLBACK_CONFIG="$SHARED_DIR/.pm2-rollback-${SAFE_TAG}.cjs"
 CUTOVER_STARTED=0
 ROLLBACK_IN_PROGRESS=0
@@ -69,6 +70,7 @@ start_app() {
     PM2_RELEASE_DIR="$app_dir" \
     PM2_NODE_BIN="$node_bin" \
     PM2_WEB_INSTANCES="$PM2_WEB_INSTANCES" \
+    PM2_WORKER_INSTANCES="$PM2_WORKER_INSTANCES" \
     PM2_KILL_TIMEOUT_MS="$PM2_KILL_TIMEOUT_MS" \
     PM2_READY_TIMEOUT_MS="$PM2_READY_TIMEOUT_MS" \
     NODE_ENV=production \
@@ -80,7 +82,8 @@ verify_pm2_process_contract() {
   node "$RELEASE_DIR/scripts/verify-pm2-contract.cjs" \
     "$APP_NAME" \
     "$expected_dir" \
-    "$PM2_WEB_INSTANCES"
+    "$PM2_WEB_INSTANCES" \
+    "$PM2_WORKER_INSTANCES"
 }
 
 snapshot_pm2_process_config() {
@@ -95,8 +98,10 @@ restore_pm2_snapshot() {
   local expected_dir="$2"
   local restored_count
   local expected_web_instances
+  local expected_worker_instances
   restored_count="$(node -e 'const value=require(process.argv[1]); process.stdout.write(String(Array.isArray(value.apps) ? value.apps.length : 0))' "$snapshot")"
   expected_web_instances="$(node -e 'const value=require(process.argv[1]); const app=value.apps?.find((entry)=>entry.name===process.argv[2]); process.stdout.write(String(app?.instances || 0))' "$snapshot" "$APP_NAME")"
+  expected_worker_instances="$(node -e 'const value=require(process.argv[1]); const app=value.apps?.find((entry)=>entry.name===process.argv[2]); process.stdout.write(String(app?.instances || 0))' "$snapshot" "${APP_NAME}-worker")"
 
   if [ "$restored_count" -gt 0 ]; then
     NODE_ENV=production pm2 startOrReload "$snapshot" --update-env || return $?
@@ -113,7 +118,8 @@ restore_pm2_snapshot() {
   node "$RELEASE_DIR/scripts/verify-pm2-contract.cjs" \
     "$APP_NAME" \
     "$expected_dir" \
-    "$expected_web_instances"
+    "$expected_web_instances" \
+    "$expected_worker_instances"
 }
 
 release_matches_runtime_contract() {
@@ -575,6 +581,10 @@ const required = [
   "recover_generation_outbox",
   "redrive_generation_outbox",
   "get_generation_queue_health",
+  "publish_ai_control_plane_config",
+  "record_ai_provider_outcome",
+  "admin_ai_provider_metrics",
+  "publish_worker_runtime_config",
   "claim_generation_job",
   "heartbeat_generation_job",
   "defer_generation_for_ai_capacity",
@@ -740,6 +750,13 @@ configure_build_environment
 ensure_node_version
 ensure_build_swap
 install_dependencies
+
+# Admin stores a versioned desired capacity policy. Deployment is the only
+# component allowed to apply it to the EC2 environment and PM2 process count.
+node --env-file=.env.production scripts/apply-worker-runtime-config.mjs .env.production
+if [ -z "$PM2_WORKER_INSTANCES" ]; then
+  PM2_WORKER_INSTANCES="$(node --env-file=.env.production -e 'process.stdout.write(process.env.PM2_WORKER_INSTANCES || "1")')"
+fi
 
 # Manual and automated deploys share the same production fail-closed gate.
 # Validate only structure and presence; never print the credential-bearing URL.
