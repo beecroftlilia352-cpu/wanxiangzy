@@ -2706,7 +2706,10 @@ async function writeGenerationProgress(
   const { error } = await supabase
     .from("generations")
     .update({
-      result_urls: update.resultUrls,
+      // Parallel image execution keeps empty slot placeholders in memory so
+      // result order remains stable. Never persist those placeholders: the
+      // settlement RPC must distinguish real partial output from no output.
+      result_urls: compactResultUrls(update.resultUrls),
       job_payload: appendAsyncProgress(appendPromptTrace(payload, update.promptTrace), update),
     })
     .eq("id", job.id)

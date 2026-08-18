@@ -10,7 +10,7 @@
 Provider URL
   -> EC2 读取 64-byte Range（HTTPS/allowlist/DNS/大小/MIME/魔数校验）
   -> AES-256-GCM 加密 URL，按 generation_ref 幂等登记
-  -> EC2 对目标 OSS Object 发起签名 Range: bytes=0-0
+  -> EC2 对不可猜测的短期目标 Object 发起匿名 Range: bytes=0-0
   -> OSS 404 镜像规则请求 /api/oss-mirror-source/<HMAC-capability-object-key>
   -> 解析接口验证 HMAC、TTL、密文完整性并重新做 64-byte 校验，返回 302
   -> OSS 跟随 302，直接从 Provider 完整拉取并保存
@@ -25,6 +25,11 @@ Provider URL
 浏览器完全不参与触发。用户关页后，generation worker 仍会处理任务；独立镜像恢复
 循环约 1 秒轮询，使用短租约和 `FOR UPDATE SKIP LOCKED`。单进程有全局网络并发上限，
 多台 EC2/多个 PM2 worker 可直接横向扩容，不会重复认领同一条记录。
+
+触发 GET 不携带 OSS `Authorization`：阿里云仅对匿名对象读取执行 Website
+RoutingRule；带签名的缺失对象请求会直接返回 `NoSuchKey`。目标 key 本身包含随机 UUID、
+短期过期时间和 HMAC 能力签名，解析接口还会校验数据库状态与来源域名。对象落盘后的
+完整性检查及清理仍使用服务端签名请求。
 
 ## 生产启用顺序
 

@@ -48,6 +48,7 @@ describe("OSS mirror transfers", () => {
       }
       expect(init?.method).toBe("GET");
       expect((init?.headers as Record<string, string>).Range).toBe("bytes=0-0");
+      expect((init?.headers as Record<string, string>).Authorization).toBeUndefined();
       return new Response(new Uint8Array([0xff]), {
         status: 206,
         headers: { "content-range": "bytes 0-0/57555", "content-type": "image/jpeg" },

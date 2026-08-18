@@ -148,7 +148,11 @@ BEGIN
     WHERE id = p_generation_id
       AND user_id = p_user_id
       AND status NOT IN ('completed', 'success', 'succeeded')
-      AND COALESCE(array_length(result_urls, 1), 0) > 0;
+      AND EXISTS (
+        SELECT 1
+        FROM unnest(COALESCE(result_urls, '{}'::TEXT[])) AS result_url
+        WHERE NULLIF(btrim(result_url), '') IS NOT NULL
+      );
 
   SELECT LEAST(GREATEST(p_amount, 0), GREATEST(COALESCE(credits_used, credits_cost, 0), 0))
     INTO v_refund_amount
