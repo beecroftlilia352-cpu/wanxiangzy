@@ -69,7 +69,50 @@ type Snapshot = {
   health: Record<string, Health>;
   metrics: AiProviderMetric[];
   inFlight: Record<string, number>;
-  capacityBackend?: { requestedMode: "redis" | "local"; activeMode: "redis" | "local"; distributed: boolean };
+  capacityBackend?: { requestedMode: "redis" | "local"; activeMode: "redis" | "local"; distributed: boolean; configured?: boolean; failClosed?: boolean };
+  generationQueue?: {
+    mode: string;
+    redisConfigured: boolean;
+    bullmqConfigured: boolean;
+    bullmq: {
+      configured: boolean;
+      reachable: boolean;
+      latencyMs: number | null;
+      workers: number;
+      paused: boolean | null;
+      counts: {
+        waiting: number;
+        active: number;
+        delayed: number;
+        failed: number;
+      };
+    };
+    outbox: null | {
+      pendingCount: number;
+      publishingCount: number;
+      publishedCount: number;
+      deadCount: number;
+      oldestPendingAgeSeconds: number;
+    };
+    outboxError?: boolean;
+    ossMirror?: {
+      configured: boolean;
+      reachable: boolean;
+      latencyMs: number | null;
+      counts: {
+        pending: number;
+        processing: number;
+        completed: number;
+        failed: number;
+        staleProcessing: number;
+      };
+      oldestPendingAgeSeconds: number;
+      oldestProcessingAgeSeconds: number;
+      lastRecoveredAt: string | null;
+      lastCompletedAt: string | null;
+      error: string | null;
+    };
+  };
   versions: Version[];
 };
 
@@ -214,6 +257,10 @@ export function AdminModelControlPlane() {
   const attempts = snapshot.metrics.reduce((sum, item) => sum + item.requestCount, 0);
   const p95Values = snapshot.metrics.map((item) => item.p95LatencyMs).filter((value): value is number => value !== null);
   const openCircuits = Object.values(snapshot.health).filter((item) => item.circuitState === "open").length;
+  const queueHealth = snapshot.generationQueue?.outbox;
+  const bullmqHealth = snapshot.generationQueue?.bullmq;
+  const ossMirrorHealth = snapshot.generationQueue?.ossMirror;
+  const ossMirrorEnabled = ossMirrorHealth?.configured ?? false;
 
   return (
     <>
@@ -250,7 +297,9 @@ export function AdminModelControlPlane() {
 
       {!snapshot.capacityBackend?.distributed && (
         <AdminNotice tone="warning">
-          当前容量保护为进程内模式，无法跨 Web 与 Worker 进程统一计算并发/RPM。商用多进程环境请配置 <code>UPSTASH_REDIS_REST_URL</code>、<code>UPSTASH_REDIS_REST_TOKEN</code>，并保持 <code>AI_ROUTER_CAPACITY_MODE=redis</code>。
+          {snapshot.capacityBackend?.requestedMode === "local"
+            ? <>当前容量保护为本地进程模式，仅适合隔离开发测试，无法跨 Web 与 Worker 统一计算并发/RPM。</>
+            : <>Redis 容量后端未就绪，供应商调用将 fail-closed 并留在 BullMQ 队列重试。请检查服务端 <code>REDIS_URL</code> 和 Redis 连通性。</>}
         </AdminNotice>
       )}
 
@@ -272,6 +321,101 @@ export function AdminModelControlPlane() {
             <AdminMetricCard label="P95 耗时" value={p95Values.length ? formatDuration(Math.max(...p95Values)) : "—"} hint="24 小时最慢部署 P95" icon={<Gauge className="h-4 w-4" />} />
             <AdminMetricCard label="已熔断通道" value={openCircuits} tone={openCircuits ? "danger" : "good"} hint={`${draft.deployments.filter((item) => item.enabled).length} 个启用部署`} icon={<CircuitBoard className="h-4 w-4" />} />
           </div>
+          <AdminSection title="BullMQ 与 Outbox 健康" description="这里只展示配置状态和聚合计数，不返回或记录 Redis 地址与凭据。">
+            <div className="grid gap-3 border-b border-[var(--admin-border)] p-4 sm:grid-cols-2 xl:grid-cols-5">
+              <AdminMetricCard
+                label="BullMQ 可达性"
+                value={bullmqHealth?.reachable ? "可达" : "不可达"}
+                tone={bullmqHealth?.reachable ? "good" : "danger"}
+                hint={`延迟：${bullmqHealth?.latencyMs == null ? "—" : `${bullmqHealth.latencyMs}ms`}；Worker：${bullmqHealth?.workers ?? 0}`}
+                icon={<ServerCog className="h-4 w-4" />}
+              />
+              <AdminMetricCard label="BullMQ 等待" value={bullmqHealth?.counts.waiting ?? "—"} tone={(bullmqHealth?.counts.waiting || 0) > 0 ? "warning" : "good"} hint="waiting" icon={<Boxes className="h-4 w-4" />} />
+              <AdminMetricCard label="BullMQ 执行中" value={bullmqHealth?.counts.active ?? "—"} hint={`active；${bullmqHealth?.workers ?? 0} 个 Worker`} icon={<Activity className="h-4 w-4" />} />
+              <AdminMetricCard label="BullMQ 延迟" value={bullmqHealth?.counts.delayed ?? "—"} hint="delayed" icon={<Gauge className="h-4 w-4" />} />
+              <AdminMetricCard label="BullMQ 失败" value={bullmqHealth?.counts.failed ?? "—"} tone={(bullmqHealth?.counts.failed || 0) > 0 ? "danger" : "good"} hint={bullmqHealth?.paused ? "队列已暂停" : "failed"} icon={<CircuitBoard className="h-4 w-4" />} />
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
+              <AdminMetricCard
+                label="Redis / BullMQ"
+                value={snapshot.generationQueue?.bullmqConfigured ? "已配置" : "未就绪"}
+                tone={snapshot.generationQueue?.bullmqConfigured ? "good" : "danger"}
+                hint={`模式：${snapshot.generationQueue?.mode || "未知"}；Redis：${snapshot.generationQueue?.redisConfigured ? "已配置" : "缺失"}`}
+                icon={<ServerCog className="h-4 w-4" />}
+              />
+              <AdminMetricCard label="待发布" value={queueHealth?.pendingCount ?? "—"} tone={(queueHealth?.pendingCount || 0) > 0 ? "warning" : "good"} hint="事务 Outbox pending" icon={<Boxes className="h-4 w-4" />} />
+              <AdminMetricCard label="发布中" value={queueHealth?.publishingCount ?? "—"} hint="持有发布租约" icon={<Activity className="h-4 w-4" />} />
+              <AdminMetricCard label="死信" value={queueHealth?.deadCount ?? "—"} tone={(queueHealth?.deadCount || 0) > 0 ? "danger" : "good"} hint={`累计已发布 ${queueHealth?.publishedCount ?? "—"}`} icon={<CircuitBoard className="h-4 w-4" />} />
+              <AdminMetricCard label="最老待发布" value={queueHealth ? formatDuration(queueHealth.oldestPendingAgeSeconds * 1000) : "—"} tone={(queueHealth?.oldestPendingAgeSeconds || 0) > 60 ? "warning" : "good"} hint="持续增长表示 Relay 堵塞" icon={<Gauge className="h-4 w-4" />} />
+            </div>
+            {snapshot.generationQueue?.outboxError && (
+              <p className="border-t border-[var(--admin-border)] px-4 py-3 text-xs font-bold text-[var(--admin-warning)]">Outbox 健康 RPC 不可用，请确认 BullMQ migration 已应用。</p>
+            )}
+          </AdminSection>
+          <AdminSection title="OSS 镜像 Outbox 健康" description="生成结果回源到阿里云 OSS 镜像队列的状态；不会返回密钥、地址或 Object Key。">
+            <div className="grid gap-3 border-b border-[var(--admin-border)] p-4 sm:grid-cols-2 xl:grid-cols-5">
+              <AdminMetricCard
+                label="OSS 镜像可用"
+                value={ossMirrorEnabled ? (ossMirrorHealth?.reachable ? "可达" : "不可达") : "未启用"}
+                tone={!ossMirrorEnabled ? "neutral" : ossMirrorHealth?.reachable ? "good" : "danger"}
+                hint={!ossMirrorEnabled
+                  ? "需要 ALIYUN_OSS_MIRROR_ENABLED=true 才会启用"
+                  : `延迟：${ossMirrorHealth?.latencyMs == null ? "—" : `${ossMirrorHealth.latencyMs}ms`}`}
+                icon={<ServerCog className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="OSS 待发布"
+                value={ossMirrorHealth?.counts.pending ?? "—"}
+                tone={(ossMirrorHealth?.counts.pending || 0) > 0 ? "warning" : "good"}
+                hint="镜像队列 pending"
+                icon={<Boxes className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="OSS 处理中"
+                value={ossMirrorHealth?.counts.processing ?? "—"}
+                hint={`持有租约 ${ossMirrorHealth?.counts.processing ?? 0}`}
+                icon={<Activity className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="OSS 过期租约"
+                value={ossMirrorHealth?.counts.staleProcessing ?? "—"}
+                tone={(ossMirrorHealth?.counts.staleProcessing || 0) > 0 ? "danger" : "good"}
+                hint="lease 已超时，等待恢复回收"
+                icon={<CircuitBoard className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="OSS 失败"
+                value={ossMirrorHealth?.counts.failed ?? "—"}
+                tone={(ossMirrorHealth?.counts.failed || 0) > 0 ? "danger" : "good"}
+                hint={`累计完成 ${ossMirrorHealth?.counts.completed ?? "—"}`}
+                icon={<ShieldCheck className="h-4 w-4" />}
+              />
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+              <AdminMetricCard
+                label="最老待发布"
+                value={ossMirrorHealth ? formatDuration((ossMirrorHealth.oldestPendingAgeSeconds || 0) * 1000) : "—"}
+                tone={(ossMirrorHealth?.oldestPendingAgeSeconds || 0) > 60 ? "warning" : "good"}
+                hint="增长表示 Worker/RPC 堵塞"
+                icon={<Gauge className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="最近完成"
+                value={formatRelativeTime(ossMirrorHealth?.lastCompletedAt)}
+                hint="镜像写 OSS 时间"
+                icon={<History className="h-4 w-4" />}
+              />
+              <AdminMetricCard
+                label="最近恢复"
+                value={formatRelativeTime(ossMirrorHealth?.lastRecoveredAt)}
+                hint="过期租约回收时间"
+                icon={<RefreshCw className="h-4 w-4" />}
+              />
+            </div>
+            {ossMirrorHealth?.error && (
+              <p className="border-t border-[var(--admin-border)] px-4 py-3 text-xs font-bold text-[var(--admin-warning)]">OSS 镜像健康 RPC 异常：{ossMirrorHealth.error}</p>
+            )}
+          </AdminSection>
           <AdminSection title="路由工作方式" description="优先级、同级池与自动兜底分层执行，不会相互冲突。">
             <div className="grid gap-3 p-4 lg:grid-cols-4">
               {[
@@ -621,6 +765,23 @@ function optionalNumber(value: string) { const parsed = Number(value); return va
 function firstError(value: unknown) { return Array.isArray(value) ? value.find((item) => item?.severity === "error")?.message : ""; }
 function formatDuration(value: number | null | undefined) { if (!value) return "—"; return value >= 60_000 ? `${(value / 60_000).toFixed(1)} min` : value >= 1_000 ? `${(value / 1_000).toFixed(1)} s` : `${Math.round(value)} ms`; }
 function formatTime(value?: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(date); }
+function formatRelativeTime(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const diffMs = date.getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const sign = diffMs >= 0 ? "后" : "前";
+  let label: string;
+  if (absMs < minute) label = `${Math.round(absMs / 1000)} 秒`;
+  else if (absMs < hour) label = `${Math.round(absMs / minute)} 分钟`;
+  else if (absMs < day) label = `${Math.round(absMs / hour)} 小时`;
+  else label = `${Math.round(absMs / day)} 天`;
+  return `${label}${sign}`;
+}
 function weightLabel(value: string) { return ({ reliability: "成功率", latency: "速度", cost: "成本", capacity: "容量", quality: "质量" } as Record<string, string>)[value] || value; }
 
 const inputClass = "h-9 w-full rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-bold text-[var(--admin-fg)] outline-none transition focus:border-[var(--admin-border-strong)] focus:ring-2 focus:ring-[var(--admin-focus-ring)] motion-reduce:transition-none";

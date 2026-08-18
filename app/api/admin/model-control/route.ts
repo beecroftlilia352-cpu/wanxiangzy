@@ -23,6 +23,8 @@ import {
   loadAiProviderMetrics,
 } from "@/lib/ai-control-plane/server";
 import { getAiCapacityBackendStatus, getAiProviderInFlight } from "@/lib/ai-control-plane/capacity.server";
+import { getGenerationBullMqHealth } from "@/lib/queue/generation-queue-health.server";
+import { getOssMirrorHealth } from "@/lib/queue/oss-mirror-health.server";
 
 export const dynamic = "force-dynamic";
 
@@ -33,17 +35,24 @@ export async function GET(request: Request) {
   const hours = Number(url.searchParams.get("hours") || 24);
   const snapshot = await getAiControlPlanePublicSnapshot();
   const deploymentIds = snapshot.config.deployments.map((item) => item.id);
-  const [health, metrics, versions, inFlight] = await Promise.all([
+  const admin = getAdminClient();
+  const [health, metrics, versions, inFlight, queueHealth, bullmqHealth, ossMirrorHealth] = await Promise.all([
     loadAiProviderHealth(deploymentIds),
     loadAiProviderMetrics(hours),
-    getAdminClient()
+    admin
       .from("admin_config_versions")
       .select("id,status,created_by,published_at,created_at")
       .eq("config_key", AI_CONTROL_PLANE_CONFIG_KEY)
       .order("created_at", { ascending: false })
       .limit(20),
     Promise.all(deploymentIds.map(async (id) => [id, await getAiProviderInFlight(id)] as const)),
+    admin.rpc("get_generation_queue_health"),
+    getGenerationBullMqHealth(),
+    getOssMirrorHealth(),
   ]);
+  const capacityBackend = getAiCapacityBackendStatus();
+  const generationQueueMode = process.env.GENERATION_QUEUE_MODE?.trim().toLowerCase()
+    || (process.env.NODE_ENV === "production" ? "bullmq" : "inline");
 
   return NextResponse.json({
     ok: true,
@@ -51,10 +60,65 @@ export async function GET(request: Request) {
     health: Object.fromEntries(health),
     metrics,
     inFlight: Object.fromEntries(inFlight),
-    capacityBackend: getAiCapacityBackendStatus(),
+    capacityBackend,
+    generationQueue: {
+      mode: generationQueueMode,
+      redisConfigured: capacityBackend.configured,
+      bullmqConfigured: generationQueueMode === "bullmq" && capacityBackend.configured,
+      bullmq: {
+        configured: bullmqHealth.configured,
+        reachable: bullmqHealth.reachable,
+        latencyMs: bullmqHealth.latencyMs,
+        workers: bullmqHealth.workers,
+        paused: bullmqHealth.paused,
+        counts: {
+          waiting: bullmqHealth.counts.waiting,
+          active: bullmqHealth.counts.active,
+          delayed: bullmqHealth.counts.delayed,
+          failed: bullmqHealth.counts.failed,
+        },
+      },
+      outbox: normalizeGenerationQueueHealth(queueHealth.data),
+      outboxError: Boolean(queueHealth.error),
+      ossMirror: {
+        configured: ossMirrorHealth.configured,
+        reachable: ossMirrorHealth.reachable,
+        latencyMs: ossMirrorHealth.latencyMs,
+        counts: {
+          pending: ossMirrorHealth.counts.pending,
+          processing: ossMirrorHealth.counts.processing,
+          completed: ossMirrorHealth.counts.completed,
+          failed: ossMirrorHealth.counts.failed,
+          staleProcessing: ossMirrorHealth.counts.staleProcessing,
+        },
+        oldestPendingAgeSeconds: ossMirrorHealth.oldestPendingAgeSeconds,
+        oldestProcessingAgeSeconds: ossMirrorHealth.oldestProcessingAgeSeconds,
+        lastRecoveredAt: ossMirrorHealth.lastRecoveredAt,
+        lastCompletedAt: ossMirrorHealth.lastCompletedAt,
+        error: ossMirrorHealth.error ? "[redacted]" : null,
+      },
+    },
     versions: versions.data || [],
     versionError: versions.error?.message || null,
   }, { headers: { "Cache-Control": "no-store" } });
+}
+
+function normalizeGenerationQueueHealth(value: unknown) {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  if (!candidate || typeof candidate !== "object") return null;
+  const row = candidate as Record<string, unknown>;
+  return {
+    pendingCount: nonNegativeNumber(row.pending_count),
+    publishingCount: nonNegativeNumber(row.publishing_count),
+    publishedCount: nonNegativeNumber(row.published_count),
+    deadCount: nonNegativeNumber(row.dead_count),
+    oldestPendingAgeSeconds: nonNegativeNumber(row.oldest_pending_age_seconds),
+  };
+}
+
+function nonNegativeNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
 }
 
 export async function POST(request: Request) {

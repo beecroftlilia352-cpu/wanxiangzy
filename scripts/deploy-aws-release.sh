@@ -37,6 +37,9 @@ SAFE_TAG="$(printf '%s' "$TAG" | tr -c 'A-Za-z0-9._-' '-')"
 RELEASE_DIR="$BASE_DIR/releases/$SAFE_TAG"
 SHARED_DIR="$BASE_DIR/shared"
 PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
+# Application shutdown waits up to 30 seconds. PM2 must allow a larger drain
+# window before SIGKILL so BullMQ can release locks and close QueueEvents.
+PM2_KILL_TIMEOUT_MS=45000
 
 start_app() {
   local app_dir="$1"
@@ -56,23 +59,21 @@ start_app() {
   done
 
   cd "$app_dir"
-  pm2 start npm --name "$APP_NAME" --interpreter "$node_bin" -- start
+  pm2 start npm --name "$APP_NAME" --interpreter "$node_bin" --kill-timeout "$PM2_KILL_TIMEOUT_MS" -- start
 
-  # 异步任务 worker (PM2 托管, 调用 npm run worker -> tsx scripts/worker.ts).
-  # 通过 WORKER_ENABLED 开关；默认开启。HTTP 路由 /api/jobs/process-generations
-  # 仍保留, 用于运维手动触发或回退. --max-memory-restart 防御内存泄漏.
+  # 生产 BullMQ worker 必须与 Web 进程一起由 PM2 托管。
+  # --max-memory-restart 防御内存泄漏。
   # --cwd 显式指定 cwd：worker's loadDotEnvIfPresent() 用 process.cwd() 找
   # .env.production，PM2 默认不继承 bash 的 cd，所以必须显式给到 release 目录，
   # 否则 env 加载失败、worker 死循环重启。
-  if [ "${WORKER_ENABLED:-true}" = "true" ]; then
-    pm2 start npm \
-      --name "${APP_NAME}-worker" \
-      --cwd "$app_dir" \
-      --interpreter "$node_bin" \
-      --max-memory-restart 1500M \
-      --time \
-      -- run worker
-  fi
+  pm2 start npm \
+    --name "${APP_NAME}-worker" \
+    --cwd "$app_dir" \
+    --interpreter "$node_bin" \
+    --kill-timeout "$PM2_KILL_TIMEOUT_MS" \
+    --max-memory-restart 1500M \
+    --time \
+    -- run worker
 }
 
 healthcheck_app() {
@@ -352,6 +353,120 @@ install_dependencies() {
   install_dependencies_into_cache "$cache_dir"
 }
 
+verify_production_redis() {
+  # Run this only after installing dependencies so the exact ioredis version in
+  # the release performs the check. Errors are deliberately generic: connection
+  # failures can contain the credential-bearing endpoint in their message.
+  node --env-file=.env.production - <<'NODE'
+const Redis = require("ioredis");
+
+const client = new Redis(process.env.REDIS_URL, {
+  lazyConnect: true,
+  enableOfflineQueue: false,
+  maxRetriesPerRequest: 1,
+  connectTimeout: 5_000,
+  commandTimeout: 5_000,
+  retryStrategy: () => null,
+});
+// ioredis error events can include the endpoint. The deployment gate reports a
+// generic failure below instead of allowing the client to print it implicitly.
+client.on("error", () => {});
+
+(async () => {
+  try {
+    await client.connect();
+    if (await client.ping() !== "PONG") throw new Error("unexpected PING response");
+
+    const result = await client.config("GET", "maxmemory-policy");
+    const policy = Array.isArray(result) ? String(result[result.length - 1] || "").toLowerCase() : "";
+    if (policy !== "noeviction") throw new Error("unsafe maxmemory policy");
+
+    console.log("Redis BullMQ preflight passed (PING, maxmemory-policy=noeviction).");
+  } catch {
+    console.error("Redis BullMQ preflight failed: require connectivity and maxmemory-policy=noeviction.");
+    process.exitCode = 1;
+  } finally {
+    client.disconnect();
+  }
+})();
+NODE
+}
+
+# Refuse to switch traffic to a release whose database is missing the durable
+# outbox RPCs for BullMQ generation or OSS mirror publication. Both migrations
+# are destructive and must be applied manually in a maintenance window. Without
+# these RPCs every API/Worker request would 500; fail closed instead.
+verify_production_migration() {
+  node --env-file=.env.production - <<'NODE'
+const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/\\/+$/, "");
+const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const mirrorEnabled = /^(1|true|yes)$/i.test((process.env.ALIYUN_OSS_MIRROR_ENABLED || "").trim());
+const required = [
+  "create_generation_with_credit_debit_v2",
+  "claim_generation_outbox",
+  "confirm_generation_outbox",
+  "nack_generation_outbox",
+  "recover_generation_outbox",
+  "get_generation_queue_health",
+  "register_oss_mirror_transfer",
+  "claim_oss_mirror_transfers",
+  "complete_oss_mirror_transfer",
+  "defer_oss_mirror_transfer",
+  "expire_oss_mirror_transfers",
+  "cleanup_oss_mirror_transfers",
+];
+if (mirrorEnabled) {
+  required.push("get_oss_mirror_queue_health", "recover_oss_mirror_transfers");
+}
+const missing = [];
+let anyOk = false;
+
+if (!url || !serviceKey) {
+  console.error("Migration gate: missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.production.");
+  process.exit(1);
+}
+
+(async () => {
+  for (const name of required) {
+    try {
+      const res = await fetch(`${url}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: {
+          apikey: serviceKey,
+          authorization: `Bearer ${serviceKey}`,
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: "{}",
+      });
+      const text = await res.text();
+      if (res.status === 404 || /does not exist|undefined function|relation .* does not exist/i.test(text)) {
+        missing.push(name);
+        continue;
+      }
+      if (res.ok || res.status === 200 || res.status === 204 || res.status === 500) {
+        anyOk = true;
+      }
+    } catch {
+      missing.push(name);
+    }
+  }
+
+  if (missing.length === required.length || !anyOk) {
+    console.error(
+      "Migration gate: no outbox RPCs are reachable. Apply supabase/migrations/20260818072132_bullmq_generation_outbox.sql and supabase/migrations/20260818025519_oss_mirror_transfers.sql before deploying.",
+    );
+    process.exit(1);
+  }
+  if (missing.length > 0) {
+    console.error(`Migration gate: missing RPCs (${missing.join(", ")}). Apply the corresponding migration first.`);
+    process.exit(1);
+  }
+  console.log("Migration gate: BullMQ generation and OSS mirror RPCs are present.");
+})();
+NODE
+}
+
 cleanup_dependency_cache() {
   local cache_root="$SHARED_DIR/node_modules-cache"
   if [ ! -d "$cache_root" ]; then
@@ -405,6 +520,32 @@ configure_build_environment
 ensure_node_version
 ensure_build_swap
 install_dependencies
+
+# Manual and automated deploys share the same production fail-closed gate.
+# Validate only structure and presence; never print the credential-bearing URL.
+if ! node --env-file=.env.production - <<'NODE'
+const mode = (process.env.GENERATION_QUEUE_MODE || "bullmq").trim().toLowerCase();
+if (mode !== "bullmq") process.exit(1);
+try {
+  const url = new URL(process.env.REDIS_URL || "");
+  if (!["redis:", "rediss:"].includes(url.protocol) || !url.hostname) process.exit(1);
+} catch {
+  process.exit(1);
+}
+NODE
+then
+  echo "Production queue configuration invalid: require GENERATION_QUEUE_MODE=bullmq and a valid REDIS_URL" >&2
+  exit 1
+fi
+
+# BullMQ cannot safely operate with an evicting Redis policy. Refuse the release
+# before switching `current` if either the live connection or policy check fails.
+verify_production_redis
+
+# Refuse the release if the durable outbox RPCs for BullMQ / OSS mirror are
+# missing on the target database. The migrations are destructive and must be
+# applied manually, so the deploy gate only validates presence.
+verify_production_migration
 
 # Never switch traffic to a mirror-enabled release until the currently live
 # resolver and the persistent Bucket Website rule pass an exact, read-only
