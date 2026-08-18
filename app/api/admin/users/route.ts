@@ -14,7 +14,8 @@ export async function GET(request: Request) {
   });
   const users = await listAdminUsers({
     q: query.q,
-    limit: query.pageSize,
+    page: query.page,
+    pageSize: query.pageSize,
   });
 
   return NextResponse.json({ ...users, query }, { headers: { "Cache-Control": "no-store" } });

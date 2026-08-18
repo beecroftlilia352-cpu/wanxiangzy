@@ -2,7 +2,8 @@
 import { AdminPageHeader } from "@/components/admin/AdminPrimitives";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useTransition } from "react";
 import { Alert, Button, Card, Input, Space, Statistic, Table, Tag, Typography } from "@/components/ui/shadcn-compat";
 import type { ColumnsType } from "@/components/ui/shadcn-compat";
 import { AuditOutlined, SearchOutlined } from "@/components/ui/ant-icons-compat";
@@ -12,9 +13,15 @@ import type { AdminUserList, AdminUserListItem } from "@/lib/admin/data";
 type AdminUsersClientProps = {
   users: AdminUserList;
   q: string;
+  page: number;
+  pageSize: number;
 };
 
-export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
+const USER_PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+
+export function AdminUsersClient({ users, q, page, pageSize }: AdminUsersClientProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const totalCredits = users.rows.reduce((sum, row) => sum + row.credits, 0);
   const totalUsed = users.rows.reduce((sum, row) => sum + row.totalCreditsUsed, 0);
   const paused = users.rows.filter((row) => row.accountStatus === "suspended" || !row.generateEnabled).length;
@@ -40,6 +47,7 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
         { text: "观察", value: "restricted" },
         { text: "暂停", value: "suspended" },
       ],
+      filterDropdownProps: { title: "仅筛选当前页" },
       onFilter: (value, row) => row.accountStatus === value,
       render: (_, row) => (
         <Space orientation="vertical" size={2}>
@@ -61,6 +69,7 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
         { text: "优先", value: "priority" },
         { text: "观察", value: "watch" },
       ],
+      filterDropdownProps: { title: "仅筛选当前页" },
       onFilter: (value, row) => row.supportLevel === value,
       render: supportLevelLabel,
     },
@@ -73,7 +82,7 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
       <AdminPageHeader
         eyebrow="用户管理"
         title="用户管理"
-        description="查看用户余额、灵点消耗、生成活跃度和运营控制状态；详情页可编辑资料、调整灵点、暂停生成。"
+        description="查看用户余额、灵点消耗、生成活跃度和运营控制状态；详情页可编辑资料、调整灵点、暂停生成。表头筛选仅作用于当前页。"
         actions={
           <Link
             href="/admin/audit"
@@ -101,12 +110,13 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
         extra={
           <form action="/admin/users">
             <Space>
+              <input type="hidden" name="pageSize" value={pageSize} />
               <Input
                 name="q"
                 defaultValue={q}
                 allowClear
                 prefix={<SearchOutlined aria-hidden="true" />}
-                placeholder="搜索邮箱 / 用户昵称 / 编号"
+                placeholder="搜索用户邮箱"
                 aria-label="搜索用户"
               />
               <Button htmlType="submit" type="primary">搜索</Button>
@@ -119,13 +129,38 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
           rowKey="id"
           columns={columns}
           dataSource={users.rows}
+          loading={isPending}
           scroll={{ x: 1120 }}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          pagination={{
+            current: page,
+            pageSize,
+            total: users.total,
+            showSizeChanger: true,
+            pageSizeOptions: [...USER_PAGE_SIZE_OPTIONS],
+            showTotal: (total, range) => `共 ${total} 位用户，当前 ${range[0]}-${range[1]}`,
+            onChange: (nextPage, nextPageSize) => {
+              const normalizedPageSize = normalizeUserPageSize(nextPageSize);
+              const normalizedPage = normalizedPageSize === pageSize ? nextPage : 1;
+              startTransition(() => router.push(buildUserListUrl(q, normalizedPage, normalizedPageSize)));
+            },
+          }}
           locale={{ emptyText: "暂无用户" }}
         />
       </Card>
     </Space>
   );
+}
+
+function normalizeUserPageSize(value: number) {
+  return USER_PAGE_SIZE_OPTIONS.includes(value as (typeof USER_PAGE_SIZE_OPTIONS)[number]) ? value : 20;
+}
+
+function buildUserListUrl(q: string, page: number, pageSize: number) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
+  return `/admin/users?${params.toString()}`;
 }
 
 function Metric({ title, value, suffix, tone = "neutral" }: { title: string; value: number; suffix: string; tone?: "neutral" | "warning" }) {

@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import {
   SEEDED_BILLING_CATALOG,
   findSeededPrice,
+  normalizeSubscriptionBonusPercent,
   type BillingCatalog,
   type BillingMode,
   type BillingPrice,
@@ -490,7 +491,7 @@ function productRowToClient(row: BillingProductRow, prices: BillingPrice[]): Bil
     badge: nullableString(row.badge),
     creditAmount: numberValue(row.credit_amount),
     bonusCredits: numberValue(row.bonus_credits),
-    subscriptionBonusPercent: numberValue(row.subscription_bonus_percent) || 5,
+    subscriptionBonusPercent: normalizeSubscriptionBonusPercent(row.subscription_bonus_percent) ?? 5,
     features: Array.isArray(row.features) ? row.features.map(String) : [],
     stripeProductId: nullableString(row.stripe_product_id),
     active: row.active !== false,

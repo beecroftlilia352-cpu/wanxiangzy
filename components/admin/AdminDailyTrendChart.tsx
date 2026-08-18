@@ -17,62 +17,54 @@ import type { AdminOverview } from "@/lib/admin/data";
 type TrendPoint = {
   date: string;
   tasks: number;
-  completed: number;
   failed: number;
-  creditsSpent: number;
-  newUsers: number;
+  successRate: number | null;
 };
 
 /**
- * 每日趋势折线图：任务量 + 灵点消耗双系列。
- * 国内主流后台风格：渐变面积 + 双 Y 轴 + 图例 + 数据点 tooltip。
+ * Daily operating signal: volume, failure count and settled success rate.
  */
 export function AdminDailyTrendChart({ stats, days }: { stats: AdminOverview["dailyStats"]; days: number }) {
   const data = useMemo<TrendPoint[]>(() => {
-    const rows = stats.map((item) => ({
-      date: item.date.slice(5),
-      tasks: item.tasks,
-      completed: item.completed,
-      failed: item.failed,
-      creditsSpent: Math.round(item.creditsSpent),
-      newUsers: item.newUsers,
-    }));
+    const rows = stats.map((item) => {
+      const settled = item.completed + item.failed;
+      return {
+        date: item.date.slice(5),
+        tasks: item.tasks,
+        failed: item.failed,
+        successRate: settled > 0 ? Math.round((item.completed / settled) * 1000) / 10 : null,
+      };
+    });
     return rows.length ? rows : [];
   }, [stats]);
 
   const totals = useMemo(() => {
     const tasks = data.reduce((sum, row) => sum + row.tasks, 0);
-    const credits = data.reduce((sum, row) => sum + row.creditsSpent, 0);
-    return { tasks, credits };
-  }, [data]);
+    const completed = stats.reduce((sum, row) => sum + row.completed, 0);
+    const failed = stats.reduce((sum, row) => sum + row.failed, 0);
+    const settled = completed + failed;
+    return { tasks, successRate: settled > 0 ? (completed / settled) * 100 : 0 };
+  }, [data, stats]);
 
   return (
     <AdminSection
-      title="每日趋势"
-      description={`近 ${days} 天 · 共 ${formatNumber(totals.tasks)} 个任务 · 结算灵点 ${formatNumber(totals.credits)}`}
+      title="生成质量趋势"
+      description={`近 ${days} 天 · ${formatNumber(totals.tasks)} 个任务 · 已结算成功率 ${totals.successRate.toFixed(1)}%`}
     >
       {data.length ? (
         <div className="p-3 pb-4">
-          <div className="mb-2 flex items-center justify-end gap-4 pr-2 text-[11px] font-bold text-[var(--admin-muted)]">
+          <div className="mb-2 flex flex-wrap items-center justify-start gap-4 pr-2 text-[11px] font-bold text-[var(--admin-muted)] sm:justify-end">
             <span className="inline-flex items-center gap-1.5">
               <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#5b7cff]" />
               生成任务（左轴）
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#22c55e]" />
-              成功（左轴）
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#f59e0b]" />
+              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#d13b35]" />
               失败（左轴）
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#a855f7]" />
-              灵点结算（右轴）
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#06b6d4]" />
-              新用户（右轴）
+              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#22c55e]" />
+              成功率（右轴）
             </span>
           </div>
           <div className="h-[280px] w-full">
@@ -102,6 +94,8 @@ export function AdminDailyTrendChart({ stats, days }: { stats: AdminOverview["da
                   axisLine={false}
                   width={44}
                   tick={{ fontSize: 11, fill: "var(--admin-faint)" }}
+                  domain={[0, 100]}
+                  tickFormatter={(value) => `${value}%`}
                 />
                 <Tooltip
                   contentStyle={{
@@ -110,7 +104,7 @@ export function AdminDailyTrendChart({ stats, days }: { stats: AdminOverview["da
                     background: "var(--admin-surface)",
                     fontSize: 12,
                   }}
-                  formatter={(value, name) => [formatNumber(Number(value || 0)), String(name)]}
+                  formatter={(value, name) => [name === "成功率" ? `${Number(value || 0).toFixed(1)}%` : formatNumber(Number(value || 0)), String(name)]}
                 />
                 <Line
                   yAxisId="left"
@@ -125,41 +119,23 @@ export function AdminDailyTrendChart({ stats, days }: { stats: AdminOverview["da
                 <Line
                   yAxisId="left"
                   type="monotone"
-                  dataKey="completed"
-                  name="成功"
-                  stroke="#22c55e"
-                  strokeWidth={1.5}
-                  strokeOpacity={0.9}
-                  dot={false}
-                />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
                   dataKey="failed"
                   name="失败"
-                  stroke="#f59e0b"
-                  strokeWidth={1.5}
+                  stroke="#d13b35"
+                  strokeWidth={2}
                   strokeDasharray="4 3"
                   dot={false}
                 />
                 <Line
                   yAxisId="right"
                   type="monotone"
-                  dataKey="creditsSpent"
-                  name="灵点结算"
-                  stroke="#a855f7"
+                  dataKey="successRate"
+                  name="成功率"
+                  stroke="#22c55e"
                   strokeWidth={2}
                   dot={false}
+                  connectNulls={false}
                   activeDot={{ r: 4 }}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="newUsers"
-                  name="新用户"
-                  stroke="#06b6d4"
-                  strokeWidth={1.5}
-                  dot={false}
                 />
               </LineChart>
             </ResponsiveContainer>

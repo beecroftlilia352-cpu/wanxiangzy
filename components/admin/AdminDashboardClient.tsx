@@ -63,7 +63,8 @@ const exceptionSurfaceHover: Record<ExceptionEntry["tone"], string> = {
 
 export function AdminDashboardClient({ overview, days, fetchError }: AdminDashboardClientProps) {
   const deltas = useMemo(() => computeKpiDeltas(overview.dailyStats), [overview.dailyStats]);
-  const failureRate = overview.generationHealth.failureRate;
+  const periodHealth = overview.periodHealth;
+  const failureRate = periodHealth.failureRate;
   const failureRatePercent = failureRateToPercent(failureRate);
 
   const exceptionEntries: ExceptionEntry[] = [
@@ -176,8 +177,8 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
       <section aria-label="关键指标" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <AdminMetricCard
           label="生成任务"
-          value={formatNumberPrimitive(overview.generationHealth.total)}
-          hint={`今日 ${formatNumberPrimitive(overview.generationHealth.today)}`}
+          value={formatNumberPrimitive(periodHealth.total)}
+          hint={`近 ${days} 天 · 成功 ${formatNumberPrimitive(periodHealth.completed)}`}
           icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}
           delta={deltas.tasks}
         />
@@ -199,19 +200,21 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
         />
         <AdminMetricCard
           label="近期消耗"
-          value={formatNumberPrimitive(overview.creditHealth.recentSpend)}
-          hint={`采样余额 ${formatNumberPrimitive(overview.creditHealth.sampledBalance)}`}
+          value={formatNumberPrimitive(periodHealth.creditsSpent)}
+          hint={`近 ${days} 天 · 结算灵点`}
           icon={<Coins aria-hidden="true" className="h-4 w-4" />}
         />
         <AdminMetricCard
           label="近期退款"
-          value={formatNumberPrimitive(overview.creditHealth.recentRefund)}
-          tone={overview.creditHealth.recentRefund > 0 ? "warning" : "good"}
+          value={formatNumberPrimitive(periodHealth.creditsRefunded)}
+          hint={`近 ${days} 天 · 灵点回退`}
+          tone={periodHealth.creditsRefunded > 0 ? "warning" : "good"}
           icon={<TrendingDown aria-hidden="true" className="h-4 w-4" />}
         />
         <AdminMetricCard
-          label="采样已消耗"
-          value={formatNumberPrimitive(overview.creditHealth.sampledConsumed)}
+          label="新增用户"
+          value={formatNumberPrimitive(periodHealth.newUsers)}
+          hint={`近 ${days} 天注册`}
           icon={<TrendingUp aria-hidden="true" className="h-4 w-4" />}
         />
       </section>
@@ -290,8 +293,14 @@ type KpiDelta = { value: number; hint: string } | undefined;
 
 function computeKpiDeltas(stats: AdminOverview["dailyStats"]) {
   const tasks = stats.map((row) => row.tasks);
-  const failureRate = stats.map((row) => (row.tasks > 0 ? (row.failed / row.tasks) * 100 : 0));
-  const successRate = stats.map((row) => (row.tasks > 0 ? ((row.tasks - row.failed) / row.tasks) * 100 : 0));
+  const failureRate = stats.map((row) => {
+    const settled = row.completed + row.failed;
+    return settled > 0 ? (row.failed / settled) * 100 : 0;
+  });
+  const successRate = stats.map((row) => {
+    const settled = row.completed + row.failed;
+    return settled > 0 ? (row.completed / settled) * 100 : 0;
+  });
   return {
     tasks: deltaFor(tasks, "positiveIsGood"),
     successRate: deltaFor(successRate, "positiveIsGood"),

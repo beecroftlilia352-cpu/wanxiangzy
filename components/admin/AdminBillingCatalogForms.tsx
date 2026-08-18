@@ -20,7 +20,8 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
     setProductPending(true);
     setMessage(null);
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const tierKey = stringField(form, "tierKey");
     const payload = {
       id: stringField(form, "id") || (tierKey ? `prod_${tierKey}` : ""),
@@ -30,7 +31,7 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
       badge: stringField(form, "badge"),
       creditAmount: numberField(form, "creditAmount"),
       bonusCredits: numberField(form, "bonusCredits"),
-      subscriptionBonusPercent: numberField(form, "subscriptionBonusPercent") || 5,
+      subscriptionBonusPercent: optionalNumberField(form, "subscriptionBonusPercent"),
       sortOrder: numberField(form, "sortOrder"),
       active: form.get("active") === "on",
       features: stringField(form, "features")
@@ -42,7 +43,7 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
     try {
       await postJson("/api/admin/billing/products", payload);
       setMessage("商品已保存");
-      event.currentTarget.reset();
+      formElement.reset();
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "商品保存失败");
@@ -56,7 +57,8 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
     setPricePending(true);
     setMessage(null);
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = {
       id: stringField(form, "id"),
       productId: stringField(form, "productId"),
@@ -72,7 +74,7 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
     try {
       await postJson("/api/admin/billing/prices", payload);
       setMessage("价格已创建，点击同步后会推送到 Stripe");
-      event.currentTarget.reset();
+      formElement.reset();
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "价格创建失败");
@@ -93,10 +95,10 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
           <Field name="id" label="商品 ID" placeholder="prod_starter" />
           <Field name="name" label="名称" placeholder="入门版" required />
           <Field name="badge" label="标签" placeholder="热门" />
-          <Field name="creditAmount" label="基础灵点" type="number" placeholder="1000" />
-          <Field name="bonusCredits" label="赠送灵点" type="number" placeholder="200" />
-          <Field name="subscriptionBonusPercent" label="订阅加成 %" type="number" placeholder="5" />
-          <Field name="sortOrder" label="排序" type="number" placeholder="1" />
+          <Field name="creditAmount" label="基础灵点" type="number" min="0" step="1" placeholder="1000" />
+          <Field name="bonusCredits" label="赠送灵点" type="number" min="0" step="1" placeholder="200" />
+          <Field name="subscriptionBonusPercent" label="订阅加成 %" type="number" min="0" max="100" step="0.01" placeholder="5" />
+          <Field name="sortOrder" label="排序" type="number" min="0" step="1" placeholder="1" />
         </div>
         <TextArea name="description" label="描述" placeholder="适合稳定日常生产。" />
         <TextArea name="features" label="权益" placeholder={"1,000 灵点 + 赠送 200\n适合多模块连续生成"} />
@@ -143,9 +145,9 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
           </label>
           <Field name="id" label="价格 ID" placeholder="price_starter_once" />
           <Field name="label" label="标签" placeholder="一次性购买" />
-          <Field name="amountYuan" label="金额（元）" type="number" placeholder="35" required />
-          <Field name="credits" label="到账灵点" type="number" placeholder="250" required />
-          <Field name="sortOrder" label="排序" type="number" placeholder="1" />
+          <Field name="amountYuan" label="金额（元）" type="number" min="0.01" step="0.01" placeholder="35" required />
+          <Field name="credits" label="到账灵点" type="number" min="1" step="1" placeholder="250" required />
+          <Field name="sortOrder" label="排序" type="number" min="0" step="1" placeholder="1" />
         </div>
         <div className="flex items-center justify-between gap-3 pt-9">
           <div className="flex flex-col gap-2">
@@ -172,12 +174,18 @@ function Field({
   type = "text",
   placeholder,
   required,
+  min,
+  max,
+  step,
 }: {
   name: string;
   label: string;
   type?: string;
   placeholder?: string;
   required?: boolean;
+  min?: string;
+  max?: string;
+  step?: string;
 }) {
   return (
     <label className="space-y-1">
@@ -187,6 +195,9 @@ function Field({
         type={type}
         required={required}
         placeholder={placeholder}
+        min={min}
+        max={max}
+        step={step}
         className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-semibold text-[var(--admin-fg)] outline-none placeholder:text-codex-faint focus:border-[var(--admin-border-strong)]"
       />
     </label>
@@ -241,4 +252,10 @@ function stringField(form: FormData, key: string) {
 function numberField(form: FormData, key: string) {
   const value = Number(form.get(key));
   return Number.isFinite(value) ? value : 0;
+}
+
+function optionalNumberField(form: FormData, key: string) {
+  const value = form.get(key);
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+  return numberField(form, key);
 }

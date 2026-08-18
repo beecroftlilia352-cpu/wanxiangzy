@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
+import { normalizeSubscriptionBonusPercent } from "@/lib/billing/catalog";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
@@ -12,9 +13,10 @@ export async function POST(request: Request) {
   const name = stringValue(body.name).trim();
   const description = stringValue(body.description).trim();
   const id = cleanKey(body.id) || (tierKey ? `prod_${tierKey}` : "");
+  const subscriptionBonusPercent = normalizeSubscriptionBonusPercent(body.subscriptionBonusPercent);
 
-  if (!id || !tierKey || !name) {
-    return NextResponse.json({ error: "id、tierKey 和 name 必填" }, { status: 400 });
+  if (!id || !tierKey || !name || subscriptionBonusPercent === null) {
+    return NextResponse.json({ error: subscriptionBonusPercent === null ? "订阅加成必须在 0 到 100 之间" : "id、tierKey 和 name 必填" }, { status: 400 });
   }
 
   const row = {
@@ -26,7 +28,7 @@ export async function POST(request: Request) {
     badge: stringValue(body.badge).trim() || null,
     credit_amount: intValue(body.creditAmount),
     bonus_credits: intValue(body.bonusCredits),
-    subscription_bonus_percent: numberValue(body.subscriptionBonusPercent) || 5,
+    subscription_bonus_percent: subscriptionBonusPercent,
     features: Array.isArray(body.features) ? body.features.map(String).filter(Boolean) : [],
     active: body.active !== false,
     sort_order: intValue(body.sortOrder),
@@ -63,9 +65,4 @@ function stringValue(value: unknown) {
 function intValue(value: unknown) {
   const num = Number(value);
   return Number.isFinite(num) ? Math.max(0, Math.floor(num)) : 0;
-}
-
-function numberValue(value: unknown) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
 }

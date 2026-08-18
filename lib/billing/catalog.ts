@@ -56,6 +56,14 @@ type BillingTierSeed = {
 
 export const BILLING_SUBSCRIPTION_BONUS_PERCENT = 5;
 
+/** Keep operator-edited subscription entitlements within a predictable range. */
+export function normalizeSubscriptionBonusPercent(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return BILLING_SUBSCRIPTION_BONUS_PERCENT;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) return null;
+  return Math.round(parsed * 100) / 100;
+}
+
 export const BILLING_TIERS: BillingTierSeed[] = [
   {
     tierKey: "starter",
