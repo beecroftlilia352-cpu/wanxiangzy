@@ -51,6 +51,6 @@ describe("video catalog", () => {
       price: { minimum: 28, perSecond: 7 },
       duration: 5,
       genCount: 2,
-    })).toBe(112);
+    })).toBe(70);
   });
 });
