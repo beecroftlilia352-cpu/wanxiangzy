@@ -17,6 +17,7 @@ import { buildOutfitFusionRuntimePlan, type OutfitFusionAsset, type OutfitFusion
 import {
   containsInlineImageUrl,
   findDisallowedProductionImageInputs,
+  isGeneralImageReferenceUrl,
   normalizeGeneralImageReferenceUrls,
 } from "@/lib/api/general-image-inputs";
 
@@ -175,7 +176,7 @@ function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): Ou
     if (!item || typeof item !== "object") return [];
     const record = item as Record<string, unknown>;
     const url = typeof record.url === "string" ? record.url.trim() : "";
-    if (!(/^https?:\/\//i.test(url) || /^data:image\//i.test(url))) return [];
+    if (!isGeneralImageReferenceUrl(url)) return [];
     const role: OutfitFusionAsset["role"] = record.role === "reference" || record.role === "model" || record.role === "outfit" ? record.role : "outfit";
     const name = typeof record.name === "string" && record.name.trim() ? record.name.trim().slice(0, 32) : undefined;
     const id = typeof record.id === "string" && record.id.trim() ? record.id.trim().slice(0, 80) : `input-${index}`;

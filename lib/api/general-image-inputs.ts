@@ -1,6 +1,14 @@
 import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
 
 const INLINE_IMAGE_URL_PATTERN = /^data:image\//i;
+const CANONICAL_MEDIA_PATH_PATTERN = /^\/api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i;
+
+export function isGeneralImageReferenceUrl(value: string): boolean {
+  const candidate = value.trim();
+  return /^https?:\/\//i.test(candidate)
+    || INLINE_IMAGE_URL_PATTERN.test(candidate)
+    || CANONICAL_MEDIA_PATH_PATTERN.test(candidate.split(/[?#]/, 1)[0]);
+}
 
 /**
  * Normalize general-image references before any credit debit or queue insert.
@@ -21,7 +29,7 @@ export function normalizeGeneralImageReferenceUrls(value: unknown): {
       hasInlineImage = true;
       if (process.env.NODE_ENV === "production") continue;
     }
-    if (/^https?:\/\//i.test(url) || INLINE_IMAGE_URL_PATTERN.test(url)) {
+    if (isGeneralImageReferenceUrl(url)) {
       urls.push(url);
     }
   }
@@ -49,15 +57,14 @@ export function isAllowedProductionImageInput(value: string, publicBaseUrl?: str
   const candidate = value.trim();
   if (!candidate || INLINE_IMAGE_URL_PATTERN.test(candidate)) return false;
 
-  const canonicalPath = /^\/api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i;
   const candidatePath = candidate.split(/[?#]/, 1)[0];
-  if (canonicalPath.test(candidatePath)) return true;
+  if (CANONICAL_MEDIA_PATH_PATTERN.test(candidatePath)) return true;
 
   if (publicBaseUrl) {
     try {
       const parsed = new URL(candidate, publicBaseUrl);
       const configuredApp = new URL(publicBaseUrl);
-      if (parsed.origin === configuredApp.origin && canonicalPath.test(parsed.pathname)) return true;
+      if (parsed.origin === configuredApp.origin && CANONICAL_MEDIA_PATH_PATTERN.test(parsed.pathname)) return true;
     } catch {
       // Fall through to the immutable site-asset check below.
     }
@@ -83,7 +90,7 @@ export function findDisallowedProductionImageInputs(value: unknown, publicBaseUr
   const visit = (item: unknown) => {
     if (typeof item === "string") {
       const candidate = item.trim();
-      if ((/^https?:\/\//i.test(candidate) || INLINE_IMAGE_URL_PATTERN.test(candidate) || candidate.startsWith("/api/media-assets/"))
+      if (isGeneralImageReferenceUrl(candidate)
         && !isAllowedProductionImageInput(candidate, publicBaseUrl)) {
         found.push(candidate);
       }

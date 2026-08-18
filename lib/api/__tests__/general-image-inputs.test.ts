@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   containsInlineImageUrl,
   findDisallowedProductionImageInputs,
+  isGeneralImageReferenceUrl,
   isAllowedProductionImageInput,
   normalizeGeneralImageReferenceUrls,
 } from "@/lib/api/general-image-inputs";
@@ -12,13 +13,14 @@ describe("general image input boundary", () => {
 
   it("keeps canonical/http references and caps the input count", () => {
     const result = normalizeGeneralImageReferenceUrls([
+      "/api/media-assets/018f47f1-b4c2-7a21-8f12-7a02169b89c1",
       " https://assets.example/one.png ",
       ...Array.from({ length: 20 }, (_, index) => `https://assets.example/${index}.png`),
     ]);
 
     expect(result.hasInlineImage).toBe(false);
     expect(result.urls).toHaveLength(14);
-    expect(result.urls[0]).toBe("https://assets.example/one.png");
+    expect(result.urls[0]).toBe("/api/media-assets/018f47f1-b4c2-7a21-8f12-7a02169b89c1");
   });
 
   it("allows inline images only outside production", () => {
@@ -38,6 +40,11 @@ describe("general image input boundary", () => {
   it("finds inline images in nested outfit assets", () => {
     expect(containsInlineImageUrl({ assets: [{ url: "data:image/png;base64,abc" }] })).toBe(true);
     expect(containsInlineImageUrl({ assets: [{ url: "https://assets.example/one.png" }] })).toBe(false);
+  });
+
+  it("recognizes relative canonical URLs as valid reference inputs", () => {
+    expect(isGeneralImageReferenceUrl("/api/media-assets/018f47f1-b4c2-7a21-8f12-7a02169b89c1")).toBe(true);
+    expect(isGeneralImageReferenceUrl("/api/media-assets/not-an-asset")).toBe(false);
   });
 
   it("accepts only canonical tenant assets and configured immutable site assets in production", () => {
