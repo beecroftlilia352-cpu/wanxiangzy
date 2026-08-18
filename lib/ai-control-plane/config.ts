@@ -48,8 +48,8 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
       imageModel("nano-banana-pro", "Nano Banana Pro", { "1K": 8, "2K": 10, "4K": 12 }),
       baseModel("text-default", "默认文本模型", "text", false, false),
       baseModel("vision-default", "默认视觉模型", "vision", false, false),
-      { ...baseModel("video-minimax", "MiniMax 视频", "video", false, false), capabilities: ["image-to-video", "first-last-frame"], defaultRoutingMode: "smart" },
-      { ...baseModel("video-seedance", "Seedance 视频", "video", false, false), capabilities: ["image-to-video", "motion-control", "first-last-frame"], defaultRoutingMode: "smart" },
+      { ...baseModel("video-minimax", "MiniMax 视频", "video", false, false), capabilities: ["image-to-video", "first-last-frame"], defaultRoutingMode: "smart", creditPrices: { "pro:768p:minimum": 15, "pro:768p:perSecond": 3, "pro:2k:minimum": 20, "pro:2k:perSecond": 4 } },
+      { ...baseModel("video-seedance", "Seedance 视频", "video", false, false), capabilities: ["image-to-video", "motion-control", "first-last-frame"], defaultRoutingMode: "smart", creditPrices: { "mini:720p:minimum": 20, "mini:720p:perSecond": 5, "fast:480p:minimum": 16, "fast:480p:perSecond": 4, "fast:720p:minimum": 24, "fast:720p:perSecond": 6, "pro:720p:minimum": 28, "pro:720p:perSecond": 7, "pro:1080p:minimum": 80, "pro:1080p:perSecond": 20 } },
     ],
     providers: [
       provider("yunwu-openai", "云雾 OpenAI 兼容", "https://yunwu.ai/v1", "env:PLATO_API_KEY"),

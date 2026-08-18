@@ -16,12 +16,12 @@ import {
 } from "@/lib/ai-video";
 import {
   clampVideoDuration,
-  getVideoCreditCost,
   resolveUpstreamVideoModel,
   resolveVideoSelection,
 } from "@/lib/api/video-catalog";
 import { getEnabledVideoProviders } from "@/lib/api/video-provider";
 import { normalizeVideoProviderName } from "@/lib/api/video-provider-registry";
+import { getConfiguredVideoCreditCost } from "@/lib/ai-control-plane/server";
 
 export const maxDuration = 60;
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const resolution = selection.resolution;
     const effectiveDuration = clampVideoDuration(provider, duration) as typeof duration;
     const aiModel = resolveUpstreamVideoModel(provider, modelMode, resolution);
-    const totalCost = getVideoCreditCost({
+    const totalCost = await getConfiguredVideoCreditCost({
       provider,
       modelMode,
       resolution,

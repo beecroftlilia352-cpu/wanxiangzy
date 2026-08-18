@@ -17,6 +17,8 @@ import {
 } from "@/lib/ai-control-plane/config";
 import { getImageCreditCost, type PricedImageSize } from "@/lib/model-pricing";
 import { isPricedImageModel } from "@/lib/image-model-catalog";
+import { getVideoCreditCost, type VideoProviderName } from "@/lib/api/video-catalog";
+import type { AiVideoModelMode, AiVideoResolution } from "@/lib/ai-video";
 
 type PublishedRow = {
   id: string;
@@ -147,6 +149,27 @@ export async function getConfiguredImageCreditCost(modelId: string, size: Priced
   if (isPricedImageModel(modelId)) return getImageCreditCost(modelId, size);
   if (!model) throw new Error(`模型 ${modelId} 未发布或已停用`);
   throw new Error(`模型 ${modelId} 未配置 ${size} 积分价格，已拒绝生成以避免错误扣费`);
+}
+
+/** Server-authoritative video charging. A published control-plane price wins; legacy catalog rates only preserve existing deployments. */
+export async function getConfiguredVideoCreditCost(input: {
+  provider: VideoProviderName;
+  modelMode: AiVideoModelMode;
+  resolution: AiVideoResolution;
+  duration?: number;
+  genCount?: number;
+}) {
+  const config = await getAiControlPlaneConfig({ allowLegacy: true });
+  const model = config?.models.find((item) => item.id === `video-${input.provider}` && item.modality === "video" && item.enabled);
+  const prices = model?.creditPrices || {};
+  const prefix = `${input.modelMode}:${input.resolution}`;
+  const minimum = prices[`${prefix}:minimum`];
+  const perSecond = prices[`${prefix}:perSecond`];
+  if (typeof minimum === "number" && minimum > 0 && typeof perSecond === "number" && perSecond > 0) {
+    const duration = Math.max(1, Math.round(input.duration || 5));
+    return Math.max(minimum, Math.ceil(duration * perSecond)) * Math.max(1, Math.round(input.genCount || 1));
+  }
+  return getVideoCreditCost(input);
 }
 
 export async function getDefaultAiModelId(modality: AiModality): Promise<string> {
