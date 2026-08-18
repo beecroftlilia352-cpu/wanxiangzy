@@ -158,7 +158,7 @@ const MODALITIES: Array<{ value: AiModality; label: string }> = [
 ];
 const PROTOCOLS: Array<{ value: AiProviderProtocol; label: string }> = Object.values(AI_PROTOCOL_ADAPTERS).map((adapter) => ({ value: adapter.id, label: adapter.label }));
 
-export function AdminModelControlPlane({ canManage = true }: { canManage?: boolean }) {
+export function AdminModelControlPlane({ canManage = false }: { canManage?: boolean }) {
   const { confirm, confirmDialog } = useConfirm();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [draft, setDraft] = useState<DraftConfig | null>(null);

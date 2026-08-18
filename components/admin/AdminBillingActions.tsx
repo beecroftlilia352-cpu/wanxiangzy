@@ -60,16 +60,20 @@ export function AdminBillingActionButton({
   action,
   targetId,
   disabled,
+  canOperate = false,
 }: {
   action: AdminBillingAction;
   targetId?: string;
   disabled?: boolean;
+  canOperate?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const config = actionConfig[action];
   const Icon = config.icon;
+
+  if (!canOperate) return <span className="text-xs font-semibold text-[var(--admin-muted)]">只读</span>;
 
   function handleClick() {
     if (config.confirm) {

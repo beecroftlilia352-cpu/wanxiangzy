@@ -13,6 +13,7 @@ import {
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
 import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 import {
   listAdminBillingOverview,
   type AdminBillingConfigStatus,
@@ -26,7 +27,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminBillingPage() {
-  await requireAdmin("billing:read");
+  const admin = await requireAdmin("billing:read");
+  const canWrite = hasAdminPermission(admin.role, "billing:write");
+  const canOperate = hasAdminPermission(admin.role, "billing:operate");
   const billing = await listAdminBillingOverview();
 
   return (
@@ -35,7 +38,7 @@ export default async function AdminBillingPage() {
         eyebrow="支付账单"
         title="账单控制台"
         description="管理套餐售价、模块扣点与支付履约。售卖价格、用户消耗和供应商成本分层治理，避免在订单流水中直接改价。"
-        actions={<AdminBillingActionButton action="sync" />}
+        actions={<AdminBillingActionButton action="sync" canOperate={canOperate} />}
       />
 
       {!billing.available && (
@@ -59,10 +62,10 @@ export default async function AdminBillingPage() {
         ))}
       </div>
 
-      <AdminPricingStrategy products={billing.products} prices={billing.prices} />
+      <AdminPricingStrategy products={billing.products} prices={billing.prices} canManage={canWrite} />
 
       <AdminSection title="创建套餐与价格版本" description="金额或到账灵点变化时创建新的价格版本；同步 Stripe 成功后，再在上方套餐矩阵停用旧版本。">
-        <AdminBillingCatalogForms products={billing.products.map((product) => ({ id: product.id, name: product.name }))} />
+        {canWrite ? <AdminBillingCatalogForms products={billing.products.map((product) => ({ id: product.id, name: product.name }))} /> : <AdminNotice tone="info">当前角色只能查看套餐与价格。创建商品、价格版本和停用价格需要账单写权限。</AdminNotice>}
       </AdminSection>
 
       <details className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)]">
@@ -158,7 +161,7 @@ export default async function AdminBillingPage() {
             {
               key: "actions",
               label: "操作",
-              render: (row) => <AdminBillingActionButton action="refund" targetId={row.id} disabled={!row.id || row.refundedAmount >= row.amountTotal} />,
+              render: (row) => <AdminBillingActionButton action="refund" targetId={row.id} disabled={!row.id || row.refundedAmount >= row.amountTotal} canOperate={canOperate} />,
             },
           ]}
         />
@@ -193,6 +196,7 @@ export default async function AdminBillingPage() {
                   action="cancel-subscription"
                   targetId={row.stripeSubscriptionId || row.id}
                   disabled={!row.stripeSubscriptionId || row.status === "canceled" || row.status === "cancelled"}
+                  canOperate={canOperate}
                 />
               ),
             },
@@ -224,7 +228,7 @@ export default async function AdminBillingPage() {
             {
               key: "actions",
               label: "操作",
-              render: (row) => <AdminBillingActionButton action="replay-event" targetId={row.stripeEventId || row.id} disabled={!row.stripeEventId && !row.id} />,
+              render: (row) => <AdminBillingActionButton action="replay-event" targetId={row.stripeEventId || row.id} disabled={!row.stripeEventId && !row.id} canOperate={canOperate} />,
             },
           ]}
         />

@@ -9,6 +9,7 @@ import {
 import { AdminMemberForm } from "@/components/admin/AdminMemberForm";
 import { listAdminMembers, type AdminMemberListItem } from "@/lib/admin/data";
 import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ type PageProps = {
 };
 
 export default async function AdminMembersPage({ searchParams }: PageProps) {
-  await requireAdmin("settings:read");
+  const admin = await requireAdmin("settings:read");
+  const canManage = hasAdminPermission(admin.role, "settings:write");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const members = await listAdminMembers({ limit: 200, q: q || undefined });
@@ -37,9 +39,11 @@ export default async function AdminMembersPage({ searchParams }: PageProps) {
       )}
       {members.warnings.length > 0 && <AdminNotice tone="info">成员数据源提示：{members.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
-      <AdminSection title="添加或更新成员" description="先搜索用户账号，再选择后台角色。停用成员不会删除记录，可随时重新启用。">
-        <AdminMemberForm />
-      </AdminSection>
+      {canManage ? (
+        <AdminSection title="添加或更新成员" description="先搜索用户账号，再选择后台角色。停用成员不会删除记录，可随时重新启用。">
+          <AdminMemberForm />
+        </AdminSection>
+      ) : <AdminNotice tone="info">当前角色只能查看后台成员。添加、停用或调整角色需要系统配置写权限。</AdminNotice>}
 
       <AdminSection
         title="成员列表"

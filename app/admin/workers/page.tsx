@@ -15,11 +15,13 @@ import { AdminWorkerRunForm } from "@/components/admin/AdminWorkerRunForm";
 import { AdminWorkerRuntimeConfigForm } from "@/components/admin/AdminWorkerRuntimeConfigForm";
 import { getAdminWorkerOverview, type AdminAuditLog, type AdminTaskListItem } from "@/lib/admin/data";
 import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminWorkersPage() {
-  await requireAdmin("workers:read");
+  const admin = await requireAdmin("workers:read");
+  const canManage = hasAdminPermission(admin.role, "workers:write");
   const overview = await getAdminWorkerOverview();
 
   return (
@@ -57,7 +59,7 @@ export default async function AdminWorkersPage() {
       </div>
 
       <AdminSection title="Worker 运行策略" description="这些值是版本化的期望配置。保存后由下一次部署应用 PM2 实例和进程参数，便于审计、回滚和横向扩展。">
-        <AdminWorkerRuntimeConfigForm initialConfig={overview.runtime.desired} />
+        {canManage ? <AdminWorkerRuntimeConfigForm initialConfig={overview.runtime.desired} /> : <AdminNotice tone="info">当前角色只能查看容量与队列健康。修改 Worker 期望配置需要队列写权限。</AdminNotice>}
       </AdminSection>
 
       <AdminSection title="实时运行健康" description="容量模型：在线 Worker 实例 × 单进程并发。供应商自身的并发、RPM、熔断和智能路由仍在统一模型控制面内生效。">
@@ -89,7 +91,7 @@ export default async function AdminWorkersPage() {
       </AdminSection>
 
       <AdminSection title="受审计恢复" description="仅用于 Outbox 恢复或故障演练。正常任务由 BullMQ Worker 自动消费，不需要网页手动运行 Worker。">
-        <AdminWorkerRunForm />
+        {canManage ? <AdminWorkerRunForm /> : <AdminNotice tone="info">当前角色不能手动触发恢复任务。正常任务由 BullMQ Worker 自动消费。</AdminNotice>}
       </AdminSection>
 
       <AdminSection title="长时间未完成任务" description="运行中且超过阈值没有进展的任务。手动重新处理前先查看任务详情，避免重复扣费或重复补偿。">

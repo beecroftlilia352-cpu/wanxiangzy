@@ -14,6 +14,7 @@ import {
 import { AdminOperationRequestActions } from "@/components/admin/AdminOperationRequestActions";
 import { listAdminOperationRequests, type AdminOperationRequest } from "@/lib/admin/data";
 import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,8 @@ const statusOptions = [
 ];
 
 export default async function AdminRequestsPage({ searchParams }: PageProps) {
-  await requireAdmin("operation_requests:read");
+  const admin = await requireAdmin("operation_requests:read");
+  const canApprove = hasAdminPermission(admin.role, "operation_requests:approve");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const status = getSearchParam(params.status);
@@ -109,7 +111,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
             { key: "requester", label: "申请人", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{row.requestedByEmail || row.requestedBy || "-"}</span> },
             { key: "approver", label: "审批人", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{row.approvedByEmail || row.approvedBy || "-"}</span> },
             { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
-            { key: "actions", label: "操作", render: (row) => <AdminOperationRequestActions id={row.id} status={row.status} /> },
+            { key: "actions", label: "操作", render: (row) => canApprove ? <AdminOperationRequestActions id={row.id} status={row.status} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">只读</span> },
           ]}
         />
       </AdminSection>

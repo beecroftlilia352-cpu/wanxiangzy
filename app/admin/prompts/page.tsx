@@ -21,11 +21,13 @@ import {
   type AdminPromptExperimentVariant,
 } from "@/lib/admin/data";
 import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPromptsPage() {
-  await requireAdmin("prompts:read");
+  const admin = await requireAdmin("prompts:read");
+  const canManage = hasAdminPermission(admin.role, "prompts:write");
   const overview = await getAdminPromptExperimentOverview();
   const defaultValue = JSON.stringify(overview.activeVersion?.value || DEFAULT_PROMPT_EXPERIMENT_CONFIG, null, 2);
 
@@ -88,7 +90,7 @@ export default async function AdminPromptsPage() {
       </div>
 
       <AdminSection title="创建 Prompt 实验配置版本" description="只写入 prompt.experiments，不影响其他系统配置。发布动作会写审计并归档旧发布版本。">
-        <AdminPromptExperimentForm defaultValue={defaultValue} />
+        {canManage ? <AdminPromptExperimentForm defaultValue={defaultValue} /> : <AdminNotice tone="info">当前角色只能查看提示词实验版本。创建或发布版本需要提示词写权限。</AdminNotice>}
       </AdminSection>
 
       <AdminSection title="实验列表" description="展示当前发布版本中的实验。没有 published 时，会展示最新非归档版本作为待发布预览。">
@@ -131,7 +133,7 @@ export default async function AdminPromptsPage() {
             { key: "value", label: "内容", render: (row) => <code className="line-clamp-2 max-w-[520px] text-xs text-[var(--admin-fg)]">{JSON.stringify(row.value)}</code> },
             { key: "published", label: "发布", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.publishedAt)}</span> },
             { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
-            { key: "actions", label: "操作", render: (row) => <AdminConfigActions id={row.id} status={row.status} endpointBase="/api/admin/prompts/configs" /> },
+            { key: "actions", label: "操作", render: (row) => canManage ? <AdminConfigActions id={row.id} status={row.status} endpointBase="/api/admin/prompts/configs" /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">只读</span> },
           ]}
         />
       </AdminSection>

@@ -21,6 +21,7 @@ type AdminTasksClientProps = {
   page: number;
   pageSize: number;
   fetchError?: string | null;
+  canOperate?: boolean;
 };
 
 const statusOptions = [
@@ -53,7 +54,7 @@ const moduleOptions = [
 
 const TASK_PAGE_SIZE_OPTIONS = [20, 50] as const;
 
-export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSize, fetchError }: AdminTasksClientProps) {
+export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSize, fetchError, canOperate = false }: AdminTasksClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [moduleValue, setModuleValue] = useState(module);
@@ -91,9 +92,9 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
     { title: "灵点", dataIndex: "credits", width: 80, sorter: (a, b) => (a.credits || 0) - (b.credits || 0), render: (value) => <span className="tabular-nums">{value ?? "-"}</span> },
     { title: "处理状态", dataIndex: "isStale", width: 150, filters: [{ text: "长时间未完成", value: true }], onFilter: (value, row) => row.isStale === value, render: (_, row) => row.isStale ? <Tag color="orange"><span className="tabular-nums">{row.staleMinutes}</span> 分钟无进展</Tag> : "正常" },
     { title: "创建", dataIndex: "createdAt", width: 130, render: formatDateTime },
-    { title: "操作", width: 270, render: (_, row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
+    { title: "操作", width: 270, render: (_, row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact canOperate={canOperate} /> },
     { title: "错误", dataIndex: "errorMessage", width: 360, className: "admin-task-error-cell", render: renderTaskError },
-  ], []);
+  ], [canOperate]);
   const taskRows = Array.isArray(tasks.rows) ? tasks.rows : [];
   const taskWarnings = Array.isArray(tasks.warnings) ? tasks.warnings : [];
   const taskTotal = Number.isFinite(tasks.total) ? tasks.total : taskRows.length;
@@ -307,4 +308,3 @@ function QuickFilter({ href, label, active }: { href: string; label: string; act
     </Link>
   );
 }
-

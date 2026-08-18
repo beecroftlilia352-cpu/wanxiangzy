@@ -22,7 +22,7 @@ type ControlPlaneSnapshot = {
 
 type EditableModel = NonNullable<NonNullable<ControlPlaneSnapshot["config"]>["models"]>[number] & { creditPrices: Record<string, number> };
 
-export function AdminPricingStrategy({ products, prices }: { products: AdminBillingProduct[]; prices: AdminBillingPrice[] }) {
+export function AdminPricingStrategy({ products, prices, canManage = false }: { products: AdminBillingProduct[]; prices: AdminBillingPrice[]; canManage?: boolean }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<ControlPlaneSnapshot | null>(null);
   const [models, setModels] = useState<EditableModel[]>([]);
@@ -54,6 +54,7 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
   useEffect(() => { void load(); }, []);
 
   function setCreditPrice(modelId: string, dimension: string, value: string) {
+    if (!canManage) return;
     const next = Number(value);
     setModels((current) => current.map((model) => model.id !== modelId ? model : {
       ...model,
@@ -65,7 +66,7 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
   }
 
   async function saveModelCredits(action: "save-draft" | "publish") {
-    if (!snapshot?.config) return;
+    if (!canManage || !snapshot?.config) return;
     setSaving(true);
     try {
       const config = {
@@ -92,6 +93,7 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
   }
 
   async function retirePrice(price: AdminBillingPrice) {
+    if (!canManage) return;
     if (!window.confirm(`停用 ${price.nickname || price.id}？已创建的订单不受影响，新的结账将不再展示该价格。`)) return;
     try {
       const response = await fetch(`/api/admin/billing/prices/${encodeURIComponent(price.id)}`, {
@@ -143,7 +145,7 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
                   <td className="px-4 py-3 font-mono font-bold text-[var(--admin-fg)]">{price && granted ? `¥${(price.unitAmount / granted).toFixed(2)}` : "-"}</td>
                   <td className="px-4 py-3 text-xs font-bold text-[var(--admin-muted)]">{price?.recurringInterval === "month" ? "月订阅" : "一次性"}</td>
                   <td className="px-4 py-3"><AdminStatusBadge status={product.active && price?.active ? "active" : "inactive"} /></td>
-                  <td className="px-4 py-3">{price?.active ? <button type="button" onClick={() => void retirePrice(price)} className="text-xs font-black text-[var(--admin-danger)] hover:underline">停用价格</button> : <span className="text-xs font-bold text-[var(--admin-faint)]">-</span>}</td>
+                  <td className="px-4 py-3">{canManage && price?.active ? <button type="button" onClick={() => void retirePrice(price)} className="text-xs font-black text-[var(--admin-danger)] hover:underline">停用价格</button> : <span className="text-xs font-bold text-[var(--admin-faint)]">{canManage ? "-" : "只读"}</span>}</td>
                 </tr>;
               })}
               {!products.length && <tr><td colSpan={8} className="px-4 py-12 text-center text-sm font-bold text-[var(--admin-muted)]">尚无售卖套餐。先在下方创建商品和价格，再同步 Stripe。</td></tr>}
@@ -155,10 +157,11 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
       <AdminSection
         title="各模块扣点"
         description="这里决定用户生成时实际扣除的灵点。保存草稿不会改变线上结算；发布后新任务立即使用新扣点，历史订单与已创建任务不回写。"
-        actions={<><button type="button" onClick={() => void load()} disabled={loading || saving} className={secondaryButton}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />刷新</button><button type="button" onClick={() => void saveModelCredits("save-draft")} disabled={loading || saving} className={secondaryButton}><Save className="h-4 w-4" />保存草稿</button><button type="button" onClick={() => void saveModelCredits("publish")} disabled={loading || saving} className={primaryButton}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}发布扣点</button></>}
+        actions={<><button type="button" onClick={() => void load()} disabled={loading || saving} className={secondaryButton}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />刷新</button>{canManage && <><button type="button" onClick={() => void saveModelCredits("save-draft")} disabled={loading || saving} className={secondaryButton}><Save className="h-4 w-4" />保存草稿</button><button type="button" onClick={() => void saveModelCredits("publish")} disabled={loading || saving} className={primaryButton}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}发布扣点</button></>}</>}
       >
+        {!canManage && <AdminNotice tone="info">当前角色可以查看套餐和模块扣点，但不能修改价格、停用 SKU 或发布扣点配置。</AdminNotice>}
         {loading ? <div className="flex h-36 items-center justify-center text-sm font-bold text-[var(--admin-muted)]"><Loader2 className="mr-2 h-4 w-4 animate-spin" />加载定价策略…</div> : <div className="divide-y divide-[var(--admin-border)]">
-          {models.filter((model) => model.userVisible || model.modality === "video").map((model) => <ModelCreditRow key={model.id} model={model} onChange={setCreditPrice} />)}
+          {models.filter((model) => model.userVisible || model.modality === "video").map((model) => <ModelCreditRow key={model.id} model={model} onChange={setCreditPrice} canManage={canManage} />)}
           {!models.filter((model) => model.userVisible || model.modality === "video").length && <p className="px-4 py-12 text-center text-sm font-bold text-[var(--admin-muted)]">没有可配置的用户可见模型或视频服务。</p>}
         </div>}
       </AdminSection>
@@ -166,14 +169,14 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
   );
 }
 
-function ModelCreditRow({ model, onChange }: { model: EditableModel; onChange: (modelId: string, dimension: string, value: string) => void }) {
+function ModelCreditRow({ model, onChange, canManage }: { model: EditableModel; onChange: (modelId: string, dimension: string, value: string) => void; canManage: boolean }) {
   const fallbackDimensions = defaultDimensions(model.modality, model.id);
   const dimensions = model.modality === "video"
     ? Array.from(new Set([...fallbackDimensions, ...Object.keys(model.creditPrices)]))
     : Object.keys(model.creditPrices).length ? Object.keys(model.creditPrices) : fallbackDimensions;
   return <div className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(190px,1fr)_minmax(0,2fr)_auto] lg:items-center">
     <div><div className="flex items-center gap-2"><p className="font-black text-[var(--admin-fg)]">{model.displayName}</p><AdminStatusBadge status={model.enabled ? "active" : "inactive"} /></div><p className="mt-1 font-mono text-xs text-[var(--admin-faint)]">{model.id} · {model.modality}</p></div>
-    <div className="grid gap-2 sm:grid-cols-3">{dimensions.map((dimension) => <label key={dimension} className="grid grid-cols-[1fr_86px] items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-2 py-1.5"><span className="truncate text-xs font-black text-[var(--admin-muted)]">{dimension}</span><input aria-label={`${model.displayName} ${dimension} 扣点`} type="number" min="0" step="1" value={model.creditPrices[dimension] ?? 0} onChange={(event) => onChange(model.id, dimension, event.target.value)} className="h-8 min-w-0 rounded border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-right font-mono text-sm font-black text-[var(--admin-fg)] outline-none focus:ring-2 focus:ring-[var(--admin-focus-ring)]" /></label>)}</div>
+    <div className="grid gap-2 sm:grid-cols-3">{dimensions.map((dimension) => <label key={dimension} className="grid grid-cols-[1fr_86px] items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-2 py-1.5"><span className="truncate text-xs font-black text-[var(--admin-muted)]">{dimension}</span><input aria-label={`${model.displayName} ${dimension} 扣点`} disabled={!canManage} type="number" min="0" step="1" value={model.creditPrices[dimension] ?? 0} onChange={(event) => onChange(model.id, dimension, event.target.value)} className="h-8 min-w-0 rounded border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-right font-mono text-sm font-black text-[var(--admin-fg)] outline-none focus:ring-2 focus:ring-[var(--admin-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60" /></label>)}</div>
     <p className="text-xs font-semibold text-[var(--admin-muted)]">每次请求</p>
   </div>;
 }

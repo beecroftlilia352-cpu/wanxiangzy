@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import {
+  AdminNotice,
   AdminStatusBadge,
   ThumbnailStrip,
   formatDateTime,
@@ -120,6 +121,7 @@ type Props = {
   initialScenes: TryOnAdminSceneRow[];
   initialVersions: TryOnAdminConfigVersionRow[];
   warnings: string[];
+  canManage?: boolean;
 };
 
 const categoryBlank = {
@@ -165,6 +167,7 @@ export function AdminTryOnReferenceConsole({
   initialScenes,
   initialVersions,
   warnings,
+  canManage = false,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -252,6 +255,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function seedCategories() {
+    if (!canManage) return;
     try {
       const payload = await writeJson("/api/admin/tryon/categories", { seedDefaults: true });
       setCategories(payload.categories || categories);
@@ -262,6 +266,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function saveCategory(event: React.FormEvent<HTMLFormElement>) {
+    if (!canManage) return;
     event.preventDefault();
     let metadata: Record<string, unknown> = {};
     try {
@@ -299,6 +304,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function disableCategory(code: string) {
+    if (!canManage) return;
     requestConfirm({
       title: `停用类目 ${code}`,
       description: "停用后关联场景发布前会被校验，请确认没有线上推荐依赖该类目。",
@@ -317,6 +323,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function saveScene(event: React.FormEvent<HTMLFormElement>) {
+    if (!canManage) return;
     event.preventDefault();
     let rawConfig: Record<string, unknown> = {};
     try {
@@ -358,6 +365,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function archiveScene(sceneKey: string) {
+    if (!canManage) return;
     requestConfirm({
       title: `归档场景 ${sceneKey}`,
       description: "归档后该场景不会再作为 active 推荐候选，发布配置后前台才会读取最新版本。",
@@ -376,6 +384,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function updateSceneStatus(sceneKey: string, status: "draft" | "active" | "archived") {
+    if (!canManage) return;
     try {
       const payload = await patchJson("/api/admin/tryon/reference-scenes", { scene_key: sceneKey, status });
       setScenes(upsertBy(scenes, payload.scene, "scene_key"));
@@ -387,6 +396,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function importScenes(event: React.FormEvent<HTMLFormElement>) {
+    if (!canManage) return;
     event.preventDefault();
     try {
       const payload = await writeJson("/api/admin/tryon/reference-scenes/import", {
@@ -406,6 +416,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function publishConfig() {
+    if (!canManage) return;
     requestConfirm({
       title: "发布试衣参考图配置",
       description: "发布后前台推荐将读取新的 active 场景配置，请先确认校验和预览结果符合预期。",
@@ -441,6 +452,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function rollbackVersion(versionId: string) {
+    if (!canManage) return;
     requestConfirm({
       title: "回滚配置快照",
       description: "回滚后请重新校验、预览并发布，避免前台推荐读取到未确认配置。",
@@ -507,14 +519,14 @@ export function AdminTryOnReferenceConsole({
               {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               刷新
             </button>
-            <button type="button" onClick={() => run(validateConfig)} disabled={isPending || !activeScenes.length} className="admin-tryon-btn admin-tryon-btn-secondary">
+            {canManage && <button type="button" onClick={() => run(validateConfig)} disabled={isPending || !activeScenes.length} className="admin-tryon-btn admin-tryon-btn-secondary">
               {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
               校验配置
-            </button>
-            <button type="button" onClick={() => run(publishConfig)} disabled={isPending || !activeScenes.length} className="admin-tryon-btn admin-tryon-btn-primary">
+            </button>}
+            {canManage && <button type="button" onClick={() => run(publishConfig)} disabled={isPending || !activeScenes.length} className="admin-tryon-btn admin-tryon-btn-primary">
               {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
               发布配置
-            </button>
+            </button>}
           </div>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-4">
@@ -544,7 +556,7 @@ export function AdminTryOnReferenceConsole({
           ["scenes", "系统场景"],
           ["import", "批量导入"],
           ["preview", "推荐预览"],
-        ].map(([value, label]) => (
+        ].filter(([value]) => canManage || value !== "import").map(([value, label]) => (
           <button
             key={value}
             type="button"
@@ -559,22 +571,23 @@ export function AdminTryOnReferenceConsole({
       {tab === "overview" && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.8fr)]">
           <SceneOverview scenes={activeScenes.slice(0, 12)} />
-          <VersionPanel versions={versions} onRollback={(id) => run(() => rollbackVersion(id))} />
+          <VersionPanel versions={versions} onRollback={(id) => run(() => rollbackVersion(id))} canManage={canManage} />
         </div>
       )}
 
       {tab === "categories" && (
         <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <CategoryForm
+          {canManage ? <CategoryForm
             form={categoryForm}
             categories={categories}
             onChange={setCategoryForm}
             onSubmit={saveCategory}
             onSeed={() => run(seedCategories)}
             loading={isPending}
-          />
+          /> : <AdminNotice tone="info">当前角色只能查看类目和状态。修改类目需要系统配置写权限。</AdminNotice>}
           <CategoryTable
             categories={categories}
+            canManage={canManage}
             onEdit={(category) => setCategoryForm(categoryToForm(category))}
             onDisable={(code) => run(() => disableCategory(code))}
           />
@@ -583,13 +596,13 @@ export function AdminTryOnReferenceConsole({
 
       {tab === "scenes" && (
         <div className="grid gap-5 xl:grid-cols-[440px_minmax(0,1fr)]">
-          <SceneForm
+          {canManage ? <SceneForm
             form={sceneForm}
             categoryOptions={categoryOptions}
             onChange={setSceneForm}
             onSubmit={saveScene}
             loading={isPending}
-          />
+          /> : <AdminNotice tone="info">当前角色只能查看系统场景。编辑、上架、归档需要系统配置写权限。</AdminNotice>}
           <SceneList
             scenes={filteredScenes}
             categoryByCode={categoryByCode}
@@ -600,11 +613,12 @@ export function AdminTryOnReferenceConsole({
             onEdit={(scene) => setSceneForm(sceneToForm(scene))}
             onStatus={(sceneKey, status) => run(() => updateSceneStatus(sceneKey, status))}
             onArchive={(sceneKey) => run(() => archiveScene(sceneKey))}
+            canManage={canManage}
           />
         </div>
       )}
 
-      {tab === "import" && (
+      {canManage && tab === "import" && (
         <ImportPanel
           rawText={importRawText}
           childRawText={importChildRawText}
@@ -776,10 +790,12 @@ function CategoryForm({
 
 function CategoryTable({
   categories,
+  canManage,
   onEdit,
   onDisable,
 }: {
   categories: TryOnAdminCategoryRow[];
+  canManage: boolean;
   onEdit: (category: TryOnAdminCategoryRow) => void;
   onDisable: (code: string) => void;
 }) {
@@ -812,8 +828,10 @@ function CategoryTable({
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => onEdit(category)} className="admin-tryon-mini-btn">编辑</button>
-                    {category.enabled && <button type="button" onClick={() => onDisable(category.code)} className="admin-tryon-mini-btn text-red-600">停用</button>}
+                    {canManage ? <>
+                      <button type="button" onClick={() => onEdit(category)} className="admin-tryon-mini-btn">编辑</button>
+                      {category.enabled && <button type="button" onClick={() => onDisable(category.code)} className="admin-tryon-mini-btn text-red-600">停用</button>}
+                    </> : <span className="text-xs font-semibold text-[var(--admin-muted)]">只读</span>}
                   </div>
                 </td>
               </tr>
@@ -898,6 +916,7 @@ function SceneForm({
 
 function SceneList({
   scenes,
+  canManage,
   categoryByCode,
   search,
   status,
@@ -908,6 +927,7 @@ function SceneList({
   onArchive,
 }: {
   scenes: TryOnAdminSceneRow[];
+  canManage: boolean;
   categoryByCode: Map<string, TryOnAdminCategoryRow>;
   search: string;
   status: string;
@@ -959,12 +979,14 @@ function SceneList({
               </div>
               <div className="flex items-center justify-between gap-2 border-t border-[var(--codex-border)] px-3 py-2">
                 <span className="text-[11px] font-semibold text-[var(--admin-faint)]">{formatDateTime(scene.updated_at)}</span>
-	                <div className="flex gap-2">
-	                  <button type="button" onClick={() => onEdit(scene)} className="admin-tryon-mini-btn">编辑</button>
-	                  {scene.status !== "active" && <button type="button" onClick={() => onStatus(scene.scene_key, "active")} className="admin-tryon-mini-btn text-emerald-700"><Rocket className="h-3 w-3" />上架</button>}
-	                  {scene.status === "active" && <button type="button" onClick={() => onStatus(scene.scene_key, "draft")} className="admin-tryon-mini-btn text-amber-700">转草稿</button>}
-	                  {scene.status !== "archived" && <button type="button" onClick={() => onArchive(scene.scene_key)} className="admin-tryon-mini-btn text-red-600"><Archive className="h-3 w-3" />归档</button>}
-	                </div>
+                <div className="flex gap-2">
+                  {canManage ? <>
+                    <button type="button" onClick={() => onEdit(scene)} className="admin-tryon-mini-btn">编辑</button>
+                    {scene.status !== "active" && <button type="button" onClick={() => onStatus(scene.scene_key, "active")} className="admin-tryon-mini-btn text-emerald-700"><Rocket className="h-3 w-3" />上架</button>}
+                    {scene.status === "active" && <button type="button" onClick={() => onStatus(scene.scene_key, "draft")} className="admin-tryon-mini-btn text-amber-700">转草稿</button>}
+                    {scene.status !== "archived" && <button type="button" onClick={() => onArchive(scene.scene_key)} className="admin-tryon-mini-btn text-red-600"><Archive className="h-3 w-3" />归档</button>}
+                  </> : <span className="text-xs font-semibold text-[var(--admin-muted)]">只读</span>}
+                </div>
               </div>
             </article>
           );
@@ -1132,7 +1154,7 @@ function SceneOverview({ scenes }: { scenes: TryOnAdminSceneRow[] }) {
   );
 }
 
-function VersionPanel({ versions, onRollback }: { versions: TryOnAdminConfigVersionRow[]; onRollback: (id: string) => void }) {
+function VersionPanel({ versions, onRollback, canManage }: { versions: TryOnAdminConfigVersionRow[]; onRollback: (id: string) => void; canManage: boolean }) {
   return (
     <section className="rounded-lg border border-[var(--codex-border)] bg-white shadow-sm">
       <div className="border-b border-[var(--codex-border)] px-4 py-3">
@@ -1153,10 +1175,9 @@ function VersionPanel({ versions, onRollback }: { versions: TryOnAdminConfigVers
                 </div>
                 <p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{categoryCount} 类目 · {sceneCount} 场景 · {formatDateTime(version.published_at || version.created_at)}</p>
               </div>
-              <button type="button" onClick={() => onRollback(version.id)} className="admin-tryon-mini-btn">
-                <RotateCcw className="h-3 w-3" />
-                回滚
-              </button>
+              {canManage && <button type="button" onClick={() => onRollback(version.id)} className="admin-tryon-mini-btn">
+                <RotateCcw className="h-3 w-3" />回滚
+              </button>}
             </div>
           );
         })}

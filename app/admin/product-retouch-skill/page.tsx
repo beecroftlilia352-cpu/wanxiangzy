@@ -9,6 +9,7 @@ import {
 } from "@/lib/product-retouch";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ const VERSION_SELECT = [
 ].join(",");
 
 export default async function AdminProductRetouchSkillPage() {
-  await requireAdmin("prompts:read");
+  const auth = await requireAdmin("prompts:read");
   const warnings: string[] = [];
   const admin = getAdminClient();
 
@@ -53,6 +54,7 @@ export default async function AdminProductRetouchSkillPage() {
         activeVersionId={activeVersion?.id ?? null}
         builtIn={builtIn}
         warnings={warnings}
+        canManage={hasAdminPermission(auth.role, "prompts:write")}
       />
     </div>
   );
