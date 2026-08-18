@@ -414,7 +414,12 @@ async function triggerMirrorTransfer(row: MirrorTransferRow, config: MirrorConfi
     method: "GET",
     cache: "no-store",
     redirect: "manual",
-    headers: signOssRequest(config, "GET", row.object_key, { Range: "bytes=0-0" }),
+    // OSS website routing (including Mirror back-to-origin) is evaluated for
+    // anonymous object reads. An Authorization header turns this into a normal
+    // signed GetObject request and a missing key returns NoSuchKey directly.
+    // The bucket already serves generated results publicly; the unguessable,
+    // short-lived object capability is what authorizes the resolver lookup.
+    headers: { Range: "bytes=0-0" },
     signal: AbortSignal.timeout(config.triggerTimeoutMs),
   }));
 
