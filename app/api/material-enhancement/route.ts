@@ -81,6 +81,8 @@ export async function POST(request: NextRequest) {
       reason: `材质增强 ${genCount} 张 (${model}, ${size})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [sourceUrl, garmentUrl].map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

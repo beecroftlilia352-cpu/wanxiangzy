@@ -105,6 +105,12 @@ export async function POST(request: NextRequest) {
       reason: `动作模仿视频 (${modelMode}, ${aiModel}, ${resolution}, ${aspectRatio}, ${effectiveDuration}s, ${getAudioReasonLabel(audioMode)} × ${genCount})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [
+        { url: modelImageUrl, kind: "image" as const },
+        { url: referenceVideoUrl, kind: "video" as const },
+        ...(audioMode === "custom" && audioUrl ? [{ url: audioUrl, kind: "audio" as const }] : []),
+      ],
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

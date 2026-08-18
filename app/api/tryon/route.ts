@@ -161,6 +161,13 @@ export async function POST(request: NextRequest) {
       reason: `生成 ${expectedCount} 张，输入 ${clothing_urls.length} 件服装、${effectiveReferenceUrls.length || 1} 组参考${activeGarmentDetailUrls.length ? `、${activeGarmentDetailUrls.length} 张细节` : ""} (${model}, ${size}, ${TRYON_GARMENT_CATEGORY_LABELS[garmentCategory]})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [
+        ...clothing_urls,
+        ...effectiveReferenceUrls,
+        model_face_url,
+        ...activeGarmentDetailUrls,
+      ].filter((url): url is string => Boolean(url)).map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

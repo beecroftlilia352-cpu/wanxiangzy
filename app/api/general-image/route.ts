@@ -11,7 +11,7 @@ import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
-import { getPublicBaseUrlFromRequest, resolveImageInputs } from "@/lib/api/image-inputs.server";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { buildOutfitFusionRuntimePlan, type OutfitFusionAsset, type OutfitFusionConfig } from "@/lib/outfit-fusion";
 import {
@@ -120,26 +120,13 @@ export async function POST(request: NextRequest) {
         }
       : { kind: "generalImage", ...payloadBase };
 
-    // Verify tenant ownership and media status before the credit transaction.
-    // The Worker repeats this resolution with its execution fence, but a bad
-    // or cross-tenant canonical asset must never reach the debit path first.
-    const preflightImageUrls = Array.from(new Set([
+    const mediaInputs = Array.from(new Set([
       ...payloadBase.referenceUrls,
       ...(moduleKind === "outfitFusion" ? outfitFusionClothingUrls : []),
       ...(moduleKind === "outfitFusion" && outfitFusionModelFaceUrl ? [outfitFusionModelFaceUrl] : []),
       ...(moduleKind === "outfitFusion" && outfitFusionReferenceUrl ? [outfitFusionReferenceUrl] : []),
       ...(moduleKind === "outfitFusion" ? (outfitFusionRuntimePlan?.assets || outfitFusionAssets || []).map((asset) => asset.url) : []),
-    ]));
-    if (preflightImageUrls.length) {
-      try {
-        await resolveImageInputs(
-          { clothingUrls: preflightImageUrls },
-          { publicBaseUrl, ownerUserId: user.id },
-        );
-      } catch {
-        return NextResponse.json({ error: "参考图不可用，请重新上传后重试" }, { status: 400 });
-      }
-    }
+    ])).map((url) => ({ url, kind: "image" as const }));
 
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
@@ -152,6 +139,8 @@ export async function POST(request: NextRequest) {
       reason: `${moduleLabel}${mode === "text-to-image" ? "文生图" : "图生图"} ${genCount} 张 (${model}, ${size})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs,
+      publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

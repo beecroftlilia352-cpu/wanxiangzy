@@ -151,6 +151,9 @@ export async function POST(request: NextRequest) {
       reason: `姿势裂变 · ${effectivePoseCount} 个姿势${effectiveOutputMode === "separate" ? " · 独立图" : " · 自动宫格"}${poseCreationMode === "reference" ? " · 参考图模式" : ""}${poseReferenceUrls.length ? ` · ${poseReferenceUrls.length} 张姿势参考` : ""}${garmentAngleUrls.length ? ` · ${garmentAngleUrls.length} 张服装角度` : ""} (${model}, ${size})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [main_image_url, ...poseReferenceUrls, ...garmentAngleUrls, ...normalizeGarmentDetailUrls(garmentDetailInput)]
+        .map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

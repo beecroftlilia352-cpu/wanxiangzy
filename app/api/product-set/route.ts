@@ -123,6 +123,8 @@ export async function POST(request: NextRequest) {
       reason: `商品套图 ${genCount} 张 (${regenerateIndex !== null ? "单张重生" : mode === "smart" ? "智能" : "自定义"}, ${imageType === "main" ? "主图辅图" : "详情页"}, 模板比例, ${model}, ${imageSize})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: productImageUrls.map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

@@ -100,6 +100,9 @@ export async function POST(request: NextRequest) {
       reason: `服装转3D ${genCount} 张(${model}, ${size})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [garment_url, mode === "reference" ? reference_url || null : null]
+        .filter((url): url is string => Boolean(url)).map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

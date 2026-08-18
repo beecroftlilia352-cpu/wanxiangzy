@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
+import { resolveMediaInput } from "@/lib/api/image-inputs.server";
 
 type SupabaseLike = {
   rpc: (
@@ -37,10 +38,35 @@ export async function createDebitedGeneration(
     reason: string;
     jobPayload?: Record<string, unknown>;
     idempotencyKey?: string;
+    mediaInputs?: Array<{
+      url: string;
+      kind: "audio" | "image" | "video";
+    }>;
+    publicBaseUrl?: string | null;
   }
 ): Promise<{ generationId: string; creditsRemaining: number }> {
   await assertUserCanGenerate(params.userId);
   const idempotencyKey = normalizeGenerationIdempotencyKey(params.idempotencyKey);
+
+  if (params.mediaInputs?.length) {
+    try {
+      const seen = new Set<string>();
+      await Promise.all(params.mediaInputs
+        .filter((input) => {
+          const key = `${input.kind}:${input.url}`;
+          if (!input.url || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((input) => resolveMediaInput(input.url, {
+          publicBaseUrl: params.publicBaseUrl || (typeof params.jobPayload?.publicBaseUrl === "string" ? params.jobPayload.publicBaseUrl : null),
+          ownerUserId: params.userId,
+          expectedKind: input.kind,
+        })));
+    } catch {
+      throw new CreditError("参考媒体不可用、未完成验证或不属于当前账号，请重新上传后重试", 400);
+    }
+  }
 
   const { data, error } = await supabase.rpc("create_generation_with_credit_debit_v2", {
     p_user_id: params.userId,

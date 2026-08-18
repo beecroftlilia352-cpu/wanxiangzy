@@ -97,6 +97,8 @@ export async function POST(request: NextRequest) {
       reason: `AI 换脸 ${sourceUrls.length} 张原图 × ${genCount} (${model}, ${imageSize})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [...sourceUrls, faceUrl].map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

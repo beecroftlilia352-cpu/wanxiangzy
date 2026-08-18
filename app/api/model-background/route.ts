@@ -115,6 +115,10 @@ export async function POST(request: NextRequest) {
       reason: `换背景 ${sourceUrls.length} 张原图 × ${genCount} (${model}, ${size})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [...sourceUrls, modelReferenceUrl, backgroundReferenceUrl]
+        .filter((url): url is string => Boolean(url))
+        .map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

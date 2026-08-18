@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const syncGenerationTaskQueueByIdMock = vi.hoisted(() => vi.fn());
+const resolveMediaInputMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/task-queue-store", () => ({
   syncGenerationTaskQueueById: syncGenerationTaskQueueByIdMock,
+}));
+vi.mock("@/lib/api/image-inputs.server", () => ({
+  resolveMediaInput: resolveMediaInputMock,
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   getAdminClient: () => ({
@@ -35,6 +39,7 @@ describe("BullMQ generation credit transaction", () => {
     vi.clearAllMocks();
     delete process.env.GENERATION_MAX_ACTIVE_PER_USER;
     syncGenerationTaskQueueByIdMock.mockResolvedValue(undefined);
+    resolveMediaInputMock.mockResolvedValue("https://assets.example.com/resolved.png");
   });
 
   it("passes a stable idempotency key and tenant admission limit to the v2 RPC", async () => {
@@ -72,6 +77,40 @@ describe("BullMQ generation credit transaction", () => {
 
     await expect(createDebitedGeneration({ rpc }, { ...params(), idempotencyKey: "short" }))
       .rejects.toMatchObject({ status: 400 });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("preflights tenant media before the debit RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ generation_id: "30000000-0000-4000-8000-000000000003", credits_remaining: 97 }],
+      error: null,
+    });
+
+    await createDebitedGeneration({ rpc }, {
+      ...params(),
+      publicBaseUrl: "https://app.example.com",
+      mediaInputs: [
+        { url: "/api/media-assets/40000000-0000-4000-8000-000000000004", kind: "image" },
+        { url: "/api/media-assets/40000000-0000-4000-8000-000000000005", kind: "image" },
+      ],
+    });
+
+    expect(resolveMediaInputMock).toHaveBeenCalledTimes(2);
+    expect(resolveMediaInputMock).toHaveBeenCalledWith(
+      "/api/media-assets/40000000-0000-4000-8000-000000000004",
+      expect.objectContaining({ ownerUserId: params().userId, expectedKind: "image" }),
+    );
+    expect(rpc).toHaveBeenCalledWith("create_generation_with_credit_debit_v2", expect.anything());
+  });
+
+  it("does not debit when media preflight rejects an input", async () => {
+    resolveMediaInputMock.mockRejectedValueOnce(new Error("cross-tenant media"));
+    const rpc = vi.fn();
+
+    await expect(createDebitedGeneration({ rpc }, {
+      ...params(),
+      mediaInputs: [{ url: "/api/media-assets/40000000-0000-4000-8000-000000000004", kind: "image" }],
+    })).rejects.toMatchObject({ status: 400 });
     expect(rpc).not.toHaveBeenCalled();
   });
 });

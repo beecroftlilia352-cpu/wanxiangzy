@@ -86,6 +86,10 @@ export async function POST(request: NextRequest) {
       reason: `专属模特 ${genCount} 张 (${model}, ${size})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [...reference_urls, hair_reference_url, hair_color_reference_url]
+        .filter((url): url is string => Boolean(url))
+        .map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     // The database transaction already wrote the generation and its Outbox
