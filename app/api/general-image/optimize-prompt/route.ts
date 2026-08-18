@@ -3,7 +3,7 @@ import { requireApiUser } from "@/lib/api/auth";
 import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { findDisallowedProductionImageInputs, normalizeGeneralImageReferenceUrls } from "@/lib/api/general-image-inputs";
-import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
+import { getPublicBaseUrlFromRequest, resolveImageInputs } from "@/lib/api/image-inputs.server";
 
 export const maxDuration = 60;
 
@@ -28,6 +28,18 @@ export async function POST(request: NextRequest) {
       }
     }
     const referenceUrls = normalizedReferences.urls;
+    let providerReferenceUrls = referenceUrls;
+    if (referenceUrls.length) {
+      try {
+        const resolved = await resolveImageInputs(
+          { clothingUrls: [], referenceUrls },
+          { publicBaseUrl: getPublicBaseUrlFromRequest(request), ownerUserId: auth.user.id },
+        );
+        providerReferenceUrls = resolved.referenceUrls || [];
+      } catch {
+        return NextResponse.json({ error: "参考图不可用，请重新上传后重试" }, { status: 400 });
+      }
+    }
 
     if (!userPrompt && referenceUrls.length === 0) {
       return NextResponse.json({ error: mode === "image-to-image" ? "请先输入基本想法或上传参考图" : "请先输入基本想法" }, { status: 400 });
@@ -60,7 +72,7 @@ ${userPrompt || "请根据参考图生成高质量商业摄影图片。"}`;
       | { type: "text"; text: string }
       | { type: "image_url"; image_url: { url: string } }
     > = [{ type: "text", text: textPrompt }];
-    for (const url of referenceUrls) {
+    for (const url of providerReferenceUrls) {
       content.push({ type: "image_url", image_url: { url } });
     }
 

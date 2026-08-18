@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { findDisallowedProductionImageInputs, isGeneralImageReferenceUrl } from "@/lib/api/general-image-inputs";
+import { getPublicBaseUrlFromRequest, resolveImageInputs } from "@/lib/api/image-inputs.server";
 
 export const maxDuration = 60;
 
@@ -15,8 +17,22 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : "";
-    if (!/^https?:\/\//i.test(imageUrl) && !/^data:image\//i.test(imageUrl)) {
+    if (!isGeneralImageReferenceUrl(imageUrl)) {
       return NextResponse.json({ error: "请先上传图片" }, { status: 400 });
+    }
+    const publicBaseUrl = getPublicBaseUrlFromRequest(request);
+    if (process.env.NODE_ENV === "production" && findDisallowedProductionImageInputs([imageUrl], publicBaseUrl).length) {
+      return NextResponse.json({ error: "生产环境请使用已验证的媒体资产" }, { status: 400 });
+    }
+    let providerImageUrl = imageUrl;
+    try {
+      const resolved = await resolveImageInputs(
+        { clothingUrls: [], referenceUrls: [imageUrl] },
+        { publicBaseUrl, ownerUserId: auth.user.id },
+      );
+      providerImageUrl = resolved.referenceUrls?.[0] || imageUrl;
+    } catch {
+      return NextResponse.json({ error: "图片不可用，请重新上传后重试" }, { status: 400 });
     }
 
     const textPrompt = `你是专业图片内容描述师和文生图提示词工程师。请观察用户上传的图片，把画面内容反推成一段“纯文字文生图提示词”。
@@ -41,7 +57,7 @@ export async function POST(request: NextRequest) {
           role: "user",
           content: [
             { type: "text", text: textPrompt },
-            { type: "image_url", image_url: { url: imageUrl } },
+            { type: "image_url", image_url: { url: providerImageUrl } },
           ],
         }],
         max_tokens: 600,
