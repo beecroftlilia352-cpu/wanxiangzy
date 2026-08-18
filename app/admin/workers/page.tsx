@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/AdminPrimitives";
 import { AdminWorkerRunForm } from "@/components/admin/AdminWorkerRunForm";
 import { AdminWorkerRuntimeConfigForm } from "@/components/admin/AdminWorkerRuntimeConfigForm";
+import { AdminWorkerAutoRefresh } from "@/components/admin/AdminWorkerAutoRefresh";
 import { getAdminWorkerOverview, type AdminAuditLog, type AdminTaskListItem } from "@/lib/admin/data";
 import { requireAdmin } from "@/lib/admin/auth";
 import { hasAdminPermission } from "@/lib/admin/permissions";
@@ -31,13 +32,16 @@ export default async function AdminWorkersPage() {
         title="Worker 控制面"
         description="管理期望容量，观察实际在线 Worker、BullMQ 队列与事务 Outbox。服务器扩容由发布控制器执行，网页不会直接操作 PM2。"
         actions={
-          <Link
-            href="/admin/workers"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            刷新
-          </Link>
+          <div className="flex items-center gap-2">
+            <AdminWorkerAutoRefresh />
+            <Link
+              href="/admin/workers"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              刷新
+            </Link>
+          </div>
         }
       />
 
@@ -51,11 +55,11 @@ export default async function AdminWorkersPage() {
         <AdminMetricCard label="在线 Worker" value={formatNumber(overview.runtime.actual.onlineInstances)} tone={overview.runtime.actual.drift ? "warning" : "good"} hint={`期望 ${overview.runtime.desired.desiredInstances}`} />
         <AdminMetricCard label="实际并发容量" value={formatNumber(overview.runtime.actual.activeCapacity)} hint={`${overview.runtime.actual.workerConcurrency} / 进程`} />
         <AdminMetricCard label="样本任务" value={formatNumber(overview.queue.sampled)} hint="最近队列样本" />
-        <AdminMetricCard label="排队" value={formatNumber(overview.queue.queued)} tone="warning" />
-        <AdminMetricCard label="运行" value={formatNumber(overview.queue.running)} />
-        <AdminMetricCard label="长时间未完成" value={formatNumber(overview.queue.stale)} tone={overview.queue.stale > 0 ? "danger" : "good"} hint={`${overview.queue.staleMinutes} 分钟无进展`} />
-        <AdminMetricCard label="失败" value={formatNumber(overview.queue.failed)} tone={overview.queue.failed > 0 ? "danger" : "neutral"} />
-        <AdminMetricCard label="完成" value={formatNumber(overview.queue.completed)} tone="good" />
+        <AdminMetricCard label="排队" value={formatNumber(overview.queue.queued)} tone="warning" hint={queueSourceLabel(overview.queue.source)} />
+        <AdminMetricCard label="运行" value={formatNumber(overview.queue.running)} hint={queueSourceLabel(overview.queue.source)} />
+        <AdminMetricCard label="长时间未完成" value={formatNumber(overview.queue.stale)} tone={overview.queue.stale > 0 ? "danger" : "good"} hint={`${overview.queue.staleMinutes} 分钟无进展 · 最近 ${overview.queue.sampled} 条样本`} />
+        <AdminMetricCard label="失败" value={formatNumber(overview.queue.failed)} tone={overview.queue.failed > 0 ? "danger" : "neutral"} hint={queueSourceLabel(overview.queue.source)} />
+        <AdminMetricCard label="完成" value={formatNumber(overview.queue.completed)} tone="good" hint={queueSourceLabel(overview.queue.source)} />
       </div>
 
       <AdminSection title="Worker 运行策略" description="这些值是版本化的期望配置。保存后由下一次部署应用 PM2 实例和进程参数，便于审计、回滚和横向扩展。">
@@ -94,7 +98,7 @@ export default async function AdminWorkersPage() {
         {canManage ? <AdminWorkerRunForm /> : <AdminNotice tone="info">当前角色不能手动触发恢复任务。正常任务由 BullMQ Worker 自动消费。</AdminNotice>}
       </AdminSection>
 
-      <AdminSection title="长时间未完成任务" description="运行中且超过阈值没有进展的任务。手动重新处理前先查看任务详情，避免重复扣费或重复补偿。">
+      <AdminSection title="长时间未完成任务" description={`最近 ${overview.queue.sampled} 条队列样本中，运行超过阈值且没有进展的任务。手动重新处理前先查看任务详情，避免重复扣费或重复补偿。`}>
         <AdminTable<AdminTaskListItem>
           rows={overview.staleTasks}
           rowKey={(row) => row.id}
@@ -135,6 +139,10 @@ export default async function AdminWorkersPage() {
       </AdminSection>
     </div>
   );
+}
+
+function queueSourceLabel(source: "bullmq" | "task_queue_sample") {
+  return source === "bullmq" ? "BullMQ 实时计数" : "数据库样本回退";
 }
 
 function RuntimeHealthItem({ label, value, ok }: { label: string; value: string; ok: boolean }) {

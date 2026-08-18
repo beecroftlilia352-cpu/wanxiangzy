@@ -449,6 +449,7 @@ export type AdminWorkerOverview = {
   processors: AdminWorkerProcessor[];
   queue: {
     sampled: number;
+    source: "bullmq" | "task_queue_sample";
     queued: number;
     running: number;
     completed: number;
@@ -1583,12 +1584,16 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
     warnings.push(...fallback.warnings);
   }
 
+  const useBullMqCounts = bullmqHealth.reachable;
   const queue = {
     sampled: rows.length,
-    queued: rows.filter((row) => row.statusGroup === "queued").length,
-    running: rows.filter((row) => row.statusGroup === "running").length,
-    completed: rows.filter((row) => row.statusGroup === "completed").length,
-    failed: rows.filter((row) => row.statusGroup === "failed").length,
+    source: useBullMqCounts ? "bullmq" as const : "task_queue_sample" as const,
+    queued: useBullMqCounts
+      ? (bullmqHealth.counts.waiting || 0) + (bullmqHealth.counts.delayed || 0) + (bullmqHealth.counts.waitingChildren || 0)
+      : rows.filter((row) => row.statusGroup === "queued").length,
+    running: useBullMqCounts ? bullmqHealth.counts.active || 0 : rows.filter((row) => row.statusGroup === "running").length,
+    completed: useBullMqCounts ? bullmqHealth.counts.completed || 0 : rows.filter((row) => row.statusGroup === "completed").length,
+    failed: useBullMqCounts ? bullmqHealth.counts.failed || 0 : rows.filter((row) => row.statusGroup === "failed").length,
     stale: 0,
     staleMinutes,
   };
