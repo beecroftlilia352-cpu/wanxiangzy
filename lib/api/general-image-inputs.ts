@@ -50,7 +50,18 @@ export function isAllowedProductionImageInput(value: string, publicBaseUrl?: str
   if (!candidate || INLINE_IMAGE_URL_PATTERN.test(candidate)) return false;
 
   const canonicalPath = /^\/api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i;
-  if (canonicalPath.test(candidate.split(/[?#]/, 1)[0])) return true;
+  const candidatePath = candidate.split(/[?#]/, 1)[0];
+  if (canonicalPath.test(candidatePath)) return true;
+
+  if (publicBaseUrl) {
+    try {
+      const parsed = new URL(candidate, publicBaseUrl);
+      const configuredApp = new URL(publicBaseUrl);
+      if (parsed.origin === configuredApp.origin && canonicalPath.test(parsed.pathname)) return true;
+    } catch {
+      // Fall through to the immutable site-asset check below.
+    }
+  }
 
   const publicBase = process.env.ALIYUN_OSS_PUBLIC_BASE_URL?.trim();
   const sitePrefix = process.env.ALIYUN_OSS_SITE_ASSET_PREFIX?.trim().replace(/^\/+|\/+$/g, "");

@@ -46,6 +46,7 @@ describe("general image input boundary", () => {
     vi.stubEnv("ALIYUN_OSS_SITE_ASSET_PREFIX", "site-assets/original");
 
     expect(isAllowedProductionImageInput("/api/media-assets/018f47f1-b4c2-7a21-8f12-7a02169b89c1", "https://app.example")).toBe(true);
+    expect(isAllowedProductionImageInput("https://app.example/api/media-assets/018f47f1-b4c2-7a21-8f12-7a02169b89c1", "https://app.example")).toBe(true);
     expect(isAllowedProductionImageInput("https://assets.example.com/site-assets/original/guide.png", "https://app.example")).toBe(true);
     expect(isAllowedProductionImageInput("https://attacker.example/source.png", "https://app.example")).toBe(false);
     expect(findDisallowedProductionImageInputs({ assets: [{ url: "https://attacker.example/source.png" }] }, "https://app.example")).toEqual([

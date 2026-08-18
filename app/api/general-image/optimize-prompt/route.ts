@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-import { normalizeGeneralImageReferenceUrls } from "@/lib/api/general-image-inputs";
+import { findDisallowedProductionImageInputs, normalizeGeneralImageReferenceUrls } from "@/lib/api/general-image-inputs";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 
 export const maxDuration = 60;
 
@@ -20,8 +21,11 @@ export async function POST(request: NextRequest) {
     const mode = normalizeMode(body.mode);
     const userPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const normalizedReferences = normalizeGeneralImageReferenceUrls(body.reference_urls);
-    if (process.env.NODE_ENV === "production" && normalizedReferences.hasInlineImage) {
-      return NextResponse.json({ error: "生产环境请先上传图片，使用已验证的媒体资产" }, { status: 400 });
+    if (process.env.NODE_ENV === "production") {
+      const publicBaseUrl = getPublicBaseUrlFromRequest(request);
+      if (normalizedReferences.hasInlineImage || findDisallowedProductionImageInputs(normalizedReferences.urls, publicBaseUrl).length) {
+        return NextResponse.json({ error: "生产环境参考图必须使用已验证的媒体资产或站点素材" }, { status: 400 });
+      }
     }
     const referenceUrls = normalizedReferences.urls;
 
