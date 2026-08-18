@@ -49,6 +49,16 @@ const PRODUCTION_REQUIRED_ENV: EnvContractEntry[] = [
     category: "production-required",
     description: "Standard redis:// or rediss:// endpoint shared by BullMQ and distributed AI capacity protection.",
   },
+  {
+    name: "GENERATION_QUEUE_MODE",
+    category: "production-required",
+    description: "Durable generation queue mode. Production must use bullmq; legacy direct processing is not supported.",
+  },
+  {
+    name: "AI_ROUTER_CAPACITY_MODE",
+    category: "production-required",
+    description: "Distributed provider capacity mode. Production must use redis for multi-instance bulkhead enforcement.",
+  },
 ];
 
 // 模型/分析/存储供应商密钥已改为后台加密配置（lib/api/model-provider-secrets.ts），
@@ -183,6 +193,7 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "ALIYUN_OSS_MIRROR_MAX_ATTEMPTS", category: "optional", description: "Maximum durable OSS mirror attempts (1-16)." },
   { name: "ALIYUN_OSS_MIRROR_CONCURRENCY", category: "optional", description: "Per-process global mirror network concurrency (1-64)." },
   { name: "DOWNLOAD_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Extra hosts allowed by /api/download-image." },
+  { name: "REMOTE_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Explicit provider/reference hosts allowed by server-side remote image fetches." },
   { name: "API_PLATFORM_TEST_ALLOWED_HOSTS", category: "optional", description: "Allowlist for the API platform test proxy." },
   { name: "GENERATION_JOB_BATCH_SIZE", category: "optional", description: "Generation processor batch size." },
   { name: "GENERATION_JOB_STALE_MINUTES", category: "optional", description: "Generation job stale timeout." },
@@ -236,13 +247,19 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
   for (const entry of PRODUCTION_REQUIRED_ENV) {
     const value = process.env[entry.name]?.trim();
     const invalidRedisUrl = entry.name === "REDIS_URL" && Boolean(value) && !isStandardRedisUrl(value);
-    if (!value || invalidRedisUrl) {
+    const invalidGenerationQueueMode = entry.name === "GENERATION_QUEUE_MODE" && Boolean(value) && value.toLowerCase() !== "bullmq";
+    const invalidCapacityMode = entry.name === "AI_ROUTER_CAPACITY_MODE" && Boolean(value) && value.toLowerCase() !== "redis";
+    if (!value || invalidRedisUrl || invalidGenerationQueueMode || invalidCapacityMode) {
       issues.push({
         name: entry.name,
         category: entry.category,
         severity: isProduction ? "error" : "warning",
         message: invalidRedisUrl
           ? "REDIS_URL must be a valid redis:// or rediss:// endpoint."
+          : invalidGenerationQueueMode
+            ? "GENERATION_QUEUE_MODE must be bullmq in production."
+            : invalidCapacityMode
+              ? "AI_ROUTER_CAPACITY_MODE must be redis in production."
           : isProduction
             ? `${entry.name} is required in production.`
             : `${entry.name} is not set; this is required before production deploys.`,

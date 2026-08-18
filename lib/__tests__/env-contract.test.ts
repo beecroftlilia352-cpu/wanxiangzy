@@ -94,6 +94,24 @@ describe("environment contract", () => {
     ]));
   });
 
+  it("requires durable BullMQ and distributed Redis capacity modes in production", () => {
+    process.env.REDIS_URL = "redis://127.0.0.1:6379/15";
+    process.env.GENERATION_QUEUE_MODE = "direct";
+    process.env.AI_ROUTER_CAPACITY_MODE = "local";
+
+    expect(validateEnv({ nodeEnv: "production" })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "GENERATION_QUEUE_MODE", severity: "error", message: expect.stringContaining("bullmq") }),
+      expect.objectContaining({ name: "AI_ROUTER_CAPACITY_MODE", severity: "error", message: expect.stringContaining("redis") }),
+    ]));
+
+    process.env.GENERATION_QUEUE_MODE = "bullmq";
+    process.env.AI_ROUTER_CAPACITY_MODE = "redis";
+    expect(validateEnv({ nodeEnv: "production" })).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "GENERATION_QUEUE_MODE", severity: "error" }),
+      expect.objectContaining({ name: "AI_ROUTER_CAPACITY_MODE", severity: "error" }),
+    ]));
+  });
+
   it("prefers NEXT_PUBLIC_APP_URL for public base URLs", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com/path?ignored=1";
     process.env.NEXT_PUBLIC_SITE_URL = "https://site.example.com";
