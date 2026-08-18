@@ -89,6 +89,7 @@ export type AdminBillingConfigStatus = {
 
 export type AdminBillingOverview = {
   available: boolean;
+  summarySource: "rpc" | "sample";
   metrics: AdminMetric[];
   products: AdminBillingProduct[];
   prices: AdminBillingPrice[];

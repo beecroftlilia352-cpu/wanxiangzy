@@ -169,6 +169,15 @@ type AdminPeriodAggregate = {
   newUsers: number;
 };
 
+type AdminBillingSummary = {
+  activeProducts: number;
+  activePrices: number;
+  paidOrders: number;
+  netRevenue: number;
+  activeSubscriptions: number;
+  webhookIssues: number;
+};
+
 export type AdminTaskListItem = {
   id: string;
   sourceId: string;
@@ -1074,6 +1083,7 @@ export async function listAdminBillingOverview(): Promise<AdminBillingOverview> 
   const webhookEvents = (webhookEventsResult.data || [])
     .map(mapBillingWebhookEvent)
     .sort((a, b) => compareDateDesc(a.createdAt, b.createdAt));
+  const billingSummary = await loadAdminBillingSummary(warnings);
 
   const tableStatuses = [
     billingTableStatus(BILLING_PRODUCTS_TABLE, "Products table", productsResult),
@@ -1099,19 +1109,21 @@ export async function listAdminBillingOverview(): Promise<AdminBillingOverview> 
     const status = row.status.toLowerCase();
     return status === "failed" || status === "error" || status === "retrying";
   }).length;
-  const revenue = orders
+  const sampleRevenue = orders
     .filter((row) => ["paid", "succeeded", "complete", "completed"].includes(row.status.toLowerCase()))
     .reduce((sum, row) => sum + Math.max(0, row.amountTotal - row.refundedAmount), 0);
+  const summaryHint = billingSummary ? "PostgreSQL 全量汇总" : "最近加载样本";
 
   return {
     available,
+    summarySource: billingSummary ? "rpc" : "sample",
     metrics: [
-      { label: "Active products", value: products.filter((row) => row.active).length, hint: `${products.length} loaded`, tone: "neutral" },
-      { label: "Active prices", value: prices.filter((row) => row.active).length, hint: `${prices.length} loaded`, tone: "neutral" },
-      { label: "Sample revenue", value: toMajorCurrency(revenue), hint: "paid orders minus refunds", tone: revenue > 0 ? "good" : "neutral" },
-      { label: "Active subscriptions", value: activeSubscriptions, hint: `${subscriptions.length} loaded`, tone: activeSubscriptions > 0 ? "good" : "neutral" },
-      { label: "Webhook issues", value: failedWebhookEvents, hint: `${webhookEvents.length} events sampled`, tone: failedWebhookEvents > 0 ? "warning" : "good" },
-      { label: "Missing config", value: missingConfigCount, hint: "env vars and billing tables", tone: missingConfigCount > 0 ? "warning" : "good" },
+      { label: "启用商品", value: billingSummary?.activeProducts ?? products.filter((row) => row.active).length, hint: summaryHint, tone: "neutral" },
+      { label: "启用价格", value: billingSummary?.activePrices ?? prices.filter((row) => row.active).length, hint: summaryHint, tone: "neutral" },
+      { label: "净收入", value: toMajorCurrency(billingSummary?.netRevenue ?? sampleRevenue), hint: `${summaryHint} · 已支付订单减退款`, tone: (billingSummary?.netRevenue ?? sampleRevenue) > 0 ? "good" : "neutral" },
+      { label: "活跃订阅", value: billingSummary?.activeSubscriptions ?? activeSubscriptions, hint: summaryHint, tone: (billingSummary?.activeSubscriptions ?? activeSubscriptions) > 0 ? "good" : "neutral" },
+      { label: "Webhook 异常", value: billingSummary?.webhookIssues ?? failedWebhookEvents, hint: summaryHint, tone: (billingSummary?.webhookIssues ?? failedWebhookEvents) > 0 ? "warning" : "good" },
+      { label: "缺失配置", value: missingConfigCount, hint: "环境变量和 Billing 表", tone: missingConfigCount > 0 ? "warning" : "good" },
     ],
     products,
     prices,
@@ -2379,6 +2391,36 @@ async function loadAdminPeriodAggregate(sinceIso: string, warnings: string[]): P
     };
   } catch (error) {
     warnings.push(`运营指标聚合失败：${toMessage(error)}`);
+    return null;
+  }
+}
+
+async function loadAdminBillingSummary(warnings: string[]): Promise<AdminBillingSummary | null> {
+  try {
+    const response = await withTimeout(
+      getAdminClient().rpc("get_admin_billing_summary"),
+      SHORT_QUERY_TIMEOUT_MS,
+      "admin billing summary timeout",
+    ) as { data?: unknown; error?: { message?: string } | null };
+    if (response.error) {
+      const message = response.error.message || "billing summary RPC unavailable";
+      warnings.push(message.toLowerCase().includes("does not exist") || message.toLowerCase().includes("could not find function")
+        ? "Billing 全量汇总 RPC 尚未部署，当前使用样本回退"
+        : `Billing 全量汇总失败：${message}`);
+      return null;
+    }
+    const row = Array.isArray(response.data) ? response.data[0] : response.data;
+    if (!isRecord(row)) return null;
+    return {
+      activeProducts: numberValue(row.active_products),
+      activePrices: numberValue(row.active_prices),
+      paidOrders: numberValue(row.paid_orders),
+      netRevenue: numberValue(row.net_revenue),
+      activeSubscriptions: numberValue(row.active_subscriptions),
+      webhookIssues: numberValue(row.webhook_issues),
+    };
+  } catch (error) {
+    warnings.push(`Billing 全量汇总失败：${toMessage(error)}`);
     return null;
   }
 }

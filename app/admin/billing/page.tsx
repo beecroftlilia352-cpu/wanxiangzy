@@ -49,6 +49,9 @@ export default async function AdminBillingPage() {
       {billing.warnings.length > 0 && (
         <AdminNotice tone="info">Billing 数据源提示：{billing.warnings.slice(0, 4).join("；")}</AdminNotice>
       )}
+      {billing.summarySource === "sample" && (
+        <AdminNotice tone="warning">当前账单经营指标使用最近加载样本，不能作为全量收入或履约报表。请先执行 Billing 汇总迁移。</AdminNotice>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {billing.metrics.map((metric) => (
@@ -298,6 +301,6 @@ function formatPriceCadence(row: AdminBillingPrice) {
 }
 
 function formatMetricValue(label: string, value: number) {
-  if (label === "Sample revenue") return formatNumber(Math.round(value * 100) / 100);
+  if (label === "净收入") return formatNumber(Math.round(value * 100) / 100);
   return formatNumber(value);
 }

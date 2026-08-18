@@ -585,6 +585,8 @@ const required = [
   "record_ai_provider_outcome",
   "admin_ai_provider_metrics",
   "publish_worker_runtime_config",
+  "get_admin_dashboard_period",
+  "get_admin_billing_summary",
   "claim_generation_job",
   "heartbeat_generation_job",
   "defer_generation_for_ai_capacity",

@@ -35,9 +35,11 @@
    supabase/migrations/20260818093405_commercial_media_asset_registry.sql
    supabase/migrations/20260818103000_ai_control_plane_runtime.sql
    supabase/migrations/20260818110000_worker_runtime_control.sql
+   supabase/migrations/20260819101500_admin_dashboard_period_aggregate.sql
+   supabase/migrations/20260819112000_admin_billing_summary.sql
    ```
 
-   前四个时间戳迁移是 clean-slate 破坏性迁移：先备份，在停写维护窗口严格顺序执行，随后只允许向前修复。统一模型和 Worker 控制面迁移是非破坏性的，必须在发布前紧随其后执行。部署会精确校验 runtime contract 和所需 RPC，旧签名同名 RPC 不能通过。
+   前四个时间戳迁移是 clean-slate 破坏性迁移：先备份，在停写维护窗口严格顺序执行，随后只允许向前修复。统一模型、Worker 控制面和后台经营指标聚合迁移是非破坏性的，必须在发布前紧随其后执行。部署会精确校验 runtime contract 和所需 RPC，旧签名同名 RPC 不能通过。
 
 4. 检查生产环境变量。EC2 上的文件位于 `AWS_APP_DIR`（未配置时默认 `~/apps/wanxiangzy`）下：
 
