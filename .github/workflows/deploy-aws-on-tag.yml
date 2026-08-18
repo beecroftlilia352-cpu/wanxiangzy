@@ -267,7 +267,7 @@ jobs:
           set -euo pipefail
 
           if [[ ! "${REDIS_URL:-}" =~ ^rediss?:// ]]; then
-            echo "::error::Production requires GENERATION_QUEUE_MODE=bullmq and a valid REDIS_URL secret"
+            echo "::error::Production requires GENERATION_QUEUE_MODE=bullmq, AI_ROUTER_CAPACITY_MODE=redis, and a valid REDIS_URL secret"
             exit 1
           fi
 
@@ -349,6 +349,7 @@ jobs:
            set_env_var PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED"
            set_env_var REDIS_URL "$REDIS_URL"
            set_env_var GENERATION_QUEUE_MODE bullmq
+           set_env_var AI_ROUTER_CAPACITY_MODE redis
            echo "Updated product-retouch rollout flag in $ENV_FILE"
           REMOTE
 

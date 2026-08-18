@@ -762,7 +762,8 @@ PM2_WORKER_INSTANCES="$(node --env-file=.env.production -e 'process.stdout.write
 # Validate only structure and presence; never print the credential-bearing URL.
 if ! node --env-file=.env.production - <<'NODE'
 const mode = (process.env.GENERATION_QUEUE_MODE || "bullmq").trim().toLowerCase();
-if (mode !== "bullmq") process.exit(1);
+const capacityMode = (process.env.AI_ROUTER_CAPACITY_MODE || "").trim().toLowerCase();
+if (mode !== "bullmq" || capacityMode !== "redis") process.exit(1);
 try {
   const url = new URL(process.env.REDIS_URL || "");
   if (!["redis:", "rediss:"].includes(url.protocol) || !url.hostname) process.exit(1);
@@ -771,7 +772,7 @@ try {
 }
 NODE
 then
-  echo "Production queue configuration invalid: require GENERATION_QUEUE_MODE=bullmq and a valid REDIS_URL" >&2
+  echo "Production queue configuration invalid: require GENERATION_QUEUE_MODE=bullmq, AI_ROUTER_CAPACITY_MODE=redis, and a valid REDIS_URL" >&2
   exit 1
 fi
 
