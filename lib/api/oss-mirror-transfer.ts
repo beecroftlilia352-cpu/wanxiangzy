@@ -37,6 +37,8 @@ type MirrorTransferRow = {
   content_length: number | string | null;
   content_type: string | null;
   last_error: string | null;
+  resolver_hits: number;
+  last_resolved_at: string | null;
 };
 
 type MirrorResult = {
@@ -214,7 +216,7 @@ export async function resolveOssMirrorSource(
   const { data, error } = await admin
     .from(MIRROR_TABLE)
     .select(
-      "object_key,source_url_ciphertext,source_url_sha256,source_host,status,expires_at,expected_content_length,expected_content_type",
+      "id,object_key,source_url_ciphertext,source_url_sha256,source_host,status,expires_at,expected_content_length,expected_content_type",
     )
     .eq("object_key", objectKey)
     .in("status", ["pending", "processing"])
@@ -238,6 +240,12 @@ export async function resolveOssMirrorSource(
     || inspected.contentType !== data.expected_content_type
   ) {
     throw terminalError("OSS mirror source changed after registration");
+  }
+  const { error: auditError } = await admin.rpc("record_oss_mirror_resolution", {
+    p_id: data.id,
+  });
+  if (auditError) {
+    console.warn(`[oss-mirror] resolver audit failed: ${auditError.message}`);
   }
   return source.toString();
 }

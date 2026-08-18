@@ -41,6 +41,7 @@ RoutingRule；带签名的缺失对象请求会直接返回 `NoSuchKey`。目标
    ```text
    supabase/migrations/20260818025519_oss_mirror_transfers.sql
    supabase/migrations/20260818032422_harden_oss_mirror_transfers.sql
+   supabase/migrations/20260818054500_track_oss_mirror_resolutions.sql
    ```
 
 2. 在 GitHub Actions 配置生产参数；发布工作流会以 `0600` 权限同步到 EC2 的

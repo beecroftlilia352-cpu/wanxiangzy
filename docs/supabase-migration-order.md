@@ -185,16 +185,18 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/ai-routing-queue-backpres
 
 ## OSS mirror cloud-pull
 
-生产启用 OSS 云侧直拉前，按时间顺序应用以下两条迁移；第二条禁止明文 Provider
-URL、增加幂等登记和多 worker 租约 RPC，不能省略：
+生产启用 OSS 云侧直拉前，按时间顺序应用以下迁移；加固迁移禁止明文 Provider
+URL、增加幂等登记和多 worker 租约 RPC，后续迁移增加解析链路审计，不能省略：
 
 ```text
 supabase/migrations/20260818025519_oss_mirror_transfers.sql
 supabase/migrations/20260818032422_harden_oss_mirror_transfers.sql
+supabase/migrations/20260818054500_track_oss_mirror_resolutions.sql
 ```
 
 应用后验证 `public.oss_mirror_transfers` 存在，且下列 RPC 均只授权给
 `service_role`：`register_oss_mirror_transfer`、`claim_oss_mirror_transfer`、
 `claim_oss_mirror_transfers`、`complete_oss_mirror_transfer`、
 `defer_oss_mirror_transfer`、`expire_oss_mirror_transfers`、
-`cleanup_oss_mirror_transfers`。完整启用顺序见 `docs/oss-mirror-cloud-pull.md`。
+`cleanup_oss_mirror_transfers`、`record_oss_mirror_resolution`。完整启用顺序见
+`docs/oss-mirror-cloud-pull.md`。
