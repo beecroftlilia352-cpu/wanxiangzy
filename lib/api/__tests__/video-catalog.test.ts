@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateVideoCreditCost,
   clampVideoDuration,
   getVideoCreditCost,
   getVideoDurationOptions,
@@ -42,5 +43,14 @@ describe("video catalog", () => {
   it("enables reference-video motion control for Seedance only", () => {
     expect(supportsVideoMotionControl("minimax")).toBe(false);
     expect(supportsVideoMotionControl("seedance")).toBe(true);
+  });
+
+  it("calculates configurable rates with the same duration and batch rules", () => {
+    expect(calculateVideoCreditCost({
+      provider: "seedance",
+      price: { minimum: 28, perSecond: 7 },
+      duration: 5,
+      genCount: 2,
+    })).toBe(112);
   });
 });

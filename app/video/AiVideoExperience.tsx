@@ -61,12 +61,12 @@ import {
   type AiVideoResolution,
 } from "@/lib/ai-video";
 import {
+  calculateVideoCreditCost,
   getVideoCreditCost,
   getVideoDefaultMode,
   getVideoDefaultResolution,
   getVideoDurationOptions,
   getVideoModes,
-  getVideoPerVideoCreditCost,
   getVideoResolutions,
   resolveVideoSelection,
   type VideoProviderName,
@@ -93,6 +93,7 @@ const VIDEO_GENERATION_POLL_SLOW_MS = 7 * 1000;
 type VideoImagePayload = Extract<HistoryJobPayload, { kind: "videoImageToVideo" }>;
 type VideoMotionPayload = Extract<HistoryJobPayload, { kind: "videoMotion" }>;
 type VideoFirstLastPayload = Extract<HistoryJobPayload, { kind: "videoFirstLastFrame" }>;
+type VideoPricingMap = Partial<Record<VideoProviderName, Record<string, { minimum: number; perSecond: number }>>>;
 
 type AiVideoExperienceProps = {
   mode: AiVideoMode;
@@ -132,12 +133,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         const res = await fetch("/api/video/options", { cache: "no-store" });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        const providers = Array.isArray(data?.providers)
-          ? (data.providers as Array<{ provider: VideoProviderName }>).map((item) => item.provider).filter((item) => item === "minimax" || item === "seedance")
+        const providerEntries = Array.isArray(data?.providers)
+          ? (data.providers as Array<{ provider: VideoProviderName; pricingByMode?: Record<string, { minimum: number; perSecond: number }> }>)
           : [];
+        const providers = providerEntries.map((item) => item.provider).filter((item) => item === "minimax" || item === "seedance");
         if (providers.length) {
           setAvailableProviders(providers);
           setVideoProvider((current) => current && providers.includes(current) ? current : providers[0]);
+          setVideoPricing(Object.fromEntries(providerEntries.map((item) => [item.provider, item.pricingByMode || {}])) as VideoPricingMap);
         }
       } catch {
         // keep defaults when options are unavailable
@@ -160,6 +163,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [resolution, setResolution] = useState<AiVideoResolution>("720p");
   const [videoProvider, setVideoProvider] = useState<VideoProviderName | null>(null);
   const [availableProviders, setAvailableProviders] = useState<VideoProviderName[]>([]);
+  const [videoPricing, setVideoPricing] = useState<VideoPricingMap>({});
   const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("auto");
   const [duration, setDuration] = useState<AiVideoDuration>(AI_VIDEO_DEFAULT_DURATION);
   const [audioMode, setAudioMode] = useState<AiVideoAudioMode>(AI_VIDEO_DEFAULT_AUDIO_MODE);
@@ -205,14 +209,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     : normalizeAiVideoFixedAspectRatio(aspectRatio);
   const aspectRatioSummary = aspectRatio === "auto" ? `${t("aspectAuto")}(${effectiveAspectRatio})` : effectiveAspectRatio;
   const resolutionOptions = useMemo(
-    () => getVideoResolutions(providerKey, effectiveModelMode).map((item) => ({
-      value: item.value,
-      label: item.label,
-      description: item.description,
-    })),
-    [providerKey, effectiveModelMode]
+    () => getVideoResolutions(providerKey, effectiveModelMode).map((item) => {
+      const price = videoPricing[providerKey]?.[`${effectiveModelMode}:${item.value}`];
+      return {
+        value: item.value,
+        label: item.label,
+        description: price ? `${item.label} · ${price.perSecond} 灵点/秒` : item.description,
+      };
+    }),
+    [providerKey, effectiveModelMode, videoPricing]
   );
-  const cost = getVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, genCount, audioMode });
+  const cost = getDisplayedVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, genCount, audioMode }, videoPricing);
   const inputThumbnails = isFirstLastFrame
     ? [firstFrameUrl, lastFrameUrl].filter(Boolean)
     : isMotion
@@ -292,7 +299,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     })),
     [providerKey, isFirstLastFrame]
   );
-  const perVideoCost = getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, audioMode });
+  const perVideoCost = getDisplayedVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, audioMode }, videoPricing);
 
   useEffect(() => {
     if (!videoProvider) return;
@@ -1157,7 +1164,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             options={getVideoDurationOptions(providerKey).map((value) => ({
               value: String(value),
               label: t("durationValue", { seconds: value }),
-              description: t("durationDesc", { cost: getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration: value, audioMode }) }),
+              description: t("durationDesc", { cost: getDisplayedVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration: value, audioMode }, videoPricing) }),
             }))}
             value={String(duration)}
             onChange={(value) => setDuration(normalizeAiVideoDuration(value))}
@@ -1650,6 +1657,23 @@ function MotionControlCanvas() {
       />
     </div>
   );
+}
+
+function getDisplayedVideoCreditCost(
+  input: {
+    provider: VideoProviderName;
+    modelMode: AiVideoModelMode;
+    resolution: AiVideoResolution;
+    duration?: AiVideoDuration | number;
+    genCount?: number;
+    audioMode?: AiVideoAudioMode;
+  },
+  pricing: VideoPricingMap,
+) {
+  const selection = resolveVideoSelection(input.provider, input.modelMode, input.resolution);
+  const configured = pricing[input.provider]?.[`${selection.mode}:${selection.resolution}`];
+  if (!configured) return getVideoCreditCost(input);
+  return calculateVideoCreditCost({ provider: input.provider, price: configured, duration: input.duration, genCount: input.genCount, audioMode: input.audioMode });
 }
 
 function sleep(ms: number) {

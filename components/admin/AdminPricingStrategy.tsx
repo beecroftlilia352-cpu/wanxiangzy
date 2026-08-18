@@ -114,7 +114,7 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
         <AdminMetricCard label="有效售卖价格" value={activePrices.length} hint="已启用的 Stripe / 钱包价格" icon={<BadgeDollarSign className="h-4 w-4" />} tone={activePrices.length ? "good" : "warning"} />
         <AdminMetricCard label="一次性套餐" value={activeWalletPrices.length} hint="可用于即时充值的售卖 SKU" icon={<CircleDollarSign className="h-4 w-4" />} />
         <AdminMetricCard label="平均每 100 灵点" value={averageYuanPer100 == null ? "-" : `¥${averageYuanPer100.toFixed(2)}`} hint="按当前一次性有效套餐加权前均值" icon={<SlidersHorizontal className="h-4 w-4" />} />
-        <AdminMetricCard label="可见模型扣点" value={models.filter((model) => model.enabled && model.userVisible).length} hint="用户可见且已启用的模型" icon={<Sparkles className="h-4 w-4" />} tone={models.length ? "good" : "warning"} />
+        <AdminMetricCard label="可配置模型扣点" value={models.filter((model) => model.enabled && (model.userVisible || model.modality === "video")).length} hint="图片可见模型与视频服务模型" icon={<Sparkles className="h-4 w-4" />} tone={models.length ? "good" : "warning"} />
       </div>
 
       <AdminNotice tone="info">
@@ -131,8 +131,10 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
               {products.map((product) => {
                 const productPrices = prices.filter((price) => price.stripeProductId === product.stripeProductId || price.productName === product.name);
                 const price = productPrices.find((item) => item.active && item.recurringInterval !== "month") || productPrices[0];
-                const granted = price?.credits || 0;
-                const bonus = Math.max(0, granted - Number((product.metadata?.credit_amount as number) || 0));
+                const granted = price?.credits || product.creditAmount + product.bonusCredits;
+                const bonus = product.bonusCredits > 0
+                  ? product.bonusCredits
+                  : Math.max(0, granted - product.creditAmount);
                 return <tr key={product.id} className="border-b border-[var(--admin-border)] last:border-0 hover:bg-[var(--admin-surface-soft)]">
                   <td className="px-4 py-3"><p className="font-black text-[var(--admin-fg)]">{product.name}</p><p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{product.description || "未填写套餐说明"}</p></td>
                   <td className="px-4 py-3 font-mono font-black text-[var(--admin-fg)]">{price ? formatMoney(price.unitAmount, price.currency) : "未定价"}</td>
@@ -156,8 +158,8 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
         actions={<><button type="button" onClick={() => void load()} disabled={loading || saving} className={secondaryButton}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />刷新</button><button type="button" onClick={() => void saveModelCredits("save-draft")} disabled={loading || saving} className={secondaryButton}><Save className="h-4 w-4" />保存草稿</button><button type="button" onClick={() => void saveModelCredits("publish")} disabled={loading || saving} className={primaryButton}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}发布扣点</button></>}
       >
         {loading ? <div className="flex h-36 items-center justify-center text-sm font-bold text-[var(--admin-muted)]"><Loader2 className="mr-2 h-4 w-4 animate-spin" />加载定价策略…</div> : <div className="divide-y divide-[var(--admin-border)]">
-          {models.filter((model) => model.userVisible).map((model) => <ModelCreditRow key={model.id} model={model} onChange={setCreditPrice} />)}
-          {!models.filter((model) => model.userVisible).length && <p className="px-4 py-12 text-center text-sm font-bold text-[var(--admin-muted)]">没有可配置的用户可见模型。</p>}
+          {models.filter((model) => model.userVisible || model.modality === "video").map((model) => <ModelCreditRow key={model.id} model={model} onChange={setCreditPrice} />)}
+          {!models.filter((model) => model.userVisible || model.modality === "video").length && <p className="px-4 py-12 text-center text-sm font-bold text-[var(--admin-muted)]">没有可配置的用户可见模型或视频服务。</p>}
         </div>}
       </AdminSection>
     </div>
@@ -165,7 +167,10 @@ export function AdminPricingStrategy({ products, prices }: { products: AdminBill
 }
 
 function ModelCreditRow({ model, onChange }: { model: EditableModel; onChange: (modelId: string, dimension: string, value: string) => void }) {
-  const dimensions = Object.keys(model.creditPrices).length ? Object.keys(model.creditPrices) : defaultDimensions(model.modality);
+  const fallbackDimensions = defaultDimensions(model.modality, model.id);
+  const dimensions = model.modality === "video"
+    ? Array.from(new Set([...fallbackDimensions, ...Object.keys(model.creditPrices)]))
+    : Object.keys(model.creditPrices).length ? Object.keys(model.creditPrices) : fallbackDimensions;
   return <div className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(190px,1fr)_minmax(0,2fr)_auto] lg:items-center">
     <div><div className="flex items-center gap-2"><p className="font-black text-[var(--admin-fg)]">{model.displayName}</p><AdminStatusBadge status={model.enabled ? "active" : "inactive"} /></div><p className="mt-1 font-mono text-xs text-[var(--admin-faint)]">{model.id} · {model.modality}</p></div>
     <div className="grid gap-2 sm:grid-cols-3">{dimensions.map((dimension) => <label key={dimension} className="grid grid-cols-[1fr_86px] items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-2 py-1.5"><span className="truncate text-xs font-black text-[var(--admin-muted)]">{dimension}</span><input aria-label={`${model.displayName} ${dimension} 扣点`} type="number" min="0" step="1" value={model.creditPrices[dimension] ?? 0} onChange={(event) => onChange(model.id, dimension, event.target.value)} className="h-8 min-w-0 rounded border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-right font-mono text-sm font-black text-[var(--admin-fg)] outline-none focus:ring-2 focus:ring-[var(--admin-focus-ring)]" /></label>)}</div>
@@ -173,7 +178,16 @@ function ModelCreditRow({ model, onChange }: { model: EditableModel; onChange: (
   </div>;
 }
 
-function defaultDimensions(modality: string) { return modality === "image" ? ["1K", "2K", "4K"] : ["每次"]; }
+function defaultDimensions(modality: string, modelId?: string) {
+  if (modality === "image") return ["1K", "2K", "4K"];
+  if (modality === "video") {
+    const combinations = modelId === "video-seedance"
+      ? ["mini:720p", "fast:480p", "fast:720p", "pro:720p", "pro:1080p"]
+      : ["pro:768p", "pro:2k"];
+    return combinations.flatMap((combination) => [`${combination}:minimum`, `${combination}:perSecond`]);
+  }
+  return ["每次"];
+}
 function formatMoney(amount: number, currency: string) { return new Intl.NumberFormat("zh-CN", { style: "currency", currency: (currency || "CNY").toUpperCase(), maximumFractionDigits: 2 }).format(amount / 100); }
 const secondaryButton = "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] transition-colors hover:bg-[var(--admin-surface-soft)] disabled:cursor-not-allowed disabled:opacity-50";
 const primaryButton = "inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--admin-fg)] px-3 text-xs font-black text-[var(--admin-surface)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";

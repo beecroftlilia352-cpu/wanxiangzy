@@ -252,10 +252,19 @@ export function getVideoCreditCost(params: {
   const { provider, genCount = 1, audioMode } = params;
   const selection = resolveVideoSelection(provider, params.modelMode, params.resolution);
   const price = getVideoModelPrice(provider, selection.mode, selection.resolution);
-  const duration = clampVideoDuration(provider, params.duration);
-  const perVideoCost = Math.max(price.minimum, Math.ceil(duration * price.perSecond));
-  const audioCost = getVideoAudioCreditCost(audioMode);
-  return (perVideoCost + audioCost) * Math.max(1, Math.round(genCount));
+  return calculateVideoCreditCost({ provider, price, duration: params.duration, genCount, audioMode });
+}
+
+export function calculateVideoCreditCost(params: {
+  provider: VideoProviderName;
+  price: VideoModelPrice;
+  duration?: AiVideoDuration | number;
+  genCount?: number;
+  audioMode?: AiVideoAudioMode;
+}): number {
+  const duration = clampVideoDuration(params.provider, params.duration);
+  const perVideoCost = Math.max(params.price.minimum, Math.ceil(duration * params.price.perSecond));
+  return (perVideoCost + getVideoAudioCreditCost(params.audioMode)) * Math.max(1, Math.round(params.genCount || 1));
 }
 
 export function getVideoPerVideoCreditCost(params: {
