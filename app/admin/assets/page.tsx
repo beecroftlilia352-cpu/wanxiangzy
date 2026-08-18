@@ -16,7 +16,7 @@ export default async function AdminAssetsPage({ searchParams }: PageProps) {
   const moduleFilter = getSearchParam(params.module);
   const assets = await listAdminAssets({ q, module: moduleFilter, limit: q || moduleFilter ? 60 : 40 });
 
-  return <AdminAssetsClient assets={assets} q={q} module={moduleFilter} canManage={hasAdminPermission(admin.role, "assets:write")} />;
+  return <AdminAssetsClient assets={assets} q={q} module={moduleFilter} canModerate={hasAdminPermission(admin.role, "moderation:write")} />;
 }
 
 function getSearchParam(value: string | string[] | undefined) {

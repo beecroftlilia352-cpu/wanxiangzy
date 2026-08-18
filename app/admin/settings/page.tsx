@@ -25,6 +25,7 @@ const CONFIG_KEY_LABELS: Record<string, string> = {
   "features.flags": "功能开关",
   "rate_limit.config": "访问限流",
 };
+const RETIRED_CONFIG_KEYS = new Set(["model.routing"]);
 
 function configKeyLabel(value: string) {
   return CONFIG_KEY_LABELS[value] || value;
@@ -91,7 +92,7 @@ export default async function AdminSettingsPage() {
             { key: "value", label: "内容摘要", render: (row) => <code className="line-clamp-1 max-w-[360px] text-xs text-[var(--admin-fg)]">{JSON.stringify(row.value).slice(0, 120)}</code> },
             { key: "published", label: "发布时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.publishedAt)}</span> },
             { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
-            { key: "actions", label: "操作", render: (row) => canManage ? <AdminConfigActions id={row.id} status={row.status} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">只读</span> },
+            { key: "actions", label: "操作", render: (row) => canManage && !RETIRED_CONFIG_KEYS.has(row.configKey) ? <AdminConfigActions id={row.id} status={row.status} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">{RETIRED_CONFIG_KEYS.has(row.configKey) ? "历史只读" : "只读"}</span> },
           ]}
         />
       </AdminSection>

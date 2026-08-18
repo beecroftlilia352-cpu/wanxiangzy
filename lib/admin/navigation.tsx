@@ -61,7 +61,7 @@ export const ADMIN_NAVIGATION: AdminNavigationGroup[] = [
     label: "内容与风控",
     children: [
       { href: "/admin/assets", label: "资产库", description: "素材、结果与存储治理", icon: <Images aria-hidden="true" />, permission: "assets:read" },
-      { href: "/admin/moderation", label: "内容审核", description: "下架、复核与证据记录", icon: <ShieldCheck aria-hidden="true" />, permission: "moderation:read" },
+      { href: "/admin/moderation", label: "审核记录", description: "处理历史、原因与证据链", icon: <ShieldCheck aria-hidden="true" />, permission: "moderation:read" },
       { href: "/admin/showcase", label: "展示内容", description: "前台示例与运营精选", icon: <LibraryBig aria-hidden="true" />, permission: "assets:read" },
     ],
   },

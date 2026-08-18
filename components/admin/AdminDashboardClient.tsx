@@ -30,6 +30,7 @@ import { AdminDailyTrendChart } from "@/components/admin/AdminDailyTrendChart";
 import { AdminModuleBarChart } from "@/components/admin/AdminModuleBarChart";
 import { AdminOpsAlerts } from "@/components/admin/AdminOpsAlerts";
 import type { AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
+import { failureRateToPercent } from "@/lib/admin/metrics";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
 type AdminDashboardClientProps = {
@@ -63,6 +64,7 @@ const exceptionSurfaceHover: Record<ExceptionEntry["tone"], string> = {
 export function AdminDashboardClient({ overview, days, fetchError }: AdminDashboardClientProps) {
   const deltas = useMemo(() => computeKpiDeltas(overview.dailyStats), [overview.dailyStats]);
   const failureRate = overview.generationHealth.failureRate;
+  const failureRatePercent = failureRateToPercent(failureRate);
 
   const exceptionEntries: ExceptionEntry[] = [
     {
@@ -181,17 +183,17 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
         />
         <AdminMetricCard
           label="成功率"
-          value={formatNumberPrimitive(100 - failureRate)}
+          value={formatNumberPrimitive(100 - failureRatePercent)}
           suffix="%"
-          tone={failureRate > 20 ? "danger" : "good"}
+          tone={failureRatePercent > 20 ? "danger" : failureRatePercent > 8 ? "warning" : "good"}
           icon={<ShieldCheck aria-hidden="true" className="h-4 w-4" />}
           delta={deltas.successRate}
         />
         <AdminMetricCard
           label="失败率"
-          value={formatNumberPrimitive(failureRate)}
+          value={formatNumberPrimitive(failureRatePercent)}
           suffix="%"
-          tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"}
+          tone={failureRatePercent > 15 ? "danger" : failureRatePercent > 5 ? "warning" : "good"}
           icon={<AlertTriangle aria-hidden="true" className="h-4 w-4" />}
           delta={deltas.failureRate}
         />

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeDollarSign, CheckCircle2, CircleDollarSign, Loader2, RefreshCw, Save, SlidersHorizontal, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { AdminMetricCard, AdminNotice, AdminSection, AdminStatusBadge } from "@/components/admin/AdminPrimitives";
 import type { AdminBillingPrice, AdminBillingProduct } from "@/lib/admin/billing";
 
@@ -24,6 +25,7 @@ type EditableModel = NonNullable<NonNullable<ControlPlaneSnapshot["config"]>["mo
 
 export function AdminPricingStrategy({ products, prices, canManage = false }: { products: AdminBillingProduct[]; prices: AdminBillingPrice[]; canManage?: boolean }) {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [snapshot, setSnapshot] = useState<ControlPlaneSnapshot | null>(null);
   const [models, setModels] = useState<EditableModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,6 @@ export function AdminPricingStrategy({ products, prices, canManage = false }: { 
 
   async function retirePrice(price: AdminBillingPrice) {
     if (!canManage) return;
-    if (!window.confirm(`停用 ${price.nickname || price.id}？已创建的订单不受影响，新的结账将不再展示该价格。`)) return;
     try {
       const response = await fetch(`/api/admin/billing/prices/${encodeURIComponent(price.id)}`, {
         method: "PATCH",
@@ -111,6 +112,7 @@ export function AdminPricingStrategy({ products, prices, canManage = false }: { 
   }
 
   return (
+    <>
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <AdminMetricCard label="有效售卖价格" value={activePrices.length} hint="已启用的 Stripe / 钱包价格" icon={<BadgeDollarSign className="h-4 w-4" />} tone={activePrices.length ? "good" : "warning"} />
@@ -145,7 +147,7 @@ export function AdminPricingStrategy({ products, prices, canManage = false }: { 
                   <td className="px-4 py-3 font-mono font-bold text-[var(--admin-fg)]">{price && granted ? `¥${(price.unitAmount / granted).toFixed(2)}` : "-"}</td>
                   <td className="px-4 py-3 text-xs font-bold text-[var(--admin-muted)]">{price?.recurringInterval === "month" ? "月订阅" : "一次性"}</td>
                   <td className="px-4 py-3"><AdminStatusBadge status={product.active && price?.active ? "active" : "inactive"} /></td>
-                  <td className="px-4 py-3">{canManage && price?.active ? <button type="button" onClick={() => void retirePrice(price)} className="text-xs font-black text-[var(--admin-danger)] hover:underline">停用价格</button> : <span className="text-xs font-bold text-[var(--admin-faint)]">{canManage ? "-" : "只读"}</span>}</td>
+                  <td className="px-4 py-3">{canManage && price?.active ? <button type="button" onClick={() => confirm({ title: "停用价格", content: `停用 ${price.nickname || price.id}？已创建的订单不受影响，新的结账将不再展示该价格。`, okText: "确认停用", onOk: () => retirePrice(price) })} className="text-xs font-black text-[var(--admin-danger)] hover:underline">停用价格</button> : <span className="text-xs font-bold text-[var(--admin-faint)]">{canManage ? "-" : "只读"}</span>}</td>
                 </tr>;
               })}
               {!products.length && <tr><td colSpan={8} className="px-4 py-12 text-center text-sm font-bold text-[var(--admin-muted)]">尚无售卖套餐。先在下方创建商品和价格，再同步 Stripe。</td></tr>}
@@ -166,6 +168,8 @@ export function AdminPricingStrategy({ products, prices, canManage = false }: { 
         </div>}
       </AdminSection>
     </div>
+    {confirmDialog}
+    </>
   );
 }
 

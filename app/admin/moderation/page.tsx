@@ -1,4 +1,5 @@
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, Search } from "lucide-react";
 import {
   AdminNotice,
   AdminPageHeader,
@@ -27,9 +28,15 @@ export default async function AdminModerationPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="内容审核"
-        title="内容审核"
-        description="集中查看素材、结果图和运营处理记录。下架类动作保留证据包和审计日志，避免直接物理删除。"
+        eyebrow="内容审核 · 记录"
+        title="审核记录"
+        description="集中查看素材、结果图和运营处理记录。需要处理具体资产时，请进入资产库；下架动作保留证据包和审计日志。"
+        actions={
+          <Link href="/admin/assets" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)]">
+            进入资产库处理
+            <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+          </Link>
+        }
       />
 
       {!cases.available && (
