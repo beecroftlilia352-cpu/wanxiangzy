@@ -1,7 +1,7 @@
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   MODEL_AGE_TEXTURE_RULE,
@@ -17,7 +17,6 @@ import {
 } from "@/lib/model-prompt";
 import { applyModelShootStylePrompt, buildModelShootStylePrompt, getModelShootStyleLabel, normalizeModelShootStyle } from "@/lib/module-style-presets";
 
-const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 const MODEL_QUALITY = getModelQualityPrompt();
 
 export async function POST(request: NextRequest) {
@@ -27,9 +26,6 @@ export async function POST(request: NextRequest) {
 
     const limit = await checkRateLimit(`model-analyze:${auth.user.id}`, 20, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
-
-    const llm = await getLlmConfig("vision");
-    if (!llm.apiKey || !llm.baseUrl) return NextResponse.json({ prompt: "" });
 
     const {
       reference_urls,
@@ -90,14 +86,10 @@ ${roleLines}${hairReferenceLine}${hairColorReferenceLine}
 ${stylePrompt}
 ${prompt ? `\n用户当前提示词（仅供参考，不要照抄）：\n${prompt}` : ""}`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetchLlmChat("vision", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: llm.model,
+    const completion = await executeLlmChatRouted({
+      kind: "vision",
+      context: { userId: auth.user.id },
+      body: {
         messages: [{
           role: "user",
           content: [
@@ -108,11 +100,9 @@ ${prompt ? `\n用户当前提示词（仅供参考，不要照抄）：\n${promp
           ],
         }],
         max_tokens: 850,
-      }),
-    }).finally(() => clearTimeout(timeout));
-
-    if (!res.ok) return NextResponse.json({ prompt: "" });
-    const data = await res.json();
+      },
+    });
+    const data = completion.data as { choices?: Array<{ message?: { content?: string } }> };
     const analyzedPrompt = data.choices?.[0]?.message?.content?.trim() || "";
 
     return NextResponse.json({

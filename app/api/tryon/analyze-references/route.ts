@@ -1,14 +1,12 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import {
-  TryOnVisionProviderError,
-  buildTryOnReferenceVisionProviderConfigs,
   getTryOnVisionFallbackReasonText,
   toTryOnVisionFallbackReason,
   type TryOnVisionFallbackReason,
-  type TryOnVisionProviderConfig,
 } from "@/lib/api/tryon-vision-provider";
 import {
   alignTryOnReferenceAnalyses,
@@ -18,16 +16,13 @@ import {
 import { normalizeTryOnAgeGroup, normalizeTryOnGarmentAudience } from "@/lib/tryon-prompt";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 
-const DEFAULT_MODEL = "gpt-5-nano";
-const DEFAULT_BASE_URL = "https://yunwu.ai/v1";
-const DEFAULT_TIMEOUT_MS = 12_000;
 const MAX_REFERENCE_IMAGES = 8;
 const REFERENCE_ANALYSIS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const REFERENCE_ANALYSIS_CACHE_MAX_ENTRIES = 300;
 const REFERENCE_ANALYSIS_CACHE_MIN_CONFIDENCE = 0.5;
 
 type ReferenceAnalysisResult = {
-  source: "yunwu" | "fallback";
+  source: "ai" | "fallback";
   analyses: TryOnReferenceAnalysis[];
   rawResponse: unknown;
   fallbackReason: TryOnVisionFallbackReason | null;
@@ -68,7 +63,6 @@ export async function POST(request: Request) {
   const garmentAudience = normalizeTryOnGarmentAudience(typeof body.garment_audience === "string" ? body.garment_audience : undefined);
   const ageGroup = normalizeTryOnAgeGroup(typeof body.age_group === "string" ? body.age_group : undefined);
 
-  const providerConfigs = await buildTryOnReferenceVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
   const cacheKey = buildReferenceAnalysisCacheKey({
     referenceUrls,
     clothingMode,
@@ -92,12 +86,12 @@ export async function POST(request: Request) {
   let inflightRequest = referenceAnalysisInflight.get(cacheKey);
   if (!inflightRequest) {
     const nextRequest = runReferenceAnalysis({
-      providerConfigs,
       referenceUrls,
       clothingMode,
       clothingRoles,
       garmentAudience,
       ageGroup,
+      userId: auth.user.id,
     });
     referenceAnalysisInflight.set(cacheKey, nextRequest);
     void nextRequest.finally(() => {
@@ -125,53 +119,37 @@ export async function POST(request: Request) {
 }
 
 async function runReferenceAnalysis(input: {
-  providerConfigs: TryOnVisionProviderConfig[];
   referenceUrls: string[];
   clothingMode: string;
   clothingRoles: string[];
   garmentAudience: string;
   ageGroup: string;
+  userId: string;
 }): Promise<ReferenceAnalysisResult> {
   let analyses: TryOnReferenceAnalysis[];
-  let source: "yunwu" | "fallback" = "fallback";
+  let source: "ai" | "fallback" = "fallback";
   let rawResponse: unknown = null;
-  let fallbackReason: TryOnVisionFallbackReason | null = input.providerConfigs.length ? null : "missing_api_key";
-
-  for (const provider of input.providerConfigs) {
-    try {
-      const result = await requestYunwuReferenceAnalysis({
-        provider,
-        referenceUrls: input.referenceUrls,
-        clothingMode: input.clothingMode,
-        clothingRoles: input.clothingRoles,
-        garmentAudience: input.garmentAudience,
-        ageGroup: input.ageGroup,
-      });
-      rawResponse = result.raw;
-      analyses = alignTryOnReferenceAnalyses(result.parsed, input.referenceUrls.length);
-      source = "yunwu";
-      fallbackReason = null;
-      if (analyses.length !== input.referenceUrls.length) {
-        analyses = alignTryOnReferenceAnalyses(analyses, input.referenceUrls.length);
-      }
-      return {
-        source,
-        analyses,
-        rawResponse,
-        fallbackReason,
-        reasonText: null,
-      };
-    } catch (error) {
-      fallbackReason = toTryOnVisionFallbackReason(error);
-      console.warn("[tryon/analyze-references] provider failed:", {
-        provider: provider.label,
-        baseUrl: redactBaseUrl(provider.baseUrl),
-        model: provider.model,
-        reason: fallbackReason,
-        status: error instanceof TryOnVisionProviderError ? error.status : undefined,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+  let fallbackReason: TryOnVisionFallbackReason | null = null;
+  try {
+    const result = await requestYunwuReferenceAnalysis({
+      referenceUrls: input.referenceUrls,
+      clothingMode: input.clothingMode,
+      clothingRoles: input.clothingRoles,
+      garmentAudience: input.garmentAudience,
+      ageGroup: input.ageGroup,
+      userId: input.userId,
+    });
+    rawResponse = result.raw;
+    analyses = alignTryOnReferenceAnalyses(result.parsed, input.referenceUrls.length);
+    source = "ai";
+    if (analyses.length !== input.referenceUrls.length) analyses = alignTryOnReferenceAnalyses(analyses, input.referenceUrls.length);
+    return { source, analyses, rawResponse, fallbackReason, reasonText: null };
+  } catch (error) {
+    fallbackReason = toTryOnVisionFallbackReason(error);
+    console.warn("[tryon/analyze-references] control-plane failed:", {
+      reason: fallbackReason,
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   analyses = input.referenceUrls.map((_, index) => createFallbackTryOnReferenceAnalysis(index + 1));
@@ -190,27 +168,17 @@ async function runReferenceAnalysis(input: {
 }
 
 async function requestYunwuReferenceAnalysis(input: {
-  provider: TryOnVisionProviderConfig;
   referenceUrls: string[];
   clothingMode: string;
   clothingRoles: string[];
   garmentAudience: string;
   ageGroup: string;
+  userId: string;
 }) {
-  const timeoutMs = Number(process.env.TRYON_REFERENCE_ANALYZE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
-  try {
-    const response = await fetch(`${input.provider.baseUrl}/chat/completions`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${input.provider.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: input.provider.model,
+  const completion = await executeLlmChatRouted({
+    kind: "vision",
+    context: { userId: input.userId },
+    body: {
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -247,53 +215,22 @@ async function requestYunwuReferenceAnalysis(input: {
             ],
           },
         ],
-      }),
-    });
-
-    const raw = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new TryOnVisionProviderError(
-        getHttpFallbackReason(response.status),
-        typeof raw?.error?.message === "string" ? raw.error.message : `Provider HTTP ${response.status}`,
-        response.status
-      );
-    }
-    const content = extractMessageContent(raw);
-    if (!content.trim()) {
-      throw new TryOnVisionProviderError("provider_empty_content", "Provider returned empty message content");
-    }
-    const parsed = parseJsonObject(content);
-    if (!hasReferenceAnalysisItems(parsed)) {
-      throw new TryOnVisionProviderError("provider_parse_error", "Provider returned no reference analysis items");
-    }
-    return {
-      raw,
-      parsed,
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function getHttpFallbackReason(status: number): TryOnVisionFallbackReason {
-  if (status === 401) return "provider_http_401";
-  if (status === 403) return "provider_http_403";
-  if (status === 429) return "provider_http_429";
-  return "provider_http_error";
+    },
+    validate: (data) => {
+      const content = extractMessageContent(data);
+      if (!content.trim()) throw new Error("tryon reference returned empty content");
+      if (!hasReferenceAnalysisItems(parseJsonObject(content))) throw new Error("tryon reference returned no analysis items");
+    },
+  });
+  return {
+    raw: completion.data,
+    parsed: parseJsonObject(extractMessageContent(completion.data)),
+  };
 }
 
 function hasReferenceAnalysisItems(value: unknown) {
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   return Array.isArray(record.items) || Array.isArray(record.analyses);
-}
-
-function redactBaseUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return `${url.origin}${url.pathname}`;
-  } catch {
-    return value.split("?")[0];
-  }
 }
 
 function readReferenceAnalysisMemoryCache(cacheKey: string) {
@@ -318,7 +255,7 @@ function writeReferenceAnalysisMemoryCache(cacheKey: string, result: ReferenceAn
 }
 
 function shouldCacheReferenceAnalysisResult(result: ReferenceAnalysisResult, expectedCount: number) {
-  if (result.source !== "yunwu") return false;
+  if (result.source !== "ai") return false;
   if (result.analyses.length !== expectedCount) return false;
   return result.analyses.every((analysis) => analysis.confidence >= REFERENCE_ANALYSIS_CACHE_MIN_CONFIDENCE);
 }

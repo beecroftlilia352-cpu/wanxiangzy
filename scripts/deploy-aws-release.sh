@@ -42,7 +42,7 @@ PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
 PM2_KILL_TIMEOUT_MS=45000
 PM2_READY_TIMEOUT_MS="${PM2_READY_TIMEOUT_MS:-60000}"
 PM2_WEB_INSTANCES="${PM2_WEB_INSTANCES:-2}"
-PM2_WORKER_INSTANCES="${PM2_WORKER_INSTANCES:-}"
+PM2_WORKER_INSTANCES=""
 PM2_ROLLBACK_CONFIG="$SHARED_DIR/.pm2-rollback-${SAFE_TAG}.cjs"
 CUTOVER_STARTED=0
 ROLLBACK_IN_PROGRESS=0
@@ -754,9 +754,7 @@ install_dependencies
 # Admin stores a versioned desired capacity policy. Deployment is the only
 # component allowed to apply it to the EC2 environment and PM2 process count.
 node --env-file=.env.production scripts/apply-worker-runtime-config.mjs .env.production
-if [ -z "$PM2_WORKER_INSTANCES" ]; then
-  PM2_WORKER_INSTANCES="$(node --env-file=.env.production -e 'process.stdout.write(process.env.PM2_WORKER_INSTANCES || "1")')"
-fi
+PM2_WORKER_INSTANCES="$(node --env-file=.env.production -e 'process.stdout.write(process.env.PM2_WORKER_INSTANCES || "1")')"
 
 # Manual and automated deploys share the same production fail-closed gate.
 # Validate only structure and presence; never print the credential-bearing URL.

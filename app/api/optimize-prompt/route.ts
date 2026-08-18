@@ -8,7 +8,7 @@
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
@@ -29,23 +29,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少 style 参数" }, { status: 400 });
     }
 
-    const llm = await getLlmConfig("text");
-    if (!llm.apiKey) {
-      return NextResponse.json({ error: "API Key 未配置" }, { status: 500 });
-    }
-    if (!llm.baseUrl) {
-      return NextResponse.json({ error: "Base URL 未配置" }, { status: 500 });
-    }
-
-    // 调用 chat completions 接口
-    const res = await fetchLlmChat("text", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${llm.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: llm.model,
+    const completion = await executeLlmChatRouted({
+      kind: "text",
+      context: { userId: auth.user.id },
+      body: {
         messages: [
           {
             role: "system",
@@ -66,18 +53,9 @@ export async function POST(request: NextRequest) {
         ],
         max_tokens: 200,
         temperature: 0.7,
-      }),
+      },
     });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("[optimize-prompt] LLM error:", res.status, errText);
-      // 降级到本地模板
-      const fallback = expandStyleFallback(style);
-      return NextResponse.json({ original: style, optimized: fallback, source: "fallback" });
-    }
-
-    const data = await res.json();
+    const data = completion.data as { choices?: Array<{ message?: { content?: string } }> };
     const optimized = data.choices?.[0]?.message?.content?.trim();
 
     if (!optimized) {

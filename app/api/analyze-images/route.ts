@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
-import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
@@ -28,7 +28,6 @@ import {
 } from "@/lib/tryon-prompt";
 import { TRYON_CLOTHING_ROLE_LABELS, normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 
-const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 const QUALITY_DIMENSIONS = TRYON_QUALITY;
 
 export async function POST(request: NextRequest) {
@@ -157,45 +156,17 @@ ${userStyle || "无"}
       aspectRatio,
     });
 
-    const llm = await getLlmConfig("vision");
-    if (!llm.apiKey) {
-      return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "missing_api_key" });
-    }
-    if (!llm.baseUrl) {
-      console.error("[analyze] Base URL 未配置");
-      return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "missing_base_url" });
-    }
-
     const requestBody = {
-      model: llm.model,
       messages: [{ role: "user", content: [{ type: "text", text: textPrompt }, ...imageContents] }],
       max_tokens: 800,
     };
-
-    logger.info("[analyze] 发送图片数量:", imageContents.length, "provider:", llm.provider, "模型:", llm.model);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetchLlmChat("vision", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    const resText = await res.text();
-    logger.info("[analyze] 响应 status:", res.status);
-
-    if (!res.ok) {
-      logger.error("[analyze] API 错误:", res.status);
-      return NextResponse.json({
-        prompt: fallbackPrompt,
-        source: "fallback",
-        reason: `llm_http_${res.status}`,
-      });
-    }
-
-    const data = JSON.parse(resText);
+    const completion = await executeLlmChatRouted({
+      kind: "vision",
+      context: { userId: auth.user.id },
+      body: requestBody,
+    });
+    logger.info("[analyze] 发送图片数量:", imageContents.length, "provider:", completion.providerId, "模型:", completion.upstreamModel);
+    const data = completion.data;
     logger.debug("[analyze] LLM 响应已接收");
     const prompt = extractMessageText(data).trim();
 
@@ -213,7 +184,7 @@ ${userStyle || "无"}
       logger.info("[analyze] 提示词生成完成, 长度:", checked.prompt.length);
       return NextResponse.json({
         prompt: checked.prompt,
-        source: checked.repaired ? `${llm.provider}_repaired` : llm.provider,
+        source: checked.repaired ? `${completion.providerId}_repaired` : completion.providerId,
         missing_refs: checked.missingRefs.length ? checked.missingRefs : undefined,
       });
     } else {

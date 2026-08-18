@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig, getLlmFallbackConfigs } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
-import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
 import { normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 import { normalizePoseVisualAnalysis } from "@/lib/pose-analysis";
 import {
@@ -20,7 +19,6 @@ import {
   type PosePlanAngle,
 } from "@/lib/pose-plan";
 
-const DEFAULT_TIMEOUT_MS = 20_000;
 const POSE_PLAN_SUCCESS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const POSE_PLAN_FALLBACK_CACHE_TTL_MS = 60 * 1000;
 const POSE_PLAN_CACHE_MAX_ENTRIES = 300;
@@ -129,12 +127,9 @@ export async function POST(request: Request) {
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const configs = await getPosePlanLlmConfigs();
-
   let inflightRequest = posePlanInflight.get(cacheKey);
   if (!inflightRequest || force) {
     const nextRequest = runPosePlan({
-      configs,
       poseAnalysis,
       poseStyle,
       outputMode,
@@ -166,12 +161,6 @@ export async function POST(request: Request) {
 }
 
 async function runPosePlan(input: {
-  configs: Array<{
-    provider: string;
-    apiKey: string;
-    baseUrl: string;
-    model: string;
-  }>;
   poseAnalysis: ReturnType<typeof normalizePoseVisualAnalysis>;
   poseStyle: ReturnType<typeof normalizePoseSeriesStyle>;
   outputMode: "grid" | "separate";
@@ -187,44 +176,31 @@ async function runPosePlan(input: {
     return buildFallbackResult(fallback, "low_pose_analysis_confidence");
   }
 
-  const configs = input.configs.filter((config) => config.apiKey && config.baseUrl && config.model);
-  if (!configs.length) {
-    return buildFallbackResult(fallback, "missing_model_config");
-  }
-
   let lastReason: PosePlanFallbackReason = "provider_error";
   let lastRaw: unknown = null;
   try {
-    for (const config of configs) {
-      const attempts = [true, false];
-      for (const useJsonMode of attempts) {
-        try {
-          const result = await requestPosePlan({ ...input, ...config, useJsonMode });
-          lastRaw = result.raw;
-          const parsedModelPlan = extractModelPosePlan(result.parsed);
-          if (!isModelPosePlanUsable(parsedModelPlan, input.poseCount)) {
-            lastReason = "invalid_model_response";
-            continue;
-          }
-          const parsedPlan = normalizePosePlan(parsedModelPlan, input);
-          if (getAverageConfidence(parsedPlan) < 0.45) {
-            lastReason = "low_plan_confidence";
-            continue;
-          }
-          return {
-            source: "vision_plan",
-            posePlan: parsedPlan,
-            rawResponse: result.raw,
-          };
-        } catch (error) {
-          lastReason = "provider_error";
-          console.warn("[pose/plan] provider attempt failed:", {
-            provider: config.provider,
-            model: config.model,
-            jsonMode: useJsonMode,
-            error,
-          });
+    for (const useJsonMode of [true, false]) {
+      try {
+        const result = await requestPosePlan({ ...input, useJsonMode });
+        lastRaw = result.raw;
+        const parsedModelPlan = extractModelPosePlan(result.parsed);
+        if (!isModelPosePlanUsable(parsedModelPlan, input.poseCount)) {
+          lastReason = "invalid_model_response";
+          continue;
         }
+        const parsedPlan = normalizePosePlan(parsedModelPlan, input);
+        if (getAverageConfidence(parsedPlan) < 0.45) {
+          lastReason = "low_plan_confidence";
+          continue;
+        }
+        return {
+          source: "vision_plan",
+          posePlan: parsedPlan,
+          rawResponse: result.raw,
+        };
+      } catch (error) {
+        lastReason = "provider_error";
+        console.warn("[pose/plan] control-plane attempt failed:", { jsonMode: useJsonMode, error });
       }
     }
   } catch (error) {
@@ -234,10 +210,6 @@ async function runPosePlan(input: {
 }
 
 async function requestPosePlan(input: {
-  provider: string;
-  apiKey: string;
-  baseUrl: string;
-  model: string;
   useJsonMode: boolean;
   poseAnalysis: ReturnType<typeof normalizePoseVisualAnalysis>;
   poseStyle: ReturnType<typeof normalizePoseSeriesStyle>;
@@ -246,27 +218,11 @@ async function requestPosePlan(input: {
   angleCounts: ReturnType<typeof normalizePoseAngleCounts>;
   prompt: string;
 }) {
-  const timeoutMs = Number(process.env.POSE_PLAN_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
-  try {
-    const policy = getPoseStylePolicy(input.poseStyle);
-    const angleInstruction = formatAngleCounts(input.angleCounts);
-    const response = await fetch(getChatCompletionsUrl({
-      provider: input.provider,
-      apiKey: input.apiKey,
-      baseUrl: input.baseUrl,
-      model: input.model,
-    }), {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${input.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: input.model,
+  const policy = getPoseStylePolicy(input.poseStyle);
+  const angleInstruction = formatAngleCounts(input.angleCounts);
+  const completion = await executeLlmChatRouted({
+    kind: "text",
+    body: {
         temperature: 0.2,
         ...(input.useJsonMode ? { response_format: { type: "json_object" } } : {}),
         messages: [
@@ -275,7 +231,7 @@ async function requestPosePlan(input: {
             content: [
               "你是商业时装姿势规划助手。只返回 JSON，不要输出解释。",
               "你不能写最终生成 prompt，只能输出结构化 posePlan。",
-              `返回 { posePlan: { version: \"${POSE_PLAN_VERSION}\", style, outputMode, edited:false, slots:[...] } }。`,
+              `返回 { posePlan: { version: "${POSE_PLAN_VERSION}", style, outputMode, edited:false, slots:[...] } }。`,
               `slots 必须正好 ${input.poseCount} 个，每个字段：index, angle, poseName, bodyAction, handAction, headDirection, cameraFraming, garmentVisibilityRule, avoidRules, confidence。`,
               `angle 只能是 front、side、back、detail、garment、seated；角度数量必须符合：${angleInstruction}。`,
               "angle=garment 是服饰/配饰细节：该 slot 必须无头无脸，headDirection 必须为空字符串，cameraFraming 只拍领口、袖口、腰线、下摆、包袋或鞋履等局部特写，不要规划表情、视线、脸部动作或完整人像。",
@@ -308,20 +264,12 @@ async function requestPosePlan(input: {
           },
         ],
         max_tokens: Math.min(1800, 700 + input.poseCount * 160),
-      }),
-    });
-
-    const raw = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(typeof raw?.error?.message === "string" ? raw.error.message : `pose plan ${response.status}`);
-    }
-    return {
-      raw,
-      parsed: parseJsonObject(extractMessageContent(raw)),
-    };
-  } finally {
-    clearTimeout(timer);
-  }
+    },
+  });
+  return {
+    raw: completion.data,
+    parsed: parseJsonObject(extractMessageContent(completion.data)),
+  };
 }
 
 function readPosePlanMemoryCache(cacheKey: string) {
@@ -342,39 +290,6 @@ function writePosePlanMemoryCache(cacheKey: string, result: PosePlanResult) {
   posePlanCache.set(cacheKey, {
     expiresAt: Date.now() + (result.source === "fallback" ? POSE_PLAN_FALLBACK_CACHE_TTL_MS : POSE_PLAN_SUCCESS_CACHE_TTL_MS),
     result,
-  });
-}
-
-async function getPosePlanLlmConfigs() {
-  const primary = await getLlmConfig("text");
-  const hasOverride = Boolean(process.env.POSE_PLAN_API_KEY || process.env.POSE_PLAN_BASE_URL || process.env.POSE_PLAN_MODEL);
-  if (hasOverride) {
-    return [{
-      provider: primary.provider,
-      apiKey: process.env.POSE_PLAN_API_KEY || primary.apiKey,
-      baseUrl: normalizeOpenAiCompatibleBaseUrl(process.env.POSE_PLAN_BASE_URL || primary.baseUrl),
-      model: process.env.POSE_PLAN_MODEL || primary.model,
-    }];
-  }
-  const configs = [
-    ...(await getLlmFallbackConfigs("text")),
-    // Pose planning is a text-only task, but many deployed vision/chat models
-    // are also fully chat-compatible. Including the vision config prevents a
-    // valid main-image analysis setup from falling back only because the text
-    // model env is missing, unsupported, or temporarily unhealthy.
-    ...(await getLlmFallbackConfigs("vision")),
-  ].map((config) => ({
-    provider: config.provider,
-    apiKey: config.apiKey,
-    baseUrl: normalizeOpenAiCompatibleBaseUrl(config.baseUrl),
-    model: config.model,
-  }));
-  const seen = new Set<string>();
-  return configs.filter((config) => {
-    const key = `${config.provider}:${config.baseUrl}:${config.model}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
   });
 }
 

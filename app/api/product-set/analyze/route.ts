@@ -1,7 +1,7 @@
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig, getLlmFallbackConfigs } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { logger } from "@/lib/logger";
 import {
@@ -15,8 +15,6 @@ import {
   type ProductSetSettings,
   type ProductSetStylePackId,
 } from "@/lib/product-set";
-
-const ANALYZE_TIMEOUT_MS = Number(process.env.PRODUCT_SET_ANALYZE_TIMEOUT_MS || 30000);
 
 type ProductSetVisionAnalysis = {
   image_role?: string;
@@ -476,96 +474,65 @@ ${referenceStyleInstruction}
     const templateContext = { targetPlatform, originalText: [userProductInfo, referenceStyleInfo].filter(Boolean).join("\n\n"), imageCount: productImageUrls.length };
     const fallback = ensureProductInfoTemplate(localizeUserFacingText(userProductInfo), templateContext);
     const fallbackProfile = normalizeProductSetProductProfile(undefined, fallback);
-    const configs = await getLlmFallbackConfigs("vision");
-    if (!configs.length) {
-      const primary = await getLlmConfig("vision");
-      return NextResponse.json({
-        product_info: fallback,
-        product_profile: fallbackProfile,
-        source: "fallback",
-        reason: !primary.apiKey ? "missing_api_key" : "missing_base_url",
-      });
-    }
-
-    const failures: string[] = [];
-    for (const llm of configs) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-        const res = await fetch(getChatCompletionsUrl(llm), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: llm.model,
-            messages: [{ role: "user", content: [{ type: "text", text: textPrompt }, ...imageContents] }],
-            max_tokens: 3200,
-          }),
-          signal: controller.signal,
-        }).finally(() => clearTimeout(timeout));
-
-        const responseText = await res.text();
-        if (!res.ok) {
-          failures.push(`${llm.provider}_api_${res.status}`);
-          logger.warn("[product-set/analyze] vision error:", llm.provider, res.status, responseText.slice(0, 300));
-          continue;
-        }
-
-        let data: unknown;
-        try {
-          data = JSON.parse(responseText);
-        } catch {
-          failures.push(`${llm.provider}_invalid_json_response`);
-          logger.warn("[product-set/analyze] invalid provider JSON:", llm.provider, responseText.slice(0, 300));
-          continue;
-        }
-
+    let completion: Awaited<ReturnType<typeof executeLlmChatRouted>>;
+    try {
+      completion = await executeLlmChatRouted({
+      kind: "vision",
+      context: { userId: auth.user.id },
+      body: {
+        messages: [{ role: "user", content: [{ type: "text", text: textPrompt }, ...imageContents] }],
+        max_tokens: 3200,
+      },
+      validate: (data) => {
         const content = extractContent(data).trim();
-        if (!content) {
-          failures.push(`${llm.provider}_empty_content`);
-          continue;
-        }
-
+        if (!content) throw new Error("product-set empty model content");
         const parsed = parseAnalyzePayload(content);
-        const normalizedAnalysis = normalizeVisionAnalysis(parsed.analysis);
-        const analysis = normalizedAnalysis ? localizeVisionAnalysis(normalizedAnalysis) : undefined;
+        const analysis = normalizeVisionAnalysis(parsed.analysis);
         const productInfo = parsed.productInfo
           ? ensureProductInfoTemplate(localizeUserFacingText(parsed.productInfo), templateContext)
           : analysis
             ? buildProductInfoFromAnalysis(analysis, productImageUrls.length, templateContext)
-            : ensureProductInfoTemplate(localizeUserFacingText(content || fallback), templateContext);
-        const productProfile = localizeProductProfile(parsed.productProfile
+            : ensureProductInfoTemplate(localizeUserFacingText(content), templateContext);
+        const productProfile = parsed.productProfile
           ? normalizeProductSetProductProfile(parsed.productProfile, productInfo)
           : analysis
             ? buildProductProfileFromAnalysis(analysis, productInfo)
-            : normalizeProductSetProductProfile(undefined, productInfo));
+            : normalizeProductSetProductProfile(undefined, productInfo);
         const validation = validateAnalyzeResult(productInfo, productProfile);
-        if (!validation.ok) {
-          failures.push(`${llm.provider}_${validation.reason}`);
-          logger.warn("[product-set/analyze] unusable analysis:", llm.provider, validation.reason, content.slice(0, 300));
-          continue;
-        }
-
-        return NextResponse.json({
-          product_info: productInfo,
-          product_profile: productProfile,
-          analysis,
-          settings_patch: analysis ? buildSettingsPatchFromAnalysis(analysis) : undefined,
-          source: "ai",
-          provider: llm.provider,
-          model: llm.model,
-        });
-      } catch (err: unknown) {
-        const reason = err instanceof Error && err.name === "AbortError" ? "timeout" : "request_failed";
-        failures.push(`${llm.provider}_${reason}`);
-        logger.warn("[product-set/analyze] provider failed:", llm.provider, err instanceof Error ? err.message : err);
-      }
+        if (!validation.ok) throw new Error(`product-set unusable analysis: ${validation.reason}`);
+      },
+      });
+    } catch (error) {
+      logger.warn("[product-set/analyze] control-plane attempts failed:", error instanceof Error ? error.message : error);
+      return NextResponse.json({
+        product_info: fallback,
+        product_profile: fallbackProfile,
+        source: "fallback",
+        reason: "all_control_plane_attempts_failed",
+      });
     }
-
+    const content = extractContent(completion.data).trim();
+    const parsed = parseAnalyzePayload(content);
+    const normalizedAnalysis = normalizeVisionAnalysis(parsed.analysis);
+    const analysis = normalizedAnalysis ? localizeVisionAnalysis(normalizedAnalysis) : undefined;
+    const productInfo = parsed.productInfo
+      ? ensureProductInfoTemplate(localizeUserFacingText(parsed.productInfo), templateContext)
+      : analysis
+        ? buildProductInfoFromAnalysis(analysis, productImageUrls.length, templateContext)
+        : ensureProductInfoTemplate(localizeUserFacingText(content || fallback), templateContext);
+    const productProfile = localizeProductProfile(parsed.productProfile
+      ? normalizeProductSetProductProfile(parsed.productProfile, productInfo)
+      : analysis
+        ? buildProductProfileFromAnalysis(analysis, productInfo)
+        : normalizeProductSetProductProfile(undefined, productInfo));
     return NextResponse.json({
-      product_info: fallback,
-      product_profile: fallbackProfile,
-      source: "fallback",
-      reason: failures.length ? `all_failed:${failures.slice(0, 4).join(",")}` : "empty_llm_config",
+      product_info: productInfo,
+      product_profile: productProfile,
+      analysis,
+      settings_patch: analysis ? buildSettingsPatchFromAnalysis(analysis) : undefined,
+      source: "ai",
+      provider: completion.providerId,
+      model: completion.upstreamModel,
     });
   } catch (err: unknown) {
     const message = err instanceof Error && err.name === "AbortError" ? "AI 分析超时" : "AI 分析失败";

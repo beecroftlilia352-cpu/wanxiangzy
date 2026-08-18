@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
-
-const OPTIMIZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 
 type PromptModuleKind = "grass" | "modelBackground";
 
@@ -31,11 +29,6 @@ export async function POST(request: NextRequest) {
 
     if (!basePrompt) {
       return NextResponse.json({ error: "缺少 base_prompt" }, { status: 400 });
-    }
-
-    const llm = await getLlmConfig(images.length ? "vision" : "text");
-    if (!llm.apiKey || !llm.baseUrl) {
-      return NextResponse.json({ prompt: basePrompt, source: "fallback", reason: "missing_llm_config" });
     }
 
     const imageRoleLines = images.map((image, index) => `${imageLabel(image, index)}：${image.role}`).join("\n") || "无输入图片";
@@ -73,36 +66,22 @@ ${userContext || "无"}`;
       content.push({ type: "image_url", image_url: { url: image.url } });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), OPTIMIZE_TIMEOUT_MS);
-    const res = await fetchLlmChat(images.length ? "vision" : "text", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${llm.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: llm.model,
+    const completion = await executeLlmChatRouted({
+      kind: images.length ? "vision" : "text",
+      context: { userId: auth.user.id },
+      body: {
         messages: [{ role: "user", content }],
         max_tokens: 1200,
         temperature: 0.35,
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    const resText = await res.text();
-    if (!res.ok) {
-      console.error("[optimize-generation-prompt] LLM error:", res.status, resText.slice(0, 500));
-      return NextResponse.json({ prompt: basePrompt, source: "fallback", reason: `llm_http_${res.status}` });
-    }
-
-    const data = JSON.parse(resText) as Record<string, unknown>;
+      },
+    });
+    const data = completion.data;
     const prompt = extractMessageText(data).trim();
     if (!prompt) {
       return NextResponse.json({ prompt: basePrompt, source: "fallback", reason: "empty_llm_content" });
     }
 
-    return NextResponse.json({ prompt: enforceImageRolePrefix(prompt, images), source: llm.provider });
+    return NextResponse.json({ prompt: enforceImageRolePrefix(prompt, images), source: completion.providerId });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json({ prompt: "", skipped: true, reason: "timeout" });

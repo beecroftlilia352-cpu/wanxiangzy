@@ -1,14 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import {
-  TryOnVisionProviderError,
-  buildTryOnClothingVisionProviderConfigs,
   getTryOnVisionFallbackReasonText,
   toTryOnVisionFallbackReason,
   type TryOnVisionFallbackReason,
-  type TryOnVisionProviderConfig,
 } from "@/lib/api/tryon-vision-provider";
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
@@ -23,14 +21,11 @@ import {
   type TryOnClothingRole,
 } from "@/lib/tryon-upload-rules";
 
-const DEFAULT_MODEL = "gpt-5-nano";
-const DEFAULT_BASE_URL = "https://yunwu.ai/v1";
-const DEFAULT_TIMEOUT_MS = 12_000;
 const MAX_ANALYZE_IMAGES = 4;
 const CLOTHING_ANALYSIS_CACHE_MIN_CONFIDENCE = 0.5;
 
 type ClothingAnalysisResult = {
-  source: "yunwu" | "fallback";
+  source: "ai" | "fallback";
   analysis: TryOnClothingAnalysis;
   rawResponse: unknown;
   providerModel: string;
@@ -89,18 +84,16 @@ export async function POST(request: Request) {
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const providerConfigs = await buildTryOnClothingVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
-
   let inflightRequest = clothingAnalysisInflight.get(cacheKey);
   if (!inflightRequest) {
     const nextRequest = runClothingAnalysis({
-      providerConfigs,
       clothingUrls,
       clothingMode,
       clothingRoles,
       garmentAudience,
       ageGroup,
       traceId,
+      userId: auth.user.id,
     });
     clothingAnalysisInflight.set(cacheKey, nextRequest);
     void nextRequest.finally(() => {
@@ -142,61 +135,42 @@ export async function POST(request: Request) {
 }
 
 async function runClothingAnalysis(input: {
-  providerConfigs: TryOnVisionProviderConfig[];
   clothingUrls: string[];
   clothingMode: string;
   clothingRoles: TryOnClothingRole[];
   garmentAudience: string;
   ageGroup: string;
   traceId: string;
+  userId: string;
 }): Promise<ClothingAnalysisResult> {
   let analysis: TryOnClothingAnalysis;
-  let source: "yunwu" | "fallback" = "fallback";
+  let source: "ai" | "fallback" = "fallback";
   let rawResponse: unknown = null;
-  let providerModel = input.providerConfigs[0]?.model || DEFAULT_MODEL;
+  let providerModel = "";
   let providerLabel: string | null = null;
-  let fallbackReason: TryOnVisionFallbackReason | null =
-    input.providerConfigs.length ? null : "missing_api_key";
-
-  for (const provider of input.providerConfigs) {
-    try {
-      const result = await requestYunwuClothingAnalysis({
-        provider,
-        clothingUrls: input.clothingUrls,
-        clothingMode: input.clothingMode,
-        clothingRoles: input.clothingRoles,
-        garmentAudience: input.garmentAudience,
-        ageGroup: input.ageGroup,
-      });
-      rawResponse = result.raw;
-      analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
-        ...result.parsed,
-        raw: result.raw,
-      }), input.clothingRoles, input.clothingUrls.length);
-      source = "yunwu";
-      providerModel = provider.model;
-      providerLabel = provider.label;
-      fallbackReason = null;
-      return {
-        source,
-        analysis,
-        rawResponse,
-        providerModel,
-        providerLabel,
-        fallbackReason,
-      };
-    } catch (error) {
-      fallbackReason = toTryOnVisionFallbackReason(error);
-      console.warn("[tryon/analyze-clothing] provider failed:", {
-        traceId: input.traceId,
-        provider: provider.label,
-        baseUrl: redactBaseUrl(provider.baseUrl),
-        model: provider.model,
-        reason: fallbackReason,
-        status: error instanceof TryOnVisionProviderError ? error.status : undefined,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+  let fallbackReason: TryOnVisionFallbackReason | null = null;
+  try {
+    const result = await requestYunwuClothingAnalysis({
+      clothingUrls: input.clothingUrls,
+      clothingMode: input.clothingMode,
+      clothingRoles: input.clothingRoles,
+      garmentAudience: input.garmentAudience,
+      ageGroup: input.ageGroup,
+      userId: input.userId,
+    });
+    rawResponse = result.raw;
+    analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({ ...result.parsed, raw: result.raw }), input.clothingRoles, input.clothingUrls.length);
+    source = "ai";
+    providerModel = result.upstreamModel;
+    providerLabel = result.providerId;
+    return { source, analysis, rawResponse, providerModel, providerLabel, fallbackReason };
+  } catch (error) {
+    fallbackReason = toTryOnVisionFallbackReason(error);
+    console.warn("[tryon/analyze-clothing] control-plane failed:", {
+      traceId: input.traceId,
+      reason: fallbackReason,
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
@@ -217,27 +191,17 @@ async function runClothingAnalysis(input: {
 }
 
 async function requestYunwuClothingAnalysis(input: {
-  provider: TryOnVisionProviderConfig;
   clothingUrls: string[];
   clothingMode: string;
   clothingRoles: TryOnClothingRole[];
   garmentAudience: string;
   ageGroup: string;
+  userId: string;
 }) {
-  const timeoutMs = Number(process.env.TRYON_CLOTHING_ANALYZE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
-  try {
-    const response = await fetch(`${input.provider.baseUrl}/chat/completions`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${input.provider.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: input.provider.model,
+  const completion = await executeLlmChatRouted({
+    kind: "vision",
+    context: { userId: input.userId },
+    body: {
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -274,44 +238,17 @@ async function requestYunwuClothingAnalysis(input: {
             ],
           },
         ],
-      }),
-    });
-
-    const raw = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new TryOnVisionProviderError(
-        getHttpFallbackReason(response.status),
-        typeof raw?.error?.message === "string" ? raw.error.message : `Provider HTTP ${response.status}`,
-        response.status
-      );
-    }
-    const content = extractMessageContent(raw);
-    if (!content.trim()) {
-      throw new TryOnVisionProviderError("provider_empty_content", "Provider returned empty message content");
-    }
-    return {
-      raw,
-      parsed: parseJsonObject(content),
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function getHttpFallbackReason(status: number) {
-  if (status === 401) return "provider_http_401";
-  if (status === 403) return "provider_http_403";
-  if (status === 429) return "provider_http_429";
-  return "provider_http_error";
-}
-
-function redactBaseUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return `${url.origin}${url.pathname}`;
-  } catch {
-    return value.split("?")[0];
-  }
+    },
+    validate: (data) => {
+      if (!extractMessageContent(data).trim()) throw new Error("tryon clothing returned empty content");
+    },
+  });
+  return {
+    raw: completion.data,
+    parsed: parseJsonObject(extractMessageContent(completion.data)),
+    providerId: completion.providerId,
+    upstreamModel: completion.upstreamModel,
+  };
 }
 
 function getFallbackClothType(input: {
@@ -407,7 +344,7 @@ async function readCachedAnalysis(cacheKey: string) {
       .eq("image_url_hash", cacheKey)
       .maybeSingle();
     if (error || !data) return null;
-    if (data.provider !== "yunwu") return null;
+    if (data.provider !== "yunwu" && data.provider !== "ai") return null;
     const cachedConfidence = Number(data.confidence);
     if (!Number.isFinite(cachedConfidence) || cachedConfidence < CLOTHING_ANALYSIS_CACHE_MIN_CONFIDENCE) return null;
     const rawRecord = toRecord(data.raw_response);
@@ -470,7 +407,7 @@ async function writeCachedAnalysis(input: {
 }
 
 function shouldCacheClothingAnalysis(result: ClothingAnalysisResult) {
-  if (result.source !== "yunwu") return false;
+  if (result.source !== "ai") return false;
   if (result.analysis.confidence < CLOTHING_ANALYSIS_CACHE_MIN_CONFIDENCE) return false;
   return Boolean(result.analysis.mainCategory || result.analysis.subcategories.length || result.analysis.clothTypeRaw);
 }

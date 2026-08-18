@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { fetchLlmChat, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
 
 export const maxDuration = 60;
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
-
-const OPTIMIZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,14 +23,6 @@ export async function POST(request: NextRequest) {
 
     if (!userPrompt && referenceUrls.length === 0) {
       return NextResponse.json({ error: mode === "image-to-image" ? "请先输入基本想法或上传参考图" : "请先输入基本想法" }, { status: 400 });
-    }
-
-    const llm = await getLlmConfig(referenceUrls.length ? "vision" : "text");
-    if (!llm.apiKey || !llm.baseUrl) {
-      return NextResponse.json({
-        prompt: buildFallbackPrompt({ mode, userPrompt, referenceUrls }),
-        source: "fallback",
-      });
     }
 
     const imageRoleText = referenceUrls.length
@@ -66,38 +56,20 @@ ${userPrompt || "请根据参考图生成高质量商业摄影图片。"}`;
       content.push({ type: "image_url", image_url: { url } });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), OPTIMIZE_TIMEOUT_MS);
-    const res = await fetchLlmChat(referenceUrls.length ? "vision" : "text", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${llm.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: llm.model,
+    const completion = await executeLlmChatRouted({
+      kind: referenceUrls.length ? "vision" : "text",
+      context: { userId: auth.user.id },
+      body: {
         messages: [{ role: "user", content }],
         max_tokens: 1200,
         temperature: 0.45,
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    const resText = await res.text();
-    if (!res.ok) {
-      console.error("[general-image/optimize-prompt] LLM error:", res.status, resText.slice(0, 500));
-      return NextResponse.json({
-        prompt: buildFallbackPrompt({ mode, userPrompt, referenceUrls }),
-        source: "fallback",
-        reason: `llm_http_${res.status}`,
-      });
-    }
-
-    const data = JSON.parse(resText) as Record<string, unknown>;
+      },
+    });
+    const data = completion.data;
     const prompt = extractMessageText(data).trim();
     return NextResponse.json({
       prompt: prompt || buildFallbackPrompt({ mode, userPrompt, referenceUrls }),
-      source: prompt ? llm.provider : "fallback",
+      source: prompt ? completion.providerId : "fallback",
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
