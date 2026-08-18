@@ -41,6 +41,7 @@ export interface RemoteImageFetchOptions {
   lookupHost?: LookupHost;
   maxBytes?: number;
   maxRedirects?: number;
+  requestHeaders?: Record<string, string>;
   timeoutMs?: number;
 }
 
@@ -102,6 +103,7 @@ export async function fetchRemoteImageResponse(
       response = await fetchImpl(currentUrl.toString(), {
         cache: "no-store",
         redirect: "manual",
+        headers: options.requestHeaders,
         signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_REMOTE_IMAGE_TIMEOUT_MS),
       });
     } catch (error) {

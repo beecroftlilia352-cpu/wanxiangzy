@@ -2,12 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const remoteChecks = vi.hoisted(() => ({
   assertRemoteImageUrlAllowed: vi.fn(async () => undefined),
+  fetchRemoteImageResponse: vi.fn(),
+  RemoteImageFetchError: class RemoteImageFetchError extends Error {
+    constructor(message: string, public code: string, public status?: number) {
+      super(message);
+    }
+  },
 }));
 
 vi.mock("@/lib/api/remote-image-fetch", () => remoteChecks);
 
 import {
   mirrorRemoteImageToAliyunOss,
+  processPendingOssMirrorTransfers,
   resolveOssMirrorSource,
 } from "../oss-mirror-transfer";
 
@@ -16,6 +23,7 @@ describe("OSS mirror transfers", () => {
 
   beforeEach(() => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    delete process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE;
     process.env.ALIYUN_OSS_MIRROR_ENABLED = "true";
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-secret";
@@ -28,6 +36,7 @@ describe("OSS mirror transfers", () => {
     process.env.ADMIN_SECRETS_ENCRYPTION_KEY = "a".repeat(64);
     process.env.ALIYUN_OSS_MIRROR_RETRY_BASE_MS = "100";
     remoteChecks.assertRemoteImageUrlAllowed.mockClear();
+    remoteChecks.fetchRemoteImageResponse.mockReset();
   });
 
   afterEach(() => {
@@ -92,7 +101,7 @@ describe("OSS mirror transfers", () => {
       "https://provider.example.com/output/photo.jpg",
       "generation-2",
       database.admin,
-    )).rejects.toThrow("OSS mirror transfer failed");
+    )).rejects.toThrow("OSS remote transfer failed");
 
     expect(database.calls.map((call) => call.name)).toEqual([
       "register_oss_mirror_transfer",
@@ -100,6 +109,68 @@ describe("OSS mirror transfers", () => {
     ]);
     expect(database.row.status).toBe("failed");
     expect(database.row.source_url_ciphertext).toBeNull();
+  });
+
+  it("registers pending work and streams provider bytes through the dedicated worker", async () => {
+    process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE = "stream";
+    process.env.ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS = "10000";
+    process.env.ALIYUN_OSS_REMOTE_CONCURRENCY = "2";
+    const database = createRpcAdmin();
+    const fullImage = new Uint8Array(57_555);
+    fullImage.set([0xff, 0xd8, 0xff], 0);
+    remoteChecks.fetchRemoteImageResponse.mockResolvedValue({
+      response: new Response(fullImage, {
+        status: 200,
+        headers: { "content-length": "57555", "content-type": "image/jpeg" },
+      }),
+      url: "https://provider.example.com/output/photo.jpg",
+      contentType: "image/jpeg",
+      contentLength: 57_555,
+    });
+
+    const uploadedBodies: Uint8Array[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith("https://provider.example.com/")) return jpegProbeResponse(57_555);
+      if (init?.method === "HEAD") {
+        const uploaded = uploadedBodies.length > 0;
+        return new Response(null, {
+          status: uploaded ? 200 : 404,
+          headers: uploaded
+            ? { "content-length": "57555", "content-type": "image/jpeg" }
+            : undefined,
+        });
+      }
+      if (init?.method === "PUT") {
+        expect(init.body).toBeInstanceOf(ReadableStream);
+        uploadedBodies.push(new Uint8Array(await new Response(init.body).arrayBuffer()));
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`unexpected fetch ${init?.method || "GET"} ${url}`);
+    }));
+
+    const pending = mirrorRemoteImageToAliyunOss(
+      "https://provider.example.com/output/photo.jpg",
+      "generation-stream-1",
+      database.admin,
+    );
+    await vi.waitFor(() => {
+      expect(database.calls.some((call) => call.name === "register_oss_stream_transfer")).toBe(true);
+    });
+    await expect(processPendingOssMirrorTransfers(1, database.admin)).resolves.toMatchObject({
+      claimed: 1,
+      completed: 1,
+      failed: 0,
+    });
+    await expect(pending).resolves.toMatch(/^https:\/\/images\.example\.com\//);
+
+    expect(uploadedBodies).toHaveLength(1);
+    expect(uploadedBodies[0]).toEqual(fullImage);
+    expect(database.calls.map((call) => call.name)).toEqual([
+      "register_oss_stream_transfer",
+      "claim_oss_mirror_transfers",
+      "complete_oss_mirror_transfer",
+    ]);
   });
 
   it("rejects redirects and non-image payloads before creating a mapping", async () => {
@@ -202,8 +273,9 @@ function createRpcAdmin() {
   const state = { row: {} as Record<string, unknown>, registerParams: {} as Record<string, unknown> };
   const rpc = vi.fn(async (name: string, params: Record<string, unknown>) => {
     calls.push({ name, params });
-    if (name === "register_oss_mirror_transfer") {
+    if (name === "register_oss_mirror_transfer" || name === "register_oss_stream_transfer") {
       state.registerParams = params;
+      const isStream = name === "register_oss_stream_transfer";
       registeredRow = {
         id: params.p_id,
         object_key: params.p_object_key,
@@ -211,10 +283,10 @@ function createRpcAdmin() {
         source_url_sha256: params.p_source_url_sha256,
         source_host: params.p_source_host,
         generation_ref: params.p_generation_ref,
-        status: "processing",
-        attempts: 1,
-        lease_token: params.p_lease_token,
-        lease_expires_at: params.p_lease_expires_at,
+        status: isStream ? "pending" : "processing",
+        attempts: isStream ? 0 : 1,
+        lease_token: isStream ? null : params.p_lease_token,
+        lease_expires_at: isStream ? null : params.p_lease_expires_at,
         next_attempt_at: new Date().toISOString(),
         expires_at: params.p_expires_at,
         expected_content_length: params.p_expected_content_length,
@@ -224,6 +296,17 @@ function createRpcAdmin() {
         last_error: null,
       };
       state.row = { ...registeredRow };
+      return { data: [{ ...state.row }], error: null };
+    }
+    if (name === "claim_oss_mirror_transfers") {
+      if (state.row.status !== "pending") return { data: [], error: null };
+      state.row = {
+        ...state.row,
+        status: "processing",
+        attempts: Number(state.row.attempts) + 1,
+        lease_token: params.p_lease_token,
+        lease_expires_at: params.p_lease_expires_at,
+      };
       return { data: [{ ...state.row }], error: null };
     }
     if (name === "complete_oss_mirror_transfer") {
@@ -255,8 +338,16 @@ function createRpcAdmin() {
     }
     throw new Error(`unexpected RPC ${name}`);
   });
+  const chain = {
+    select: vi.fn(() => chain),
+    eq: vi.fn(() => chain),
+    maybeSingle: vi.fn(async () => ({ data: { ...state.row }, error: null })),
+    delete: vi.fn(() => chain),
+    lt: vi.fn(() => chain),
+    limit: vi.fn(async () => ({ data: [], error: null })),
+  };
   return {
-    admin: { rpc } as never,
+    admin: { rpc, from: vi.fn(() => chain) } as never,
     calls,
     get row() { return state.row; },
     get registerParams() { return state.registerParams; },

@@ -192,11 +192,14 @@ URL、增加幂等登记和多 worker 租约 RPC，后续迁移增加解析链�
 supabase/migrations/20260818025519_oss_mirror_transfers.sql
 supabase/migrations/20260818032422_harden_oss_mirror_transfers.sql
 supabase/migrations/20260818054500_track_oss_mirror_resolutions.sql
+supabase/migrations/20260818062500_register_oss_stream_transfers.sql
 ```
 
 应用后验证 `public.oss_mirror_transfers` 存在，且下列 RPC 均只授权给
 `service_role`：`register_oss_mirror_transfer`、`claim_oss_mirror_transfer`、
 `claim_oss_mirror_transfers`、`complete_oss_mirror_transfer`、
 `defer_oss_mirror_transfer`、`expire_oss_mirror_transfers`、
-`cleanup_oss_mirror_transfers`、`record_oss_mirror_resolution`。完整启用顺序见
+`cleanup_oss_mirror_transfers`、`record_oss_mirror_resolution`、
+`register_oss_stream_transfer`。当前 EC2 流式 Worker 启用顺序见
+`docs/oss-remote-stream-worker.md`；Website 镜像兼容流程见
 `docs/oss-mirror-cloud-pull.md`。

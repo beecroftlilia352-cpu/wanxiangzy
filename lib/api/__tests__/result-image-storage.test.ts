@@ -18,11 +18,13 @@ describe("result image storage", () => {
   const originalOssSiteAssetPrefix = process.env.ALIYUN_OSS_SITE_ASSET_PREFIX;
   const originalOssTempPrefix = process.env.ALIYUN_OSS_TEMP_PREFIX;
   const originalOssMirrorEnabled = process.env.ALIYUN_OSS_MIRROR_ENABLED;
+  const originalOssRemoteTransferMode = process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE;
   const tinyAvifBase64 = "AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAAA5waXRtAAAAAAABAAAAImlsb2MAAAAAREAAAQABAAAAAAD6AAEAAAAAAAAAHgAAACNpaW5mAAAAAAABAAAAFWluZmUCAAAAAAEAAGF2MDEAAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAmbWRhdBIACgc4ADYQENBpMhEWQAYYYYQAAHlM2KcgXkzU8A==";
 
   beforeEach(() => {
     delete process.env.IMAGE_STORAGE_PROVIDER;
     delete process.env.ALIYUN_OSS_MIRROR_ENABLED;
+    delete process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE;
     process.env.IMGBB_API_KEY = "test-key";
   });
 
@@ -46,6 +48,7 @@ describe("result image storage", () => {
     restoreEnv("ALIYUN_OSS_SITE_ASSET_PREFIX", originalOssSiteAssetPrefix);
     restoreEnv("ALIYUN_OSS_TEMP_PREFIX", originalOssTempPrefix);
     restoreEnv("ALIYUN_OSS_MIRROR_ENABLED", originalOssMirrorEnabled);
+    restoreEnv("ALIYUN_OSS_REMOTE_TRANSFER_MODE", originalOssRemoteTransferMode);
   });
 
   it("returns already-persisted ImgBB URLs without reuploading", async () => {
