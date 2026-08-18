@@ -1,10 +1,4 @@
 import { CREDIT_COSTS, DEFAULT_LINGYA_MODEL, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import {
-  type GptImageProviderName,
-  type ModelRoutingConfig,
-  type NanoBananaProviderName,
-} from "@/lib/api/model-routing-config";
-import { getActiveModelRoutingConfig } from "@/lib/api/model-routing-config.server";
 import { getPublishedLlmProviderRawValue } from "@/lib/api/llm-provider-registry.server";
 import { getAdminModelProviderSnapshot, getPublishedModelProviderRawValue } from "@/lib/api/model-provider-registry.server";
 import { getPublishedVideoProviderRawValue } from "@/lib/api/video-provider-registry.server";
