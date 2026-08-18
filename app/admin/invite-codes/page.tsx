@@ -17,6 +17,7 @@ import {
   type AdminInviteCodeUsage,
   type AdminInviteReward,
 } from "@/lib/admin/invite-codes";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ type PageProps = {
 };
 
 export default async function AdminInviteCodesPage({ searchParams }: PageProps) {
+  await requireAdmin("settings:read");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const status = getSearchParam(params.status);

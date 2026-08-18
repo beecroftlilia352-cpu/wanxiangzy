@@ -13,6 +13,7 @@ type AdminAssetsClientProps = {
   assets: AdminAssetList;
   q: string;
   module: string;
+  canManage?: boolean;
 };
 
 const moduleOptions = [
@@ -27,7 +28,7 @@ const moduleOptions = [
   { value: "faceSwap", label: "换脸" },
 ];
 
-export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps) {
+export function AdminAssetsClient({ assets, q, module, canManage = false }: AdminAssetsClientProps) {
   const [moduleValue, setModuleValue] = useState(module);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [batchReason, setBatchReason] = useState("");
@@ -43,7 +44,6 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
       return;
     }
     setBatchLoading(true);
-    let ok = 0;
     for (const row of selectedRows) {
       try {
         const res = await fetch(`/api/admin/assets/${encodeURIComponent(row.id)}/moderate`, {
@@ -51,7 +51,6 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sourceType: row.sourceType, action, reason }),
         });
-        if (res.ok) ok += 1;
       } catch { /* 单条失败继续 */ }
     }
     setBatchLoading(false);
@@ -88,8 +87,8 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
     { title: "图片", width: 90, render: (_, row) => <span className="tabular-nums">{`${row.urls.length}/${row.inputUrls.length}`}</span> },
     { title: "归属", dataIndex: "userId", width: 120, render: (value) => value ? <Tag>用户作品</Tag> : <Tag>系统素材</Tag> },
     { title: "时间", width: 130, render: (_, row) => formatDateTime(row.updatedAt || row.createdAt) },
-    { title: "操作", width: 250, render: (_, row) => <AdminAssetModerationForm sourceId={row.id} sourceType={row.sourceType} /> },
-  ], []);
+    { title: "操作", width: 250, render: (_, row) => canManage ? <AdminAssetModerationForm sourceId={row.id} sourceType={row.sourceType} /> : <span className="text-xs font-bold text-[var(--admin-muted)]">只读</span> },
+  ], [canManage]);
 
   return (
     <Space orientation="vertical" size={16} className="w-full">
@@ -103,7 +102,7 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
             className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
           >
             <DatabaseOutlined aria-hidden="true" />
-            生命周期
+            存储治理（高级）
           </Link>
         }
       />

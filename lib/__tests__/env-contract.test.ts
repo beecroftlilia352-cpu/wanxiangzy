@@ -54,6 +54,7 @@ describe("environment contract", () => {
     delete process.env.ALIYUN_OSS_REMOTE_STREAM_TIMEOUT_MS;
     delete process.env.ALIYUN_OSS_REMOTE_CONCURRENCY;
     delete process.env.ALIYUN_OSS_REMOTE_WORKER_BATCH_SIZE;
+    delete process.env.REDIS_URL;
   });
 
   afterEach(() => {
@@ -74,6 +75,23 @@ describe("environment contract", () => {
         }),
       ])
     );
+  });
+
+  it("requires the standard Redis endpoint for distributed capacity protection", () => {
+    process.env.AI_ROUTER_CAPACITY_MODE = "redis";
+    process.env.REDIS_URL = "redis://127.0.0.1:6379/15";
+    expect(validateEnv({ nodeEnv: "production" })).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "REDIS_URL", severity: "error" }),
+    ]));
+
+    process.env.REDIS_URL = "https://redis.example.com";
+    expect(validateEnv({ nodeEnv: "production" })).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: "REDIS_URL",
+        severity: "error",
+        message: expect.stringContaining("redis://"),
+      }),
+    ]));
   });
 
   it("prefers NEXT_PUBLIC_APP_URL for public base URLs", () => {

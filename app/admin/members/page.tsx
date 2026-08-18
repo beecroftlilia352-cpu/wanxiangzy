@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/AdminPrimitives";
 import { AdminMemberForm } from "@/components/admin/AdminMemberForm";
 import { listAdminMembers, type AdminMemberListItem } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ type PageProps = {
 };
 
 export default async function AdminMembersPage({ searchParams }: PageProps) {
+  await requireAdmin("settings:read");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const members = await listAdminMembers({ limit: 200, q: q || undefined });

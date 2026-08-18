@@ -2,6 +2,7 @@ import { AdminTasksClient } from "@/components/admin/AdminTasksClient";
 import { listAdminTasks } from "@/lib/admin/data";
 import { parseAdminListQuery } from "@/lib/admin/query";
 import type { AdminTaskList } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 15;
@@ -19,6 +20,7 @@ type PageProps = {
 };
 
 export default async function AdminGenerationsPage({ searchParams }: PageProps) {
+  await requireAdmin("tasks:read");
   const params = (await searchParams) || {};
   const query = parseAdminListQuery(toUrlSearchParams(params), {
     defaultPageSize: 20,

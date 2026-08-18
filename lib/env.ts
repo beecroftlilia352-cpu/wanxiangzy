@@ -44,6 +44,11 @@ const PRODUCTION_REQUIRED_ENV: EnvContractEntry[] = [
     category: "production-required",
     description: "Supabase service role key for privileged server-side operations.",
   },
+  {
+    name: "REDIS_URL",
+    category: "production-required",
+    description: "Standard redis:// or rediss:// endpoint shared by BullMQ and distributed AI capacity protection.",
+  },
 ];
 
 // 模型/分析/存储供应商密钥已改为后台加密配置（lib/api/model-provider-secrets.ts），
@@ -96,8 +101,6 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "AI_ROUTER_CAPACITY_MODE", category: "optional", description: "AI provider capacity guard: redis for distributed pooling (recommended in production), local for development only." },
-  { name: "UPSTASH_REDIS_REST_URL", category: "optional", description: "Distributed AI routing concurrency and RPM lease store." },
-  { name: "UPSTASH_REDIS_REST_TOKEN", category: "optional", description: "Credential for the distributed AI routing capacity store." },
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "GPT_IMAGE_PROVIDER", category: "optional", description: "GPT-Image-2 provider: catrouter (default) or plato." },
   { name: "GPT_TRYON_PROMPT_TEMPLATE", category: "optional", description: "GPT-Image-2 try-on prompt template: banana (default) or legacy rollback." },
@@ -231,14 +234,18 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
   }
 
   for (const entry of PRODUCTION_REQUIRED_ENV) {
-    if (!process.env[entry.name]) {
+    const value = process.env[entry.name]?.trim();
+    const invalidRedisUrl = entry.name === "REDIS_URL" && Boolean(value) && !isStandardRedisUrl(value);
+    if (!value || invalidRedisUrl) {
       issues.push({
         name: entry.name,
         category: entry.category,
         severity: isProduction ? "error" : "warning",
-        message: isProduction
-          ? `${entry.name} is required in production.`
-          : `${entry.name} is not set; this is required before production deploys.`,
+        message: invalidRedisUrl
+          ? "REDIS_URL must be a valid redis:// or rediss:// endpoint."
+          : isProduction
+            ? `${entry.name} is required in production.`
+            : `${entry.name} is not set; this is required before production deploys.`,
       });
     }
   }
@@ -274,22 +281,18 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
 
   validateAiToolEnv({ issues, isProduction });
 
-  const capacityMode = (process.env.AI_ROUTER_CAPACITY_MODE || "redis").trim().toLowerCase();
-  if (capacityMode === "redis") {
-    for (const name of ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"] as const) {
-      if (!process.env[name]) {
-        issues.push({
-          name,
-          category: "optional",
-          severity: "warning",
-          message: `${name} is required for distributed AI routing capacity protection; process-local fallback is not safe for multi-process production.`,
-        });
-      }
-    }
-  }
-
   if (options.log) logEnvIssues(issues);
   return issues;
+}
+
+function isStandardRedisUrl(value: string | undefined) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === "redis:" || url.protocol === "rediss:") && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function validateOssMirrorEnv(params: {

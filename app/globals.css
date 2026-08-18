@@ -1244,6 +1244,14 @@ a,
 }
 
 /* 侧栏审批角标 */
+.admin-nav-link {
+  display: inline-flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
 .admin-nav-badge {
   display: inline-flex;
   align-items: center;

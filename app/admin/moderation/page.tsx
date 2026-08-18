@@ -10,6 +10,7 @@ import {
   shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { listAdminModerationCases, type AdminModerationCase } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ type PageProps = {
 };
 
 export default async function AdminModerationPage({ searchParams }: PageProps) {
+  await requireAdmin("moderation:read");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const cases = await listAdminModerationCases({ q, limit: q ? 80 : 50 });

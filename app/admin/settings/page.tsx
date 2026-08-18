@@ -9,6 +9,7 @@ import {
 import { AdminConfigActions } from "@/components/admin/AdminConfigActions";
 import { getAdminSettingsOverview, type AdminConfigVersion } from "@/lib/admin/data";
 import { AdminMonitoringConfigForm } from "@/components/admin/AdminMonitoringConfigForm";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ function configKeyLabel(value: string) {
 }
 
 export default async function AdminSettingsPage() {
+  await requireAdmin("settings:read");
   const settings = await getAdminSettingsOverview();
 
   return (

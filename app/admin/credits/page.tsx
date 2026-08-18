@@ -11,6 +11,7 @@ import {
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
 import { listAdminCreditLogs, type AdminCreditLogItem } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ type PageProps = {
 };
 
 export default async function AdminCreditsPage({ searchParams }: PageProps) {
+  await requireAdmin("credits:read");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const since = getSearchParam(params.since);
@@ -145,4 +147,3 @@ function ReasonGroupCard({ title, rows, reasons }: { title: string; rows: AdminC
     </div>
   );
 }
-

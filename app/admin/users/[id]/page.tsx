@@ -19,6 +19,7 @@ import {
   type AdminCreditLogItem,
   type AdminTaskListItem,
 } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ type PageProps = {
 };
 
 export default async function AdminUserDetailPage({ params }: PageProps) {
+  await requireAdmin("users:read");
   const { id } = await params;
   const detail = await getAdminUserDetail(id);
   const profile = detail.profile;

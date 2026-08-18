@@ -20,10 +20,12 @@ import {
   type AdminPromptExperiment,
   type AdminPromptExperimentVariant,
 } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPromptsPage() {
+  await requireAdmin("prompts:read");
   const overview = await getAdminPromptExperimentOverview();
   const defaultValue = JSON.stringify(overview.activeVersion?.value || DEFAULT_PROMPT_EXPERIMENT_CONFIG, null, 2);
 

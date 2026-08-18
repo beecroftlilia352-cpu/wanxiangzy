@@ -29,7 +29,7 @@ import { getOssMirrorHealth } from "@/lib/queue/oss-mirror-health.server";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const auth = await requireAdminApi("providers:write");
+  const auth = await requireAdminApi("providers:read");
   if (!auth.ok) return auth.response;
   const url = new URL(request.url);
   const hours = Number(url.searchParams.get("hours") || 24);

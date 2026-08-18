@@ -158,7 +158,7 @@ const MODALITIES: Array<{ value: AiModality; label: string }> = [
 ];
 const PROTOCOLS: Array<{ value: AiProviderProtocol; label: string }> = Object.values(AI_PROTOCOL_ADAPTERS).map((adapter) => ({ value: adapter.id, label: adapter.label }));
 
-export function AdminModelControlPlane() {
+export function AdminModelControlPlane({ canManage = true }: { canManage?: boolean }) {
   const { confirm, confirmDialog } = useConfirm();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [draft, setDraft] = useState<DraftConfig | null>(null);
@@ -192,7 +192,7 @@ export function AdminModelControlPlane() {
   }, [draft, snapshot]);
 
   async function submit(action: "validate" | "save-draft" | "publish") {
-    if (!draft) return;
+    if (!canManage || !draft) return;
     setSaving(action);
     try {
       const response = await fetch("/api/admin/model-control", {
@@ -217,6 +217,7 @@ export function AdminModelControlPlane() {
   }
 
   function publish() {
+    if (!canManage) return;
     void confirm({
       title: "确认发布统一模型配置？",
       content: "发布后新任务会立即使用新的模型、供应商池和路由策略。现有运行中任务不切换通道。",
@@ -226,6 +227,7 @@ export function AdminModelControlPlane() {
   }
 
   async function rollback(version: Version) {
+    if (!canManage) return;
     void confirm({
       title: "确认回滚模型配置？",
       content: `系统会复制 ${formatTime(version.published_at || version.created_at)} 的配置并发布为新版本，历史记录不会被覆盖。`,
@@ -252,7 +254,7 @@ export function AdminModelControlPlane() {
   }
 
   async function testProvider(provider: DraftProvider) {
-    if (!draft) return;
+    if (!canManage || !draft) return;
     const protocol = draft.deployments.find((item) => item.providerId === provider.id)?.protocol || "openai-chat";
     setTestingProvider(provider.id);
     try {
@@ -296,9 +298,11 @@ export function AdminModelControlPlane() {
         actions={(
           <>
             <button type="button" onClick={() => void load()} className={secondaryButton}><RefreshCw className="h-4 w-4" />刷新</button>
-            <button type="button" onClick={() => void submit("validate")} disabled={Boolean(saving)} className={secondaryButton}>{saving === "validate" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}校验</button>
-            <button type="button" onClick={() => void submit("save-draft")} disabled={Boolean(saving)} className={secondaryButton}><Save className="h-4 w-4" />保存草稿</button>
-            <button type="button" onClick={publish} disabled={Boolean(saving)} className={primaryButton}>{saving === "publish" ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}发布</button>
+            {canManage && <>
+              <button type="button" onClick={() => void submit("validate")} disabled={Boolean(saving)} className={secondaryButton}>{saving === "validate" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}校验</button>
+              <button type="button" onClick={() => void submit("save-draft")} disabled={Boolean(saving)} className={secondaryButton}><Save className="h-4 w-4" />保存草稿</button>
+              <button type="button" onClick={publish} disabled={Boolean(saving)} className={primaryButton}>{saving === "publish" ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}发布</button>
+            </>}
           </>
         )}
       />
@@ -316,6 +320,12 @@ export function AdminModelControlPlane() {
             <p className="font-black">发布校验发现 {issues.length} 项：</p>
             {issues.slice(0, 6).map((issue, index) => <p key={`${issue.path}-${index}`}><code>{issue.path}</code> — {issue.message}</p>)}
           </div>
+        </AdminNotice>
+      )}
+
+      {!canManage && (
+        <AdminNotice tone="info">
+          当前角色为只读访问。你可以查看模型、供应商、容量、指标和版本记录；配置变更、连接测试与回滚需要平台治理权限。
         </AdminNotice>
       )}
 
@@ -538,11 +548,11 @@ export function AdminModelControlPlane() {
         </div>
       )}
 
-      {activeTab === "models" && <ModelsEditor config={draft} onChange={setDraft} />}
-      {activeTab === "providers" && <ProvidersEditor config={draft} onChange={setDraft} testingProvider={testingProvider} onTest={testProvider} />}
-      {activeTab === "routing" && <RoutingEditor config={draft} onChange={setDraft} health={snapshot.health} inFlight={snapshot.inFlight} />}
+      {activeTab === "models" && (canManage ? <ModelsEditor config={draft} onChange={setDraft} /> : <ReadOnlyConfigurationPanel tab="models" config={draft} health={snapshot.health} inFlight={snapshot.inFlight} />)}
+      {activeTab === "providers" && (canManage ? <ProvidersEditor config={draft} onChange={setDraft} testingProvider={testingProvider} onTest={testProvider} /> : <ReadOnlyConfigurationPanel tab="providers" config={draft} health={snapshot.health} inFlight={snapshot.inFlight} />)}
+      {activeTab === "routing" && (canManage ? <RoutingEditor config={draft} onChange={setDraft} health={snapshot.health} inFlight={snapshot.inFlight} /> : <ReadOnlyConfigurationPanel tab="routing" config={draft} health={snapshot.health} inFlight={snapshot.inFlight} />)}
       {activeTab === "metrics" && <MetricsPanel config={draft} metrics={snapshot.metrics} health={snapshot.health} />}
-      {activeTab === "versions" && <VersionsPanel versions={snapshot.versions} currentId={snapshot.versionId} saving={saving} onRollback={rollback} />}
+      {activeTab === "versions" && <VersionsPanel versions={snapshot.versions} currentId={snapshot.versionId} saving={saving} onRollback={rollback} canManage={canManage} />}
     </>
   );
 }
@@ -854,8 +864,18 @@ function MetricsPanel({ config, metrics, health }: { config: DraftConfig; metric
   return <AdminSection title="24 小时供应商指标" description="每一行对应一个模型部署；不记录提示词、API Key 或完整供应商响应。"><div className="overflow-x-auto"><table className="w-full min-w-[980px] border-collapse text-left text-xs"><thead className="bg-[var(--admin-surface-soft)] text-[var(--admin-muted)]"><tr>{["模型 / 供应商", "状态", "调用", "成功率", "平均", "P50", "P95", "估算成本", "最近调用"].map((label) => <th key={label} className="border-b border-[var(--admin-border)] px-3 py-2 font-black">{label}</th>)}</tr></thead><tbody>{metrics.length ? metrics.map((metric) => { const deployment = config.deployments.find((item) => item.id === metric.deploymentId); const model = config.models.find((item) => item.id === metric.modelId); const provider = config.providers.find((item) => item.id === metric.providerId); const state = health[metric.deploymentId]; return <tr key={metric.deploymentId} className="border-b border-[var(--admin-border)] hover:bg-[var(--admin-surface-soft)]"><td className="px-3 py-3"><p className="font-black text-[var(--admin-fg)]">{model?.displayName || metric.modelId}</p><p className="mt-1 font-mono text-[11px] text-[var(--admin-muted)]">{provider?.name || metric.providerId} · {deployment?.upstreamModel}</p></td><td className="px-3 py-3"><AdminStatusBadge status={state?.circuitState === "open" ? "failed" : state?.circuitState === "half_open" ? "pending" : "completed"} /></td><td className="px-3 py-3 font-black tabular-nums">{metric.requestCount}</td><td className="px-3 py-3 font-black tabular-nums">{metric.successRate === null ? "—" : `${(metric.successRate * 100).toFixed(2)}%`}</td><td className="px-3 py-3 tabular-nums">{formatDuration(metric.averageLatencyMs)}</td><td className="px-3 py-3 tabular-nums">{formatDuration(metric.p50LatencyMs)}</td><td className="px-3 py-3 tabular-nums">{formatDuration(metric.p95LatencyMs)}</td><td className="px-3 py-3 tabular-nums">${metric.estimatedCostUsd.toFixed(4)}</td><td className="px-3 py-3">{formatTime(metric.lastRequestAt)}</td></tr>; }) : <tr><td colSpan={9} className="px-4 py-16 text-center text-sm font-bold text-[var(--admin-muted)]">暂无调用样本。发布配置并完成生成后会自动出现。</td></tr>}</tbody></table></div></AdminSection>;
 }
 
-function VersionsPanel({ versions, currentId, saving, onRollback }: { versions: Version[]; currentId?: string; saving: string | null; onRollback: (version: Version) => void }) {
-  return <AdminSection title="配置版本与回滚" description="回滚不会覆盖历史，而是把目标快照重新发布成一个新版本。"><div className="divide-y divide-[var(--admin-border)]">{versions.map((version) => <div key={version.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><code className="font-black text-[var(--admin-fg)]">{version.id.slice(0, 12)}</code><AdminStatusBadge status={version.id === currentId ? "published" : version.status} /></div><p className="mt-1 text-xs font-bold text-[var(--admin-muted)]">创建 {formatTime(version.created_at)}{version.published_at ? ` · 发布 ${formatTime(version.published_at)}` : ""}</p></div><button type="button" disabled={version.id === currentId || Boolean(saving)} onClick={() => void onRollback(version)} className={secondaryButton}>{saving === `rollback:${version.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}回滚到此版本</button></div>)}</div></AdminSection>;
+function ReadOnlyConfigurationPanel({ tab, config, health, inFlight }: { tab: "models" | "providers" | "routing"; config: DraftConfig; health: Record<string, Health>; inFlight: Record<string, number> }) {
+  if (tab === "models") {
+    return <AdminSection title="模型目录" description="当前环境中的逻辑模型与可见性配置。"><div className="divide-y divide-[var(--admin-border)]">{config.models.map((model) => <div key={model.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-[var(--admin-fg)]">{model.displayName}</p><p className="mt-1 font-mono text-[11px] text-[var(--admin-muted)]">{model.id} · {model.modality}</p></div><div className="flex items-center gap-2"><AdminStatusBadge status={model.enabled ? "completed" : "disabled"} /><span className="text-xs font-bold text-[var(--admin-muted)]">{model.userVisible ? "前台可见" : "仅后台"}</span></div></div>)}</div></AdminSection>;
+  }
+  if (tab === "providers") {
+    return <AdminSection title="供应商池" description="仅展示连接标识与当前容量状态，不显示密钥。"><div className="divide-y divide-[var(--admin-border)]">{config.providers.map((provider) => { const deployments = config.deployments.filter((item) => item.providerId === provider.id); const active = deployments.filter((item) => item.enabled).length; const activeRequests = deployments.reduce((sum, item) => sum + (inFlight[item.id] || 0), 0); const protocols = Array.from(new Set(deployments.map((item) => item.protocol))); return <div key={provider.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-[var(--admin-fg)]">{provider.name}</p><p className="mt-1 font-mono text-[11px] text-[var(--admin-muted)]">{provider.id} · {protocols.join(", ") || "未配置协议"}</p></div><div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[var(--admin-muted)]"><span>{active}/{deployments.length} 部署启用</span><span>执行中 {activeRequests}</span></div></div>; })}</div></AdminSection>;
+  }
+  return <AdminSection title="路由与容量" description="展示每个部署的启用状态、优先级、容量上限与熔断状态。"><div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left text-xs"><thead className="bg-[var(--admin-surface-soft)] text-[var(--admin-muted)]"><tr>{["部署", "模型 / 供应商", "优先级", "并发", "RPM", "当前执行", "熔断"].map((label) => <th key={label} className="border-b border-[var(--admin-border)] px-3 py-2 font-black">{label}</th>)}</tr></thead><tbody>{config.deployments.map((deployment) => { const model = config.models.find((item) => item.id === deployment.modelId); const provider = config.providers.find((item) => item.id === deployment.providerId); const state = health[deployment.id]; return <tr key={deployment.id} className="border-b border-[var(--admin-border)]"><td className="px-3 py-3 font-mono">{deployment.id}</td><td className="px-3 py-3"><p className="font-black">{model?.displayName || deployment.modelId}</p><p className="mt-1 text-[11px] text-[var(--admin-muted)]">{provider?.name || deployment.providerId}</p></td><td className="px-3 py-3 tabular-nums">{deployment.priority}</td><td className="px-3 py-3 tabular-nums">{deployment.maxConcurrency}</td><td className="px-3 py-3 tabular-nums">{deployment.requestsPerMinute}</td><td className="px-3 py-3 tabular-nums">{inFlight[deployment.id] || 0}</td><td className="px-3 py-3"><AdminStatusBadge status={state?.circuitState === "open" ? "failed" : state?.circuitState === "half_open" ? "pending" : "completed"} /></td></tr>; })}</tbody></table></div></AdminSection>;
+}
+
+function VersionsPanel({ versions, currentId, saving, onRollback, canManage }: { versions: Version[]; currentId?: string; saving: string | null; onRollback: (version: Version) => void; canManage: boolean }) {
+  return <AdminSection title="配置版本与回滚" description="回滚不会覆盖历史，而是把目标快照重新发布成一个新版本。"><div className="divide-y divide-[var(--admin-border)]">{versions.map((version) => <div key={version.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><code className="font-black text-[var(--admin-fg)]">{version.id.slice(0, 12)}</code><AdminStatusBadge status={version.id === currentId ? "published" : version.status} /></div><p className="mt-1 text-xs font-bold text-[var(--admin-muted)]">创建 {formatTime(version.created_at)}{version.published_at ? ` · 发布 ${formatTime(version.published_at)}` : ""}</p></div>{canManage && <button type="button" disabled={version.id === currentId || Boolean(saving)} onClick={() => void onRollback(version)} className={secondaryButton}>{saving === `rollback:${version.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}回滚到此版本</button>}</div>)}</div></AdminSection>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="mt-3 block space-y-1"><span className="text-[11px] font-black text-[var(--admin-muted)]">{label}</span>{children}</label>; }

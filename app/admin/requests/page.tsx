@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/AdminPrimitives";
 import { AdminOperationRequestActions } from "@/components/admin/AdminOperationRequestActions";
 import { listAdminOperationRequests, type AdminOperationRequest } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ const statusOptions = [
 ];
 
 export default async function AdminRequestsPage({ searchParams }: PageProps) {
+  await requireAdmin("operation_requests:read");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const status = getSearchParam(params.status);

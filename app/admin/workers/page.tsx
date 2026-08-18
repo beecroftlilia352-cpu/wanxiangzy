@@ -14,10 +14,12 @@ import {
 import { AdminWorkerRunForm } from "@/components/admin/AdminWorkerRunForm";
 import { AdminWorkerRuntimeConfigForm } from "@/components/admin/AdminWorkerRuntimeConfigForm";
 import { getAdminWorkerOverview, type AdminAuditLog, type AdminTaskListItem } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminWorkersPage() {
+  await requireAdmin("workers:read");
   const overview = await getAdminWorkerOverview();
 
   return (

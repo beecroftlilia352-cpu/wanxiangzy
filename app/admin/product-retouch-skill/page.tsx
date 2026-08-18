@@ -8,6 +8,7 @@ import {
   PRODUCT_RETOUCH_CONFIG_KEY,
 } from "@/lib/product-retouch";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const VERSION_SELECT = [
 ].join(",");
 
 export default async function AdminProductRetouchSkillPage() {
+  await requireAdmin("prompts:read");
   const warnings: string[] = [];
   const admin = getAdminClient();
 
