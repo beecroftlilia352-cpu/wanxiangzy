@@ -247,8 +247,8 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
   for (const entry of PRODUCTION_REQUIRED_ENV) {
     const value = process.env[entry.name]?.trim();
     const invalidRedisUrl = entry.name === "REDIS_URL" && Boolean(value) && !isStandardRedisUrl(value);
-    const invalidGenerationQueueMode = entry.name === "GENERATION_QUEUE_MODE" && Boolean(value) && value.toLowerCase() !== "bullmq";
-    const invalidCapacityMode = entry.name === "AI_ROUTER_CAPACITY_MODE" && Boolean(value) && value.toLowerCase() !== "redis";
+    const invalidGenerationQueueMode = entry.name === "GENERATION_QUEUE_MODE" && value !== undefined && value.toLowerCase() !== "bullmq";
+    const invalidCapacityMode = entry.name === "AI_ROUTER_CAPACITY_MODE" && value !== undefined && value.toLowerCase() !== "redis";
     if (!value || invalidRedisUrl || invalidGenerationQueueMode || invalidCapacityMode) {
       issues.push({
         name: entry.name,
