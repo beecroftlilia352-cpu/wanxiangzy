@@ -8,7 +8,8 @@ export type AiToolClientAssetProof = {
 };
 
 export function getUploadOwnershipProof(upload: UploadResult): AiToolClientAssetProof {
-  const assetId = readString(asRecord(upload.asset)?.id);
+  const assetId = readString(upload.media_asset_id)
+    || readString(asRecord(upload.asset)?.id);
   return {
     assetId: assetId && UUID_PATTERN.test(assetId) ? assetId : null,
     registrationToken: readString(upload.resource_registration_token) || null,

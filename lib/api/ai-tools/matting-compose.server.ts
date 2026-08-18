@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import type { AiToolOutput } from "@/lib/ai-tools/types";
 import type {
   AiToolMattingComposeMask,
@@ -286,7 +286,7 @@ function isHttpsBaseUrl(value: string | undefined) {
 }
 
 async function inspectSource(bytes: Buffer) {
-  let metadata: Awaited<ReturnType<sharp.Sharp["metadata"]>>;
+  let metadata: Awaited<ReturnType<Sharp["metadata"]>>;
   try {
     metadata = await sharp(bytes, sharpInputOptions()).metadata();
   } catch (error) {

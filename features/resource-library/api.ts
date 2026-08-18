@@ -138,6 +138,20 @@ export async function deleteResourceAsset(id: string): Promise<void> {
 
 export async function uploadLocalResource(file: File): Promise<ResourceAsset> {
   const upload = file.type.startsWith("video/") ? await uploadVideo(file) : await uploadImage(file);
+  if (upload.media_asset_id) {
+    const raw = asRecord(await fetchJson("/api/resource-library/assets/from-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        media_asset_id: upload.media_asset_id,
+        title: file.name,
+        original_filename: file.name,
+      }),
+    }));
+    const registered = normalizeAsset(raw.asset ?? raw);
+    if (registered) return registered;
+    throw new Error("媒体资产已上传，但资源库登记失败");
+  }
   const registered = normalizeAsset(upload.asset);
   if (registered) return registered;
 

@@ -140,7 +140,7 @@ export function useStudioImageModelOptions() {
       });
       const curatedIds = new Set(curated.map((item) => item.value));
       const dynamic = (catalog || [])
-        .filter((item) => !curatedIds.has(item.id))
+        .filter((item) => !curatedIds.has(item.id as LingyaModel))
         .map((item) => {
           const localized = resolveCatalogLocale(item.locales, locale);
           return {

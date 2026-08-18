@@ -206,6 +206,9 @@ export interface UploadResult {
   status?: "verified" | "pending_validation";
   media_asset_id?: string;
   canonical_url?: string;
+  /** Legacy resource-library response fields kept for older clients. */
+  asset?: { id?: string; [key: string]: unknown };
+  resource_registration_token?: string;
 }
 
 /**

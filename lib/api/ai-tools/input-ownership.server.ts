@@ -51,7 +51,7 @@ type OwnedImage = {
   url: string;
   width: number | null;
   height: number | null;
-  proof: "upload_token" | "resource_asset";
+  proof: "upload_token" | "resource_asset" | "media_asset";
 };
 
 export type AiToolSourceOwnership = {
@@ -59,7 +59,7 @@ export type AiToolSourceOwnership = {
   url: string;
   width: number | null;
   height: number | null;
-  proof: "upload_token" | "resource_asset";
+  proof: "upload_token" | "resource_asset" | "media_asset";
 };
 
 export class AiToolInputOwnershipError extends Error {
@@ -310,6 +310,28 @@ async function resolveOwnedImage(
     }, input);
   }
 
+  const mediaAssetId = parseCanonicalMediaAssetId(expectedUrl);
+  if (mediaAssetId) {
+    if (input.assetId && input.assetId !== mediaAssetId) {
+      throw new AiToolInputOwnershipError(`${input.label}与媒体资产标识不匹配`, {
+        code: "AI_TOOL_INPUT_REFERENCE_MISMATCH",
+      });
+    }
+    const mediaAsset = await findOwnedMediaAsset(input.supabase, input.userId, mediaAssetId);
+    if (!mediaAsset) {
+      throw new AiToolInputOwnershipError(`${input.label}不属于当前用户，请重新上传或从资源仓库选择`, {
+        code: "AI_TOOL_INPUT_NOT_OWNED",
+      });
+    }
+    return ensureOwnedImageDimensions({
+      assetId: mediaAssetId,
+      url: expectedUrl,
+      width: positiveIntegerOrNull(mediaAsset.width),
+      height: positiveIntegerOrNull(mediaAsset.height),
+      proof: "media_asset",
+    }, input);
+  }
+
   const asset = await findOwnedImageAsset(input.supabase, input.userId, expectedUrl, input.assetId);
   if (!asset) {
     throw new AiToolInputOwnershipError(`${input.label}不属于当前用户，请重新上传或从资源仓库选择`, {
@@ -328,6 +350,48 @@ async function resolveOwnedImage(
     height: positiveIntegerOrNull(asset.height),
     proof: "resource_asset",
   }, input);
+}
+
+function parseCanonicalMediaAssetId(value: string) {
+  try {
+    const url = new URL(value, "https://canonical.invalid");
+    if (url.origin !== "https://canonical.invalid") return null;
+    const match = url.pathname.match(/^\/api\/media-assets\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/?$/i);
+    return match?.[1]?.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function findOwnedMediaAsset(
+  supabase: SupabaseClient,
+  userId: string,
+  assetId: string,
+) {
+  try {
+    const { data, error } = await supabase
+      .from("media_asset_records")
+      .select("id,status,width,height")
+      .eq("id", assetId)
+      .eq("owner_user_id", userId)
+      .eq("status", "verified")
+      .maybeSingle();
+    if (error) {
+      throw new AiToolInputOwnershipError("媒体资产归属校验暂时不可用", {
+        code: "AI_TOOL_INPUT_OWNERSHIP_LOOKUP_FAILED",
+        status: 503,
+        retryable: true,
+      });
+    }
+    return data && isRecord(data) ? data : null;
+  } catch (error) {
+    if (error instanceof AiToolInputOwnershipError) throw error;
+    throw new AiToolInputOwnershipError("媒体资产归属校验暂时不可用", {
+      code: "AI_TOOL_INPUT_OWNERSHIP_LOOKUP_FAILED",
+      status: 503,
+      retryable: true,
+    });
+  }
 }
 
 async function ensureOwnedImageDimensions(

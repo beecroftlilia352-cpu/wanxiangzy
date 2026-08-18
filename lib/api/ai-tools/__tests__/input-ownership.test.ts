@@ -73,6 +73,26 @@ describe("AI tool input ownership", () => {
     expect(builder.eq).toHaveBeenCalledWith("moderation_status", "allowed");
   });
 
+  it("resolves canonical media-registry uploads by owner and verified status", async () => {
+    const assetId = "12fd7fb7-c39e-4e82-98eb-6f35630a0f93";
+    const request = { ...resizeRequest(), source_url: `/api/media-assets/${assetId}` };
+    const { supabase, from, builder } = supabaseReturning({
+      id: assetId,
+      status: "verified",
+      width: 16,
+      height: 12,
+    });
+
+    await expect(resolveOwnedAiToolRequest(request, { sourceAssetId: assetId }, {
+      userId: "user-1",
+      supabase,
+      executionMode: "live",
+    })).resolves.toMatchObject({ source_url: request.source_url });
+    expect(from).toHaveBeenCalledWith("media_asset_records");
+    expect(builder.eq).toHaveBeenCalledWith("owner_user_id", "user-1");
+    expect(builder.eq).toHaveBeenCalledWith("status", "verified");
+  });
+
   it("fails closed when a client submits an arbitrary URL", async () => {
     const { supabase } = supabaseReturning(null);
 

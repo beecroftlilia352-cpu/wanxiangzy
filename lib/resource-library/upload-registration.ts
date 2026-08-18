@@ -77,6 +77,66 @@ export async function registerTrustedUploadedResourceAsset(
   );
 }
 
+/** Registers a verified canonical media-registry asset in the resource library. */
+export async function registerVerifiedMediaAssetResource(
+  supabase: SupabaseClient,
+  userId: string,
+  input: { mediaAssetId: string; title?: string | null; originalFilename?: string | null },
+): Promise<ResourceLibraryAsset> {
+  const { data, error } = await supabase.rpc("resolve_verified_media_asset_for_worker", {
+    p_asset_id: input.mediaAssetId,
+    p_expected_owner_user_id: userId,
+  });
+  const row = Array.isArray(data) && data[0] && typeof data[0] === "object"
+    ? data[0] as Record<string, unknown>
+    : null;
+  if (error || !row) {
+    throw new ResourceLibraryError("媒体资产不存在或尚未完成安全校验", 409, "MEDIA_ASSET_NOT_VERIFIED");
+  }
+  const mimeType = normalizeOptionalText(row.mime_type, 120) || "application/octet-stream";
+  const mediaType: ResourceLibraryMediaType = mimeType.startsWith("video/") ? "video" : "image";
+  const now = new Date().toISOString();
+  const canonicalUrl = buildCanonicalMediaAssetUrl(input.mediaAssetId);
+  const objectKey = normalizeOptionalText(row.object_key, MAX_OBJECT_KEY_LENGTH);
+  if (!objectKey || !canonicalUrl) {
+    throw new ResourceLibraryError("媒体资产元数据不完整", 503, "MEDIA_ASSET_METADATA_INVALID");
+  }
+  const { data: asset, error: insertError } = await supabase
+    .from("resource_library_assets")
+    .upsert({
+      user_id: userId,
+      source_type: "upload",
+      media_type: mediaType,
+      module_key: null,
+      media_asset_id: input.mediaAssetId,
+      url: canonicalUrl,
+      preview_url: null,
+      storage_provider: "aliyun-oss",
+      object_key: objectKey,
+      source_generation_id: null,
+      source_result_index: null,
+      origin_key: `media-asset:${input.mediaAssetId}`,
+      group_key: null,
+      group_total: 1,
+      title: normalizeTitle(input.title || input.originalFilename),
+      original_filename: normalizeOptionalText(input.originalFilename, 255),
+      mime_type: normalizeOptionalText(row.mime_type, 120),
+      byte_size: normalizeNonNegativeInteger(row.size_bytes),
+      width: normalizePositiveInteger(row.width),
+      height: normalizePositiveInteger(row.height),
+      duration_ms: normalizeNonNegativeInteger(row.duration_ms),
+      metadata: {},
+      storage_state: "active",
+      moderation_status: "allowed",
+      saved_at: now,
+      deleted_at: null,
+    }, { onConflict: "user_id,origin_key" })
+    .select(RESOURCE_LIBRARY_ASSET_COLUMNS)
+    .single();
+  if (insertError) throw new ResourceLibraryError(insertError.message || "资源登记失败", 500, "DATABASE_ERROR");
+  return resourceLibraryAssetRowToClient((asset || {}) as Parameters<typeof resourceLibraryAssetRowToClient>[0]);
+}
+
 export function createUploadRegistrationToken(userId: string, descriptor: TrustedUploadDescriptor) {
   const trusted = normalizeTrustedUploadDescriptor(descriptor);
   const payload: UploadRegistrationTokenPayload = {
@@ -195,6 +255,19 @@ function buildConfiguredPublicObjectUrl(objectKey: string) {
     return "";
   }
   return `${base}/${objectKey.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function buildCanonicalMediaAssetUrl(assetId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(assetId)) return "";
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
+  if (!appUrl) return "";
+  try {
+    const parsed = new URL(appUrl);
+    if (parsed.protocol !== "https:") return "";
+    return `${parsed.origin}/api/media-assets/${assetId.toLowerCase()}`;
+  } catch {
+    return "";
+  }
 }
 
 function sameCanonicalUrl(actual: string, expected: string) {

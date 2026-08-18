@@ -271,6 +271,11 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       imageSize: ImageSize;
       prompt: string;
       genCount: number;
+      aiTool?: {
+        requestId: string;
+        operation: string;
+        nativeMaskUrl?: string;
+      };
     }
   | {
       kind: "outfitFusion";

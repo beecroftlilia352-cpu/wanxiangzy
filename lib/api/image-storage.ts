@@ -26,6 +26,8 @@ export interface StoredImage {
   bucket_name?: string;
   content_type?: string;
   size_bytes?: number;
+  /** Compatibility alias for older provider test fixtures. */
+  byte_size?: number;
   sha256?: string;
 }
 
@@ -45,6 +47,8 @@ export interface StoreImageOptions {
   maxRemoteBytes?: number;
   suppressErrorLog?: boolean;
   timeoutMs?: number;
+  /** Keep the original pixel dimensions while normalizing format/orientation. */
+  preservePixelDimensions?: boolean;
 }
 
 export interface ImageStorageAdapter {
@@ -421,7 +425,7 @@ async function resolveUploadPayload(input: StoreImageInput, options: StoreImageO
     const bytes = input.bytes;
     assertUploadSize(bytes);
     const contentType = resolveContentType(bytes, name, input.contentType);
-    return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+    return normalizeUploadPayloadForStableAiInput(bytes, contentType, options.preservePixelDimensions === true);
   }
 
   if (!input.image) throw new Error("图片内容为空");
@@ -434,17 +438,17 @@ async function resolveUploadPayload(input: StoreImageInput, options: StoreImageO
     const bytes = remote.bytes;
     assertUploadSize(bytes);
     const contentType = resolveContentType(bytes, name, remote.contentType);
-    return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+    return normalizeUploadPayloadForStableAiInput(bytes, contentType, options.preservePixelDimensions === true);
   }
 
   const contentTypeFromDataUrl = input.image.match(/^data:([^;,]+)[;,]/i)?.[1];
   const bytes = Buffer.from(getBase64Payload(input.image), "base64");
   assertUploadSize(bytes);
   const contentType = resolveContentType(bytes, name, contentTypeFromDataUrl);
-  return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+  return normalizeUploadPayloadForStableAiInput(bytes, contentType, options.preservePixelDimensions === true);
 }
 
-async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType: string) {
+async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType: string, preservePixelDimensions = false) {
   if (!contentType.startsWith("image/")) {
     throw new Error("当前图片格式暂不支持，请上传 JPG、PNG 或 WebP");
   }
@@ -460,12 +464,14 @@ async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType
     const sharp = (await import("sharp")).default;
     const source = sharp(bytes, { failOn: "none" }).rotate();
     const metadata = await source.metadata();
-    const resized = source.resize({
-      width: NORMALIZED_AI_INPUT_MAX_EDGE,
-      height: NORMALIZED_AI_INPUT_MAX_EDGE,
-      fit: "inside",
-      withoutEnlargement: true,
-    });
+    const resized = preservePixelDimensions
+      ? source
+      : source.resize({
+        width: NORMALIZED_AI_INPUT_MAX_EDGE,
+        height: NORMALIZED_AI_INPUT_MAX_EDGE,
+        fit: "inside",
+        withoutEnlargement: true,
+      });
 
     if (metadata.hasAlpha) {
       const normalized = await encodeWebpWithinTarget(resized);
