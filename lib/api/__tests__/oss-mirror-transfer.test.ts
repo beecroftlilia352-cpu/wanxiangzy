@@ -172,8 +172,11 @@ describe("OSS mirror transfers", () => {
     const resolverFetch = vi.fn(async () => jpegProbeResponse(57_555));
     vi.stubGlobal("fetch", resolverFetch);
 
-    await expect(resolveOssMirrorSource(objectKey, resolverAdmin)).resolves.toBe(sourceUrl);
+    await expect(resolveOssMirrorSource(objectKey, resolverAdmin as never)).resolves.toBe(sourceUrl);
     expect(resolverFetch).toHaveBeenCalledTimes(1);
+    expect(resolverAdmin.rpc).toHaveBeenCalledWith("record_oss_mirror_resolution", {
+      p_id: database.registeredRow.id,
+    });
     expect(remoteChecks.assertRemoteImageUrlAllowed).toHaveBeenLastCalledWith(
       new URL(sourceUrl),
       { allowedHosts: ["provider.example.com"] },
@@ -268,5 +271,8 @@ function createResolverAdmin(row: Record<string, unknown>) {
     in: vi.fn(() => chain),
     maybeSingle: vi.fn(async () => ({ data: row, error: null })),
   };
-  return { from: vi.fn(() => chain) } as never;
+  return {
+    from: vi.fn(() => chain),
+    rpc: vi.fn(async () => ({ data: true, error: null })),
+  };
 }
