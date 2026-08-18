@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { hasExactMirrorRule } from "./oss-mirror-rule.mjs";
 
 const bucket = required("ALIYUN_OSS_BUCKET");
 const region = required("ALIYUN_OSS_REGION");
@@ -54,7 +55,7 @@ const existing = await websiteRequest("GET");
 
 if (existing.status === 200) {
   const xml = await existing.text();
-  const configured = hasExactMirrorRule(xml);
+  const configured = hasExactMirrorRule(xml, { mirrorPrefix, resolverUrl });
   if (!configured) {
     fail(
       "bucket already has a Website configuration; refusing to overwrite it. "
@@ -95,7 +96,7 @@ if (!put.ok) fail(`PutBucketWebsite failed: HTTP ${put.status} ${(await put.text
 
 const verify = await websiteRequest("GET");
 const verifyXml = await verify.text();
-if (!verify.ok || !hasExactMirrorRule(verifyXml)) {
+if (!verify.ok || !hasExactMirrorRule(verifyXml, { mirrorPrefix, resolverUrl })) {
   fail(`OSS mirror rule verification failed: HTTP ${verify.status}`);
 }
 console.log(`Configured OSS mirror rule for prefix ${mirrorPrefix}/ -> ${parsedResolver.origin}`);
@@ -157,34 +158,6 @@ async function checkResolverHealth() {
   if (response.status !== 204) {
     fail(`OSS mirror resolver health check failed: HTTP ${response.status}`);
   }
-}
-
-function hasExactMirrorRule(xml) {
-  const rules = xml.match(/<RoutingRule>[^]*?<\/RoutingRule>/g) || [];
-  return rules.some((rule) => {
-    const exact = tagValue(rule, "KeyPrefixEquals") === `${mirrorPrefix}/`
-      && tagValue(rule, "HttpErrorCodeReturnedEquals") === "404"
-      && tagValue(rule, "RedirectType") === "Mirror"
-      && tagValue(rule, "MirrorURL") === resolverUrl
-      && tagValue(rule, "MirrorPassQueryString") === "false"
-      && tagValue(rule, "MirrorFollowRedirect") === "true"
-      && tagValue(rule, "MirrorCheckMd5") === "false";
-    return exact && !/<MirrorHeaders(?:\s|>)/.test(rule);
-  });
-}
-
-function tagValue(xml, tag) {
-  const match = new RegExp(`<${tag}>([^<]*)<\\/${tag}>`).exec(xml);
-  return match ? unescapeXml(match[1].trim()) : "";
-}
-
-function unescapeXml(value) {
-  return value
-    .replace(/&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&gt;/g, ">")
-    .replace(/&lt;/g, "<")
-    .replace(/&amp;/g, "&");
 }
 
 function escapeXml(value) {
