@@ -233,7 +233,10 @@ function createQueue(options: {
   const queueOptions: QueueOptions = {
     connection: options.connection,
     prefix: options.prefix,
-    skipWaitingForReady: true,
+    // Let BullMQ wait for the Redis connection before issuing its initial
+    // INFO/command handshake. A producer queue is created during Worker
+    // bootstrap; fail-fast here produces a misleading `Stream isn't writeable`
+    // error even when Redis is healthy and only a few milliseconds late.
     defaultJobOptions: {
       attempts: options.retry?.attempts ?? DEFAULT_RETRY.attempts,
       backoff: {
