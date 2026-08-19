@@ -20,6 +20,7 @@ import {
   isGeneralImageReferenceUrl,
   normalizeGeneralImageReferenceUrls,
 } from "@/lib/api/general-image-inputs";
+import { resolveGeneralImageReferences } from "@/lib/api/general-image-inputs.server";
 
 export const maxDuration = 60;
 
@@ -53,16 +54,21 @@ export async function POST(request: NextRequest) {
 
     const normalizedReferences = normalizeGeneralImageReferenceUrls(body.reference_urls);
     const publicBaseUrl = getPublicBaseUrlFromRequest(request);
+    const resolvedReferences = await resolveGeneralImageReferences(normalizedReferences.urls, {
+      userId: user.id,
+      supabase,
+      publicBaseUrl,
+    });
     if (process.env.NODE_ENV === "production") {
       const disallowedInputs = [
-        ...findDisallowedProductionImageInputs(normalizedReferences.urls, publicBaseUrl),
+        ...resolvedReferences.disallowed,
         ...findDisallowedProductionImageInputs(body.input_assets, publicBaseUrl),
       ];
       if (normalizedReferences.hasInlineImage || containsInlineImageUrl(body.input_assets) || disallowedInputs.length) {
         return NextResponse.json({ error: "生产环境参考图必须使用已验证的媒体资产或站点素材" }, { status: 400 });
       }
     }
-    const referenceUrls = normalizedReferences.urls;
+    const referenceUrls = resolvedReferences.urls;
     if (mode === "image-to-image" && referenceUrls.length === 0) {
       return NextResponse.json({ error: "请先上传参考图" }, { status: 400 });
     }

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-import { findDisallowedProductionImageInputs, isGeneralImageReferenceUrl } from "@/lib/api/general-image-inputs";
+import { isGeneralImageReferenceUrl } from "@/lib/api/general-image-inputs";
+import { resolveGeneralImageReferences } from "@/lib/api/general-image-inputs.server";
 import { getPublicBaseUrlFromRequest, resolveImageInputs } from "@/lib/api/image-inputs.server";
 
 export const maxDuration = 60;
@@ -21,16 +22,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先上传图片" }, { status: 400 });
     }
     const publicBaseUrl = getPublicBaseUrlFromRequest(request);
-    if (process.env.NODE_ENV === "production" && findDisallowedProductionImageInputs([imageUrl], publicBaseUrl).length) {
+    const resolvedReferences = await resolveGeneralImageReferences([imageUrl], {
+      userId: auth.user.id,
+      supabase: auth.supabase,
+      publicBaseUrl,
+    });
+    if (process.env.NODE_ENV === "production" && resolvedReferences.disallowed.length) {
       return NextResponse.json({ error: "生产环境请使用已验证的媒体资产" }, { status: 400 });
     }
-    let providerImageUrl = imageUrl;
+    const referenceUrl = resolvedReferences.urls[0] || imageUrl;
+    let providerImageUrl = referenceUrl;
     try {
       const resolved = await resolveImageInputs(
-        { clothingUrls: [], referenceUrls: [imageUrl] },
+        { clothingUrls: [], referenceUrls: [referenceUrl] },
         { publicBaseUrl, ownerUserId: auth.user.id },
       );
-      providerImageUrl = resolved.referenceUrls?.[0] || imageUrl;
+      providerImageUrl = resolved.referenceUrls?.[0] || referenceUrl;
     } catch {
       return NextResponse.json({ error: "图片不可用，请重新上传后重试" }, { status: 400 });
     }

@@ -20,13 +20,11 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { StudioModelSelector } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioToggleRow } from "@/components/studio/StudioFormControls";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/shadcn-compat";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -1067,19 +1065,15 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             </StudioUploadSection>
           )}
 
-          {isImageMode && referenceImages.length > 1 && (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface)] px-3 py-2.5">
-              <div className="flex items-center gap-2 text-sm text-codex-ink">
-                <Label className="cursor-pointer">
-                  {t("onePerReferenceLabel")}
-                </Label>
-                <span className="text-xs text-codex-muted">{t("onePerReferenceHint")}</span>
-              </div>
-              <Switch
-                checked={onePerReference}
-                onChange={setOnePerReference}
-              />
-            </div>
+          {isImageMode && (
+            <StudioToggleRow
+              title={t("onePerReferenceLabel")}
+              description={t("onePerReferenceHint")}
+              checked={onePerReference}
+              onChange={setOnePerReference}
+              disabled={referenceImages.length < 2}
+              ariaLabel={t("onePerReferenceLabel")}
+            />
           )}
 
           <div>

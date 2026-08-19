@@ -6,6 +6,7 @@ import {
 import { assertRemoteImageUrlAllowed } from "@/lib/api/remote-image-fetch";
 import { createAliyunOssRegistryReadUrl } from "@/lib/api/media-storage";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { normalizeResourceLibraryLookupUrl } from "@/lib/api/general-image-inputs.server";
 
 const MAX_DATA_URL_LENGTH = 21 * 1024 * 1024;
 
@@ -111,7 +112,11 @@ export async function resolveMediaInput(
     // image-gen API (which itself calls `fetch` server-side). Local
     // filesystem paths are not affected.
     if (/^https?:\/\//i.test(src)) {
-      if (process.env.NODE_ENV === "production" && !isTrustedProductionSiteAssetUrl(src)) {
+      if (
+        process.env.NODE_ENV === "production"
+        && !isTrustedProductionSiteAssetUrl(src)
+        && !(await isOwnedResourceLibraryImageUrl(src, options.ownerUserId))
+      ) {
         throw new Error("Production media inputs must use a canonical tenant asset");
       }
       await assertRemoteImageUrlAllowed(new URL(src));
@@ -123,6 +128,34 @@ export async function resolveMediaInput(
     throw new Error(`Local ${options.expectedKind} paths are not allowed`);
   }
   return resolvePublicImageUrl(src, publicBaseUrl);
+}
+
+/**
+ * Accept a raw OSS reference only when it is a server-written row in the
+ * caller's own resource library. This lets legacy uploads/generation results
+ * (stored before the media-asset registry migration) keep working as inputs
+ * without ever trusting arbitrary client-supplied remote URLs.
+ */
+async function isOwnedResourceLibraryImageUrl(
+  url: string,
+  ownerUserId: string | undefined,
+): Promise<boolean> {
+  if (!ownerUserId) return false;
+  const exact = url.trim();
+  const normalized = normalizeResourceLibraryLookupUrl(url);
+  const candidates = exact === normalized ? [exact] : [exact, normalized];
+  const { data, error } = await getAdminClient()
+    .from("resource_library_assets")
+    .select("id")
+    .eq("user_id", ownerUserId)
+    .eq("media_type", "image")
+    .in("storage_state", ["active", "migration_pending"])
+    .eq("moderation_status", "allowed")
+    .is("deleted_at", null)
+    .in("url", candidates)
+    .limit(1)
+    .maybeSingle();
+  return !error && Boolean(data);
 }
 
 function isTrustedProductionSiteAssetUrl(value: string) {

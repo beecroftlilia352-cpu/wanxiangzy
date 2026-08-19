@@ -2,9 +2,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.fn();
 const createRegistryReadUrl = vi.fn();
+const libraryMaybeSingle = vi.fn();
 
 vi.mock("@/lib/supabase/admin", () => ({
-  getAdminClient: () => ({ rpc }),
+  getAdminClient: () => ({
+    rpc,
+    from: () => {
+      const chain = {
+        eq: () => chain,
+        in: () => chain,
+        is: () => chain,
+        select: () => chain,
+        limit: () => ({ maybeSingle: libraryMaybeSingle }),
+      };
+      return chain;
+    },
+  }),
 }));
 
 vi.mock("@/lib/api/media-storage", () => ({
@@ -25,6 +38,8 @@ describe("canonical media asset provider inputs", () => {
     rpc.mockReset();
     createRegistryReadUrl.mockReset();
     createRegistryReadUrl.mockReturnValue("https://oss.example/private.jpg?Expires=short");
+    libraryMaybeSingle.mockReset();
+    libraryMaybeSingle.mockResolvedValue({ data: null, error: null });
     rpc.mockResolvedValue({
       data: [{
         asset_id: ASSET_ID,
@@ -145,6 +160,31 @@ describe("canonical media asset provider inputs", () => {
     })).resolves.toBe("https://assets.example.com/site-assets/original/template.png");
 
     await expect(resolveMediaInput("data:image/png;base64,iVBORw0KGgo=", {
+      ownerUserId: OWNER_ID,
+      expectedKind: "image",
+    })).rejects.toThrow("canonical tenant asset");
+  });
+
+  it("accepts a legacy OSS URL that exists in the owner's resource library", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ALIYUN_OSS_PUBLIC_BASE_URL", "https://assets.example.com");
+    vi.stubEnv("ALIYUN_OSS_SITE_ASSET_PREFIX", "site-assets/original");
+    libraryMaybeSingle.mockResolvedValue({ data: { id: "row-1" }, error: null });
+
+    const legacyUrl = "https://assets.example.com/user-uploads/original/legacy.png";
+    await expect(resolveMediaInput(legacyUrl, {
+      ownerUserId: OWNER_ID,
+      expectedKind: "image",
+    })).resolves.toBe(legacyUrl);
+    expect(libraryMaybeSingle).toHaveBeenCalled();
+  });
+
+  it("still rejects an unowned production URL even when the host looks like the OSS base", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ALIYUN_OSS_PUBLIC_BASE_URL", "https://assets.example.com");
+    vi.stubEnv("ALIYUN_OSS_SITE_ASSET_PREFIX", "site-assets/original");
+
+    await expect(resolveMediaInput("https://assets.example.com/user-uploads/original/stolen.png", {
       ownerUserId: OWNER_ID,
       expectedKind: "image",
     })).rejects.toThrow("canonical tenant asset");
