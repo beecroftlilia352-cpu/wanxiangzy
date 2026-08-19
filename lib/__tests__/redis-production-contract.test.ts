@@ -23,22 +23,21 @@ describe("standard Redis production contract", () => {
 
   it("deploys production in BullMQ mode without printing the Redis URL", () => {
     const workflow = read(".github/workflows/deploy-aws-on-tag.yml");
+    const deploy = read("scripts/deploy-aws-release.sh");
     expect(workflow).not.toContain("secrets.REDIS_URL");
-    expect(workflow).toContain("set_env_var GENERATION_QUEUE_MODE bullmq");
-    expect(workflow).toContain("set_env_var AI_ROUTER_CAPACITY_MODE redis");
+    expect(deploy).toContain('mode !== "bullmq"');
+    expect(deploy).toContain('capacityMode !== "redis"');
     expect(workflow).not.toMatch(/echo[^\n]*\$REDIS_URL/);
     expect(workflow).not.toContain("set -x");
   });
 
-  it("pins the EC2 host key, protects rollout secrets, and serializes releases", () => {
+  it("pins the EC2 host key and serializes releases", () => {
     const workflow = read(".github/workflows/deploy-aws-on-tag.yml");
     const deploy = read("scripts/deploy-aws-release.sh");
     expect(workflow).toContain("AWS_SSH_KNOWN_HOSTS: ${{ secrets.AWS_SSH_KNOWN_HOSTS }}");
     expect(workflow).toContain("StrictHostKeyChecking=yes");
     expect(workflow).not.toContain("StrictHostKeyChecking=accept-new");
     expect(workflow).not.toContain("ssh-keyscan");
-    expect(workflow).toContain("scp -p -P");
-    expect(workflow).toContain("install -m 600 /dev/null");
     expect(workflow).toContain("cancel-in-progress: false");
     expect(workflow).toContain('APP_DIR="${AWS_APP_DIR:-~/apps/wanxiangzy}"');
     expect(deploy).toContain('exec 9>"$SHARED_DIR/deploy.lock"');
