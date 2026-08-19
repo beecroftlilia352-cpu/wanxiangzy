@@ -17,7 +17,13 @@ import type {
   VideoImageToVideoInput,
   VideoMotionControlInput,
   VideoTaskProgress,
+  VideoTaskResume,
 } from "@/lib/api/video-types";
+import {
+  isRetryableGenerationError,
+  RetryableGenerationError,
+  sanitizeGenerationErrorMessage,
+} from "@/lib/api/generation-errors";
 
 // Generic new.bi new-api "openai-video" gateway:
 //   POST /v1/video/generations
@@ -43,7 +49,7 @@ export async function generateNewApiImageToVideo(
     duration: clampVideoDuration(provider.provider, input.duration),
   });
 
-  const completed = await runTask(provider, body, input.onProgress);
+  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey, input.abortSignal);
   return toVideoResult(completed, prompt, body);
 }
 
@@ -61,7 +67,7 @@ export async function generateNewApiMotionControl(
     duration: clampVideoDuration(provider.provider, input.duration),
   });
 
-  const completed = await runTask(provider, body, input.onProgress);
+  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey, input.abortSignal);
   return toVideoResult(completed, prompt, body);
 }
 
@@ -79,7 +85,7 @@ export async function generateNewApiFirstLastFrame(
     duration: clampVideoDuration(provider.provider, input.duration),
   });
 
-  const completed = await runTask(provider, body, input.onProgress);
+  const completed = await runTask(provider, body, input.onProgress, input.resumeTask, input.idempotencyKey, input.abortSignal);
   return toVideoResult(completed, prompt, body);
 }
 
@@ -183,29 +189,57 @@ async function runTask(
   provider: NewApiVideoProviderConfig,
   body: Record<string, unknown>,
   onProgress: VideoImageToVideoInput["onProgress"],
+  resumeTask?: VideoTaskResume,
+  idempotencyKey?: string,
+  abortSignal?: AbortSignal,
 ): Promise<PollState> {
-  await onProgress?.({
-    status: "queued",
-    providerStatus: "SUBMITTING",
-    progress: 1,
-    providerDetails: buildProviderDetails({ requestBody: body }),
-  });
+  const resumable = normalizeResumeTask(resumeTask);
+  let taskId: string;
+  let requestId: string | undefined;
+  let providerStatus: string;
 
-  const submitted = await submitJson(`${provider.apiBase}${SUBMIT_PATH}`, provider.apiKey, body);
-  const video = extractVideoObject(submitted) || {};
-  const taskId = typeof video.task_id === "string" && video.task_id ? video.task_id : extractTaskId(submitted);
-  if (!taskId) throw new Error(`视频接口未返回 task_id，响应字段: ${describeResponseKeys(submitted)}`);
+  if (resumable) {
+    taskId = resumable.taskId;
+    requestId = resumable.requestId;
+    providerStatus = "RESUMING";
+    await onProgress?.({
+      taskId,
+      requestId,
+      status: "running",
+      providerStatus,
+      progress: VIDEO_SUBMIT_PROGRESS_MAX,
+      providerDetails: buildProviderDetails({ taskId, requestId }),
+    });
+  } else {
+    await onProgress?.({
+      status: "queued",
+      providerStatus: "SUBMITTING",
+      progress: 1,
+      providerDetails: buildProviderDetails({ requestBody: body }),
+    });
 
-  const requestId = extractRequestId(submitted);
-  const providerStatus = typeof video.status === "string" && video.status ? video.status : "queued";
-  await onProgress?.({
-    taskId,
-    requestId,
-    status: "queued",
-    providerStatus,
-    progress: VIDEO_SUBMIT_PROGRESS_MAX,
-    providerDetails: buildProviderDetails({ requestBody: body, submitResponse: submitted, taskId, requestId }),
-  });
+    const submitted = await submitJson(
+      `${provider.apiBase}${SUBMIT_PATH}`,
+      provider.apiKey,
+      body,
+      normalizeIdempotencyKey(idempotencyKey),
+      abortSignal,
+    );
+    const video = extractVideoObject(submitted) || {};
+    taskId = typeof video.task_id === "string" && video.task_id ? video.task_id : extractTaskId(submitted);
+    if (!taskId) throw new Error(`视频接口未返回 task_id，响应字段: ${describeResponseKeys(submitted)}`);
+
+    requestId = extractRequestId(submitted);
+    providerStatus = typeof video.status === "string" && video.status ? video.status : "queued";
+    await onProgress?.({
+      taskId,
+      requestId,
+      status: "queued",
+      providerStatus,
+      progress: VIDEO_SUBMIT_PROGRESS_MAX,
+      providerDetails: buildProviderDetails({ requestBody: body, submitResponse: submitted, taskId, requestId }),
+    });
+  }
 
   const startedAt = Date.now();
   let lastState: PollState = {
@@ -218,12 +252,13 @@ async function runTask(
   };
 
   while (Date.now() - startedAt < VIDEO_POLL_TIMEOUT_MS) {
-    await sleep(VIDEO_POLL_INTERVAL_MS);
+    await sleep(VIDEO_POLL_INTERVAL_MS, abortSignal);
     const elapsed = Date.now() - startedAt;
     let json: unknown;
     try {
-      json = await getJson(`${provider.apiBase}${QUERY_PATH}/${encodeURIComponent(taskId)}`, provider.apiKey);
-    } catch {
+      json = await getJson(`${provider.apiBase}${QUERY_PATH}/${encodeURIComponent(taskId)}`, provider.apiKey, abortSignal);
+    } catch (error) {
+      if (!isRetryableGenerationError(error)) throw error;
       lastState = {
         ...lastState,
         status: "running",
@@ -266,10 +301,15 @@ async function runTask(
     });
 
     if (lastState.status === "completed" && lastState.urls.length) return lastState;
-    if (lastState.status === "failed") throw new Error(lastState.error || "视频生成失败");
+    if (lastState.status === "failed") {
+      throw new Error(sanitizeGenerationErrorMessage(lastState.error, "视频生成失败"));
+    }
   }
 
-  throw new Error(`视频生成超时，可稍后在任务队列或作品库查看。task_id: ${lastState.taskId}`);
+  throw new RetryableGenerationError(
+    `视频任务已提交，轮询窗口结束，将从持久断点继续。task_id: ${lastState.taskId}`,
+    "VIDEO_POLL_RESUME_REQUIRED",
+  );
 }
 
 function normalizePollState(json: unknown, fallbackTaskId: string, fallbackRequestId: string | undefined): PollState {
@@ -453,28 +493,34 @@ function redactSignedUrl(value: string) {
   }
 }
 
-async function submitJson(url: string, apiKey: string, body: Record<string, unknown>) {
+async function submitJson(url: string, apiKey: string, body: Record<string, unknown>, idempotencyKey?: string, abortSignal?: AbortSignal) {
   const response = await fetch(url, {
     method: "POST",
-    headers: buildHeaders(apiKey),
+    headers: buildHeaders(apiKey, idempotencyKey),
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(60_000),
+    signal: combineAbortSignals(abortSignal, 60_000),
   });
   return readJsonResponse(response, "视频任务提交失败");
 }
 
-async function getJson(url: string, apiKey: string) {
+async function getJson(url: string, apiKey: string, abortSignal?: AbortSignal) {
   const response = await fetch(url, {
     method: "GET",
     headers: buildHeaders(apiKey),
-    signal: AbortSignal.timeout(60_000),
+    signal: combineAbortSignals(abortSignal, 60_000),
   });
   return readJsonResponse(response, "视频任务查询失败");
 }
 
 async function readJsonResponse(response: Response, prefix: string) {
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}: HTTP ${response.status} ${formatErrorBody(text)}`);
+  if (!response.ok) {
+    const message = `${prefix}: HTTP ${response.status}`;
+    if (response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500) {
+      throw new RetryableGenerationError(message, `VIDEO_PROVIDER_HTTP_${response.status}`);
+    }
+    throw new Error(message);
+  }
   if (!text.trim()) throw new Error(`${prefix}: 响应为空`);
   try {
     return JSON.parse(text);
@@ -483,28 +529,55 @@ async function readJsonResponse(response: Response, prefix: string) {
   }
 }
 
-function buildHeaders(apiKey: string) {
-  return {
+function buildHeaders(apiKey: string, idempotencyKey?: string) {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
     Accept: "application/json",
     "Accept-Encoding": "identity",
   };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  return headers;
 }
 
-function formatErrorBody(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) return "响应为空";
-  try {
-    const json = JSON.parse(trimmed);
-    const message = typeof json?.error?.message === "string" ? json.error.message : "";
-    const type = typeof json?.error?.type === "string" ? json.error.type : "";
-    return [message, type].filter(Boolean).join(" | ") || trimmed.slice(0, 300);
-  } catch {
-    return trimmed.slice(0, 300);
-  }
+function normalizeResumeTask(value?: VideoTaskResume) {
+  if (!value || !/^[A-Za-z0-9._-]{1,256}$/.test(value.taskId)) return null;
+  const requestId = value.requestId && /^[A-Za-z0-9._-]{1,256}$/.test(value.requestId)
+    ? value.requestId
+    : undefined;
+  return { taskId: value.taskId, requestId };
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function normalizeIdempotencyKey(value?: string) {
+  if (!value) return undefined;
+  const normalized = value.trim();
+  return /^[A-Za-z0-9._-]{8,200}$/.test(normalized) ? normalized : undefined;
+}
+
+function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason || new DOMException("The operation was aborted", "AbortError"));
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      reject(signal?.reason || new DOMException("The operation was aborted", "AbortError"));
+    };
+    const done = () => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    timer = setTimeout(done, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function combineAbortSignals(signal: AbortSignal | undefined, timeoutMs: number) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!signal) return timeout;
+  if (signal.aborted) return signal;
+  return AbortSignal.any([signal, timeout]);
 }

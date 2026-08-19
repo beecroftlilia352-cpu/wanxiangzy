@@ -3281,6 +3281,14 @@
       "complexMaterial": "복잡한 소재와 상업 조명",
       "recommended": "추천"
     },
+    "mode": {
+      "faithfulLabel": "표준 리터칭",
+      "faithfulDesc": "원본 배경 유지 · 결점과 노이즈를 정리하고 색상, 조명, 선명도 보정",
+      "whiteBackgroundLabel": "흰 배경 리터칭",
+      "whiteBackgroundDesc": "순백색 배경 생성 · 피사체 구도와 윤곽을 정돈하고 자연스러운 접지 그림자 유지",
+      "studioLabel": "스튜디오 리터칭",
+      "studioDesc": "스튜디오 조명과 배경 재구성 · 소재감, 반사, 입체감 강화"
+    },
     "aspect": {
       "autoLabel": "원본 비율",
       "auto": "상품 원본 따름",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "주체 완전·초점 선명·가림 없음 이미지가 배치 생산에 적합합니다."
     },
     "example": {
+      "sampleLabel": "샘플 {index}",
       "alreadyAdded": "{title} 예시가 이미 현재 배치에 있습니다",
       "added": "{title} 예시 추가됨"
     },
@@ -4811,6 +4820,138 @@
     "delete": "삭제",
     "reuseImages": "이미지 재사용",
     "taskGenericTitle": "코디 퓨전 작업",
-    "imageNumber": "이미지 {index}"
+    "imageNumber": "이미지 {index}",
+    "uploadLibrary": "자산 라이브러리에서 선택"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "자산 라이브러리",
+      "description": "재사용 가능한 업로드, 생성된 자산, 프롬프트를 한 곳에서 관리하세요."
+    },
+    "tabs": {
+      "label": "자산 라이브러리 섹션",
+      "uploads": "로컬 업로드",
+      "generated": "내 생성 결과",
+      "prompts": "내 프롬프트"
+    },
+    "actions": {
+      "cancel": "취소",
+      "close": "닫기",
+      "confirm": "확인",
+      "loadMore": "더 로드하기",
+      "localUpload": "장치에서 업로드",
+      "newPrompt": "새로운 프롬프트",
+      "remove": "제거",
+      "removeAsset": "자산 제거",
+      "removePrompt": "프롬프트 삭제",
+      "retry": "재시도",
+      "save": "저장",
+      "add": "자산 라이브러리에 추가",
+      "added": "자산 라이브러리에 추가됨"
+    },
+    "categories": {
+      "title": "자산 카테고리",
+      "localUploads": "로컬 업로드"
+    },
+    "filters": {
+      "allMedia": "모든 미디어",
+      "allModules": "모든 기능",
+      "image": "이미지",
+      "mediaLabel": "미디어 유형",
+      "moduleLabel": "특징",
+      "video": "비디오"
+    },
+    "picker": {
+      "title": "자산 선택",
+      "selectionHint": "{max} 중 {selected}를 선택했습니다.",
+      "selectedCount": "{selected}/{max} 선택됨",
+      "gridLabel": "사용 가능한 자산",
+      "limitReachedTitle": "선택 한도에 도달했습니다.",
+      "limitReachedDescription": "다른 자산을 선택하기 전에 자산을 선택 취소하세요.",
+      "limitReachedInline": "최대 {max} 자산을 선택할 수 있습니다."
+    },
+    "card": {
+      "select": "{title}를 선택하세요",
+      "removeSelection": "{title} 선택 취소",
+      "preview": "{title} 미리보기",
+      "previewTitle": "자산 미리보기",
+      "previewDescription": "선택한 자산을 미리 봅니다."
+    },
+    "empty": {
+      "uploadTitle": "아직 로컬 업로드가 없습니다.",
+      "uploadDescription": "여러 제작 도구에서 재사용할 수 있도록 이미지나 동영상을 업로드하세요.",
+      "moduleTitle": "이 기능에는 저장된 애셋이 없습니다.",
+      "moduleDescription": "생성된 결과를 저장하여 여기에 표시하세요.",
+      "generatedTitle": "아직 생성된 애셋이 없습니다.",
+      "generatedDescription": "생성 페이지의 결과를 여기에서 재사용하려면 저장하세요.",
+      "promptTitle": "아직 메시지가 없습니다.",
+      "promptDescription": "재사용 가능한 프롬프트를 만들어 다음 창작 작업을 더 빠르게 진행하세요."
+    },
+    "states": {
+      "loading": "로드 중",
+      "uploading": "업로드 중",
+      "saving": "저장 중",
+      "uploadFailed": "업로드 실패",
+      "loadFailedTitle": "자산을 로드할 수 없습니다.",
+      "loadFailedDescription": "연결을 확인하고 다시 시도하세요.",
+      "deleteFailed": "항목을 제거할 수 없습니다.",
+      "createFailed": "프롬프트를 생성할 수 없습니다.",
+      "operationFailed": "자산 라이브러리 작업이 실패했습니다. 다시 시도해 주세요."
+    },
+    "toast": {
+      "uploadSuccess": "업로드된 {count} 자산",
+      "assetRemoved": "자산이 제거됨",
+      "promptCreated": "프롬프트가 생성되었습니다",
+      "promptRemoved": "프롬프트가 제거되었습니다."
+    },
+    "upload": {
+      "supportedFormats": "일반적인 이미지 및 비디오 형식 지원"
+    },
+    "prompts": {
+      "allTypes": "모든 유형",
+      "typeLabel": "프롬프트 유형",
+      "searchLabel": "검색 프롬프트",
+      "searchPlaceholder": "검색 프롬프트",
+      "createTitle": "프롬프트 생성",
+      "createDescription": "재사용을 위해 제목과 메시지 내용을 저장하세요.",
+      "titleLabel": "프롬프트 제목",
+      "titlePlaceholder": "프롬프트 제목을 입력하세요.",
+      "contentLabel": "프롬프트 내용",
+      "contentPlaceholder": "프롬프트 내용을 입력하세요"
+    },
+    "confirm": {
+      "removeAssetTitle": "애셋을 삭제하시겠습니까?",
+      "removeAssetDescription": "이 자산은 라이브러리에서 제거됩니다.",
+      "removePromptTitle": "메시지를 삭제하시겠습니까?",
+      "removePromptDescription": "이 메시지는 영구적으로 제거됩니다."
+    },
+    "promptTypes": {
+      "text-to-image": "텍스트를 이미지로",
+      "image-to-image": "이미지를 이미지로",
+      "model-background": "모델 배경",
+      "pose": "포즈",
+      "video": "비디오",
+      "other": "기타"
+    },
+    "modules": {
+      "tryon": "가상 착용",
+      "grass": "의류 룩북 이미지",
+      "productRetouch": "상품 리터칭",
+      "productSet": "상품 세트",
+      "modelBackground": "모델 배경 변경",
+      "materialEnhancement": "소재 강화",
+      "generalImage": "일반 이미지 생성",
+      "outfitFusion": "코디 퓨전",
+      "pose": "포즈 변형",
+      "model": "전용 모델",
+      "garment3d": "의류 3D 변환",
+      "faceSwap": "얼굴 교체",
+      "imageTranslation": "이미지 번역",
+      "commerceDetail": "상품 상세 이미지",
+      "allCategoryProductImage": "전 카테고리 제품 이미지",
+      "videoImageToVideo": "이미지 투 비디오",
+      "videoMotion": "모션 모방",
+      "videoFirstLastFrame": "첫/끝 프레임"
+    }
   }
 }

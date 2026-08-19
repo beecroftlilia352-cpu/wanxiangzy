@@ -18,6 +18,7 @@ import { Geist, Syne } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { getSiteMonitoringConfig } from "@/lib/site-config";
 import { SentryBootstrap } from "@/components/SentryBootstrap";
+import { ResourceLibraryProvider } from "@/features/resource-library";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -141,31 +142,33 @@ export default async function RootLayout({
       </head>
       <body className="min-h-screen antialiased transition-colors">
         <NextIntlClientProvider messages={messages}>
-          <SentryBootstrap />
-          <a
-            href="#main"
-            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-codex-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-codex-accent focus:ring-offset-2"
-          >
-            {messages.Metadata?.skipToContent ?? "跳到主内容"}
-          </a>
-          <Suspense fallback={null}>
-            <RouteProgress />
-          </Suspense>
-          <HeaderClient />
-          <main id="main" tabIndex={-1} className="outline-none">
-            {children}
-          </main>
-          <Toaster
-            richColors
-            closeButton
-            expand={false}
-            visibleToasts={1}
-            gap={8}
-            duration={2400}
-            position="top-right"
-            offset={{ top: 76, right: 18 }}
-            mobileOffset={{ top: 70, right: 12, left: 12 }}
-          />
+          <ResourceLibraryProvider>
+            <SentryBootstrap />
+            <a
+              href="#main"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-codex-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-codex-accent focus:ring-offset-2"
+            >
+              {messages.Metadata?.skipToContent ?? "跳到主内容"}
+            </a>
+            <Suspense fallback={null}>
+              <RouteProgress />
+            </Suspense>
+            <HeaderClient />
+            <main id="main" tabIndex={-1} className="outline-none">
+              {children}
+            </main>
+            <Toaster
+              richColors
+              closeButton
+              expand={false}
+              visibleToasts={1}
+              gap={8}
+              duration={2400}
+              position="top-right"
+              offset={{ top: 76, right: 18 }}
+              mobileOffset={{ top: 70, right: 12, left: 12 }}
+            />
+          </ResourceLibraryProvider>
         </NextIntlClientProvider>
       </body>
     </html>

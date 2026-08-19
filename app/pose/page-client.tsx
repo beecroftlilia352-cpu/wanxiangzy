@@ -46,7 +46,7 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
-import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { StudioChoiceGroup, StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
@@ -77,6 +77,7 @@ import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { StudioClearButton } from "@/components/studio/StudioClearButton";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { ensureNotificationPermission, notifyGenerationComplete } from "@/lib/notifications";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import {
   GARMENT_ANGLE_TARGET_OPTIONS,
   GARMENT_ANGLE_UPLOAD_FOOTNOTE,
@@ -409,6 +410,7 @@ function hasMeaningfulPoseAnalysis(analysis: PoseVisualAnalysis) {
 
 export default function PosePage() {
   const t = useTranslations("Pose");
+  const { openResourcePicker } = useResourcePicker();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const poseReferenceInputRef = useRef<HTMLInputElement>(null);
@@ -477,6 +479,7 @@ export default function PosePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -606,6 +609,7 @@ export default function PosePage() {
   const previewSession = useStudioPreview({
     module: "pose",
     title: t("moduleName"),
+    taskId: activeGenerationId || undefined,
     urls: resultUrls,
     expectedCount: activeResultExpectedCount,
     isGenerating,
@@ -1374,7 +1378,7 @@ export default function PosePage() {
     try {
       const res = await fetch("/api/pose", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           main_image_url: mainImage,
           ai_model: aiModel,
@@ -1418,6 +1422,7 @@ export default function PosePage() {
         throw new Error(data.error || t("generate.failed"));
       }
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
           expectedCount: displayExpectedCount,
@@ -1546,6 +1551,7 @@ export default function PosePage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     generationRunRef.current += 1;
     const expectedCount = clampTaskExpectedCount(item, 1, POSE_PLAN_MAX_COUNT);
     setRunningExpectedCount(expectedCount);
@@ -1560,6 +1566,7 @@ export default function PosePage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "pose", session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -1608,6 +1615,7 @@ export default function PosePage() {
     setIsSubmitting(false);
     setIsGenerating(false);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError("");
     setLightboxSrc(null);
     closeRulesPopover();
@@ -1729,7 +1737,23 @@ export default function PosePage() {
               loading={isUploading}
               loadingLabel={mainImageUploadProgress !== null ? t("upload.uploadingPercent", { percent: mainImageUploadProgress }) : undefined}
               onUploadClick={() => fileInputRef.current?.click()}
-              onLibraryClick={() => toast.info(t("toast.librarySoon"))}
+              onLibraryClick={async () => {
+                const assets = await openResourcePicker({
+                  title: t("upload.modelTitle"),
+                  role: "model",
+                  selectionMode: "single",
+                  maxCount: 1,
+                  existingCount: mainImage ? 1 : 0,
+                  excludedUrls: mainImage ? [mainImage] : [],
+                  mediaTypes: ["image"],
+                  moduleKey: "pose",
+                });
+                const [url] = assetUrls(assets);
+                if (!url) return;
+                setMainImage(url);
+                setMainImageFileName(assets?.[0]?.title || null);
+                setPrompt((current) => stripLegacyRuleDemoText(current));
+              }}
               onPreview={mainImage ? () => setLightboxSrc(mainImage) : undefined}
               onRemove={mainImage ? () => setMainImage("") : undefined}
               libraryLabel={t("upload.fromLibrary")}
@@ -1767,29 +1791,19 @@ export default function PosePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 rounded-2xl bg-[var(--codex-surface-soft)] dark:bg-white/5 p-1">
-              {[
-                { value: "free" as const, label: t("mode.free"), desc: t("mode.freeDesc") },
-                { value: "reference" as const, label: t("mode.reference"), desc: t("mode.referenceDesc") },
-              ].map((item) => {
-                const selected = poseCreationMode === item.value;
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setPoseCreationMode(item.value)}
-                    className={`rounded-xl px-3 py-2 text-center transition ${
-                      selected
-                        ? "bg-white dark:bg-white/5 text-blue-700 shadow-[0_8px_18px_rgba(37,99,235,0.12)]"
-                        : "text-codex-muted hover:text-codex-ink"
-                    }`}
-                  >
-                    <span className="block text-xs font-black">{item.label}</span>
-                    <span className="mt-0.5 block text-[11px] font-bold opacity-70">{item.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <StudioChoiceGroup
+              variant="segmented"
+              className="studio-pose-mode-switch"
+              columns={2}
+              value={poseCreationMode}
+              onChange={setPoseCreationMode}
+              ariaLabel={t("mode.title")}
+              descriptionMode="wrap"
+              options={[
+                { value: "free", label: t("mode.free"), description: t("mode.freeDesc") },
+                { value: "reference", label: t("mode.reference"), description: t("mode.referenceDesc") },
+              ]}
+            />
 
             {poseCreationMode === "reference" && (
               <>
@@ -1822,7 +1836,22 @@ export default function PosePage() {
                     footnote={t("reference.footnote")}
                     imageFit="cover"
                     onUploadClick={openFileDialog}
-                    onLibraryClick={() => toast.info(t("toast.librarySoon"))}
+                    onLibraryClick={async () => {
+                      const assets = await openResourcePicker({
+                        title: t("reference.uploadedTitle"),
+                        role: "pose-reference",
+                        selectionMode: "multiple",
+                        maxCount: MAX_POSE_REFERENCE_IMAGES,
+                        existingCount: poseReferenceUrls.length,
+                        excludedUrls: poseReferenceUrls,
+                        mediaTypes: ["image"],
+                        moduleKey: "pose",
+                      });
+                      const urls = assetUrls(assets);
+                      if (!urls.length) return;
+                      setPoseReferenceUrls((current) => Array.from(new Set([...current, ...urls])).slice(0, MAX_POSE_REFERENCE_IMAGES));
+                      setPoseCreationMode("reference");
+                    }}
                     onPreview={(url) => setLightboxSrc(url)}
                     onRemove={(_, index) => setPoseReferenceUrls((prev) => prev.filter((__, i) => i !== index))}
                     onClear={() => setPoseReferenceUrls([])}
@@ -2022,6 +2051,24 @@ export default function PosePage() {
                       isDragging={isDraggingGarmentDetails}
                       loading={isUploadingGarmentDetails}
                       onUploadClick={openFileDialog}
+                      onLibraryClick={async () => {
+                        const assets = await openResourcePicker({
+                          title: t("garment.uploadTitle"),
+                          role: `garment-${garmentAngleTarget}-${garmentAngleView}`,
+                          selectionMode: "multiple",
+                          maxCount: MAX_GARMENT_ANGLE_IMAGES,
+                          existingCount: activeGarmentAngleReferences.length,
+                          excludedUrls: activeGarmentAngleReferences.map((item) => item.url),
+                          mediaTypes: ["image"],
+                          moduleKey: "pose",
+                        });
+                        const urls = assetUrls(assets);
+                        if (!urls.length) return;
+                        setGarmentAngleReferences((current) => normalizeGarmentAngleReferences([
+                          ...current,
+                          ...urls.map((url) => ({ url, target: garmentAngleTarget, view: garmentAngleView })),
+                        ]));
+                      }}
                       onPreview={(url) => setLightboxSrc(url)}
                       onRemove={(url) => removeGarmentDetail(url)}
                       onClear={() => setGarmentAngleReferences([])}
@@ -2567,6 +2614,7 @@ export default function PosePage() {
                 inputThumbnails={mainImage ? [mainImage, ...activePoseReferenceUrls, ...activeGarmentAngleUrls] : []}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                resourceFavorite={{ generationId: activeGenerationId, moduleKey: "pose", mediaType: "image" }}
                 markMissingAsFailed={hasCompletedPartialResults}
                 missingFailureLabel={t("result.missingFailed")}
                 missingFailureDetail={partialFailureMessage}

@@ -2922,6 +2922,14 @@
       "complexMaterial": "خامات معقدة وإضاءة تجارية",
       "recommended": "موصى به"
     },
+    "mode": {
+      "faithfulLabel": "تنقيح قياسي",
+      "faithfulDesc": "الحفاظ على الخلفية الأصلية · إزالة العيوب والضوضاء وتصحيح اللون والإضاءة والوضوح",
+      "whiteBackgroundLabel": "تنقيح بخلفية بيضاء",
+      "whiteBackgroundDesc": "إنشاء خلفية بيضاء نقية · توحيد التكوين والحواف مع الحفاظ على ظلال التلامس الطبيعية",
+      "studioLabel": "تنقيح استوديو",
+      "studioDesc": "إعادة بناء إضاءة الاستوديو والخلفية · تعزيز الخامات والانعكاسات والإحساس بالحجم"
+    },
     "aspect": {
       "autoLabel": "النسبة الأصلية",
       "auto": "يتبع أصل المنتج",
@@ -2964,6 +2972,7 @@
       "tipAdvice": "الصور ذات العنصر المكتمل والتركيز الحاد وبدون تغطية تعمل أفضل للإنتاج الدفعي."
     },
     "example": {
+      "sampleLabel": "نموذج {index}",
       "alreadyAdded": "نموذج {title} موجود بالفعل في الدفعة الحالية",
       "added": "تمت إضافة نموذج {title}"
     },
@@ -4811,6 +4820,138 @@
     "delete": "حذف",
     "reuseImages": "إعادة استخدام الصور",
     "taskGenericTitle": "مهمة دمج الإطلالات",
-    "imageNumber": "صورة {index}"
+    "imageNumber": "صورة {index}",
+    "uploadLibrary": "اختر من مكتبة الأصول"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "مكتبة الأصول",
+      "description": "يمكنك إدارة التحميلات القابلة لإعادة الاستخدام والأصول التي تم إنشاؤها والمطالبات في مكان واحد."
+    },
+    "tabs": {
+      "label": "أقسام مكتبة الأصول",
+      "uploads": "التحميلات المحلية",
+      "generated": "المحتوى الذي أنشأته",
+      "prompts": "أوامري النصية"
+    },
+    "actions": {
+      "cancel": "إلغاء",
+      "close": "إغلاق",
+      "confirm": "تأكيد",
+      "loadMore": "تحميل المزيد",
+      "localUpload": "تحميل من الجهاز",
+      "newPrompt": "موجه جديد",
+      "remove": "إزالة",
+      "removeAsset": "إزالة الأصول",
+      "removePrompt": "إزالة المطالبة",
+      "retry": "أعد المحاولة",
+      "save": "حفظ",
+      "add": "أضف إلى مكتبة الأصول",
+      "added": "تمت إضافتها إلى مكتبة الأصول"
+    },
+    "categories": {
+      "title": "فئات الأصول",
+      "localUploads": "التحميلات المحلية"
+    },
+    "filters": {
+      "allMedia": "جميع وسائل الإعلام",
+      "allModules": "جميع الميزات",
+      "image": "الصور",
+      "mediaLabel": "نوع الوسائط",
+      "moduleLabel": "ميزة",
+      "video": "فيديوهات"
+    },
+    "picker": {
+      "title": "حدد الأصول",
+      "selectionHint": "تم تحديد {selected} من {max}",
+      "selectedCount": "تم تحديد {selected}/{max}",
+      "gridLabel": "الأصول المتاحة",
+      "limitReachedTitle": "تم الوصول إلى الحد الأقصى للاختيار",
+      "limitReachedDescription": "قم بإلغاء تحديد أحد الأصول قبل تحديد أصل آخر.",
+      "limitReachedInline": "يمكنك تحديد ما يصل إلى أصول {max}."
+    },
+    "card": {
+      "select": "حدد {title}",
+      "removeSelection": "قم بإلغاء تحديد {title}",
+      "preview": "معاينة {title}",
+      "previewTitle": "معاينة الأصول",
+      "previewDescription": "معاينة الأصل المحدد."
+    },
+    "empty": {
+      "uploadTitle": "لا توجد تحميلات محلية حتى الآن",
+      "uploadDescription": "قم بتحميل الصور أو مقاطع الفيديو لإعادة استخدامها عبر أدوات الإنشاء.",
+      "moduleTitle": "لا توجد أصول محفوظة في هذه الميزة",
+      "moduleDescription": "احفظ النتيجة التي تم إنشاؤها لإظهارها هنا.",
+      "generatedTitle": "لا توجد أصول تم إنشاؤها حتى الآن",
+      "generatedDescription": "احفظ النتائج من صفحة الإنشاء لإعادة استخدامها هنا.",
+      "promptTitle": "لا توجد مطالبات حتى الآن",
+      "promptDescription": "أنشئ أوامر نصية قابلة لإعادة الاستخدام لتسريع أعمالك الإبداعية القادمة."
+    },
+    "states": {
+      "loading": "جاري التحميل",
+      "uploading": "جارٍ التحميل",
+      "saving": "جارٍ الحفظ",
+      "uploadFailed": "فشل التحميل",
+      "loadFailedTitle": "تعذر تحميل الأصول",
+      "loadFailedDescription": "تحقق من اتصالك وحاول مرة أخرى.",
+      "deleteFailed": "لا يمكن إزالة العنصر",
+      "createFailed": "تعذر إنشاء المطالبة",
+      "operationFailed": "فشل إجراء مكتبة الأصول. يرجى المحاولة مرة أخرى."
+    },
+    "toast": {
+      "uploadSuccess": "تم تحميل أصول {count}",
+      "assetRemoved": "تمت إزالة الأصل",
+      "promptCreated": "تم إنشاء المطالبة",
+      "promptRemoved": "تمت إزالة المطالبة"
+    },
+    "upload": {
+      "supportedFormats": "يدعم تنسيقات الصور والفيديو الشائعة"
+    },
+    "prompts": {
+      "allTypes": "جميع الأنواع",
+      "typeLabel": "نوع موجه",
+      "searchLabel": "مطالبات البحث",
+      "searchPlaceholder": "مطالبات البحث",
+      "createTitle": "إنشاء موجه",
+      "createDescription": "احفظ عنوانًا ومحتوى موجهًا لإعادة الاستخدام.",
+      "titleLabel": "عنوان سريع",
+      "titlePlaceholder": "أدخل عنوانًا سريعًا",
+      "contentLabel": "محتوى سريع",
+      "contentPlaceholder": "أدخل المحتوى الفوري"
+    },
+    "confirm": {
+      "removeAssetTitle": "هل تريد إزالة مادة العرض؟",
+      "removeAssetDescription": "ستتم إزالة هذا الأصل من مكتبتك.",
+      "removePromptTitle": "هل تريد إزالة المطالبة؟",
+      "removePromptDescription": "ستتم إزالة هذه المطالبة نهائيًا."
+    },
+    "promptTypes": {
+      "text-to-image": "النص إلى الصورة",
+      "image-to-image": "صورة إلى صورة",
+      "model-background": "خلفية النموذج",
+      "pose": "تشكل",
+      "video": "فيديو",
+      "other": "أخرى"
+    },
+    "modules": {
+      "tryon": "تجربة افتراضية",
+      "grass": "صورة تسويق الأسلوب",
+      "productRetouch": "تنقيح المنتج",
+      "productSet": "طقم منتج",
+      "modelBackground": "تبديل خلفية الموديل",
+      "materialEnhancement": "تحسين الخامات",
+      "generalImage": "صورة عامة",
+      "outfitFusion": "دمج الإطلالات",
+      "pose": "تنويع الوضعيات",
+      "model": "الموديل الخاص",
+      "garment3d": "من ملابس إلى ثلاثي الأبعاد",
+      "faceSwap": "تبديل الوجه",
+      "imageTranslation": "ترجمة الصور",
+      "commerceDetail": "صورة تفاصيل المنتج",
+      "allCategoryProductImage": "صورة المنتج لجميع الفئات",
+      "videoImageToVideo": "من صورة إلى فيديو",
+      "videoMotion": "تقليد الحركة",
+      "videoFirstLastFrame": "الإطار الأول/الأخير"
+    }
   }
 }

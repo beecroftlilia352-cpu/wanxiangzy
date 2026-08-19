@@ -3288,6 +3288,7 @@
       "tryIt": "Ausprobieren"
     },
     "example": {
+      "sampleLabel": "Beispiel {index}",
       "added": "Beispiel {title} hinzugefügt",
       "alreadyAdded": "Beispiel {title} ist bereits im aktuellen Stapel"
     },
@@ -3321,6 +3322,14 @@
       "consistencyFirst": "Priorisiert Produktkonsistenz und Retusche-Detail",
       "recommended": "Empfohlen",
       "speedFirst": "Geschwindigkeitsorientierte Stapelproduktion"
+    },
+    "mode": {
+      "faithfulLabel": "Standardretusche",
+      "faithfulDesc": "Originalhintergrund beibehalten · Makel und Rauschen entfernen sowie Farbe, Licht und Schärfe korrigieren",
+      "whiteBackgroundLabel": "Freisteller-Retusche",
+      "whiteBackgroundDesc": "Reinweißen Hintergrund erzeugen · Bildaufbau und Konturen vereinheitlichen, natürliche Kontaktschatten erhalten",
+      "studioLabel": "Studio-Retusche",
+      "studioDesc": "Studiolicht und Hintergrund neu gestalten · Materialien, Reflexionen und Räumlichkeit verstärken"
     },
     "moduleName": "Produktretusche",
     "preview": {
@@ -4811,6 +4820,138 @@
     "delete": "Löschen",
     "reuseImages": "Bilder wiederverwenden",
     "taskGenericTitle": "Outfit-Fusion-Aufgabe",
-    "imageNumber": "Bild {index}"
+    "imageNumber": "Bild {index}",
+    "uploadLibrary": "Wählen Sie aus der Asset-Bibliothek"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Asset-Bibliothek",
+      "description": "Verwalten Sie wiederverwendbare Uploads, generierte Assets und Eingabeaufforderungen an einem Ort."
+    },
+    "tabs": {
+      "label": "Abschnitte der Asset-Bibliothek",
+      "uploads": "Lokale Uploads",
+      "generated": "Meine Kreationen",
+      "prompts": "Meine Prompts"
+    },
+    "actions": {
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "confirm": "Bestätigen",
+      "loadMore": "Mehr laden",
+      "localUpload": "Vom Gerät hochladen",
+      "newPrompt": "Neue Eingabeaufforderung",
+      "remove": "Entfernen",
+      "removeAsset": "Asset entfernen",
+      "removePrompt": "Eingabeaufforderung entfernen",
+      "retry": "Versuchen Sie es noch einmal",
+      "save": "Speichern",
+      "add": "Zur Asset-Bibliothek hinzufügen",
+      "added": "Zur Asset-Bibliothek hinzugefügt"
+    },
+    "categories": {
+      "title": "Asset-Kategorien",
+      "localUploads": "Lokale Uploads"
+    },
+    "filters": {
+      "allMedia": "Alle Medien",
+      "allModules": "Alle Funktionen",
+      "image": "Bilder",
+      "mediaLabel": "Medientyp",
+      "moduleLabel": "Funktion",
+      "video": "Videos"
+    },
+    "picker": {
+      "title": "Wählen Sie Vermögenswerte aus",
+      "selectionHint": "Ausgewählte {selected} von {max}",
+      "selectedCount": "{selected}/{max} ausgewählt",
+      "gridLabel": "Verfügbare Vermögenswerte",
+      "limitReachedTitle": "Auswahllimit erreicht",
+      "limitReachedDescription": "Heben Sie die Auswahl eines Assets auf, bevor Sie ein anderes auswählen.",
+      "limitReachedInline": "Sie können bis zu {max} Assets auswählen."
+    },
+    "card": {
+      "select": "Wählen Sie {title}",
+      "removeSelection": "Deaktivieren Sie {title}",
+      "preview": "Vorschau {title}",
+      "previewTitle": "Asset-Vorschau",
+      "previewDescription": "Vorschau des ausgewählten Assets."
+    },
+    "empty": {
+      "uploadTitle": "Noch keine lokalen Uploads",
+      "uploadDescription": "Laden Sie Bilder oder Videos hoch, um sie in allen Erstellungstools wiederzuverwenden.",
+      "moduleTitle": "In dieser Funktion sind keine Assets gespeichert",
+      "moduleDescription": "Speichern Sie ein generiertes Ergebnis, damit es hier angezeigt wird.",
+      "generatedTitle": "Noch keine generierten Assets",
+      "generatedDescription": "Speichern Sie Ergebnisse einer Erstellungsseite, um sie hier wiederzuverwenden.",
+      "promptTitle": "Noch keine Aufforderungen",
+      "promptDescription": "Erstellen Sie wiederverwendbare Prompts, um künftige Kreationen zu beschleunigen."
+    },
+    "states": {
+      "loading": "Laden",
+      "uploading": "Hochladen",
+      "saving": "Wird gespeichert",
+      "uploadFailed": "Der Upload ist fehlgeschlagen",
+      "loadFailedTitle": "Assets konnten nicht geladen werden",
+      "loadFailedDescription": "Überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+      "deleteFailed": "Das Element konnte nicht entfernt werden",
+      "createFailed": "Die Eingabeaufforderung konnte nicht erstellt werden",
+      "operationFailed": "Die Aktion der Asset-Bibliothek ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+    },
+    "toast": {
+      "uploadSuccess": "Hochgeladene {count}-Assets",
+      "assetRemoved": "Asset entfernt",
+      "promptCreated": "Eingabeaufforderung erstellt",
+      "promptRemoved": "Eingabeaufforderung entfernt"
+    },
+    "upload": {
+      "supportedFormats": "Unterstützt gängige Bild- und Videoformate"
+    },
+    "prompts": {
+      "allTypes": "Alle Arten",
+      "typeLabel": "Eingabeaufforderungstyp",
+      "searchLabel": "Suchaufforderungen",
+      "searchPlaceholder": "Suchaufforderungen",
+      "createTitle": "Eingabeaufforderung erstellen",
+      "createDescription": "Speichern Sie einen Titel und fordern Sie Inhalte zur Wiederverwendung auf.",
+      "titleLabel": "Prompt-Titel",
+      "titlePlaceholder": "Geben Sie einen Eingabeaufforderungstitel ein",
+      "contentLabel": "Prompter Inhalt",
+      "contentPlaceholder": "Geben Sie den Inhalt der Eingabeaufforderung ein"
+    },
+    "confirm": {
+      "removeAssetTitle": "Asset entfernen?",
+      "removeAssetDescription": "Dieses Asset wird aus Ihrer Bibliothek entfernt.",
+      "removePromptTitle": "Eingabeaufforderung entfernen?",
+      "removePromptDescription": "Diese Aufforderung wird dauerhaft entfernt."
+    },
+    "promptTypes": {
+      "text-to-image": "Text zum Bild",
+      "image-to-image": "Bild für Bild",
+      "model-background": "Modellhintergrund",
+      "pose": "Pose",
+      "video": "Video",
+      "other": "Andere"
+    },
+    "modules": {
+      "tryon": "Anprobe",
+      "grass": "Stil-Pflanzungsbild",
+      "productRetouch": "Produktretusche",
+      "productSet": "Produktset",
+      "modelBackground": "Model-Hintergrundtausch",
+      "materialEnhancement": "Materialverbesserung",
+      "generalImage": "Allgemeinbild",
+      "outfitFusion": "Outfit-Fusion",
+      "pose": "Posen-Erweiterung",
+      "model": "Benutzerdefiniertes Model",
+      "garment3d": "Kleidung zu 3D",
+      "faceSwap": "Gesichtstausch",
+      "imageTranslation": "Bildübersetzung",
+      "commerceDetail": "Produktdetailbild",
+      "allCategoryProductImage": "Produktbild aller Kategorien",
+      "videoImageToVideo": "Bild zu Video",
+      "videoMotion": "Bewegungsnachahmung",
+      "videoFirstLastFrame": "Erster/letzter Frame"
+    }
   }
 }

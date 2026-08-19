@@ -11,6 +11,8 @@ import {
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
 import { listAdminCreditLogs, type AdminCreditLogItem } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,9 @@ type PageProps = {
 };
 
 export default async function AdminCreditsPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin("credits:read");
+  const canAdjust = hasAdminPermission(admin.role, "credits:write");
+  const canRequest = hasAdminPermission(admin.role, "operation_requests:write");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const since = getSearchParam(params.since);
@@ -51,14 +56,14 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
         title="人工调整"
         description="适合财务或负责人直接处理已核实的问题，例如补发灵点、扣回误发灵点。"
       >
-        <AdminCreditAdjustForm />
+        {canAdjust ? <AdminCreditAdjustForm /> : <AdminNotice tone="info">当前角色不能直接调整灵点。需要财务或负责人权限；可使用下方审批申请。</AdminNotice>}
       </AdminSection>
 
       <AdminSection
         title="补偿审批申请"
         description="适合运营先提交申请；财务或负责人在审批中心确认后才会生效。"
       >
-        <AdminCreditAdjustForm mode="request" />
+        {canRequest ? <AdminCreditAdjustForm mode="request" /> : <AdminNotice tone="info">当前角色不能创建补偿审批申请。</AdminNotice>}
       </AdminSection>
 
       <AdminSection
@@ -145,4 +150,3 @@ function ReasonGroupCard({ title, rows, reasons }: { title: string; rows: AdminC
     </div>
   );
 }
-

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     const model: LingyaModel = normalizeLingyaModel(ai_model);
     const aspectRatio: AspectRatio = normalizeAspectRatio(body.aspect_ratio || body.aspectRatio || "auto", "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
-    const unitCost = getCreditCost(model, size, aspectRatio);
+    const unitCost = await getConfiguredImageCreditCost(model, size);
     const totalCost = unitCost * effectiveGenCount;
     const poseStyle = normalizePoseSeriesStyle(pose_style);
     const posePlanMode = body.pose_plan_mode === "ai" || body.posePlanMode === "ai" ? "ai" : "preset";
@@ -149,6 +150,10 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `姿势裂变 · ${effectivePoseCount} 个姿势${effectiveOutputMode === "separate" ? " · 独立图" : " · 自动宫格"}${poseCreationMode === "reference" ? " · 参考图模式" : ""}${poseReferenceUrls.length ? ` · ${poseReferenceUrls.length} 张姿势参考` : ""}${garmentAngleUrls.length ? ` · ${garmentAngleUrls.length} 张服装角度` : ""} (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [main_image_url, ...poseReferenceUrls, ...garmentAngleUrls, ...normalizeGarmentDetailUrls(garmentDetailInput)]
+        .map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

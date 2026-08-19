@@ -27,9 +27,22 @@ describe("top module navigation contract", () => {
     expect(getFeatureItem("imageToImage")?.badge).toBe("NEW");
   });
 
-  it("keeps API testing in the AI toolbox and works out of the top bar", () => {
+  it("opens the production AI toolbox from matting and keeps API testing internal", () => {
+    expect(VISIBLE_TOP_MODULES.find((item) => item.key === "toolbox")?.href).toBe("/ai-tools/matting");
+    expect(getActiveTopModule("/ai-tools/matting")).toBe("toolbox");
+    expect(getActiveTopModule("/ai-tools/shoe-repair")).toBe("toolbox");
     expect(getActiveTopModule("/api-platform-test")).toBe("toolbox");
-    expect(getFeatureItemsForModule("toolbox").map((item) => item.key)).toEqual(["apiTest"]);
+    expect(getFeatureItemsForModule("toolbox").map((item) => item.key)).toEqual([
+      "aiMatting",
+      "imageUpscale",
+      "aiOutpaint",
+      "aiErase",
+      "handFootRepair",
+      "clothingRepair",
+      "shoeRepair",
+      "losslessResize",
+      "apiTest",
+    ]);
     expect(VISIBLE_TOP_MODULES.some((item) => item.key === "works")).toBe(false);
   });
 });

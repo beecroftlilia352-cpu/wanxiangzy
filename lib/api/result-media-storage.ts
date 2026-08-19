@@ -1,6 +1,12 @@
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { isStableStoredMediaUrl, storeMedia } from "@/lib/api/media-storage";
 import { isLikelyVideoUrl } from "@/lib/media";
+import {
+  isAliyunOssRemoteTransferEnabled,
+  mirrorRemoteMediaToAliyunOss,
+} from "@/lib/api/oss-mirror-transfer";
+import { isRemoteUrl } from "@/lib/utils";
+import { canonicalizeStoredGeneratedObject } from "@/lib/api/generated-media-asset.server";
 
 export async function persistGeneratedMediaUrls(
   urls: string[],
@@ -32,6 +38,9 @@ async function persistGeneratedMediaUrl(
   }
 
   if (isStableStoredMediaUrl(urlOrDataUrl)) return urlOrDataUrl;
+  if (isRemoteUrl(urlOrDataUrl) && isAliyunOssRemoteTransferEnabled()) {
+    return mirrorRemoteMediaToAliyunOss(urlOrDataUrl, name);
+  }
   try {
     const stored = await storeMedia(
       {
@@ -39,15 +48,18 @@ async function persistGeneratedMediaUrl(
         name,
         namePrefix: "generated-",
         storageClass: "generated",
+        forbidOverwrite: true,
       },
       { suppressErrorLog: true }
     );
+    if (process.env.NODE_ENV === "production" && stored.object_key) {
+      return canonicalizeStoredGeneratedObject(stored, name);
+    }
+    if (process.env.NODE_ENV === "production") throw new Error("generated media storage bypassed the canonical media registry");
     return stored.url;
   } catch (err) {
-    console.warn(
-      "[result-media-storage] generated media storage failed; falling back to provider URL:",
-      err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `generated media was not durably stored: ${err instanceof Error ? err.message : String(err)}`,
     );
-    return urlOrDataUrl;
   }
 }

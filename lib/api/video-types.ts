@@ -6,6 +6,7 @@ import type {
   AiVideoResolution,
 } from "@/lib/ai-video";
 import type { VideoProviderName } from "@/lib/api/video-catalog";
+import type { AiDeploymentAdapterConfig } from "@/lib/ai-control-plane/types";
 
 export type VideoTaskProgress = {
   taskId?: string;
@@ -29,7 +30,23 @@ export type VideoGenerationResult = {
   providerDetails?: Record<string, unknown>;
 };
 
-export type VideoImageToVideoInput = {
+export type VideoTaskResume = {
+  taskId: string;
+  requestId?: string;
+  deploymentId?: string;
+};
+
+type VideoExecutionControl = {
+  /** Stable per-generation/slot key forwarded to providers that support it. */
+  idempotencyKey?: string;
+  /** Persisted upstream task checkpoint. When present, submission is skipped. */
+  resumeTask?: VideoTaskResume;
+  generationId?: string;
+  userId?: string;
+  abortSignal?: AbortSignal;
+};
+
+export type VideoImageToVideoInput = VideoExecutionControl & {
   provider: VideoProviderName;
   imageUrl: string;
   prompt: string;
@@ -44,7 +61,7 @@ export type VideoImageToVideoInput = {
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
-export type VideoMotionControlInput = {
+export type VideoMotionControlInput = VideoExecutionControl & {
   provider: VideoProviderName;
   modelImageUrl: string;
   referenceVideoUrl: string;
@@ -60,7 +77,7 @@ export type VideoMotionControlInput = {
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
-export type VideoFirstLastFrameInput = {
+export type VideoFirstLastFrameInput = VideoExecutionControl & {
   provider: VideoProviderName;
   firstFrameUrl: string;
   lastFrameUrl: string;
@@ -80,4 +97,6 @@ export type NewApiVideoProviderConfig = {
   provider: "minimax" | "seedance";
   apiBase: string;
   apiKey: string;
+  signal?: AbortSignal;
+  adapterConfig?: AiDeploymentAdapterConfig;
 };

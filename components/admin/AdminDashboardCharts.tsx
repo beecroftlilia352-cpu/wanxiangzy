@@ -33,15 +33,7 @@ type AdminDashboardChartsProps = {
  * config; the SVG then references them as `var(--color-X)`, which DOES
  * resolve in modern browsers (the injected value is a valid hex color).
  * -------------------------------------------------------------------------- */
-const taskStatusConfig = {
-  queued: {
-    label: "排队中",
-    theme: { light: "#a66a00", dark: "#ff9f0a" },
-  },
-  running: {
-    label: "运行中",
-    theme: { light: "#5b7cff", dark: "#5b8cff" },
-  },
+const periodResultConfig = {
   completed: {
     label: "已完成",
     theme: { light: "#22885f", dark: "#30d158" },
@@ -50,9 +42,9 @@ const taskStatusConfig = {
     label: "失败",
     theme: { light: "#d13b35", dark: "#ff453a" },
   },
-  other: {
-    label: "其他",
-    theme: { light: "#7b8498", dark: "#7a7d85" },
+  unsettled: {
+    label: "未结算",
+    theme: { light: "#a66a00", dark: "#ff9f0a" },
   },
 } satisfies ChartConfig;
 
@@ -63,17 +55,17 @@ function formatPercent(value: number) {
 }
 
 export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsProps) {
-  const taskStatusData = useMemo(() => buildTaskStatusData(overview), [overview]);
-  const totalTasks = taskStatusData.reduce((sum, item) => sum + item.value, 0);
+  const periodResultData = useMemo(() => buildPeriodResultData(overview), [overview]);
+  const totalTasks = periodResultData.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4">
-        <AdminSection title="任务状态" description="实时分布 · 点击行查看队列">
+        <AdminSection title="周期任务结果" description={`近 ${days} 天 · 成功、失败与未结算分布`}>
           {totalTasks > 0 ? (
             <div className="flex flex-col gap-4 p-2 pb-3">
               <div className="relative">
-                <ChartContainer config={taskStatusConfig} className="h-[200px] w-full">
+                <ChartContainer config={periodResultConfig} className="h-[200px] w-full">
                   <PieChart accessibilityLayer>
                     <ChartTooltip
                       content={
@@ -86,7 +78,7 @@ export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsPro
                       }
                     />
                     <Pie
-                      data={taskStatusData}
+                      data={periodResultData}
                       dataKey="value"
                       nameKey="type"
                       innerRadius={60}
@@ -95,7 +87,7 @@ export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsPro
                       stroke="var(--admin-surface)"
                       strokeWidth={2}
                     >
-                      {taskStatusData.map((item) => (
+                      {periodResultData.map((item) => (
                         <Cell
                           key={item.status}
                           fill={
@@ -103,11 +95,7 @@ export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsPro
                               ? "var(--color-completed)"
                               : item.status === "failed"
                                 ? "var(--color-failed)"
-                                : item.status === "running"
-                                  ? "var(--color-running)"
-                                  : item.status === "other"
-                                    ? "var(--color-other)"
-                                    : "var(--color-queued)"
+                                : "var(--color-unsettled)"
                           }
                         />
                       ))}
@@ -116,23 +104,23 @@ export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsPro
                 </ChartContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--admin-faint)]">
-                    总任务
+                    周期任务
                   </span>
                   <span className="mt-1 text-2xl font-black tabular-nums text-[var(--admin-fg)]">
                     {formatNumber(totalTasks)}
                   </span>
                   <span className="mt-1 text-[11px] font-semibold text-[var(--admin-muted)]">
-                    实时聚合
+                    近 {days} 天
                   </span>
                 </div>
               </div>
-              <ul className="flex flex-col gap-2" aria-label="任务状态分布">
-                {taskStatusData.map((item) => {
+              <ul className="flex flex-col gap-2" aria-label="周期任务结果分布">
+                {periodResultData.map((item) => {
                   const pct = totalTasks > 0 ? (item.value / totalTasks) * 100 : 0;
                   return (
                     <li key={item.status}>
                       <Link
-                        href={`/admin/generations?status=${item.status === "other" ? "" : item.status}`}
+                        href={`/admin/generations${item.status === "unsettled" ? "" : `?status=${item.status}`}`}
                         aria-label={`查看 ${item.type}（${formatNumber(item.value)} · ${formatPercent(pct)}）`}
                         className="group flex min-w-0 items-center gap-3 rounded-md border border-transparent px-2 py-1.5 motion-safe:transition-colors hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-soft)]"
                       >
@@ -145,11 +133,7 @@ export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsPro
                                 ? "var(--color-completed)"
                                 : item.status === "failed"
                                   ? "var(--color-failed)"
-                                  : item.status === "running"
-                                    ? "var(--color-running)"
-                                    : item.status === "other"
-                                      ? "var(--color-other)"
-                                      : "var(--color-queued)",
+                                  : "var(--color-unsettled)",
                           }}
                         />
                         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--admin-fg)]">
@@ -173,8 +157,8 @@ export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsPro
             </div>
           ) : (
             <EmptyChart
-              title="暂无任务状态数据"
-              description="等待任务结算后会按状态自动汇总。"
+              title="暂无周期任务数据"
+              description={`近 ${days} 天内没有任务记录。`}
             />
           )}
         </AdminSection>
@@ -193,31 +177,16 @@ function EmptyChart({ title, description }: { title: string; description: string
 }
 
 /**
- * Coalesce tiny slices into a single "其他" bucket so the donut always shows
- * 4 readable segments instead of 1 dominant slice + 3 invisible ones. Any
- * slice below 4% of the total folds into "其他" (only when at least one
- * non-completed slice exists).
+ * Period result distribution intentionally excludes the all-time task queue.
+ * Mixing cumulative completed tasks with a live backlog hides the operational
+ * signal because the completed slice eventually dominates every other state.
  */
-function buildTaskStatusData(overview: AdminOverview) {
-  const queued = overview.taskHealth.queued;
-  const running = overview.taskHealth.running;
-  const completed = overview.taskHealth.completed;
-  const failed = overview.taskHealth.failed;
-  const total = queued + running + completed + failed;
-  if (total === 0) return [];
-  const pct = (v: number) => (v / total) * 100;
-  const items: Array<{ status: string; type: string; value: number }> = [];
+function buildPeriodResultData(overview: AdminOverview) {
+  const { total, completed, failed } = overview.periodHealth;
+  const unsettled = Math.max(0, total - completed - failed);
+  const items: Array<{ status: "completed" | "failed" | "unsettled"; type: string; value: number }> = [];
   if (completed > 0) items.push({ status: "completed", type: "已完成", value: completed });
   if (failed > 0) items.push({ status: "failed", type: "失败", value: failed });
-  if (running > 0) items.push({ status: "running", type: "运行中", value: running });
-  if (queued > 0) items.push({ status: "queued", type: "排队中", value: queued });
-
-  // Fold small slices (other than completed) into "其他" if their share < 4%
-  const big = items.filter((item) => item.status === "completed" || pct(item.value) >= 4);
-  const small = items.filter((item) => item.status !== "completed" && pct(item.value) < 4);
-  if (small.length) {
-    const otherValue = small.reduce((sum, item) => sum + item.value, 0);
-    big.push({ status: "other", type: "其他", value: otherValue });
-  }
-  return big.sort((a, b) => b.value - a.value);
+  if (unsettled > 0) items.push({ status: "unsettled", type: "未结算", value: unsettled });
+  return items.sort((a, b) => b.value - a.value);
 }

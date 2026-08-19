@@ -14,6 +14,7 @@ type AdminTaskActionsProps = {
   statusGroup: TaskStatusGroup;
   isStale?: boolean;
   compact?: boolean;
+  canOperate?: boolean;
 };
 
 const actionConfig: Record<AdminTaskAction, { label: string; icon: ReactNode; defaultReason: string; danger?: boolean }> = {
@@ -42,10 +43,11 @@ const actionConfig: Record<AdminTaskAction, { label: string; icon: ReactNode; de
   },
 };
 
-export function AdminTaskActions({ id, sourceType, statusGroup, isStale = false, compact = false }: AdminTaskActionsProps) {
+export function AdminTaskActions({ id, sourceType, statusGroup, isStale = false, compact = false, canOperate = false }: AdminTaskActionsProps) {
   const router = useRouter();
   const { message, modal } = App.useApp();
   const finished = statusGroup === "completed" || statusGroup === "failed";
+  if (!canOperate) return <Typography.Text type="secondary" className="text-xs">只读</Typography.Text>;
   const availableActions: AdminTaskAction[] = finished
     ? []
     : isStale

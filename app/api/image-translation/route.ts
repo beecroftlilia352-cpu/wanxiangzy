@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  getCreditCost,
   normalizeAspectRatio,
   normalizeImageSize,
   normalizeLingyaModel,
@@ -9,6 +8,7 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     });
 
     const expectedCount = sourceUrls.length * languages.length * genCount;
-    const totalCost = getCreditCost(model, size, aspectRatio) * expectedCount;
+    const totalCost = await getConfiguredImageCreditCost(model, size) * expectedCount;
 
     const jobPayload: GenerationJobPayload = {
       kind: "imageTranslation",
@@ -124,6 +124,9 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `图片翻译 ${sourceUrls.length} 张原图 × ${languages.length} 种语言 × ${genCount} (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: sourceUrls.map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

@@ -52,10 +52,8 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-TRYON_CLOTHING_ANALYZE_BASE_URL=https://yunwu.ai
-TRYON_CLOTHING_ANALYZE_API_KEY=
-TRYON_CLOTHING_ANALYZE_MODEL=gpt-5-nano
-TRYON_CLOTHING_ANALYZE_TIMEOUT_MS=15000
+# Text/vision provider endpoints and keys are configured in Admin Portal
+# -> 模型与供应商 -> publish the unified control-plane config.
 
 TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS=vasthk.oss-cn-hongkong.aliyuncs.com
 NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vasthk.oss-cn-hongkong.aliyuncs.com
@@ -63,8 +61,8 @@ NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vasthk.oss-cn-hongkong.aliyuncs.com
 
 说明：
 
-- `TRYON_CLOTHING_ANALYZE_BASE_URL` 会被代码自动规范到 `/v1`，最终请求 `/chat/completions`。
-- 视觉识别模型可以换成小米或云雾的 OpenAI-compatible 模型，只要支持 `chat/completions` 和 image_url 输入。
+- 换装服装识别、参考图识别、姿势识别和提示词分析都通过统一控制面调用 `openai-chat` 部署。
+- 在 Admin Portal 配置同优先级部署即可启用智能负载、容量/RPM、429 退避和熔断兜底；不要再用环境变量覆盖生产模型。
 - 不要把真实 key 写进文档、截图或工单；只在部署平台和本地 `env.local` 配置。
 - 如果参考图不在阿里云 OSS、Supabase 或默认允许域名内，必须把图片域名加入 `TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS`。
 
@@ -74,7 +72,7 @@ NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vasthk.oss-cn-hongkong.aliyuncs.com
 test -n "$NEXT_PUBLIC_SUPABASE_URL" && echo "supabase url ok"
 test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" && echo "anon key ok"
 test -n "$SUPABASE_SERVICE_ROLE_KEY" && echo "service role ok"
-test -n "$TRYON_CLOTHING_ANALYZE_API_KEY" && echo "analyze api key ok"
+echo "LLM provider health is checked from Admin Portal model-control metrics"
 ```
 
 ## 3. 数据库初始化
@@ -554,7 +552,7 @@ git diff --check
 | 推荐接口返回 `fallback` | 没有 published 快照，也没有 active 场景 | 发布配置，或检查 `tryon_reference_scenes` |
 | 抽屉没有子图集 | 未导入 `childRawText`，或 parentId 与主场景 id 不匹配 | 重新导入子图集，确认 `raw_config.children` |
 | 图片不显示 | 图片 URL 失效、签名过期、域名未允许 | 转存 OSS，补充允许域名，重新导入 |
-| 识别一直 fallback | API key、base_url、model 或超时异常 | 检查 `TRYON_CLOTHING_ANALYZE_*`，查服务端日志和缓存表 |
+| 识别一直 fallback | Admin 中部署未发布、容量/RPM 不足或供应商熔断 | 检查 Admin 模型控制面、`ai_provider_health` 和 `ai_route_attempts` |
 | 发布校验失败 | active 场景缺图、缺名、缺类目或非法域名 | 根据 issues 修复后重试 |
 | 回滚后前台仍旧配置 | 回滚后没有重新发布，或缓存未过期 | 校验并发布，再等待 60 秒 |
 
@@ -571,4 +569,3 @@ git diff --check
 - 外部子图集请求参数。
 - 可直接参考的主场景和子图集导入 JSON 结构。
 - 服装识别和推荐预览请求样例。
-

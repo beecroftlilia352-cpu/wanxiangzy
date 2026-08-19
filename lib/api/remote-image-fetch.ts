@@ -1,5 +1,8 @@
 import { lookup } from "node:dns/promises";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
+import { Readable } from "node:stream";
 
 const DEFAULT_REMOTE_IMAGE_TIMEOUT_MS = 45_000;
 const DEFAULT_REMOTE_IMAGE_MAX_BYTES = 32 * 1024 * 1024;
@@ -7,6 +10,7 @@ const DEFAULT_REMOTE_IMAGE_MAX_REDIRECTS = 3;
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 type LookupHost = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
+type ResolvedAddress = { address: string; family: number };
 type RemoteAssetContentKind = "audio" | "image" | "video";
 
 export type RemoteImageFetchErrorCode =
@@ -41,6 +45,7 @@ export interface RemoteImageFetchOptions {
   lookupHost?: LookupHost;
   maxBytes?: number;
   maxRedirects?: number;
+  requestHeaders?: HeadersInit;
   timeoutMs?: number;
 }
 
@@ -95,15 +100,20 @@ export async function fetchRemoteImageResponse(
   let currentUrl = parseRemoteUrl(imageUrl);
 
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
-    await assertRemoteImageUrlAllowed(currentUrl, options);
+    const addresses = await resolveAllowedRemoteAddresses(currentUrl, options);
 
     let response: Response;
     try {
-      response = await fetchImpl(currentUrl.toString(), {
+      const init: RequestInit = {
         cache: "no-store",
         redirect: "manual",
+        headers: options.requestHeaders,
         signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_REMOTE_IMAGE_TIMEOUT_MS),
-      });
+      };
+      const useTestTransport = process.env.NODE_ENV !== "production" && process.env.VITEST === "true";
+      response = options.fetchImpl || useTestTransport
+        ? await fetchImpl(currentUrl.toString(), init)
+        : await fetchWithPinnedAddress(currentUrl, init, addresses);
     } catch (error) {
       if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
         throw new RemoteImageFetchError("remote image fetch timed out", "timeout");
@@ -158,6 +168,13 @@ export async function assertRemoteImageUrlAllowed(
   imageUrl: URL,
   options: RemoteImageFetchOptions = {}
 ) {
+  await resolveAllowedRemoteAddresses(imageUrl, options);
+}
+
+async function resolveAllowedRemoteAddresses(
+  imageUrl: URL,
+  options: RemoteImageFetchOptions,
+): Promise<ResolvedAddress[]> {
   if (imageUrl.protocol !== "https:" && !(options.allowHttp && imageUrl.protocol === "http:")) {
     throw new RemoteImageFetchError("remote image URL protocol is not allowed", "unsupported-protocol");
   }
@@ -172,7 +189,7 @@ export async function assertRemoteImageUrlAllowed(
     throw new RemoteImageFetchError("remote image URL host is not allowed", "blocked-host");
   }
 
-  await assertPublicHostAddress(hostname, options.lookupHost || defaultLookupHost);
+  return resolvePublicHostAddresses(hostname, options.lookupHost || defaultLookupHost);
 }
 
 export async function readRemoteImageResponseBody(response: Response, maxBytes: number) {
@@ -211,13 +228,13 @@ export function isPrivateOrReservedIpAddress(address: string) {
   return true;
 }
 
-async function assertPublicHostAddress(hostname: string, lookupHost: LookupHost) {
+async function resolvePublicHostAddresses(hostname: string, lookupHost: LookupHost): Promise<ResolvedAddress[]> {
   const directIpVersion = isIP(stripIpv6Brackets(hostname));
   if (directIpVersion) {
     if (isPrivateOrReservedIpAddress(hostname)) {
       throw new RemoteImageFetchError("remote image URL resolves to a private or reserved address", "blocked-address");
     }
-    return;
+    return [{ address: stripIpv6Brackets(hostname), family: directIpVersion }];
   }
 
   const addresses = await lookupHost(hostname);
@@ -230,6 +247,55 @@ async function assertPublicHostAddress(hostname: string, lookupHost: LookupHost)
       throw new RemoteImageFetchError("remote image URL resolves to a private or reserved address", "blocked-address");
     }
   }
+  return addresses;
+}
+
+async function fetchWithPinnedAddress(url: URL, init: RequestInit, addresses: ResolvedAddress[]) {
+  let lastError: unknown;
+  for (const resolved of addresses) {
+    try {
+      return await requestPinnedAddress(url, init, resolved);
+    } catch (error) {
+      lastError = error;
+      if (init.signal?.aborted) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("remote connection failed");
+}
+
+function requestPinnedAddress(url: URL, init: RequestInit, resolved: ResolvedAddress): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const tlsServerName = url.protocol === "https:" && !isIP(stripIpv6Brackets(url.hostname))
+      ? { servername: url.hostname }
+      : {};
+    const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(url, {
+      method: "GET",
+      headers: Object.fromEntries(new Headers(init.headers).entries()),
+      signal: init.signal ?? undefined,
+      ...tlsServerName,
+      lookup: (_hostname, _options, callback) => {
+        callback(null, resolved.address, resolved.family);
+      },
+    }, (incoming) => {
+      const headers = new Headers();
+      for (let index = 0; index < incoming.rawHeaders.length; index += 2) {
+        const name = incoming.rawHeaders[index];
+        const value = incoming.rawHeaders[index + 1];
+        if (name && value !== undefined) headers.append(name, value);
+      }
+      const status = incoming.statusCode || 500;
+      const body = status === 204 || status === 304
+        ? null
+        : Readable.toWeb(incoming) as ReadableStream<Uint8Array>;
+      resolve(new Response(body, {
+        status,
+        statusText: incoming.statusMessage || "",
+        headers,
+      }));
+    });
+    request.once("error", reject);
+    request.end();
+  });
 }
 
 async function defaultLookupHost(hostname: string) {

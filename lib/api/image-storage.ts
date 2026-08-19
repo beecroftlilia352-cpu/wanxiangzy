@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { fetchRemoteImageBuffer } from "@/lib/api/remote-image-fetch";
 import { isRemoteUrl } from "@/lib/utils";
 
@@ -22,6 +22,13 @@ export interface StoredImage {
   delete_url: string;
   width: number;
   height: number;
+  object_key?: string;
+  bucket_name?: string;
+  content_type?: string;
+  size_bytes?: number;
+  /** Compatibility alias for older provider test fixtures. */
+  byte_size?: number;
+  sha256?: string;
 }
 
 export interface StoreImageInput {
@@ -31,12 +38,17 @@ export interface StoreImageInput {
   name: string;
   namePrefix?: string;
   storageClass?: ImageStorageClass;
+  /** Server-generated immutable key. Never accept this value from a client. */
+  objectKey?: string;
+  forbidOverwrite?: boolean;
 }
 
 export interface StoreImageOptions {
   maxRemoteBytes?: number;
   suppressErrorLog?: boolean;
   timeoutMs?: number;
+  /** Keep the original pixel dimensions while normalizing format/orientation. */
+  preservePixelDimensions?: boolean;
 }
 
 export interface ImageStorageAdapter {
@@ -46,9 +58,11 @@ export interface ImageStorageAdapter {
 }
 
 export function getImageStorageAdapter(): ImageStorageAdapter {
-  const provider = (process.env.IMAGE_STORAGE_PROVIDER || "imgbb").trim().toLowerCase();
+  const provider = (process.env.IMAGE_STORAGE_PROVIDER || "aliyun-oss").trim().toLowerCase();
   if (provider === "aliyun-oss") return aliyunOssStorageAdapter;
-  return imgbbStorageAdapter;
+  if (provider === "imgbb" && process.env.NODE_ENV !== "production") return imgbbStorageAdapter;
+  if (provider === "imgbb") throw new Error("生产环境仅允许 IMAGE_STORAGE_PROVIDER=aliyun-oss");
+  throw new Error("IMAGE_STORAGE_PROVIDER 必须显式设置为 aliyun-oss（开发环境可使用 imgbb）");
 }
 
 export function getBase64Payload(dataUrl: string) {
@@ -57,6 +71,13 @@ export function getBase64Payload(dataUrl: string) {
 }
 
 export function isStableStoredImageUrl(url: string) {
+  if (/^\/api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i.test(url)) {
+    return true;
+  }
+  // Production business records may only persist an owner-fenced canonical
+  // registry capability. Raw OSS URLs (including short-lived signed URLs) are
+  // inputs to the mirror/registry pipeline, never durable result identifiers.
+  if (process.env.NODE_ENV === "production") return false;
   return getImageStorageAdapter().isStableUrl(url);
 }
 
@@ -179,12 +200,25 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
   async storeImage(input: StoreImageInput, options: StoreImageOptions = {}) {
     const config = getAliyunOssConfig();
     const upload = await resolveUploadPayload(input, options);
-    const objectKey = buildAliyunObjectKey(input, upload.extension);
+    const imageMetadata = (input.storageClass || inferStorageClass(input.namePrefix)) === "generated"
+      ? await inspectDecodedImage(upload.bytes)
+      : { width: 0, height: 0 };
+    const objectKey = input.objectKey
+      ? validateExplicitObjectKey(input.objectKey, resolveAliyunObjectPrefix(input))
+      : buildAliyunObjectKey(input, upload.extension, upload.bytes);
     const endpoint = config.endpoint || `${config.bucket}.${config.region}.aliyuncs.com`;
     const uploadUrl = `https://${endpoint}/${encodeObjectKey(objectKey)}`;
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${config.bucket}/${objectKey}`;
-    const canonicalizedOssHeaders = config.securityToken ? `x-oss-security-token:${config.securityToken}\n` : "";
+    const ossHeaders: Record<string, string> = {};
+    const objectAcl = resolveObjectAcl(input.storageClass || inferStorageClass(input.namePrefix));
+    ossHeaders["x-oss-object-acl"] = objectAcl;
+    if (input.forbidOverwrite) ossHeaders["x-oss-forbid-overwrite"] = "true";
+    if (config.securityToken) ossHeaders["x-oss-security-token"] = config.securityToken;
+    const canonicalizedOssHeaders = Object.entries(ossHeaders)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => `${key}:${value}\n`)
+      .join("");
     const stringToSign = [
       "PUT",
       "",
@@ -197,7 +231,9 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
       Authorization: `OSS ${config.accessKeyId}:${signature}`,
       Date: date,
       "Content-Type": upload.contentType,
+      "x-oss-object-acl": objectAcl,
     };
+    if (input.forbidOverwrite) headers["x-oss-forbid-overwrite"] = "true";
     if (config.securityToken) headers["x-oss-security-token"] = config.securityToken;
 
     const response = await fetch(uploadUrl, {
@@ -208,20 +244,27 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
     });
 
     const responseText = await response.text();
-    if (!response.ok) {
+    if (!response.ok && !(input.forbidOverwrite && response.status === 409 && await existingObjectMatches(config, objectKey, upload.bytes))) {
       if (!options.suppressErrorLog) {
         console.error("[image-storage] aliyun oss upload error:", response.status, responseText.slice(0, 500));
       }
       throw new Error(`图片上传失败: Aliyun OSS HTTP ${response.status}`);
     }
 
-    const url = buildPublicObjectUrl(config.publicBaseUrl, objectKey);
+    const url = objectAcl === "public-read"
+      ? buildPublicObjectUrl(config.publicBaseUrl, objectKey)
+      : buildAliyunSignedReadUrl(config, objectKey);
     return {
       url,
       display_url: url,
       delete_url: "",
-      width: 0,
-      height: 0,
+      width: imageMetadata.width,
+      height: imageMetadata.height,
+      object_key: objectKey,
+      bucket_name: config.bucket,
+      content_type: upload.contentType,
+      size_bytes: upload.bytes.length,
+      sha256: createHash("sha256").update(upload.bytes).digest("hex"),
     };
   },
 };
@@ -290,6 +333,35 @@ function buildPublicObjectUrl(baseUrl: string, objectKey: string) {
   return `${normalizeBaseUrl(baseUrl)}/${encodeObjectKey(objectKey)}`;
 }
 
+function buildAliyunSignedReadUrl(config: ReturnType<typeof getAliyunOssConfig>, objectKey: string) {
+  const expiresInSeconds = boundedReadExpiry(process.env.UPLOAD_READ_URL_TTL_SECONDS);
+  const expires = String(Math.floor(Date.now() / 1000) + expiresInSeconds);
+  const query: Record<string, string> = {};
+  if (config.securityToken) query["security-token"] = config.securityToken;
+  const canonicalizedResource = buildAliyunCanonicalizedResource(config.bucket, objectKey, query);
+  const signature = createHmac("sha1", config.accessKeySecret)
+    .update(["GET", "", "", expires, canonicalizedResource].join("\n"))
+    .digest("base64");
+  const url = new URL(buildPublicObjectUrl(config.publicBaseUrl, objectKey));
+  url.searchParams.set("OSSAccessKeyId", config.accessKeyId);
+  url.searchParams.set("Expires", expires);
+  for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+  url.searchParams.set("Signature", signature);
+  return url.toString();
+}
+
+function resolveObjectAcl(storageClass: ImageStorageClass) {
+  return storageClass === "site-asset" ? "public-read" : "private";
+}
+
+function boundedReadExpiry(value?: string) {
+  const parsed = value?.trim() ? Number(value) : 600;
+  if (!Number.isInteger(parsed) || parsed < 60 || parsed > 3600) {
+    throw new Error("UPLOAD_READ_URL_TTL_SECONDS 必须是 60-3600 秒的整数");
+  }
+  return parsed;
+}
+
 function stripBasePath(pathname: string, basePathname: string) {
   const basePath = basePathname === "/" ? "" : basePathname.replace(/\/+$/, "");
   if (!basePath) return pathname;
@@ -353,7 +425,7 @@ async function resolveUploadPayload(input: StoreImageInput, options: StoreImageO
     const bytes = input.bytes;
     assertUploadSize(bytes);
     const contentType = resolveContentType(bytes, name, input.contentType);
-    return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+    return normalizeUploadPayloadForStableAiInput(bytes, contentType, options.preservePixelDimensions === true);
   }
 
   if (!input.image) throw new Error("图片内容为空");
@@ -366,17 +438,17 @@ async function resolveUploadPayload(input: StoreImageInput, options: StoreImageO
     const bytes = remote.bytes;
     assertUploadSize(bytes);
     const contentType = resolveContentType(bytes, name, remote.contentType);
-    return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+    return normalizeUploadPayloadForStableAiInput(bytes, contentType, options.preservePixelDimensions === true);
   }
 
   const contentTypeFromDataUrl = input.image.match(/^data:([^;,]+)[;,]/i)?.[1];
   const bytes = Buffer.from(getBase64Payload(input.image), "base64");
   assertUploadSize(bytes);
   const contentType = resolveContentType(bytes, name, contentTypeFromDataUrl);
-  return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+  return normalizeUploadPayloadForStableAiInput(bytes, contentType, options.preservePixelDimensions === true);
 }
 
-async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType: string) {
+async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType: string, preservePixelDimensions = false) {
   if (!contentType.startsWith("image/")) {
     throw new Error("当前图片格式暂不支持，请上传 JPG、PNG 或 WebP");
   }
@@ -392,12 +464,14 @@ async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType
     const sharp = (await import("sharp")).default;
     const source = sharp(bytes, { failOn: "none" }).rotate();
     const metadata = await source.metadata();
-    const resized = source.resize({
-      width: NORMALIZED_AI_INPUT_MAX_EDGE,
-      height: NORMALIZED_AI_INPUT_MAX_EDGE,
-      fit: "inside",
-      withoutEnlargement: true,
-    });
+    const resized = preservePixelDimensions
+      ? source
+      : source.resize({
+        width: NORMALIZED_AI_INPUT_MAX_EDGE,
+        height: NORMALIZED_AI_INPUT_MAX_EDGE,
+        fit: "inside",
+        withoutEnlargement: true,
+      });
 
     if (metadata.hasAlpha) {
       const normalized = await encodeWebpWithinTarget(resized);
@@ -451,18 +525,78 @@ function bufferToArrayBuffer(bytes: Buffer) {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-function buildAliyunObjectKey(input: StoreImageInput, extension: string) {
+function buildAliyunObjectKey(input: StoreImageInput, extension: string, bytes: Buffer) {
   const prefix = resolveAliyunObjectPrefix(input);
+  const baseName = sanitizeObjectName(`${input.namePrefix || ""}${input.name}`) || "image";
+  if ((input.storageClass || inferStorageClass(input.namePrefix)) === "generated") {
+    const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 20);
+    return `${prefix}/by-generation/${baseName}-${digest}.${extension}`;
+  }
   const now = new Date();
   const datePath = [
     now.getUTCFullYear(),
     String(now.getUTCMonth() + 1).padStart(2, "0"),
     String(now.getUTCDate()).padStart(2, "0"),
   ].join("/");
-  const baseName = sanitizeObjectName(`${input.namePrefix || ""}${input.name}`) || "image";
   return [prefix, datePath, `${Date.now()}-${randomUUID().slice(0, 8)}-${baseName}.${extension}`]
     .filter(Boolean)
     .join("/");
+}
+
+async function inspectDecodedImage(bytes: Buffer) {
+  try {
+    const sharp = (await import("sharp")).default;
+    const image = sharp(bytes, { failOn: "error", limitInputPixels: 40_000_000 });
+    const metadata = await image.metadata();
+    await image.stats();
+    const width = Number(metadata.width);
+    const height = Number(metadata.height);
+    if (!Number.isInteger(width) || !Number.isInteger(height)
+        || width < 1 || height < 1 || width > 12_000 || height > 12_000
+        || width * height > 40_000_000) {
+      throw new Error("image dimensions exceed safety limits");
+    }
+    return { width, height };
+  } catch {
+    throw new Error("图片文件无法完整解码");
+  }
+}
+
+function validateExplicitObjectKey(objectKey: string, requiredPrefix: string) {
+  if (objectKey.length > 1024 || objectKey.startsWith("/") || objectKey.includes("\\") || objectKey.split("/").some((part) => !part || part === "." || part === "..")) {
+    throw new Error("图片上传失败: invalid immutable object key");
+  }
+  const prefix = cleanObjectPath(requiredPrefix);
+  if (!prefix || !objectKey.startsWith(`${prefix}/`) || !/^[A-Za-z0-9._/-]+$/.test(objectKey)) {
+    throw new Error("图片上传失败: immutable object key is outside upload prefix");
+  }
+  return objectKey;
+}
+
+async function existingObjectMatches(config: ReturnType<typeof getAliyunOssConfig>, objectKey: string, expected: Buffer) {
+  try {
+    const endpoint = config.endpoint || `${config.bucket}.${config.region}.aliyuncs.com`;
+    const date = new Date().toUTCString();
+    const canonicalizedResource = `/${config.bucket}/${objectKey}`;
+    const canonicalizedOssHeaders = config.securityToken ? `x-oss-security-token:${config.securityToken}\n` : "";
+    const signature = createHmac("sha1", config.accessKeySecret)
+      .update(["GET", "", "", date, `${canonicalizedOssHeaders}${canonicalizedResource}`].join("\n"))
+      .digest("base64");
+    const headers: Record<string, string> = { Authorization: `OSS ${config.accessKeyId}:${signature}`, Date: date };
+    if (config.securityToken) headers["x-oss-security-token"] = config.securityToken;
+    const response = await fetch(`https://${endpoint}/${encodeObjectKey(objectKey)}`, {
+      method: "GET",
+      headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS),
+    });
+    if (!response.ok) return false;
+    const actual = Buffer.from(await response.arrayBuffer());
+    return actual.length === expected.length
+      && createHash("sha256").update(actual).digest("hex") === createHash("sha256").update(expected).digest("hex");
+  } catch {
+    return false;
+  }
 }
 
 function resolveAliyunObjectPrefix(input: StoreImageInput) {

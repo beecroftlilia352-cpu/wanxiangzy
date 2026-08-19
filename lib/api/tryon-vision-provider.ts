@@ -1,13 +1,3 @@
-import { getLlmFallbackConfigs } from "@/lib/api/llm-provider";
-import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
-
-export type TryOnVisionProviderConfig = {
-  label: string;
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-};
-
 export type TryOnVisionFallbackReason =
   | "missing_api_key"
   | "provider_http_401"
@@ -33,6 +23,45 @@ export const TRYON_VISION_FALLBACK_REASON_TEXT: Record<TryOnVisionFallbackReason
   provider_error: "参考图识别未成功，已按原图构图保守处理",
 };
 
+/** @deprecated Production callers must use the unified control plane. */
+export async function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): Promise<TryOnVisionProviderConfig[]> {
+  return uniqueProviderConfigs([
+    { label: "tryon-reference", apiKey: readEnv("TRYON_REFERENCE_ANALYZE_API_KEY"), baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_REFERENCE_ANALYZE_BASE_URL")), model: readEnv("TRYON_REFERENCE_ANALYZE_MODEL") },
+    { label: "tryon-clothing", apiKey: readEnv("TRYON_CLOTHING_ANALYZE_API_KEY"), baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")), model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL") },
+    ...(await getTryOnVisionFallbackConfigs()).map((config) => ({ label: config.provider, apiKey: config.apiKey, baseUrl: normalizeProviderBaseUrl(config.baseUrl), model: config.model })),
+  ], defaultBaseUrl, defaultModel);
+}
+
+/** @deprecated Production callers must use the unified control plane. */
+export async function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): Promise<TryOnVisionProviderConfig[]> {
+  return uniqueProviderConfigs([
+    { label: "tryon-clothing", apiKey: readEnv("TRYON_CLOTHING_ANALYZE_API_KEY"), baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")), model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL") },
+    ...(await getTryOnVisionFallbackConfigs()).map((config) => ({ label: config.provider, apiKey: config.apiKey, baseUrl: normalizeProviderBaseUrl(config.baseUrl), model: config.model })),
+  ], defaultBaseUrl, defaultModel);
+}
+
+async function getTryOnVisionFallbackConfigs() {
+  return (await getLlmFallbackConfigs("vision")).filter((config) => config.provider !== "lingya");
+}
+
+function readEnv(name: string): string { return resolveEnvValue(process.env[name]); }
+function resolveEnvValue(value: string | undefined, seen = new Set<string>()): string {
+  const trimmed = (value || "").trim();
+  const match = trimmed.match(/^\$\{?([A-Z0-9_]+)\}?$/);
+  if (!match) return trimmed;
+  if (seen.has(match[1])) return "";
+  seen.add(match[1]);
+  return resolveEnvValue(process.env[match[1]], seen);
+}
+function normalizeProviderBaseUrl(value: string) { return value ? normalizeOpenAiCompatibleBaseUrl(value) : ""; }
+function uniqueProviderConfigs(configs: TryOnVisionProviderConfig[], defaultBaseUrl: string, defaultModel: string) {
+  const seen = new Set<string>();
+  const normalizedDefaultBaseUrl = normalizeProviderBaseUrl(defaultBaseUrl);
+  return configs.map((config) => ({ ...config, apiKey: config.apiKey.trim(), baseUrl: config.baseUrl || normalizedDefaultBaseUrl, model: config.model.trim() || defaultModel.trim() }))
+    .filter((config) => config.apiKey && config.baseUrl && config.model)
+    .filter((config) => { const key = `${config.baseUrl}:${config.model}:${config.apiKey.slice(0, 10)}:${config.apiKey.slice(-6)}`; if (seen.has(key)) return false; seen.add(key); return true; });
+}
+
 export class TryOnVisionProviderError extends Error {
   reason: TryOnVisionFallbackReason;
   status?: number;
@@ -43,62 +72,6 @@ export class TryOnVisionProviderError extends Error {
     this.reason = reason;
     this.status = status;
   }
-}
-
-export async function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): Promise<TryOnVisionProviderConfig[]> {
-  return uniqueProviderConfigs([
-    {
-      label: "tryon-reference",
-      apiKey: readEnv("TRYON_REFERENCE_ANALYZE_API_KEY"),
-      baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_REFERENCE_ANALYZE_BASE_URL")),
-      model: readEnv("TRYON_REFERENCE_ANALYZE_MODEL"),
-    },
-    {
-      label: "tryon-clothing",
-      apiKey: readEnv("TRYON_CLOTHING_ANALYZE_API_KEY"),
-      baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
-      model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
-    },
-    ...(await getTryOnVisionFallbackConfigs()).map((config) => ({
-      label: config.provider,
-      apiKey: config.apiKey,
-      baseUrl: normalizeProviderBaseUrl(config.baseUrl),
-      model: config.model,
-    })),
-    {
-      label: "xiaomi-default",
-      apiKey: readEnv("XIAOMI_MIMO_API_KEY"),
-      baseUrl: normalizeProviderBaseUrl("https://api.xiaomimimo.com/v1"),
-      model: readEnv("XIAOMI_MIMO_VISION_MODEL") || readEnv("XIAOMI_MIMO_MODEL") || defaultModel,
-    },
-  ], defaultBaseUrl, defaultModel);
-}
-
-export async function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): Promise<TryOnVisionProviderConfig[]> {
-  return uniqueProviderConfigs([
-    {
-      label: "tryon-clothing",
-      apiKey: readEnv("TRYON_CLOTHING_ANALYZE_API_KEY"),
-      baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
-      model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
-    },
-    ...(await getTryOnVisionFallbackConfigs()).map((config) => ({
-      label: config.provider,
-      apiKey: config.apiKey,
-      baseUrl: normalizeProviderBaseUrl(config.baseUrl),
-      model: config.model,
-    })),
-    {
-      label: "xiaomi-default",
-      apiKey: readEnv("XIAOMI_MIMO_API_KEY"),
-      baseUrl: normalizeProviderBaseUrl("https://api.xiaomimimo.com/v1"),
-      model: readEnv("XIAOMI_MIMO_VISION_MODEL") || readEnv("XIAOMI_MIMO_MODEL") || defaultModel,
-    },
-  ], defaultBaseUrl, defaultModel);
-}
-
-async function getTryOnVisionFallbackConfigs() {
-  return (await getLlmFallbackConfigs("vision")).filter((config) => config.provider !== "lingya");
 }
 
 export function toTryOnVisionFallbackReason(error: unknown): TryOnVisionFallbackReason {
@@ -113,50 +86,8 @@ export function toTryOnVisionFallbackReason(error: unknown): TryOnVisionFallback
 export function getTryOnVisionFallbackReasonText(reason: TryOnVisionFallbackReason | null | undefined) {
   return TRYON_VISION_FALLBACK_REASON_TEXT[reason || "provider_error"];
 }
+import { getLlmFallbackConfigs } from "@/lib/api/llm-provider";
+import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
 
-function readEnv(name: string): string {
-  return resolveEnvValue(process.env[name]);
-}
-
-function resolveEnvValue(value: string | undefined, seen = new Set<string>()): string {
-  const trimmed = (value || "").trim();
-  const match = trimmed.match(/^\$\{?([A-Z0-9_]+)\}?$/);
-  if (!match) return trimmed;
-  const name = match[1];
-  if (seen.has(name)) return "";
-  seen.add(name);
-  return resolveEnvValue(process.env[name], seen);
-}
-
-function normalizeProviderBaseUrl(value: string) {
-  return value ? normalizeOpenAiCompatibleBaseUrl(value) : "";
-}
-
-function uniqueProviderConfigs(
-  configs: TryOnVisionProviderConfig[],
-  defaultBaseUrl: string,
-  defaultModel: string
-): TryOnVisionProviderConfig[] {
-  const seen = new Set<string>();
-  const normalizedDefaultBaseUrl = normalizeProviderBaseUrl(defaultBaseUrl);
-  const normalizedDefaultModel = defaultModel.trim();
-  return configs
-    .map((config) => ({
-      label: config.label,
-      apiKey: config.apiKey.trim(),
-      baseUrl: config.baseUrl || normalizedDefaultBaseUrl,
-      model: config.model.trim() || normalizedDefaultModel,
-    }))
-    .filter((config) => config.apiKey && config.baseUrl && config.model)
-    .filter((config) => {
-      const key = [
-        config.baseUrl,
-        config.model,
-        config.apiKey.slice(0, 10),
-        config.apiKey.slice(-6),
-      ].join(":");
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
+/** Legacy-only builder retained for migration tests; production routes use llm-routing.server. */
+export type TryOnVisionProviderConfig = { label: string; apiKey: string; baseUrl: string; model: string };

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       changeModel,
       sceneBackgroundMode,
     });
-    const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
+    const totalCost = await getConfiguredImageCreditCost(model, size) * genCount;
 
     const jobPayload: GenerationJobPayload = {
       kind: "grass",
@@ -86,6 +87,9 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `服装种草图 ${genCount} 张 (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [garmentUrl, referenceUrl].filter((url): url is string => Boolean(url)).map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

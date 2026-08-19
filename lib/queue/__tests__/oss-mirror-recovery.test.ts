@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const processPendingOssMirrorTransfersMock = vi.hoisted(() => vi.fn());
-const isAliyunOssMirrorEnabledMock = vi.hoisted(() => vi.fn(() => true));
+const isAliyunOssRemoteTransferEnabledMock = vi.hoisted(() => vi.fn(() => true));
 
 vi.mock("@/lib/api/oss-mirror-transfer", () => ({
-  isAliyunOssMirrorEnabled: isAliyunOssMirrorEnabledMock,
+  isAliyunOssRemoteTransferEnabled: isAliyunOssRemoteTransferEnabledMock,
   processPendingOssMirrorTransfers: processPendingOssMirrorTransfersMock,
 }));
 
@@ -22,7 +22,7 @@ function fakeDb(rows: unknown[] = []) {
 describe("OSS mirror recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    isAliyunOssMirrorEnabledMock.mockReturnValue(true);
+    isAliyunOssRemoteTransferEnabledMock.mockReturnValue(true);
     processPendingOssMirrorTransfersMock.mockResolvedValue({
       claimed: 0, completed: 0, deferred: 0, failed: 0,
     });
@@ -71,7 +71,7 @@ describe("OSS mirror recovery", () => {
   });
 
   it("stops immediately when the mirror is disabled", async () => {
-    isAliyunOssMirrorEnabledMock.mockReturnValue(false);
+    isAliyunOssRemoteTransferEnabledMock.mockReturnValue(false);
     const onMetric = vi.fn();
     await runOssMirrorRecoveryLoop({
       database: fakeDb(),

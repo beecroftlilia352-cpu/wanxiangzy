@@ -32,7 +32,7 @@ import {
 
 type FormValue = StudioShowcaseExample & { reason: string; referenceImagesText: string };
 
-export function AdminShowcaseExamplesClient({ registries }: { registries: StudioShowcaseRegistry[] }) {
+export function AdminShowcaseExamplesClient({ registries, canManage = false }: { registries: StudioShowcaseRegistry[]; canManage?: boolean }) {
   const router = useRouter();
   const { message, modal } = AntdApp.useApp();
   const [selectedModule, setSelectedModule] = useState<StudioShowcaseModule>("general-image-image-to-image");
@@ -100,12 +100,12 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
       title: "操作",
       width: 150,
       fixed: "right",
-      render: (_, row) => (
+      render: (_, row) => canManage ? (
         <Space>
           <Button size="small" icon={<EditOutlined aria-hidden="true" />} onClick={() => startEdit(row)}>编辑</Button>
           <Button size="small" danger icon={<DeleteOutlined aria-hidden="true" />} onClick={() => archive(row)}>归档</Button>
         </Space>
-      ),
+      ) : <Typography.Text type="secondary" className="text-xs">只读</Typography.Text>,
     },
   ];
 
@@ -145,6 +145,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
   }
 
   async function submit(values: FormValue) {
+    if (!canManage) return;
     setSubmitting(true);
     try {
       const { reason, referenceImagesText, ...example } = values;
@@ -171,6 +172,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
   }
 
   function archive(item: StudioShowcaseExample) {
+    if (!canManage) return;
     modal.confirm({
       title: `归档 ${item.title}`,
       content: "归档后前台将不再展示该案例，新版本会立即发布并保留审计记录。",
@@ -191,6 +193,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
   }
 
   async function toggleRegistry(enabled: boolean) {
+    if (!canManage) return;
     try {
       const response = await fetch("/api/admin/showcase-examples", {
         method: "POST",
@@ -212,7 +215,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
         eyebrow="Content showcase"
         title="做同款案例"
         description={`管理${isTextToImage ? "文生图" : "图生图"}右侧的瀑布流案例。图片请使用已上传至阿里云 OSS 的稳定地址；发布后前台会自动刷新。`}
-        actions={<Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={startCreate}>新增案例</Button>}
+        actions={canManage ? <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={startCreate}>新增案例</Button> : undefined}
       />
 
       <Segmented
@@ -235,7 +238,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
         extra={(
           <Space>
             <Typography.Text type="secondary">显示案例区</Typography.Text>
-            <Switch checked={registry.enabled} onChange={toggleRegistry} />
+            {canManage ? <Switch checked={registry.enabled} onChange={toggleRegistry} /> : <Tag>只读</Tag>}
           </Space>
         )}
       >
@@ -249,7 +252,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
         />
       </Card>
 
-      <Modal
+      {canManage && <Modal
         title={editing ? `编辑 ${editing.title}` : "新增做同款案例"}
         open={open}
         onCancel={() => setOpen(false)}
@@ -293,7 +296,7 @@ export function AdminShowcaseExamplesClient({ registries }: { registries: Studio
           <Form.Item name="createCount" className="hidden"><InputNumber /></Form.Item>
           <Form.Item name="sourceId" className="hidden"><Input /></Form.Item>
         </Form>
-      </Modal>
+      </Modal>}
     </Space>
   );
 }

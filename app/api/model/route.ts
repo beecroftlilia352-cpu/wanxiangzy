@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
-import { failGenerationWithRefund } from "@/lib/api/credits";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio: AspectRatio = normalizeAspectRatio(aspect_ratio, "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
-    const costPerImage = getCreditCost(model, size, aspectRatio);
+    const costPerImage = await getConfiguredImageCreditCost(model, size);
     const totalCost = costPerImage * genCount;
     const hairReferenceIndex = hair_reference_url ? reference_urls.length + 1 : null;
     const hairColorReferenceIndex = hair_color_reference_url ? reference_urls.length + (hair_reference_url ? 2 : 1) : null;
@@ -85,30 +85,17 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `专属模特 ${genCount} 张 (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [...reference_urls, hair_reference_url, hair_color_reference_url]
+        .filter((url): url is string => Boolean(url))
+        .map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
-    // The worker enqueue must run before we tell the client the job is
-    // running. If it throws we refund the debit so the user is never
-    // charged for a generation that never started, and surface a 500 so
-    // the client shows an actionable error instead of polling a phantom
-    // generation id.
-    try {
-      await startGenerationJob(debit.generationId);
-    } catch (enqueueError) {
-      console.error("[model] startGenerationJob failed, refunding:", enqueueError instanceof Error ? enqueueError.message : enqueueError);
-      try {
-        await failGenerationWithRefund(supabase, {
-          userId: user.id,
-          generationId: debit.generationId,
-          amount: totalCost,
-          reason: "专属模特入队失败",
-          errorMessage: enqueueError instanceof Error ? enqueueError.message : "worker enqueue failed",
-        });
-      } catch (refundError) {
-        console.error("[model] refund after enqueue failure also failed:", refundError instanceof Error ? refundError.message : refundError);
-      }
-      return NextResponse.json({ error: "生成服务暂时不可用，积分已退还" }, { status: 503 });
-    }
+    // The database transaction already wrote the generation and its Outbox
+    // record. Production dispatch only acknowledges that durable commit; the
+    // relay publishes to BullMQ independently of this request lifecycle.
+    startGenerationJob(debit.generationId);
 
     return NextResponse.json({
       generation_id: debit.generationId,

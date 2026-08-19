@@ -29,11 +29,11 @@ export function AdminWorkerRunForm({
 }: AdminWorkerRunFormProps) {
   const router = useRouter();
   const [target, setTarget] = useState<WorkerTarget>(defaultTarget);
-  const [limit, setLimit] = useState(defaultLimit || 2);
+  const [limit, setLimit] = useState(defaultLimit || 100);
   const [reason, setReason] = useState(defaultReason);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const maxLimit = 10;
+  const maxLimit = 1000;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,7 +71,7 @@ export function AdminWorkerRunForm({
             onChange={(event) => {
               const nextTarget = event.target.value as WorkerTarget;
               setTarget(nextTarget);
-              setLimit(2);
+              setLimit(100);
             }}
             className="h-10 border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)] focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
           >

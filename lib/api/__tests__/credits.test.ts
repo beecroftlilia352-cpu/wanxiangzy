@@ -1,5 +1,18 @@
-import { describe, it, expect } from "vitest";
-import { CreditError, errorToResponsePayload } from "@/lib/api/credits";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/lib/supabase/admin", () => ({
+  getAdminClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: null, error: null }),
+        }),
+      }),
+    }),
+  }),
+}));
+
+import { CreditError, createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 
 describe("CreditError", () => {
   it("stores status and details", () => {
@@ -36,12 +49,37 @@ describe("errorToResponsePayload", () => {
     const err = new Error("something broke");
     const payload = errorToResponsePayload(err);
     expect(payload.status).toBe(500);
-    expect(payload.body.error).toBe("something broke");
+    expect(payload.body.error).toBe("生成服务暂时不可用，请稍后重试");
+    expect(payload.body.error_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(payload.body.error).not.toContain("something broke");
   });
 
   it("returns 500 for non-Error values", () => {
     const payload = errorToResponsePayload("string error");
     expect(payload.status).toBe(500);
-    expect(payload.body.error).toBe("Internal server error");
+    expect(payload.body.error).toBe("生成服务暂时不可用，请稍后重试");
+    expect(payload.body.error_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe("createDebitedGeneration", () => {
+  it("turns the database auth guard into an actionable login error", async () => {
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "NOT_ALLOWED" } }),
+    };
+
+    await expect(createDebitedGeneration(supabase, {
+      userId: "00000000-0000-4000-8000-000000000001",
+      clothingUrls: ["https://assets.example.com/source.png"],
+      creditsCost: 4,
+      aiModel: "nano-banana-2",
+      imageSize: "2K",
+      reason: "AI 消除",
+      idempotencyKey: "test-idempotency-key-0001",
+    })).rejects.toMatchObject({
+      name: "CreditError",
+      status: 401,
+      message: "登录状态校验失败，请刷新页面后重新登录",
+    });
   });
 });

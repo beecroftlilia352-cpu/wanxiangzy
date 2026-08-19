@@ -57,6 +57,8 @@ export type ImagePreviewResult = {
   aspectRatio?: string;
   quality?: ImagePreviewQuality;
   error?: string | null;
+  /** Original result index in the generation when this preview shows a subset. */
+  resourceResultIndex?: number;
 };
 
 export type ImagePreviewActionKind =
@@ -210,7 +212,18 @@ export function createGenericImagePreviewSession(input: {
   aspectRatio?: string;
   errors?: Array<string | null | undefined>;
   qualities?: Array<ImagePreviewQuality | null | undefined>;
+  resourceResultIndices?: number[];
 }): ImagePreviewSession {
+  const results = buildImagePreviewResults({
+    urls: input.urls,
+    expectedCount: input.expectedCount,
+    isGenerating: input.isGenerating,
+    statusGroup: input.statusGroup,
+    titlePrefix: input.resultTitlePrefix || IMAGE_PREVIEW_MODULE_LABELS[input.module],
+    aspectRatio: input.aspectRatio,
+    errors: input.errors,
+    qualities: input.qualities,
+  });
   return createImagePreviewSession({
     module: input.module,
     title: input.title || IMAGE_PREVIEW_MODULE_LABELS[input.module],
@@ -221,16 +234,10 @@ export function createGenericImagePreviewSession(input: {
     references: input.references?.length ? input.references : referencesFromUrls(input.inputThumbnails || []),
     promptText: input.promptText,
     selectedIndex: input.selectedIndex,
-    results: buildImagePreviewResults({
-      urls: input.urls,
-      expectedCount: input.expectedCount,
-      isGenerating: input.isGenerating,
-      statusGroup: input.statusGroup,
-      titlePrefix: input.resultTitlePrefix || IMAGE_PREVIEW_MODULE_LABELS[input.module],
-      aspectRatio: input.aspectRatio,
-      errors: input.errors,
-      qualities: input.qualities,
-    }),
+    results: results.map((result, index) => ({
+      ...result,
+      resourceResultIndex: input.resourceResultIndices?.[index],
+    })),
   });
 }
 

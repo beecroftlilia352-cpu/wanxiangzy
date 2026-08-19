@@ -54,6 +54,7 @@ type Props = {
   activeVersionId: string | null;
   builtIn: ProductRetouchSkillDefinition;
   warnings: string[];
+  canManage?: boolean;
 };
 
 export function AdminProductRetouchSkillConsole({
@@ -61,6 +62,7 @@ export function AdminProductRetouchSkillConsole({
   activeVersionId,
   builtIn,
   warnings,
+  canManage = false,
 }: Props) {
   const router = useRouter();
   const builtInJson = useMemo(() => JSON.stringify(builtIn, null, 2), [builtIn]);
@@ -94,6 +96,7 @@ export function AdminProductRetouchSkillConsole({
   }
 
   async function submitCreate(reason: string) {
+    if (!canManage) return;
     setSubmitting(true);
     try {
       const parsed = tryParseJson(draftJson);
@@ -132,12 +135,13 @@ export function AdminProductRetouchSkillConsole({
   }
 
   function openAction(row: ProductRetouchSkillVersionRow, action: "publish" | "archive") {
+    if (!canManage) return;
     setActionReason("");
     setPendingAction({ id: row.id, action });
   }
 
   async function runAction() {
-    if (!pendingAction) return;
+    if (!canManage || !pendingAction) return;
     const reason = actionReason.trim();
     if (reason.length < 6) {
       toast.error("请填写至少 6 个字符的操作原因");
@@ -213,15 +217,15 @@ export function AdminProductRetouchSkillConsole({
         description="把待发布内容粘贴为 JSON，必须通过严格 Schema 校验才能落地。发布时需填写操作原因。"
         actions={
           <div className="flex items-center gap-2">
-            <Button
+            {canManage && <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => setDraftJson(builtInJson)}
             >
               载入内置 Skill
-            </Button>
-            <Button
+            </Button>}
+            {canManage && <Button
               type="button"
               variant="ghost"
               size="sm"
@@ -229,11 +233,11 @@ export function AdminProductRetouchSkillConsole({
             >
               <Wand2 aria-hidden="true" className="h-3.5 w-3.5" />
               格式化
-            </Button>
+            </Button>}
           </div>
         }
       >
-        <form onSubmit={handleCreate} className="space-y-3 p-4">
+        {canManage ? <form onSubmit={handleCreate} className="space-y-3 p-4">
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-xs font-bold text-[var(--admin-fg)]">
               状态
@@ -292,7 +296,7 @@ export function AdminProductRetouchSkillConsole({
               {draftStatus === "published" ? "发布新版本" : "保存草稿"}
             </Button>
           </div>
-        </form>
+        </form> : <AdminNotice tone="info">当前角色只能查看已发布和历史 Skill 版本。创建、发布或归档需要提示词写权限。</AdminNotice>}
       </AdminSection>
 
       <AdminSection
@@ -359,7 +363,7 @@ export function AdminProductRetouchSkillConsole({
                     <Eye aria-hidden="true" className="h-3.5 w-3.5" />
                     查看
                   </Button>
-                  {row.status !== "published" && (
+                  {canManage && row.status !== "published" && (
                     <Button
                       type="button"
                       variant="outline"
@@ -372,7 +376,7 @@ export function AdminProductRetouchSkillConsole({
                       发布
                     </Button>
                   )}
-                  {row.status !== "archived" && (
+                  {canManage && row.status !== "archived" && (
                     <Button
                       type="button"
                       variant="ghost"

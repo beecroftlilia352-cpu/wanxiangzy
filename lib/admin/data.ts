@@ -1,11 +1,4 @@
 import { CREDIT_COSTS, DEFAULT_LINGYA_MODEL, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import {
-  type GptImageProviderName,
-  type ModelRoutingConfig,
-  type NanoBananaProviderName,
-} from "@/lib/api/model-routing-config";
-import { getActiveModelRoutingConfig } from "@/lib/api/model-routing-config.server";
-import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getPublishedLlmProviderRawValue } from "@/lib/api/llm-provider-registry.server";
 import { getAdminModelProviderSnapshot, getPublishedModelProviderRawValue } from "@/lib/api/model-provider-registry.server";
 import { getPublishedVideoProviderRawValue } from "@/lib/api/video-provider-registry.server";
@@ -13,6 +6,17 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
 import { withTimeout, isRecord } from "@/lib/utils";
+import { getGenerationBullMqHealth } from "@/lib/queue/generation-queue-health.server";
+import { getWorkerHeartbeats, type WorkerHeartbeat } from "@/lib/queue/worker-heartbeat.server";
+import {
+  DEFAULT_WORKER_RUNTIME_CONFIG,
+  getWorkerRuntimeAlerts,
+  getWorkerRuntimeDrift,
+  WORKER_RUNTIME_CONFIG_KEY,
+  parseWorkerRuntimeConfig,
+  type WorkerRuntimeAlertStatus,
+  type WorkerRuntimeConfig,
+} from "@/lib/queue/worker-runtime-config";
 import type {
   AdminAssetLifecycleAction,
   AdminAssetLifecycleItem,
@@ -66,6 +70,15 @@ export type { AdminBreakdownItem, AdminMetric } from "./shared";
 
 export type AdminOverview = {
   metrics: AdminMetric[];
+  periodHealth: {
+    total: number;
+    completed: number;
+    failed: number;
+    failureRate: number;
+    creditsSpent: number;
+    creditsRefunded: number;
+    newUsers: number;
+  };
   taskHealth: {
     queued: number;
     running: number;
@@ -142,6 +155,24 @@ export type AdminUserList = {
   rows: AdminUserListItem[];
   total: number;
   warnings: string[];
+};
+
+type AdminPeriodAggregate = {
+  total: number;
+  completed: number;
+  failed: number;
+  creditsSpent: number;
+  creditsRefunded: number;
+  newUsers: number;
+};
+
+type AdminBillingSummary = {
+  activeProducts: number;
+  activePrices: number;
+  paidOrders: number;
+  netRevenue: number;
+  activeSubscriptions: number;
+  webhookIssues: number;
 };
 
 export type AdminTaskListItem = {
@@ -398,9 +429,35 @@ export type AdminWorkerProcessor = {
 };
 
 export type AdminWorkerOverview = {
+  runtime: {
+    desired: WorkerRuntimeConfig;
+    actual: {
+      onlineInstances: number;
+      workerConcurrency: number;
+      relayConcurrency: number;
+      activeCapacity: number;
+      mode: string;
+      drift: boolean;
+      driftReasons: string[];
+    };
+    bullmq: {
+      configured: boolean;
+      reachable: boolean;
+      latencyMs: number | null;
+      workers: number;
+      paused: boolean | null;
+      counts: Record<string, number>;
+      error: string | null;
+    };
+    outbox: Record<string, number>;
+    alerts: WorkerRuntimeAlertStatus;
+    instances: WorkerHeartbeat[];
+    configVersion: { id: string; publishedAt: string | null } | null;
+  };
   processors: AdminWorkerProcessor[];
   queue: {
     sampled: number;
+    source: "bullmq" | "task_queue_sample";
     queued: number;
     running: number;
     completed: number;
@@ -570,24 +627,25 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
   const warnings: string[] = [];
   const now = Date.now();
   const todayIso = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-  // The dashboard's "key metric" KPIs (success / failure rate, net credits,
-  // refund, settled) come from `report.daily` which is windowed by `days`.
-  // The module / model TopList also reads from the same window so they all
-  // line up. We still default to 7 days so other callers (diagnostics,
-  // mobile shell) keep the previous behavior.
+  // The dashboard's operating KPIs are all scoped to this selected window.
+  // Current queue health remains un-windowed because operators need the live
+  // backlog regardless of the chart range.
   const days = clampLimit(args.days, 1, 90, 7);
   const windowStart = new Date(now - days * 24 * 60 * 60 * 1000);
   windowStart.setUTCHours(0, 0, 0, 0);
   const windowStartIso = windowStart.toISOString();
   // Some signals (task queue health) remain un-windowed counts — operators
   // need to see today's backlog regardless of the chart window.
-  const sevenDaysIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
     totalUsers,
     newUsers,
+    periodNewUsers,
     generationTotal,
     generationToday,
+    generationPeriodTotal,
+    generationPeriodCompleted,
+    generationPeriodFailed,
     generationQueued,
     generationRunning,
     generationCompleted,
@@ -597,6 +655,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
     taskCompleted,
     taskFailed,
     creditHealth,
+    periodAggregate,
     recentGenerationRows,
     recentTasks,
     dailyStats,
@@ -604,17 +663,22 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
   ] = await Promise.all([
     countRows(admin.from("profiles").select("id", { count: "planned", head: true }), "profiles total", warnings),
     countRows(admin.from("profiles").select("id", { count: "planned", head: true }).gte("created_at", todayIso), "profiles today", warnings),
+    countRows(admin.from("profiles").select("id", { count: "planned", head: true }).gte("created_at", windowStartIso), "profiles period", warnings),
     countRows(admin.from("generations").select("id", { count: "planned", head: true }), "generations total", warnings),
     countRows(admin.from("generations").select("id", { count: "planned", head: true }).gte("created_at", todayIso), "generations today", warnings),
+    countRows(admin.from("generations").select("id", { count: "planned", head: true }).gte("created_at", windowStartIso), "generations period", warnings),
+    countRows(admin.from("generations").select("id", { count: "planned", head: true }).gte("created_at", windowStartIso).eq("status", "completed"), "generations period completed", warnings),
+    countRows(admin.from("generations").select("id", { count: "planned", head: true }).gte("created_at", windowStartIso).eq("status", "failed"), "generations period failed", warnings),
     countRows(admin.from("generations").select("id", { count: "planned", head: true }).eq("status", "queued"), "generations queued", warnings),
     countRows(admin.from("generations").select("id", { count: "planned", head: true }).in("status", ["processing_tryon", "processing_face_swap", "running", "generating"]), "generations running", warnings),
     countRows(admin.from("generations").select("id", { count: "planned", head: true }).eq("status", "completed"), "generations completed", warnings),
     countRows(admin.from("generations").select("id", { count: "planned", head: true }).eq("status", "failed"), "generations failed", warnings),
-    countRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "queued"), "task queue queued", warnings, true),
-    countRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "running"), "task queue running", warnings, true),
-    countRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "completed"), "task queue completed", warnings, true),
-    countRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "failed"), "task queue failed", warnings, true),
-    loadCreditHealth(sevenDaysIso, warnings),
+    countOptionalRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "queued"), "task queue queued", warnings),
+    countOptionalRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "running"), "task queue running", warnings),
+    countOptionalRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "completed"), "task queue completed", warnings),
+    countOptionalRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "failed"), "task queue failed", warnings),
+    loadCreditHealth(windowStartIso, warnings),
+    loadAdminPeriodAggregate(windowStartIso, warnings),
     loadRecentGenerationRows(warnings, { sinceIso: windowStartIso }),
     listAdminTasks({ limit: 8, diversifyBy: "module", estimatedCount: true }),
     loadDailyStats(days, warnings),
@@ -646,23 +710,53 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
       moduleStats = wideFallback.moduleStats;
     }
   }
-  const taskHealth = {
-    queued: taskQueued || generationQueued,
-    running: taskRunning || generationRunning,
-    completed: taskCompleted || generationCompleted,
-    failed: taskFailed || generationFailed,
-  };
-  const failureRate = generationTotal > 0 ? generationFailed / generationTotal : 0;
+  // The queue projection is the canonical task view. Fall back as a complete
+  // set only when the optional projection cannot be queried; mixing individual
+  // statuses from two sources produces an internally inconsistent dashboard.
+  const taskQueueCounts = [taskQueued, taskRunning, taskCompleted, taskFailed];
+  const taskHealth = taskQueueCounts.every((value) => value !== null)
+    ? {
+        queued: taskQueued as number,
+        running: taskRunning as number,
+        completed: taskCompleted as number,
+        failed: taskFailed as number,
+      }
+    : {
+        queued: generationQueued,
+        running: generationRunning,
+        completed: generationCompleted,
+        failed: generationFailed,
+      };
+  const generationFailureRate = generationTotal > 0 ? generationFailed / generationTotal : 0;
+  const period = periodAggregate || {
+    total: generationPeriodTotal,
+    completed: generationPeriodCompleted,
+    failed: generationPeriodFailed,
+    creditsSpent: creditHealth.recentSpend,
+    creditsRefunded: creditHealth.recentRefund,
+    newUsers: periodNewUsers,
+  } satisfies AdminPeriodAggregate;
+  const periodSettled = period.completed + period.failed;
+  const periodFailureRate = periodSettled > 0 ? period.failed / periodSettled : 0;
 
   return {
     pendingApprovals,
     dailyStats,
+    periodHealth: {
+      total: period.total,
+      completed: period.completed,
+      failed: period.failed,
+      failureRate: periodFailureRate,
+      creditsSpent: period.creditsSpent,
+      creditsRefunded: period.creditsRefunded,
+      newUsers: period.newUsers,
+    },
     metrics: [
       { label: "用户总数", value: totalUsers, hint: `24h 新增 ${newUsers}`, tone: "neutral" },
-      { label: "24h 生成", value: generationToday, hint: `累计 ${generationTotal}`, tone: "good" },
+      { label: "周期生成", value: period.total, hint: `今日 ${generationToday}`, tone: "good" },
       { label: "运行中任务", value: taskHealth.queued + taskHealth.running, hint: `${taskHealth.failed} 个失败需排查`, tone: taskHealth.failed > 0 ? "warning" : "neutral" },
-      { label: "失败率", value: Math.round(failureRate * 1000) / 10, hint: "按 generations 总量估算", tone: failureRate > 0.08 ? "danger" : failureRate > 0.03 ? "warning" : "good" },
-      { label: "样本灵点余额", value: creditHealth.sampledBalance, hint: `近 7 天消耗 ${creditHealth.recentSpend}`, tone: "neutral" },
+      { label: "失败率", value: Math.round(periodFailureRate * 1000) / 10, hint: `近 ${days} 天`, tone: periodFailureRate > 0.08 ? "danger" : periodFailureRate > 0.03 ? "warning" : "good" },
+      { label: "样本灵点余额", value: creditHealth.sampledBalance, hint: `近 ${days} 天消耗 ${creditHealth.recentSpend}`, tone: "neutral" },
     ],
     taskHealth,
     generationHealth: {
@@ -672,7 +766,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
       running: generationRunning,
       completed: generationCompleted,
       failed: generationFailed,
-      failureRate,
+      failureRate: generationFailureRate,
     },
     creditHealth,
     moduleStats,
@@ -682,17 +776,19 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
   };
 }
 
-export async function listAdminUsers(args: { q?: string; limit?: number } = {}): Promise<AdminUserList> {
+export async function listAdminUsers(args: { q?: string; page?: number; pageSize?: number; limit?: number } = {}): Promise<AdminUserList> {
   const admin = getAdminClient();
   const warnings: string[] = [];
-  const limit = clampLimit(args.limit, 10, 100, 30);
+  const page = clampLimit(args.page, 1, 10_000, 1);
+  const pageSize = clampLimit(args.pageSize ?? args.limit, 10, 100, 30);
+  const offset = (page - 1) * pageSize;
   const q = (args.q || "").trim();
 
   let query = admin
     .from("profiles")
     .select(PROFILE_COLUMNS, { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + pageSize - 1);
 
   if (q) {
     query = query.ilike("email", `%${q}%`);
@@ -704,7 +800,7 @@ export async function listAdminUsers(args: { q?: string; limit?: number } = {}):
       .from("profiles")
       .select(PROFILE_COLUMNS_FALLBACK, { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .range(offset, offset + pageSize - 1);
     if (q) fallbackQuery = fallbackQuery.ilike("email", `%${q}%`);
     result = await runQuery<Record<string, unknown>[]>(fallbackQuery, "profiles list fallback", warnings);
   }
@@ -986,6 +1082,7 @@ export async function listAdminBillingOverview(): Promise<AdminBillingOverview> 
   const webhookEvents = (webhookEventsResult.data || [])
     .map(mapBillingWebhookEvent)
     .sort((a, b) => compareDateDesc(a.createdAt, b.createdAt));
+  const billingSummary = await loadAdminBillingSummary(warnings);
 
   const tableStatuses = [
     billingTableStatus(BILLING_PRODUCTS_TABLE, "Products table", productsResult),
@@ -1011,19 +1108,21 @@ export async function listAdminBillingOverview(): Promise<AdminBillingOverview> 
     const status = row.status.toLowerCase();
     return status === "failed" || status === "error" || status === "retrying";
   }).length;
-  const revenue = orders
+  const sampleRevenue = orders
     .filter((row) => ["paid", "succeeded", "complete", "completed"].includes(row.status.toLowerCase()))
     .reduce((sum, row) => sum + Math.max(0, row.amountTotal - row.refundedAmount), 0);
+  const summaryHint = billingSummary ? "PostgreSQL 全量汇总" : "最近加载样本";
 
   return {
     available,
+    summarySource: billingSummary ? "rpc" : "sample",
     metrics: [
-      { label: "Active products", value: products.filter((row) => row.active).length, hint: `${products.length} loaded`, tone: "neutral" },
-      { label: "Active prices", value: prices.filter((row) => row.active).length, hint: `${prices.length} loaded`, tone: "neutral" },
-      { label: "Sample revenue", value: toMajorCurrency(revenue), hint: "paid orders minus refunds", tone: revenue > 0 ? "good" : "neutral" },
-      { label: "Active subscriptions", value: activeSubscriptions, hint: `${subscriptions.length} loaded`, tone: activeSubscriptions > 0 ? "good" : "neutral" },
-      { label: "Webhook issues", value: failedWebhookEvents, hint: `${webhookEvents.length} events sampled`, tone: failedWebhookEvents > 0 ? "warning" : "good" },
-      { label: "Missing config", value: missingConfigCount, hint: "env vars and billing tables", tone: missingConfigCount > 0 ? "warning" : "good" },
+      { label: "启用商品", value: billingSummary?.activeProducts ?? products.filter((row) => row.active).length, hint: summaryHint, tone: "neutral" },
+      { label: "启用价格", value: billingSummary?.activePrices ?? prices.filter((row) => row.active).length, hint: summaryHint, tone: "neutral" },
+      { label: "净收入", value: toMajorCurrency(billingSummary?.netRevenue ?? sampleRevenue), hint: `${summaryHint} · 已支付订单减退款`, tone: (billingSummary?.netRevenue ?? sampleRevenue) > 0 ? "good" : "neutral" },
+      { label: "活跃订阅", value: billingSummary?.activeSubscriptions ?? activeSubscriptions, hint: summaryHint, tone: (billingSummary?.activeSubscriptions ?? activeSubscriptions) > 0 ? "good" : "neutral" },
+      { label: "Webhook 异常", value: billingSummary?.webhookIssues ?? failedWebhookEvents, hint: summaryHint, tone: (billingSummary?.webhookIssues ?? failedWebhookEvents) > 0 ? "warning" : "good" },
+      { label: "缺失配置", value: missingConfigCount, hint: "环境变量和 Billing 表", tone: missingConfigCount > 0 ? "warning" : "good" },
     ],
     products,
     prices,
@@ -1453,6 +1552,38 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
 export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   const warnings: string[] = [];
   const staleMinutes = clampLimit(process.env.GENERATION_JOB_STALE_MINUTES, 5, 180, 20);
+  const admin = getAdminClient();
+  const [bullmqHealth, heartbeats, outboxResult, workerConfigResult] = await Promise.all([
+    getGenerationBullMqHealth(),
+    getWorkerHeartbeats().catch(() => []),
+    admin.rpc("get_generation_queue_health"),
+    admin
+      .from("admin_config_versions")
+      .select("id,value,published_at")
+      .eq("config_key", WORKER_RUNTIME_CONFIG_KEY)
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (outboxResult.error) warnings.push(`Outbox health: ${outboxResult.error.message}`);
+  if (workerConfigResult.error) warnings.push(`Worker config: ${workerConfigResult.error.message}`);
+  const outboxHealth = normalizeWorkerOutboxHealth(outboxResult.data);
+  const desired = workerConfigResult.data?.value
+    ? parseWorkerRuntimeConfig(workerConfigResult.data.value)
+    : { ...DEFAULT_WORKER_RUNTIME_CONFIG };
+  const runtimeWorkerConcurrency = readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", desired.workerConcurrency, 1, 512);
+  const runtimeRelayConcurrency = readIntegerEnv("BULLMQ_RELAY_CONCURRENCY", desired.relayConcurrency, 1, 128);
+  const driftReasons = getWorkerRuntimeDrift({
+    desired,
+    onlineInstances: bullmqHealth.reachable ? bullmqHealth.workers : null,
+    workerConcurrency: runtimeWorkerConcurrency,
+    relayConcurrency: runtimeRelayConcurrency,
+  });
+  const drift = driftReasons.length > 0;
+  if (drift) warnings.push(`Worker 运行配置漂移：${driftReasons.join("；")}`);
+  if (!bullmqHealth.reachable && bullmqHealth.configured) warnings.push("BullMQ Redis 当前不可达");
+  if (bullmqHealth.workers > 0 && heartbeats.length === 0) warnings.push("BullMQ 检测到 Worker，但应用心跳尚未出现；旧版本 Worker 或心跳连接可能异常");
   const result = await runQuery<Record<string, unknown>[]>(
     getAdminClient()
       .from("task_queue_items")
@@ -1471,12 +1602,16 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
     warnings.push(...fallback.warnings);
   }
 
+  const useBullMqCounts = bullmqHealth.reachable;
   const queue = {
     sampled: rows.length,
-    queued: rows.filter((row) => row.statusGroup === "queued").length,
-    running: rows.filter((row) => row.statusGroup === "running").length,
-    completed: rows.filter((row) => row.statusGroup === "completed").length,
-    failed: rows.filter((row) => row.statusGroup === "failed").length,
+    source: useBullMqCounts ? "bullmq" as const : "task_queue_sample" as const,
+    queued: useBullMqCounts
+      ? (bullmqHealth.counts.waiting || 0) + (bullmqHealth.counts.delayed || 0) + (bullmqHealth.counts.waitingChildren || 0)
+      : rows.filter((row) => row.statusGroup === "queued").length,
+    running: useBullMqCounts ? bullmqHealth.counts.active || 0 : rows.filter((row) => row.statusGroup === "running").length,
+    completed: useBullMqCounts ? bullmqHealth.counts.completed || 0 : rows.filter((row) => row.statusGroup === "completed").length,
+    failed: useBullMqCounts ? bullmqHealth.counts.failed || 0 : rows.filter((row) => row.statusGroup === "failed").length,
     stale: 0,
     staleMinutes,
   };
@@ -1484,6 +1619,12 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
     .filter((row) => row.statusGroup === "running" && isTaskStale(row, staleMinutes))
     .slice(0, 30);
   queue.stale = staleTasks.length;
+  const runtimeAlerts = getWorkerRuntimeAlerts({
+    desired,
+    waiting: useBullMqCounts ? bullmqHealth.counts.waiting : null,
+    oldestPendingSeconds: outboxResult.error ? null : outboxHealth.oldest_pending_age_seconds ?? 0,
+  });
+  if (runtimeAlerts.breached) warnings.push(...runtimeAlerts.reasons);
 
   const auditResult = await runQuery<Record<string, unknown>[]>(
     getAdminClient()
@@ -1498,12 +1639,42 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   );
 
   return {
+    runtime: {
+      desired,
+      actual: {
+        onlineInstances: bullmqHealth.workers,
+        workerConcurrency: runtimeWorkerConcurrency,
+        relayConcurrency: runtimeRelayConcurrency,
+        activeCapacity: bullmqHealth.workers * runtimeWorkerConcurrency,
+        mode: process.env.GENERATION_QUEUE_MODE?.trim().toLowerCase() || (process.env.NODE_ENV === "production" ? "bullmq" : "inline"),
+        drift,
+        driftReasons,
+      },
+      bullmq: bullmqHealth,
+      outbox: outboxHealth,
+      alerts: runtimeAlerts,
+      instances: heartbeats,
+      configVersion: workerConfigResult.data
+        ? { id: String(workerConfigResult.data.id), publishedAt: workerConfigResult.data.published_at || null }
+        : null,
+    },
     processors: getWorkerProcessors(),
     queue,
     staleTasks,
     recentRuns: (auditResult.data || []).map(mapAuditRow),
     warnings: uniqueStrings(warnings),
   };
+}
+
+function normalizeWorkerOutboxHealth(value: unknown): Record<string, number> {
+  const row = Array.isArray(value) ? value[0] : value;
+  if (!row || typeof row !== "object" || Array.isArray(row)) return {};
+  return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, item]) => [key, Number(item) || 0]));
+}
+
+function readIntegerEnv(name: string, fallback: number, minimum: number, maximum: number) {
+  const value = Number(process.env[name] || fallback);
+  return Number.isInteger(value) && value >= minimum && value <= maximum ? value : fallback;
 }
 
 
@@ -2104,54 +2275,25 @@ function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
     { key: "SUPABASE_SERVICE_ROLE_KEY", label: "后台管理密钥", configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY), scope: "后台" },
     { key: "ADMIN_BOOTSTRAP_EMAILS", label: "初始管理员邮箱", configured: Boolean(process.env.ADMIN_BOOTSTRAP_EMAILS || process.env.ADMIN_EMAILS), scope: "后台" },
     { key: "TASK_QUEUE_CACHE_MODE", label: "任务缓存模式", configured: Boolean(process.env.TASK_QUEUE_CACHE_MODE), scope: "任务队列" },
-    { key: "UPSTASH_REDIS_REST_URL", label: "任务队列缓存", configured: Boolean(process.env.UPSTASH_REDIS_REST_URL), scope: "任务队列" },
+    { key: "REDIS_URL", label: "BullMQ / 分布式容量 Redis", configured: Boolean(process.env.REDIS_URL), scope: "任务队列" },
     { key: "IMAGE_STORAGE_PROVIDER", label: "图片存储服务", configured: Boolean(process.env.IMAGE_STORAGE_PROVIDER), scope: "存储" },
     { key: "ALIYUN_OSS_BUCKET", label: "对象存储空间", configured: Boolean(process.env.ALIYUN_OSS_BUCKET), scope: "存储" },
-    { key: "LAOZHANG_API_KEY", label: "旧版生图通道", configured: Boolean(process.env.LAOZHANG_API_KEY), scope: "供应商（已废弃）" },
-    { key: "MINIMAX_VIDEO_API_KEY", label: "视频生成服务", configured: Boolean(process.env.MINIMAX_VIDEO_API_KEY), scope: "供应商" },
-    { key: "PLATO_API_KEY", label: "旧版精修通道", configured: Boolean(process.env.PLATO_API_KEY), scope: "供应商（已废弃）" },
-    { key: "LINGYA_API_KEY", label: "生图主服务", configured: Boolean(process.env.LINGYA_API_KEY), scope: "供应商" },
+    { key: "ADMIN_SECRETS_ENCRYPTION_KEY", label: "后台供应商密钥加密", configured: Boolean(process.env.ADMIN_SECRETS_ENCRYPTION_KEY), scope: "统一模型控制面" },
   ];
 }
 
 function getWorkerProcessors(): AdminWorkerProcessor[] {
   return [
-    workerProcessor({
+    {
       key: "generations",
-      label: "生成任务处理",
-      endpoint: "/api/jobs/process-generations",
-      batchSize: clampLimit(process.env.GENERATION_JOB_BATCH_SIZE, 1, 10, 2),
-      candidates: [
-        { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
-        { name: "CRON_SECRET", value: process.env.CRON_SECRET },
-      ],
-    }),
+      label: "BullMQ 生成 Worker",
+      endpoint: process.env.BULLMQ_QUEUE_NAME || "generation-jobs",
+      batchSize: readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", 16, 1, 512),
+      configured: process.env.GENERATION_QUEUE_MODE === "bullmq" && Boolean(process.env.REDIS_URL),
+      secretNames: ["REDIS_URL"],
+      statusHint: "由 PM2 Worker 自动消费；恢复操作只处理事务 Outbox，不直接执行业务任务。",
+    },
   ];
-}
-
-function workerProcessor({
-  key,
-  label,
-  endpoint,
-  batchSize,
-  candidates,
-}: {
-  key: AdminWorkerProcessor["key"];
-  label: string;
-  endpoint: string;
-  batchSize: number;
-  candidates: Array<{ name: string; value?: string }>;
-}): AdminWorkerProcessor {
-  const validation = getConfiguredProcessorSecrets(candidates, label);
-  return {
-    key,
-    label,
-    endpoint,
-    configured: validation.ok,
-    batchSize,
-    secretNames: candidates.map((candidate) => candidate.name),
-    statusHint: validation.ok ? "secret 已配置，可手动触发" : validation.message,
-  };
 }
 
 function isTaskStale(row: AdminTaskListItem, staleMinutes: number) {
@@ -2227,8 +2369,74 @@ async function loadCreditHealth(sinceIso: string, warnings: string[]) {
     sampledBalance: profileRows.reduce((sum, row) => sum + numberValue(row.credits), 0),
     sampledConsumed: profileRows.reduce((sum, row) => sum + numberValue(row.total_credits_used), 0),
     recentSpend: Math.abs(logRows.filter((row) => numberValue(row.amount) < 0).reduce((sum, row) => sum + numberValue(row.amount), 0)),
-    recentRefund: logRows.filter((row) => numberValue(row.amount) > 0).reduce((sum, row) => sum + numberValue(row.amount), 0),
+    recentRefund: logRows
+      .filter((row) => numberValue(row.amount) > 0 && isRefundCreditReason(stringValue(row.reason)))
+      .reduce((sum, row) => sum + numberValue(row.amount), 0),
   };
+}
+
+function isRefundCreditReason(reason: string) {
+  return /退款|退回|refund|failed/i.test(reason);
+}
+
+async function loadAdminPeriodAggregate(sinceIso: string, warnings: string[]): Promise<AdminPeriodAggregate | null> {
+  try {
+    const response = await withTimeout(
+      getAdminClient().rpc("get_admin_dashboard_period", { p_since: sinceIso }),
+      SHORT_QUERY_TIMEOUT_MS,
+      "admin dashboard period aggregate timeout",
+    ) as { data?: unknown; error?: { message?: string } | null };
+    if (response.error) {
+      const message = response.error.message || "dashboard aggregate RPC unavailable";
+      warnings.push(message.toLowerCase().includes("does not exist") || message.toLowerCase().includes("could not find function")
+        ? "运营指标聚合 RPC 尚未部署，当前使用兼容回退数据"
+        : `运营指标聚合失败：${message}`);
+      return null;
+    }
+    const row = Array.isArray(response.data) ? response.data[0] : response.data;
+    if (!isRecord(row)) return null;
+    return {
+      total: numberValue(row.total_generations),
+      completed: numberValue(row.completed_generations),
+      failed: numberValue(row.failed_generations),
+      creditsSpent: numberValue(row.credits_spent),
+      creditsRefunded: numberValue(row.credits_refunded),
+      newUsers: numberValue(row.new_users),
+    };
+  } catch (error) {
+    warnings.push(`运营指标聚合失败：${toMessage(error)}`);
+    return null;
+  }
+}
+
+async function loadAdminBillingSummary(warnings: string[]): Promise<AdminBillingSummary | null> {
+  try {
+    const response = await withTimeout(
+      getAdminClient().rpc("get_admin_billing_summary"),
+      SHORT_QUERY_TIMEOUT_MS,
+      "admin billing summary timeout",
+    ) as { data?: unknown; error?: { message?: string } | null };
+    if (response.error) {
+      const message = response.error.message || "billing summary RPC unavailable";
+      warnings.push(message.toLowerCase().includes("does not exist") || message.toLowerCase().includes("could not find function")
+        ? "Billing 全量汇总 RPC 尚未部署，当前使用样本回退"
+        : `Billing 全量汇总失败：${message}`);
+      return null;
+    }
+    const row = Array.isArray(response.data) ? response.data[0] : response.data;
+    if (!isRecord(row)) return null;
+    return {
+      activeProducts: numberValue(row.active_products),
+      activePrices: numberValue(row.active_prices),
+      paidOrders: numberValue(row.paid_orders),
+      netRevenue: numberValue(row.net_revenue),
+      activeSubscriptions: numberValue(row.active_subscriptions),
+      webhookIssues: numberValue(row.webhook_issues),
+    };
+  } catch (error) {
+    warnings.push(`Billing 全量汇总失败：${toMessage(error)}`);
+    return null;
+  }
 }
 
 async function loadDailyStats(
@@ -2882,6 +3090,9 @@ function mapBillingProduct(row: Record<string, unknown>): AdminBillingProduct {
     stripeProductId,
     name: pickString(row, ["name", "product_name", "productName", "title"]) || stripeProductId || "Unknown product",
     description: pickNullableString(row, ["description", "product_description", "productDescription"]),
+    tierKey: pickNullableString(row, ["tier_key", "tierKey"]),
+    creditAmount: pickNumber(row, ["credit_amount", "creditAmount", "credits"]),
+    bonusCredits: pickNumber(row, ["bonus_credits", "bonusCredits", "bonus"]),
     active: booleanValue(pickValue(row, ["active", "is_active", "enabled"]), true),
     metadata: isRecord(row.metadata) ? row.metadata : {},
     createdAt: pickNullableString(row, ["created_at", "createdAt", "stripe_created_at"]),
@@ -3061,6 +3272,24 @@ async function countRows(query: CountQuery, label: string, warnings: string[], o
   } catch (error) {
     if (!optional) warnings.push(`${label}: ${toMessage(error)}`);
     return 0;
+  }
+}
+
+async function countOptionalRows(query: CountQuery, label: string, warnings: string[]): Promise<number | null> {
+  try {
+    const response = await withTimeout(query, SHORT_QUERY_TIMEOUT_MS, `${label} timeout`) as {
+      count?: number | null;
+      error?: { message?: string; code?: string } | null;
+    };
+    const { count = null, error = null } = response;
+    if (error) {
+      if (!isMissingTableError(error)) warnings.push(`${label}: ${error.message || "query failed"}`);
+      return null;
+    }
+    return count || 0;
+  } catch (error) {
+    warnings.push(`${label}: ${toMessage(error)}`);
+    return null;
   }
 }
 

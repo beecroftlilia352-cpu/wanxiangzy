@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ImgHTMLAttributes } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -23,11 +23,22 @@ export function RawPreviewImage({ eager = false, disableFade = false, ...props }
   // Studio previews can be blob/data URLs or user/provider URLs that should not go through Next image optimization.
   // Default to lazy + async decoding (below-fold previews); callers can override via {...props}.
   const t = useTranslations("Shared");
+  const source = typeof props.src === "string" ? props.src : undefined;
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   // 重试时用 state 驱动 src（带时间戳绕过缓存），不要直接 setAttribute 绕过 React
-  const [src, setSrc] = useState<string | undefined>(typeof props.src === "string" ? props.src : undefined);
+  const [src, setSrc] = useState<string | undefined>(source);
   const retryCountRef = useRef(0);
+  const previousSourceRef = useRef(source);
+
+  useEffect(() => {
+    if (previousSourceRef.current === source) return;
+    previousSourceRef.current = source;
+    retryCountRef.current = 0;
+    setFailed(false);
+    setLoaded(false);
+    setSrc(source);
+  }, [source]);
 
   // 关键修复：SSR 后浏览器可能用缓存立即完成加载，onLoad 事件发生在 React
   // 附加 handler 之前而永远丢失 —— 导致图片一直 opacity-0（用户看到的白图）。
@@ -63,7 +74,7 @@ export function RawPreviewImage({ eager = false, disableFade = false, ...props }
         retryCountRef.current = 0;
         setFailed(false);
         setLoaded(false);
-        setSrc(typeof props.src === "string" ? props.src : undefined);
+        setSrc(source);
       } : props.onClick}
       title={failed ? t("reloadImage") : props.title}
       className={cn(

@@ -16,7 +16,7 @@ describe("general image configuration", () => {
       imageSize: "2K",
     });
     expect(getGeneralImageDefaultSettings("image-to-image")).toEqual({
-      model: "nano-banana-pro",
+      model: "nano-banana-2",
       aspectRatio: "3:4",
       imageSize: "2K",
     });

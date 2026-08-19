@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
@@ -20,6 +20,7 @@ export function useUnsavedChangesGuard(
 ) {
   const { confirm, confirmDialog } = useConfirm();
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations("Shared");
   const dirtyRef = useRef(isDirty);
   const allowUnloadRef = useRef(false);
@@ -101,12 +102,12 @@ export function useUnsavedChangesGuard(
       event.stopImmediatePropagation();
       void requestStudioNavigation(href, () => {
         allowUnloadRef.current = true;
-        window.location.assign(href);
+        router.push(href);
       });
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const onPopState = () => {

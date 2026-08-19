@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   StatusWatchers,
   createAdaptivePollDelay,
@@ -24,6 +25,7 @@ type WatchOptions = {
 };
 
 export function useProductRetouchBatch() {
+  const t = useTranslations("ProductRetouch");
   const watchersRef = useRef(new StatusWatchers<string>());
 
   useEffect(() => {
@@ -43,16 +45,16 @@ export function useProductRetouchBatch() {
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(typeof payload.error === "string" ? payload.error : "商品精修批次读取失败");
+        throw new Error(typeof payload.error === "string" ? payload.error : t("task.restoreFailed"));
       }
       if (!isProductRetouchBatch(payload.batch)) {
-        throw new Error("商品精修批次响应无效");
+        throw new Error(t("batch.invalidResponse"));
       }
       return payload.batch;
     } finally {
       signal?.removeEventListener("abort", relayAbort);
     }
-  }, []);
+  }, [t]);
 
   const watchBatch = useCallback(async (id: string, options: WatchOptions) => {
     const controller = new AbortController();
@@ -75,7 +77,7 @@ export function useProductRetouchBatch() {
         options.onUpdate(batch);
         if (isTerminalBatch(batch)) return batch;
         if (Date.now() - startedAt > budget) {
-          throw new Error("批次仍在后台生产，可稍后从左侧任务栏继续查看");
+          throw new Error(t("batch.stillProducing"));
         }
         attempts += 1;
         await waitForNextPoll(attempts, controller.signal);
@@ -88,7 +90,7 @@ export function useProductRetouchBatch() {
       options.signal?.removeEventListener("abort", relayAbort);
       watchersRef.current.delete(id, controller);
     }
-  }, [loadBatch]);
+  }, [loadBatch, t]);
 
   const stopWatching = useCallback((id?: string) => {
     watchersRef.current.abort(id);

@@ -46,6 +46,11 @@ const ACTION_LABEL_KEYS: Record<string, string> = {
   feedback: "actionFeedback",
 };
 import { Button } from "@/components/ui/button";
+import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
+import {
+  createResourceFavoriteDescriptor,
+  type ResourceFavoriteDescriptor,
+} from "@/components/resource-library/resource-favorite-types";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioBatchDownloadButton, StudioSingleDownloadButton } from "@/components/studio/StudioMediaDownloadButton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -65,6 +70,7 @@ import {
   type ImagePreviewSession,
 } from "@/lib/studio-image-preview";
 import { cn, generateDownloadFilename } from "@/lib/utils";
+import { requestStudioNavigation } from "@/lib/studio-navigation";
 
 type StudioImagePreviewWorkspaceProps = {
   session: ImagePreviewSession;
@@ -139,6 +145,14 @@ export function StudioImagePreviewWorkspace({
   const activeIndex = clampIndex(selectedIndex ?? internalIndex, session.results.length);
   const activeResult = session.results[activeIndex] || getSelectedPreviewResult(session);
   const activeUrl = activeResult?.url || "";
+  const activeFavoriteDescriptor = useMemo(
+    () => createResourceFavoriteDescriptor({
+      generationId: session.taskId,
+      moduleKey: session.module,
+      mediaType: "image",
+    }, activeUrl, activeResult?.resourceResultIndex ?? activeIndex, activeResult?.title),
+    [activeIndex, activeResult?.resourceResultIndex, activeResult?.title, activeUrl, session.module, session.taskId],
+  );
   const inputReferences = useMemo(() => getPreviewCanvasInputReferences(session), [session]);
   const resultUrls = useMemo(
     () => session.results.map((item) => item.url).filter((url): url is string => Boolean(url)),
@@ -190,6 +204,11 @@ export function StudioImagePreviewWorkspace({
     setFocusImage({ url, title });
   };
 
+  const navigateWithSource = (path: string) => {
+    const href = buildSourceImageHref(path, activeUrl);
+    void requestStudioNavigation(href, () => router.push(href));
+  };
+
   const runAction = async (action: ImagePreviewAction) => {
     if (action.disabled) {
       if (action.disabledReason) toast.info(action.disabledReason);
@@ -207,23 +226,23 @@ export function StudioImagePreviewWorkspace({
       return;
     }
     if (action.kind === "aiVideo") {
-      router.push(buildSourceImageHref("/video", activeUrl));
+      navigateWithSource("/video");
       return;
     }
     if (action.kind === "modelBackground") {
-      router.push(buildSourceImageHref("/model-background", activeUrl));
+      navigateWithSource("/model-background");
       return;
     }
     if (action.kind === "pose") {
-      router.push(buildSourceImageHref("/pose", activeUrl));
+      navigateWithSource("/pose");
       return;
     }
     if (action.kind === "productSet") {
-      router.push(buildSourceImageHref("/product-set", activeUrl));
+      navigateWithSource("/product-set");
       return;
     }
     if (action.kind === "allCategoryProductImage") {
-      router.push(buildSourceImageHref("/all-category-product-image", activeUrl));
+      navigateWithSource("/all-category-product-image");
       return;
     }
     if (action.kind === "regenerateOne") {
@@ -243,7 +262,7 @@ export function StudioImagePreviewWorkspace({
       return;
     }
     if (action.kind === "repair") {
-      router.push(buildSourceImageHref("/general-image/image-to-image", activeUrl));
+      navigateWithSource("/general-image/image-to-image");
       return;
     }
     if (action.kind === "feedback") {
@@ -256,7 +275,7 @@ export function StudioImagePreviewWorkspace({
       toast.info(t("noImagesYet"));
       return;
     }
-    router.push(buildSourceImageHref(path, activeUrl));
+    navigateWithSource(path);
   };
 
   return (
@@ -329,6 +348,7 @@ export function StudioImagePreviewWorkspace({
             filenamePrefix={filenamePrefix}
             extension={extension}
             activeIndex={activeIndex}
+            favoriteDescriptor={activeFavoriteDescriptor}
           />
         </div>
 
@@ -651,6 +671,7 @@ function PreviewActionBar({
   filenamePrefix,
   extension,
   activeIndex,
+  favoriteDescriptor,
 }: {
   actions: ImagePreviewAction[];
   activeUrl: string;
@@ -660,6 +681,7 @@ function PreviewActionBar({
   filenamePrefix?: string;
   extension: string;
   activeIndex: number;
+  favoriteDescriptor?: ResourceFavoriteDescriptor | null;
 }) {
   const t = useTranslations("Shared");
   const actionMap = new Map(actions.map((action) => [action.kind, action]));
@@ -701,6 +723,11 @@ function PreviewActionBar({
           {renderAction("pose")}
         </div>
         <div className="studio-image-preview-action-group studio-image-preview-action-group-secondary">
+          <FavoriteAssetButton
+            descriptor={favoriteDescriptor}
+            variant="action"
+            className="studio-image-preview-action"
+          />
           {renderAction("copy")}
           {renderAction("regenerateOne")}
           {renderAction("regenerateAll")}

@@ -28,7 +28,7 @@ export function ForgotPasswordView({
 }: Props) {
   const t = useTranslations("Login");
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form method="post" onSubmit={onSubmit} className="space-y-4">
       <div>
         <label htmlFor="forgot-email" className="mb-1.5 block text-sm font-bold text-codex-ink dark:text-codex-muted">
           {t("registeredEmail")}

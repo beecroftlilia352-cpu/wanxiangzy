@@ -1,6 +1,34 @@
 # Supabase SQL 执行顺序
 
-当前仓库的 `supabase/` 目录还不是时间戳 migration runner，而是一组可重复执行的 SQL 脚本。新环境初始化或生产升级时，请按本文件顺序逐个执行，执行失败时停止，先修复再继续。
+仓库同时包含基础初始化 SQL 和 `supabase/migrations/` 时间戳迁移。基础脚本只用于新环境建库；商用队列与 OSS 数据面必须由时间戳迁移按文件名顺序执行。执行失败时立即停止，不得跳过后续文件。
+
+## 商用队列 / OSS clean-slate 迁移（强制顺序）
+
+前四个迁移是破坏性的，不兼容旧 generation 队列数据。必须在停写维护窗口内、完成数据库备份后严格顺序应用；后续迁移是非破坏性的统一模型、Worker 控制面和后台经营指标聚合，应紧随其后应用：
+
+```text
+1. supabase/migrations/20260818072132_bullmq_generation_outbox.sql
+2. supabase/migrations/20260818083000_oss_mirror_transfers.sql
+3. supabase/migrations/20260818090000_oss_mirror_queue_health.sql
+4. supabase/migrations/20260818093405_commercial_media_asset_registry.sql
+5. supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+6. supabase/migrations/20260818110000_worker_runtime_control.sql
+7. supabase/migrations/20260819101500_admin_dashboard_period_aggregate.sql
+8. supabase/migrations/20260819112000_admin_billing_summary.sql
+```
+
+Worker runtime 迁移提供 `get_runtime_contract_version()`；发布脚本会精确校验 version/hash，并同时检查后台经营指标 RPC，而不只检查同名 RPC。迁移完成前不得启动新 API/Worker，完成后不得回滚到旧轮询代码；故障恢复采用数据库备份或向前修复。
+
+```bash
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818072132_bullmq_generation_outbox.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818083000_oss_mirror_transfers.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818090000_oss_mirror_queue_health.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818093405_commercial_media_asset_registry.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818110000_worker_runtime_control.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260819101500_admin_dashboard_period_aggregate.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260819112000_admin_billing_summary.sql
+```
 
 ## 推荐基础顺序
 
@@ -22,6 +50,11 @@
 15. supabase/tryon-reference-templates.sql
 16. supabase/product-set-favorite-plans.sql
 17. supabase/product-retouch.sql
+18. 上述四个 clean-slate 时间戳迁移（严格按顺序）
+19. supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+20. supabase/migrations/20260818110000_worker_runtime_control.sql
+21. supabase/migrations/20260819101500_admin_dashboard_period_aggregate.sql
+22. supabase/migrations/20260819112000_admin_billing_summary.sql
 ```
 
 关键依赖：
@@ -122,8 +155,9 @@ SELECT
 FROM pg_proc
 WHERE pronamespace = 'public'::regnamespace
   AND proname IN (
-    'create_generation_with_credit_debit',
-    'claim_next_generation_jobs',
+    'create_generation_with_credit_debit_v2',
+    'claim_generation_outbox',
+    'claim_generation_job',
     'task_queue_upsert_generation',
     'admin_adjust_user_credits',
     'grant_billing_order_credits',
@@ -134,11 +168,18 @@ WHERE pronamespace = 'public'::regnamespace
 ORDER BY proname;
 ```
 
+后台经营指标迁移完成后还需要验证：
+
+```sql
+SELECT * FROM public.get_admin_dashboard_period(now() - interval '7 days');
+SELECT * FROM public.get_admin_billing_summary();
+```
+
 生产升级后还需要验证：
 
 ```text
 /create 能创建任务并写入 generations。
-/api/jobs/process-generations 能认领任务。
+BullMQ Worker 能通过 Outbox relay 认领并 fenced 执行任务。
 /api/task-queue 能返回 task_queue_items。
 /admin 能加载成员、账单、任务、资产页面。
 /pricing 能读取 billing_products 和 billing_prices。

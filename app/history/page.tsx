@@ -44,6 +44,8 @@ import { HistoryFilterTabs } from "@/components/history/HistoryFilterTabs";
 import { HistoryLoadingSkeleton, HistoryCardSkeleton, DetailLoadingSkeleton, HistorySkeletonStyles } from "@/features/history/HistorySkeletons";
 import { HistoryFailureNotice } from "@/features/history/HistoryFailureNotice";
 import { HistoryMediaPreview } from "@/features/history/HistoryMediaPreview";
+import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
+import { createResourceFavoriteDescriptor } from "@/components/resource-library/resource-favorite-types";
 
 const HISTORY_PAGE_SIZE = 12;
 
@@ -652,11 +654,19 @@ export default function HistoryPage() {
                     <RotateCcw className="h-3.5 w-3.5" />
                     {reuseLabel}
                   </button>
+                  <FavoriteAssetButton
+                    descriptor={createResourceFavoriteDescriptor({
+                      generationId: g.id,
+                      moduleKey: payload?.kind,
+                      mediaType: coverUrl && isLikelyVideoUrl(coverUrl) ? "video" : "image",
+                    }, coverUrl, 0, moduleLabel)}
+                    className="h-8 w-8 shadow-sm"
+                  />
                   {resultUrls.length > 1 ? (
                     <StudioBatchDownloadButton
                       urls={resultUrls}
                       filename={`pixel-diffusion-${g.id.slice(0, 8)}`}
-                      label={t("downloadZip")}
+                      label={sharedT("downloadAll", { count: resultUrls.length })}
                       resultLabel={t("zipLabel")}
                       size="sm"
                       variant="ghost"
@@ -911,11 +921,20 @@ export default function HistoryPage() {
                       variant="outline"
                       className="h-9 justify-center rounded-lg border-white/80 bg-white/85 px-3 text-xs font-bold text-codex-ink shadow-sm hover:bg-white"
                     />
+                    <FavoriteAssetButton
+                      descriptor={createResourceFavoriteDescriptor({
+                        generationId: detailRow.id,
+                        moduleKey: detailPayload?.kind,
+                        mediaType: selectedResultUrl && isLikelyVideoUrl(selectedResultUrl) ? "video" : "image",
+                      }, selectedResultUrl, selectedResultIndex, formatKind(t, detailPayload?.kind))}
+                      variant="action"
+                      className="h-9 justify-center rounded-lg"
+                    />
                     {detailResults.length > 1 && (
                       <StudioBatchDownloadButton
                         urls={detailResults}
                         filename={`pixel-diffusion-${detailRow.id.slice(0, 8)}`}
-                        label={t("downloadAllZip", { count: detailResults.length })}
+                        label={sharedT("downloadAll", { count: detailResults.length })}
                         resultLabel={t("zipLabel")}
                         size="sm"
                         variant="outline"

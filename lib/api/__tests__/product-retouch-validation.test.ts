@@ -73,4 +73,35 @@ describe("product retouch hard validation", () => {
       BUILTIN_PRODUCT_RETOUCH_SKILL.hardValidation,
     )).rejects.toThrow("尺寸过小");
   });
+
+  it("rejects outputs that drift from an explicitly requested aspect ratio", async () => {
+    const buffer = await sharp({
+      create: {
+        width: 320,
+        height: 320,
+        channels: 3,
+        background: { r: 30, g: 60, b: 90 },
+      },
+    })
+      .composite([{
+        input: {
+          create: {
+            width: 120,
+            height: 160,
+            channels: 3,
+            background: { r: 220, g: 150, b: 80 },
+          },
+        },
+        left: 100,
+        top: 80,
+      }])
+      .png()
+      .toBuffer();
+
+    await expect(validateGeneratedProductImage(
+      `data:image/png;base64,${buffer.toString("base64")}`,
+      BUILTIN_PRODUCT_RETOUCH_SKILL.hardValidation,
+      { expectedAspectRatio: "3:4" },
+    )).rejects.toThrow("比例不符合要求");
+  });
 });

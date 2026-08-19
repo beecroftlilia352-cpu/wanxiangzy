@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronRight, ImagePlus, Layers3, Loader2, Plus, Upload } from "lucide-react";
+import { Check, ChevronRight, FolderOpen, ImagePlus, Layers3, Loader2, Plus, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
@@ -169,18 +169,47 @@ export function ToggleButton({ active, label, onClick }: { active: boolean; labe
   );
 }
 
-export function ReferenceUploadButton({ label, hint, url, loading, onClick }: { label: string; hint?: string; url?: string; loading: boolean; onClick: () => void }) {
+export function ReferenceUploadButton({
+  label,
+  hint,
+  url,
+  loading,
+  onClick,
+  onLibraryClick,
+  libraryLabel,
+}: {
+  label: string;
+  hint?: string;
+  url?: string;
+  loading: boolean;
+  onClick: () => void;
+  onLibraryClick?: () => void;
+  libraryLabel?: string;
+}) {
   const t = useTranslations("ProductSet");
   return (
-    <button type="button" onClick={onClick} className={`flex min-h-[60px] w-full items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 text-left text-xs font-bold text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] ${interactiveRing}`}>
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${url ? "studio-checkerboard" : "bg-white"}`}>
-        {url ? <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[var(--codex-accent)] motion-reduce:animate-none" /> : <Upload aria-hidden="true" className="h-4 w-4 text-slate-400" />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate">{label}</span>
-        <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">{url ? t("create.upload.uploadedReplace") : (hint || t("create.upload.dropHint"))}</span>
-      </span>
-    </button>
+    <div className="relative">
+      <button type="button" onClick={onClick} className={`flex min-h-[60px] w-full items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 pr-10 text-left text-xs font-bold text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] ${interactiveRing}`}>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${url ? "studio-checkerboard" : "bg-white"}`}>
+          {url ? <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[var(--codex-accent)] motion-reduce:animate-none" /> : <Upload aria-hidden="true" className="h-4 w-4 text-slate-400" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{label}</span>
+          <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">{url ? t("create.upload.uploadedReplace") : (hint || t("create.upload.dropHint"))}</span>
+        </span>
+      </button>
+      {onLibraryClick ? (
+        <button
+          type="button"
+          onClick={onLibraryClick}
+          aria-label={libraryLabel}
+          title={libraryLabel}
+          className={`absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg border border-white bg-white text-slate-400 shadow-sm transition hover:text-[var(--codex-accent)] ${interactiveRing}`}
+        >
+          <FolderOpen aria-hidden="true" className="h-4 w-4" />
+        </button>
+      ) : null}
+    </div>
   );
 }
 

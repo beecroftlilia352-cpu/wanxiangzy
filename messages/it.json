@@ -2922,6 +2922,14 @@
       "complexMaterial": "Materiali complessi e illuminazione commerciale",
       "recommended": "Consigliato"
     },
+    "mode": {
+      "faithfulLabel": "Ritocco standard",
+      "faithfulDesc": "Mantieni lo sfondo originale · Rimuovi difetti e rumore; correggi colore, luce e nitidezza",
+      "whiteBackgroundLabel": "Ritocco su fondo bianco",
+      "whiteBackgroundDesc": "Genera uno sfondo bianco puro · Uniforma inquadratura e contorni mantenendo ombre di contatto naturali",
+      "studioLabel": "Ritocco da studio",
+      "studioDesc": "Ricrea illuminazione e sfondo da studio · Valorizza materiali, riflessi e tridimensionalità"
+    },
     "aspect": {
       "autoLabel": "Proporzioni originali",
       "auto": "Segue l'originale del prodotto",
@@ -2964,6 +2972,7 @@
       "tipAdvice": "Le immagini con soggetto completo, messa a fuoco nitida e senza occlusioni funzionano meglio per la produzione in batch."
     },
     "example": {
+      "sampleLabel": "Esempio {index}",
       "alreadyAdded": "L'esempio {title} è già nel batch corrente",
       "added": "Aggiunto esempio {title}"
     },
@@ -4811,6 +4820,138 @@
     "delete": "Elimina",
     "reuseImages": "Riutilizza le immagini",
     "taskGenericTitle": "Attività fusione outfit",
-    "imageNumber": "Immagine {index}"
+    "imageNumber": "Immagine {index}",
+    "uploadLibrary": "Scegli dalla libreria di risorse"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Libreria di risorse",
+      "description": "Gestisci caricamenti riutilizzabili, risorse generate e richieste in un unico posto."
+    },
+    "tabs": {
+      "label": "Sezioni della libreria di risorse",
+      "uploads": "Caricamenti locali",
+      "generated": "Le mie creazioni",
+      "prompts": "I miei prompt"
+    },
+    "actions": {
+      "cancel": "Annulla",
+      "close": "Chiudi",
+      "confirm": "Conferma",
+      "loadMore": "Carica di più",
+      "localUpload": "Carica dal dispositivo",
+      "newPrompt": "Nuovo suggerimento",
+      "remove": "Rimuovi",
+      "removeAsset": "Rimuovi risorsa",
+      "removePrompt": "Rimuovi richiesta",
+      "retry": "Riprova",
+      "save": "Salva",
+      "add": "Aggiungi alla libreria di risorse",
+      "added": "Aggiunto alla libreria di risorse"
+    },
+    "categories": {
+      "title": "Categorie di beni",
+      "localUploads": "Caricamenti locali"
+    },
+    "filters": {
+      "allMedia": "Tutti i media",
+      "allModules": "Tutte le funzionalità",
+      "image": "Immagini",
+      "mediaLabel": "Tipo di supporto",
+      "moduleLabel": "Caratteristica",
+      "video": "Video"
+    },
+    "picker": {
+      "title": "Seleziona risorse",
+      "selectionHint": "{selected} selezionato di {max}",
+      "selectedCount": "{selected}/{max} selezionato",
+      "gridLabel": "Risorse disponibili",
+      "limitReachedTitle": "Limite di selezione raggiunto",
+      "limitReachedDescription": "Deseleziona una risorsa prima di selezionarne un'altra.",
+      "limitReachedInline": "Puoi selezionare fino a {max} risorse."
+    },
+    "card": {
+      "select": "Selezionare {title}",
+      "removeSelection": "Deseleziona {title}",
+      "preview": "Anteprima {title}",
+      "previewTitle": "Anteprima della risorsa",
+      "previewDescription": "Visualizza l'anteprima della risorsa selezionata."
+    },
+    "empty": {
+      "uploadTitle": "Nessun caricamento locale ancora",
+      "uploadDescription": "Carica immagini o video per riutilizzarli negli strumenti di creazione.",
+      "moduleTitle": "Nessuna risorsa salvata in questa funzionalità",
+      "moduleDescription": "Salva un risultato generato per farlo apparire qui.",
+      "generatedTitle": "Nessun asset ancora generato",
+      "generatedDescription": "Salva i risultati da una pagina di creazione per riutilizzarli qui.",
+      "promptTitle": "Nessuna richiesta ancora",
+      "promptDescription": "Crea prompt riutilizzabili per velocizzare le prossime creazioni."
+    },
+    "states": {
+      "loading": "Caricamento in corso",
+      "uploading": "Caricamento",
+      "saving": "Salvataggio",
+      "uploadFailed": "Caricamento non riuscito",
+      "loadFailedTitle": "Impossibile caricare le risorse",
+      "loadFailedDescription": "Controlla la connessione e riprova.",
+      "deleteFailed": "Impossibile rimuovere l'elemento",
+      "createFailed": "Impossibile creare il prompt",
+      "operationFailed": "Azione della raccolta di risorse non riuscita. Per favore riprova."
+    },
+    "toast": {
+      "uploadSuccess": "Risorse {count} caricate",
+      "assetRemoved": "Risorsa rimossa",
+      "promptCreated": "Richiesta creata",
+      "promptRemoved": "Richiesta rimossa"
+    },
+    "upload": {
+      "supportedFormats": "Supporta i formati immagine e video comuni"
+    },
+    "prompts": {
+      "allTypes": "Tutti i tipi",
+      "typeLabel": "Tipo di richiesta",
+      "searchLabel": "Richieste di ricerca",
+      "searchPlaceholder": "Richieste di ricerca",
+      "createTitle": "Crea richiesta",
+      "createDescription": "Salva un titolo e richiedi il contenuto per il riutilizzo.",
+      "titleLabel": "Titolo richiesto",
+      "titlePlaceholder": "Inserisci un titolo per la richiesta",
+      "contentLabel": "Contenuti rapidi",
+      "contentPlaceholder": "Inserisci il contenuto richiesto"
+    },
+    "confirm": {
+      "removeAssetTitle": "Rimuovere la risorsa?",
+      "removeAssetDescription": "Questa risorsa verrà rimossa dalla tua raccolta.",
+      "removePromptTitle": "Rimuovere la richiesta?",
+      "removePromptDescription": "Questo messaggio verrà rimosso definitivamente."
+    },
+    "promptTypes": {
+      "text-to-image": "Testo in immagine",
+      "image-to-image": "Immagine per immagine",
+      "model-background": "Sfondo del modello",
+      "pose": "Posa",
+      "video": "Video",
+      "other": "Altro"
+    },
+    "modules": {
+      "tryon": "Prova virtuale",
+      "grass": "Immagine di seeding di stile",
+      "productRetouch": "Ritocco prodotto",
+      "productSet": "Serie prodotto",
+      "modelBackground": "Cambio sfondo modella",
+      "materialEnhancement": "Miglioramento materiali",
+      "generalImage": "Immagine generica",
+      "outfitFusion": "Fusione outfit",
+      "pose": "Variazione pose",
+      "model": "Modella dedicata",
+      "garment3d": "Da capo a 3D",
+      "faceSwap": "Scambio viso",
+      "imageTranslation": "Traduzione di immagini",
+      "commerceDetail": "Immagine dettaglio prodotto",
+      "allCategoryProductImage": "Immagine del prodotto per tutte le categorie",
+      "videoImageToVideo": "Da immagine a video",
+      "videoMotion": "Imitazione movimento",
+      "videoFirstLastFrame": "Primo/ultimo fotogramma"
+    }
   }
 }

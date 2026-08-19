@@ -3281,6 +3281,14 @@
       "complexMaterial": "Materiais complexos e iluminação comercial",
       "recommended": "Recomendado"
     },
+    "mode": {
+      "faithfulLabel": "Retoque padrão",
+      "faithfulDesc": "Preservar o fundo original · Limpar imperfeições e ruído; corrigir cor, luz e nitidez",
+      "whiteBackgroundLabel": "Retoque com fundo branco",
+      "whiteBackgroundDesc": "Gerar fundo branco puro · Padronizar enquadramento e contornos, mantendo sombras de contato naturais",
+      "studioLabel": "Retoque de estúdio",
+      "studioDesc": "Recriar iluminação e fundo de estúdio · Reforçar materiais, reflexos e profundidade"
+    },
     "aspect": {
       "autoLabel": "Proporção original",
       "auto": "Segue o original do produto",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "Imagens com sujeito completo, foco nítido e sem oclusão funcionam melhor para produção em lote."
     },
     "example": {
+      "sampleLabel": "Exemplo {index}",
       "alreadyAdded": "O exemplo {title} já está no lote atual",
       "added": "Adicionado exemplo {title}"
     },
@@ -4811,6 +4820,138 @@
     "delete": "Excluir",
     "reuseImages": "Reutilizar imagens",
     "taskGenericTitle": "Tarefa de fusão de looks",
-    "imageNumber": "Imagem {index}"
+    "imageNumber": "Imagem {index}",
+    "uploadLibrary": "Escolha na biblioteca de ativos"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Biblioteca de ativos",
+      "description": "Gerencie uploads reutilizáveis, ativos gerados e prompts em um só lugar."
+    },
+    "tabs": {
+      "label": "Seções da biblioteca de recursos",
+      "uploads": "Carregamentos locais",
+      "generated": "Minhas criações",
+      "prompts": "Meus prompts"
+    },
+    "actions": {
+      "cancel": "Cancelar",
+      "close": "Fechar",
+      "confirm": "Confirmar",
+      "loadMore": "Carregar mais",
+      "localUpload": "Carregar do dispositivo",
+      "newPrompt": "Nova solicitação",
+      "remove": "Remover",
+      "removeAsset": "Remover recurso",
+      "removePrompt": "Remover solicitação",
+      "retry": "Tentar novamente",
+      "save": "Salvar",
+      "add": "Adicionar à biblioteca de ativos",
+      "added": "Adicionado à biblioteca de ativos"
+    },
+    "categories": {
+      "title": "Categorias de ativos",
+      "localUploads": "Carregamentos locais"
+    },
+    "filters": {
+      "allMedia": "Todas as mídias",
+      "allModules": "Todos os recursos",
+      "image": "Imagens",
+      "mediaLabel": "Tipo de mídia",
+      "moduleLabel": "Recurso",
+      "video": "Vídeos"
+    },
+    "picker": {
+      "title": "Selecione ativos",
+      "selectionHint": "{selected} selecionado de {max}",
+      "selectedCount": "{selected}/{max} selecionado",
+      "gridLabel": "Ativos disponíveis",
+      "limitReachedTitle": "Limite de seleção atingido",
+      "limitReachedDescription": "Desmarque um ativo antes de selecionar outro.",
+      "limitReachedInline": "Você pode selecionar até ativos {max}."
+    },
+    "card": {
+      "select": "Selecione {title}",
+      "removeSelection": "Desmarque {title}",
+      "preview": "Visualização {title}",
+      "previewTitle": "Pré-visualização de recursos",
+      "previewDescription": "Visualize o ativo selecionado."
+    },
+    "empty": {
+      "uploadTitle": "Ainda não há uploads locais",
+      "uploadDescription": "Faça upload de imagens ou vídeos para reutilizá-los em ferramentas de criação.",
+      "moduleTitle": "Nenhum recurso salvo neste recurso",
+      "moduleDescription": "Salve um resultado gerado para que apareça aqui.",
+      "generatedTitle": "Nenhum ativo gerado ainda",
+      "generatedDescription": "Salve os resultados de uma página de criação para reutilizá-los aqui.",
+      "promptTitle": "Ainda não há avisos",
+      "promptDescription": "Crie prompts reutilizáveis para agilizar suas próximas criações."
+    },
+    "states": {
+      "loading": "Carregando",
+      "uploading": "Enviando",
+      "saving": "Salvando",
+      "uploadFailed": "Falha no upload",
+      "loadFailedTitle": "Não foi possível carregar os recursos",
+      "loadFailedDescription": "Verifique sua conexão e tente novamente.",
+      "deleteFailed": "Não foi possível remover o item",
+      "createFailed": "Não foi possível criar o prompt",
+      "operationFailed": "Falha na ação da biblioteca de ativos. Por favor, tente novamente."
+    },
+    "toast": {
+      "uploadSuccess": "Ativos {count} carregados",
+      "assetRemoved": "Recurso removido",
+      "promptCreated": "Prompt criado",
+      "promptRemoved": "Prompt removido"
+    },
+    "upload": {
+      "supportedFormats": "Suporta formatos comuns de imagem e vídeo"
+    },
+    "prompts": {
+      "allTypes": "Todos os tipos",
+      "typeLabel": "Tipo de prompt",
+      "searchLabel": "Solicitações de pesquisa",
+      "searchPlaceholder": "Solicitações de pesquisa",
+      "createTitle": "Criar solicitação",
+      "createDescription": "Salve um título e solicite o conteúdo para reutilização.",
+      "titleLabel": "Título do prompt",
+      "titlePlaceholder": "Insira um título de prompt",
+      "contentLabel": "Conteúdo imediato",
+      "contentPlaceholder": "Insira o conteúdo do prompt"
+    },
+    "confirm": {
+      "removeAssetTitle": "Remover recurso?",
+      "removeAssetDescription": "Este recurso será removido da sua biblioteca.",
+      "removePromptTitle": "Remover aviso?",
+      "removePromptDescription": "Este prompt será removido permanentemente."
+    },
+    "promptTypes": {
+      "text-to-image": "Texto para imagem",
+      "image-to-image": "Imagem a imagem",
+      "model-background": "Plano de fundo do modelo",
+      "pose": "Postura",
+      "video": "Vídeo",
+      "other": "Outro"
+    },
+    "modules": {
+      "tryon": "Prova virtual",
+      "grass": "Imagem promocional",
+      "productRetouch": "Retoque de produto",
+      "productSet": "Conjunto de produto",
+      "modelBackground": "Troca de fundo de modelo",
+      "materialEnhancement": "Melhoria de material",
+      "generalImage": "Imagem geral",
+      "outfitFusion": "Fusão de looks",
+      "pose": "Variação de pose",
+      "model": "Modelo personalizado",
+      "garment3d": "Peça para 3D",
+      "faceSwap": "Troca de rosto",
+      "imageTranslation": "Tradução de imagem",
+      "commerceDetail": "Imagem detalhada do produto",
+      "allCategoryProductImage": "Imagem do produto em todas as categorias",
+      "videoImageToVideo": "Imagem para vídeo",
+      "videoMotion": "Imitação de movimento",
+      "videoFirstLastFrame": "Primeiro/último frame"
+    }
   }
 }

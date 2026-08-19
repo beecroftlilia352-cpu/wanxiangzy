@@ -26,6 +26,7 @@ import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -120,6 +121,7 @@ import { TemplateLibraryDialog } from "@/features/product-set/create/template-li
 
 export default function ProductSetPage() {
   const t = useTranslations("ProductSet");
+  const { openResourcePicker } = useResourcePicker();
   const router = useRouter();
   const productInputRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
@@ -932,6 +934,50 @@ export default function ProductSetPage() {
     }
   }
 
+  async function pickCustomReference(kind: "style" | "model" | "other") {
+    const existingUrls = kind === "style"
+      ? customDraft.referenceImageUrls
+      : kind === "model"
+        ? customDraft.modelReferenceImageUrls
+        : customDraft.otherReferenceImageUrls;
+    const selected = await openResourcePicker({
+      title: kind === "style"
+        ? t("create.quickStart.mainRef")
+        : kind === "model"
+          ? t("create.quickStart.modelRef")
+          : t("create.quickStart.extraRef", { count: existingUrls.length }),
+      role: `custom-${kind}`,
+      selectionMode: kind === "other" ? "multiple" : "single",
+      maxCount: kind === "other" ? 3 : 1,
+      existingCount: kind === "other" ? existingUrls.length : 0,
+      excludedUrls: [
+        ...customDraft.referenceImageUrls,
+        ...customDraft.modelReferenceImageUrls,
+        ...customDraft.otherReferenceImageUrls,
+      ],
+      mediaTypes: ["image"],
+      moduleKey: "productSet",
+      view: kind === "other" ? "group" : "single",
+    });
+    if (!selected?.length) return;
+
+    const urls = assetUrls(selected);
+    setMode("custom");
+    setPlanSourceTab("upload");
+    setSelectedPlanId("custom");
+    setCustomDraft((current) => {
+      const defaults = {
+        name: current.name && current.name !== DEFAULT_DRAFT.name ? current.name : (imageType === "details" ? t("custom.detailsPlanName") : t("custom.mainPlanName")),
+        typeDescription: current.typeDescription || t("custom.typeDescriptionDefault"),
+        moduleRole: current.moduleRole || (imageType === "details" ? t("custom.detailsRole") : t("custom.mainRole")),
+      };
+      if (kind === "model") return { ...current, ...defaults, modelReferenceImageUrls: [urls[0]], modelConsistency: true };
+      if (kind === "other") return { ...current, ...defaults, otherReferenceImageUrls: [...current.otherReferenceImageUrls, ...urls].slice(0, 3) };
+      return { ...current, ...defaults, referenceImageUrls: [urls[0]] };
+    });
+    resetOutput();
+  }
+
   function addCustomTemplate() {
     const hasReferenceImage = [
       ...customDraft.referenceImageUrls,
@@ -1315,7 +1361,7 @@ export default function ProductSetPage() {
       };
       const res = await fetch("/api/product-set", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           product_image_urls: productImages.map((item) => item.url),
           product_info: productInfo,
@@ -1433,7 +1479,7 @@ export default function ProductSetPage() {
       };
       const res = await fetch("/api/product-set", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${crypto.randomUUID()}` },
         body: JSON.stringify({
           product_image_urls: productImages.map((item) => item.url),
           product_info: productInfo,
@@ -1651,7 +1697,28 @@ export default function ProductSetPage() {
               isDragging={isDragging}
               loading={isUploading}
               onUploadClick={() => productInputRef.current?.click()}
-              onLibraryClick={() => toast.info(t("library.comingSoon"))}
+              onLibraryClick={async () => {
+                const assets = await openResourcePicker({
+                  title: t("productImages.title"),
+                  role: "product",
+                  selectionMode: "multiple",
+                  maxCount: 3,
+                  existingCount: productImages.length,
+                  excludedUrls: productImages.map((item) => item.url),
+                  mediaTypes: ["image"],
+                  moduleKey: "productSet",
+                });
+                if (!assets?.length) return;
+                setProductImages((current) => {
+                  const existing = new Set(current.map((item) => item.url));
+                  const added = assets
+                    .filter((asset) => !existing.has(asset.url))
+                    .map((asset, index) => ({ url: asset.url, name: asset.title || t("upload.productImageName", { index: current.length + index + 1 }) }));
+                  return [...current, ...added].slice(0, 3);
+                });
+                setProductInfo("");
+                resetAnalysisPlan("idle");
+              }}
               libraryLabel={t("upload.fromLibrary")}
               onPreview={(url) => setLightboxSrc(url)}
               onRemove={(_, index) => removeProductImage(index)}
@@ -1908,6 +1975,7 @@ export default function ProductSetPage() {
                     customOtherRefInputRef={customOtherRefInputRef}
                     onCustomDraftChange={setCustomDraft}
                     onUploadCustomReference={uploadCustomReference}
+                    onPickCustomReference={(kind) => void pickCustomReference(kind)}
                     onAddCustomTemplate={addCustomTemplate}
                     onRemoveCustomTemplate={(id) => {
                       setCustomTemplates((prev) => prev.filter((item) => item.id !== id));
@@ -2147,6 +2215,7 @@ export default function ProductSetPage() {
             onShowCustomBuilder={setShowCustomBuilder}
             onCustomDraftChange={setCustomDraft}
             onUploadCustomReference={uploadCustomReference}
+            onPickCustomReference={(kind) => void pickCustomReference(kind)}
             onAddCustomTemplate={addCustomTemplate}
             onRemoveCustomTemplate={(id) => {
               setCustomTemplates((prev) => prev.filter((item) => item.id !== id));

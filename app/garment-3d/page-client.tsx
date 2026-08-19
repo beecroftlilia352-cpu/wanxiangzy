@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Loader2, Plus, Wand, ZoomIn } from "lucide-react";
+import { ChevronRight, FolderOpen, Loader2, Plus, Wand, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -39,6 +39,7 @@ import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/l
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { useStudioPreview } from "@/hooks/use-studio-preview";
 import { useHistoryApply } from "@/hooks/use-history-apply";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   buildRetryPendingResultUrls,
@@ -98,6 +99,7 @@ const REFERENCE_PRESETS = [
 export default function Garment3dPage() {
   const router = useRouter();
   const t = useTranslations("Garment3d");
+  const { openResourcePicker } = useResourcePicker();
   const garmentInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,6 +145,7 @@ export default function Garment3dPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -328,6 +331,7 @@ export default function Garment3dPage() {
   const previewSession = useStudioPreview({
     module: "garment3d",
     title: t("moduleLabel"),
+    taskId: activeGenerationId || undefined,
     urls: resultUrls,
     expectedCount: activeResultExpectedCount,
     isGenerating,
@@ -554,7 +558,7 @@ export default function Garment3dPage() {
       const referencePayload = outputMode === "reference" ? await urlToBase64(activeReferenceUrl) : null;
       const res = await fetch("/api/garment-3d", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           garment_url: garmentUrl,
           garment_type: garmentType,
@@ -589,6 +593,7 @@ export default function Garment3dPage() {
       }
 
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const initialResultUrls = mergeRetryResultUrls(
           retryPreviousResultUrls,
           retryResultIndex,
@@ -677,6 +682,7 @@ export default function Garment3dPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
@@ -690,6 +696,7 @@ export default function Garment3dPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "garment3d", session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -723,6 +730,7 @@ export default function Garment3dPage() {
     setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError(null);
     setLightboxSrc(null);
     closeRulesPopover();
@@ -777,7 +785,23 @@ export default function Garment3dPage() {
                   isDragging={isDragging}
                   loading={isUploadingGarment}
                   onUploadClick={openFileDialog}
-                  onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                  onLibraryClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("uploadSectionTitle"),
+                      role: "garment",
+                      selectionMode: "single",
+                      maxCount: 1,
+                      existingCount: garmentUrl ? 1 : 0,
+                      excludedUrls: garmentUrl ? [garmentUrl] : [],
+                      mediaTypes: ["image"],
+                      moduleKey: "garment3d",
+                    });
+                    const [url] = assetUrls(assets);
+                    if (!url) return;
+                    setGarmentUrl(url);
+                    setGarmentName(assets?.[0]?.title || t("uploadedImage"));
+                    setPromptOverride(null);
+                  }}
                   onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
                   onRemove={garmentUrl ? () => {
                     setGarmentUrl("");
@@ -873,6 +897,7 @@ export default function Garment3dPage() {
                     </div>
                   ))}
                   <button
+                    type="button"
                     onClick={() => referenceInputRef.current?.click()}
                     className={`aspect-square rounded-lg border-2 border-dashed flex items-center justify-center ${
                       customReferenceUrl ? "border-[var(--codex-accent)] bg-[var(--codex-accent-08)]" : "border-[var(--codex-border)]"
@@ -880,6 +905,30 @@ export default function Garment3dPage() {
                     title={t("uploadReference")}
                   >
                     <Plus className="w-5 h-5 text-codex-faint" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const assets = await openResourcePicker({
+                        title: t("outputModeReference"),
+                        role: "display-reference",
+                        selectionMode: "single",
+                        maxCount: 1,
+                        existingCount: 0,
+                        excludedUrls: activeReferenceUrl ? [activeReferenceUrl] : [],
+                        mediaTypes: ["image"],
+                        moduleKey: "garment3d",
+                      });
+                      const [url] = assetUrls(assets);
+                      if (!url) return;
+                      setCustomReferenceUrl(url);
+                      setPromptOverride(null);
+                    }}
+                    className="aspect-square rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-codex-faint transition hover:border-[var(--codex-accent)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)]"
+                    title={t("libraryLabel")}
+                    aria-label={t("libraryLabel")}
+                  >
+                    <FolderOpen className="mx-auto h-5 w-5" />
                   </button>
                 </div>
                 <input
@@ -1023,6 +1072,7 @@ export default function Garment3dPage() {
                 inputThumbnails={taskInputThumbnails}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                resourceFavorite={{ generationId: activeGenerationId, moduleKey: "garment3d", mediaType: "image" }}
                 markMissingAsFailed={hasCompletedPartialResults}
                 missingFailureLabel={t("missingFailureLabel")}
                 missingFailureDetail={partialFailureMessage}

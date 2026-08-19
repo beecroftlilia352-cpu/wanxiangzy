@@ -91,7 +91,7 @@ describe("StudioModelSelector", () => {
   });
 
   it("selects a model, closes the popup, and updates the selected label", async () => {
-    const { getByRole, queryByRole } = renderSelector();
+    const { container, getByRole, queryByRole } = renderSelector();
     const trigger = getByRole("button", { name: "基础生图模型" });
 
     fireEvent.pointerEnter(trigger, { pointerType: "mouse" });
@@ -100,6 +100,10 @@ describe("StudioModelSelector", () => {
 
     expect(queryByRole("radiogroup")).toBeNull();
     expect(getByRole("button", { name: "基础生图模型" }).textContent).toContain("香蕉Pro");
+    await waitFor(() => {
+      expect(container.querySelector<HTMLImageElement>(".studio-model-selector-trigger-visual img")?.src)
+        .toContain(`${MODEL_ASSET_BASE}/banana-pro.png`);
+    });
   });
 
   it("closes after the pointer leaves the selector and popup", async () => {

@@ -54,6 +54,17 @@ describe("task queue client store helpers", () => {
     expect(taskMatchesScope(imageTask, "image-to-image")).toBe(true);
   });
 
+  it("uses the central AI tool route mapping for legacy scoped rows", () => {
+    const garmentTask = task({
+      id: "garment-task",
+      module: "toolbox",
+      applyUrl: "/ai-tools/clothing-repair?task=provider-task",
+    });
+
+    expect(taskMatchesScope(garmentTask, "repair-garment")).toBe(true);
+    expect(taskMatchesScope(garmentTask, "repair-footwear")).toBe(false);
+  });
+
   it("creates a complete optimistic task item", () => {
     const item = createOptimisticTaskQueueItem({
       id: "local-tryon-1",

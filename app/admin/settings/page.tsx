@@ -9,6 +9,8 @@ import {
 import { AdminConfigActions } from "@/components/admin/AdminConfigActions";
 import { getAdminSettingsOverview, type AdminConfigVersion } from "@/lib/admin/data";
 import { AdminMonitoringConfigForm } from "@/components/admin/AdminMonitoringConfigForm";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +25,15 @@ const CONFIG_KEY_LABELS: Record<string, string> = {
   "features.flags": "功能开关",
   "rate_limit.config": "访问限流",
 };
+const RETIRED_CONFIG_KEYS = new Set(["model.routing"]);
 
 function configKeyLabel(value: string) {
   return CONFIG_KEY_LABELS[value] || value;
 }
 
 export default async function AdminSettingsPage() {
+  const admin = await requireAdmin("settings:read");
+  const canManage = hasAdminPermission(admin.role, "settings:write");
   const settings = await getAdminSettingsOverview();
 
   return (
@@ -73,7 +78,7 @@ export default async function AdminSettingsPage() {
         title="监控与 SEO 配置"
         description="Sentry 错误监控与站点分享卡片文案统一在此管理，发布后运行时自动读取（含 5 分钟缓存）。"
       >
-        <AdminMonitoringConfigForm />
+        {canManage ? <AdminMonitoringConfigForm /> : <AdminNotice tone="info">当前角色只能查看配置版本。监控与 SEO 配置的发布需要系统配置写权限。</AdminNotice>}
       </AdminSection>
 
       <AdminSection title="历史配置版本" description="各配置项的发布记录，支持回滚。内容为技术细节，仅作排查参考。">
@@ -87,7 +92,7 @@ export default async function AdminSettingsPage() {
             { key: "value", label: "内容摘要", render: (row) => <code className="line-clamp-1 max-w-[360px] text-xs text-[var(--admin-fg)]">{JSON.stringify(row.value).slice(0, 120)}</code> },
             { key: "published", label: "发布时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.publishedAt)}</span> },
             { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
-            { key: "actions", label: "操作", render: (row) => <AdminConfigActions id={row.id} status={row.status} /> },
+            { key: "actions", label: "操作", render: (row) => canManage && !RETIRED_CONFIG_KEYS.has(row.configKey) ? <AdminConfigActions id={row.id} status={row.status} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">{RETIRED_CONFIG_KEYS.has(row.configKey) ? "历史只读" : "只读"}</span> },
           ]}
         />
       </AdminSection>

@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: aws-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -85,10 +85,15 @@ jobs:
       - name: Configure SSH
         env:
           AWS_SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+          AWS_SSH_KNOWN_HOSTS: ${{ secrets.AWS_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           if [[ -z "${AWS_SSH_PRIVATE_KEY:-}" ]]; then
             echo "::error::AWS_SSH_PRIVATE_KEY is empty"
+            exit 1
+          fi
+          if [[ -z "${AWS_SSH_KNOWN_HOSTS:-}" ]]; then
+            echo "::error::AWS_SSH_KNOWN_HOSTS is empty; production deploys require a pinned EC2 host key"
             exit 1
           fi
 
@@ -96,53 +101,121 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "$AWS_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/aws_deploy_key
           chmod 600 ~/.ssh/aws_deploy_key
-          touch ~/.ssh/known_hosts
-
-          for attempt in 1 2 3 4 5; do
-            echo "Scanning SSH host key, attempt ${attempt}/5..."
-            if ssh-keyscan -T 10 -p "$AWS_PORT_NORM" -H "$AWS_HOST_NORM" >> ~/.ssh/known_hosts 2>/tmp/ssh-keyscan.err; then
-              exit 0
-            fi
-            cat /tmp/ssh-keyscan.err >&2 || true
-            sleep 3
-          done
-
-          echo "::warning::ssh-keyscan failed; continuing with StrictHostKeyChecking=accept-new"
+          printf '%s\n' "$AWS_SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh-keygen -l -f ~/.ssh/known_hosts >/dev/null
 
       - name: Fetch .env.production from EC2
+        env:
+          AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
         run: |
           set -euo pipefail
-          # Hardcode ~/apps/wanxiangzy — ~ expands on the EC2 side to /home/ec2-user
-          # NOT using AWS_APP_DIR secret because it points to a different directory
-          echo "Fetching ~/apps/wanxiangzy/shared/.env.production from EC2..."
+
+          APP_DIR="${AWS_APP_DIR:-~/apps/wanxiangzy}"
+          if [[ "$APP_DIR" == *$'\n'* || "$APP_DIR" == *$'\r'* || "$APP_DIR" == *".."* ]]; then
+            echo "::error::AWS_APP_DIR contains an unsafe path"
+            exit 1
+          fi
+          if [[ ! "$APP_DIR" =~ ^[A-Za-z0-9_./~-]+$ ]]; then
+            echo "::error::AWS_APP_DIR contains unsupported characters"
+            exit 1
+          fi
+
+          REMOTE_ENV_FILE="${APP_DIR%/}/shared/.env.production"
+          echo "Fetching production environment from the configured EC2 application directory..."
 
           scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
-            -o StrictHostKeyChecking=accept-new \
+            -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             -o ConnectTimeout=60 \
-            "$AWS_USER_NORM@$AWS_HOST_NORM:~/apps/wanxiangzy/shared/.env.production" .env.production
+            "$AWS_USER_NORM@$AWS_HOST_NORM:$REMOTE_ENV_FILE" .env.production
 
           echo "File: $(wc -c < .env.production) bytes, $(wc -l < .env.production) lines"
 
           # Verify required keys exist (Next.js auto-loads .env.production at build time)
           missing=0
           for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_APP_URL; do
-            if grep -q "^${key}=" .env.production; then
+            if grep -Eq "^${key}=.+$" .env.production; then
               echo "  ✓ $key"
             else
-              echo "::error::Missing required key in .env.production: $key"
+              echo "::error::Missing or empty required key in .env.production: $key"
               missing=1
             fi
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
+
+          env_value() {
+            local key="$1"
+            sed -n "s/^${key}=//p" .env.production | tail -n 1 | tr -d '\r'
+          }
+
+          AI_TOOLS_MODE="$(env_value AI_TOOLS_EXECUTION_MODE)"
+          AI_TOOLS_OPERATIONS="$(env_value AI_TOOLS_PROVIDER_OPERATIONS)"
+          if [[ "${AI_TOOLS_MODE,,}" == "mock" ]]; then
+            echo "::error::AI_TOOLS_EXECUTION_MODE=mock is forbidden in production"
+            exit 1
+          fi
+
+          if [[ -n "$AI_TOOLS_MODE" && "${AI_TOOLS_MODE,,}" != "live" ]]; then
+            echo "::error::AI_TOOLS_EXECUTION_MODE must be live in production"
+            exit 1
+          fi
+
+          # Generative edit tools and local resize are live even while the
+          # external Aliyun matting/upscale allowlist remains empty.
+          ai_tools_common_missing=0
+          for key in \
+            AI_TOOL_ASSET_REF_SECRET \
+            RESOURCE_LIBRARY_UPLOAD_TOKEN_SECRET \
+            ALIYUN_OSS_ACCESS_KEY_ID \
+            ALIYUN_OSS_ACCESS_KEY_SECRET \
+            ALIYUN_OSS_BUCKET \
+            ALIYUN_OSS_REGION \
+            ALIYUN_OSS_PUBLIC_BASE_URL; do
+            if [[ -z "$(env_value "$key")" ]]; then
+              echo "::error::Missing AI toolbox production key in .env.production: $key"
+              ai_tools_common_missing=1
+            fi
+          done
+          if [[ "$ai_tools_common_missing" -ne 0 ]]; then exit 1; fi
+
+          if [[ -n "${AI_TOOLS_OPERATIONS//[[:space:],]/}" ]]; then
+            ai_tools_gateway_missing=0
+            for key in \
+              AI_TOOLS_PROVIDER_GATEWAY_URL \
+              AI_TOOLS_PROVIDER_GATEWAY_TOKEN; do
+              if [[ -z "$(env_value "$key")" ]]; then
+                echo "::error::Missing external AI toolbox Gateway key in .env.production: $key"
+                ai_tools_gateway_missing=1
+              fi
+            done
+            if [[ "$ai_tools_gateway_missing" -ne 0 ]]; then exit 1; fi
+            echo "✓ AI toolbox external operations are enabled"
+          else
+            echo "✓ Aliyun matting/upscale operations are disabled; generative edit and local resize remain enabled"
+          fi
 
           echo "✓ .env.production ready — Next.js will auto-load it during build"
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit production dependencies
+        run: npm run audit:production
+
       - name: Run release checks
         run: npm run check:release
+
+      - name: Configure and verify OSS mirror rule
+        run: |
+          set -euo pipefail
+          TRANSFER_MODE="$(node --env-file=.env.production -e 'process.stdout.write((process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE || "disabled").trim().toLowerCase())')"
+          if [[ "$TRANSFER_MODE" == "mirror" ]]; then
+            npm run oss:configure-mirror
+            npm run oss:configure-mirror -- --check
+          else
+            echo "OSS mirror configuration is not required for transfer mode: $TRANSFER_MODE"
+          fi
 
       - name: Create deployment archive
         run: |
@@ -170,7 +243,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             echo "Uploading deployment archive, attempt ${attempt}/5..."
             if scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
-              -o StrictHostKeyChecking=accept-new \
+              -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=~/.ssh/known_hosts \
               -o ConnectTimeout=60 \
               -o ConnectionAttempts=3 \
@@ -185,59 +258,12 @@ jobs:
           echo "::error::Could not upload deployment archive over SSH"
           exit 1
 
-      - name: Update production rollout flags
-        env:
-          AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
-          PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED: ${{ secrets.PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED || 'true' }}
-        run: |
-          set -euo pipefail
-
-          quote() { printf '%q' "$1"; }
-          REMOTE_ENV="AWS_APP_DIR=$(quote "${AWS_APP_DIR:-}") PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=$(quote "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED")"
-
-          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
-            -o StrictHostKeyChecking=accept-new \
-            -o UserKnownHostsFile=~/.ssh/known_hosts \
-            -o ConnectTimeout=60 \
-            -o ConnectionAttempts=3 \
-            -o ServerAliveInterval=30 \
-            "$AWS_USER_NORM@$AWS_HOST_NORM" \
-            "$REMOTE_ENV bash -s" <<'REMOTE'
-          set -euo pipefail
-          BASE_DIR="${AWS_APP_DIR:-$HOME/apps/wanxiangzy}"
-          SHARED_DIR="$BASE_DIR/shared"
-          ENV_FILE="$SHARED_DIR/.env.production"
-
-          mkdir -p "$SHARED_DIR"
-          touch "$ENV_FILE"
-          chmod 600 "$ENV_FILE" || true
-
-          escape_sed_replacement() {
-            printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
-          }
-
-          set_env_var() {
-            local key="$1"
-            local value="$2"
-            local escaped
-            escaped="$(escape_sed_replacement "$value")"
-            if grep -q "^${key}=" "$ENV_FILE"; then
-              sed -i.bak "s/^${key}=.*/${key}=${escaped}/" "$ENV_FILE"
-            else
-              printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
-            fi
-          }
-
-          set_env_var PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED"
-          echo "Updated product-retouch rollout flag in $ENV_FILE"
-          REMOTE
-
       - name: Ensure build tools on EC2
         run: |
           set -euo pipefail
           echo "Ensuring make/gcc are available on EC2 (idempotent)..."
           ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
-            -o StrictHostKeyChecking=accept-new \
+            -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             -o ConnectTimeout=60 \
             "$AWS_USER_NORM@$AWS_HOST_NORM" \
@@ -266,7 +292,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             echo "Starting remote deploy, attempt ${attempt}/5..."
             if ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
-              -o StrictHostKeyChecking=accept-new \
+              -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=~/.ssh/known_hosts \
               -o ConnectTimeout=60 \
               -o ConnectionAttempts=3 \

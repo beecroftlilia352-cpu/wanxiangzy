@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  getCreditCost,
   normalizeAspectRatio,
   normalizeImageSize,
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { assertUserCanGenerate, CreditError } from "@/lib/api/credits";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       aspectRatio,
     );
     const userInstruction = normalizeProductRetouchInstruction(body.userInstruction);
-    const unitCreditCost = getCreditCost(model, imageSize, aspectRatio);
+    const unitCreditCost = await getConfiguredImageCreditCost(model, imageSize);
     const prompts = sources.flatMap(() =>
       Array.from({ length: variantsPerSource }, (_, index) =>
         buildProductRetouchPrompt({

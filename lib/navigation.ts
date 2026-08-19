@@ -4,7 +4,11 @@ import {
   Building2,
   Camera,
   Clapperboard,
+  Eraser,
+  Expand,
+  Footprints,
   GalleryHorizontalEnd,
+  Hand,
   Heart,
   History,
   Home,
@@ -15,7 +19,10 @@ import {
   PackageSearch,
   PersonStanding,
   PlaySquare,
+  Scaling,
+  ScanLine,
   ScanFace,
+  Scissors,
   ServerCog,
   Shirt,
   Sparkles,
@@ -56,6 +63,14 @@ export type FeatureKey =
   | "generalImage"
   | "textToImage"
   | "imageToImage"
+  | "aiMatting"
+  | "imageUpscale"
+  | "aiOutpaint"
+  | "aiErase"
+  | "handFootRepair"
+  | "clothingRepair"
+  | "shoeRepair"
+  | "losslessResize"
   | "apiTest"
   | "history";
 
@@ -112,7 +127,7 @@ export const TOP_MODULES: TopModuleNavItem[] = [
   },
   { key: "aiVideo", href: "/video", label: "AI视频", labelKey: "Header.modules.aiVideo", icon: Clapperboard, badge: "NEW" },
   { key: "tools", href: "/general-image", label: "素材生成", labelKey: "Header.modules.tools", icon: Images, badge: "NEW" },
-  { key: "toolbox", href: "/api-platform-test", label: "AI工具箱", labelKey: "Header.modules.toolbox", icon: Wrench },
+  { key: "toolbox", href: "/ai-tools/matting", label: "AI工具箱", labelKey: "Header.modules.toolbox", icon: Wrench },
   { key: "enterprise", href: "/pricing", label: "企业功能", labelKey: "Header.modules.enterprise", icon: Building2 },
   { key: "works", href: "/history", label: "作品库", labelKey: "Header.modules.works", icon: GalleryHorizontalEnd },
 ];
@@ -327,6 +342,78 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     description: "多张参考图结合提示词生成图片",
     icon: Images,
     badge: "NEW",
+  },
+  {
+    key: "aiMatting",
+    module: "toolbox",
+    href: "/ai-tools/matting",
+    label: "AI抠图",
+    shortLabel: "抠图",
+    description: "智能识别人像与商品主体，生成透明背景图",
+    icon: Scissors,
+  },
+  {
+    key: "imageUpscale",
+    module: "toolbox",
+    href: "/ai-tools/upscale",
+    label: "图片超清",
+    shortLabel: "超清",
+    description: "提升图片分辨率与细节清晰度",
+    icon: ScanLine,
+  },
+  {
+    key: "aiOutpaint",
+    module: "toolbox",
+    href: "/ai-tools/outpaint",
+    label: "AI扩图",
+    shortLabel: "扩图",
+    description: "智能延展画面边界并补全场景内容",
+    icon: Expand,
+  },
+  {
+    key: "aiErase",
+    module: "toolbox",
+    href: "/ai-tools/erase",
+    label: "AI消除",
+    shortLabel: "消除",
+    description: "涂抹选中不需要的元素并自然修补画面",
+    icon: Eraser,
+  },
+  {
+    key: "handFootRepair",
+    module: "toolbox",
+    href: "/ai-tools/hand-foot-repair",
+    label: "手脚修复",
+    shortLabel: "手脚",
+    description: "修复手部与脚部的结构、姿态和细节",
+    icon: Hand,
+  },
+  {
+    key: "clothingRepair",
+    module: "toolbox",
+    href: "/ai-tools/clothing-repair",
+    label: "服饰修复",
+    shortLabel: "服饰",
+    description: "修复服饰的版型、纹理、边缘与细节",
+    icon: Shirt,
+  },
+  {
+    key: "shoeRepair",
+    module: "toolbox",
+    href: "/ai-tools/shoe-repair",
+    label: "鞋靴修复",
+    shortLabel: "鞋靴",
+    description: "修复鞋靴轮廓、结构、材质与接地阴影",
+    icon: Footprints,
+  },
+  {
+    key: "losslessResize",
+    module: "toolbox",
+    href: "/ai-tools/resize",
+    label: "无损改尺寸",
+    shortLabel: "改尺寸",
+    description: "按指定尺寸和比例输出高质量图片",
+    icon: Scaling,
   },
   {
     key: "apiTest",

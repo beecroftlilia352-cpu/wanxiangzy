@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
+import { findDisallowedProductionImageInputs, normalizeGeneralImageReferenceUrls } from "@/lib/api/general-image-inputs";
+import { getPublicBaseUrlFromRequest, resolveImageInputs } from "@/lib/api/image-inputs.server";
 
 export const maxDuration = 60;
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
-
-const OPTIMIZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,18 +20,29 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const mode = normalizeMode(body.mode);
     const userPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const referenceUrls = normalizeReferenceUrls(body.reference_urls);
+    const normalizedReferences = normalizeGeneralImageReferenceUrls(body.reference_urls);
+    if (process.env.NODE_ENV === "production") {
+      const publicBaseUrl = getPublicBaseUrlFromRequest(request);
+      if (normalizedReferences.hasInlineImage || findDisallowedProductionImageInputs(normalizedReferences.urls, publicBaseUrl).length) {
+        return NextResponse.json({ error: "生产环境参考图必须使用已验证的媒体资产或站点素材" }, { status: 400 });
+      }
+    }
+    const referenceUrls = normalizedReferences.urls;
+    let providerReferenceUrls = referenceUrls;
+    if (referenceUrls.length) {
+      try {
+        const resolved = await resolveImageInputs(
+          { clothingUrls: [], referenceUrls },
+          { publicBaseUrl: getPublicBaseUrlFromRequest(request), ownerUserId: auth.user.id },
+        );
+        providerReferenceUrls = resolved.referenceUrls || [];
+      } catch {
+        return NextResponse.json({ error: "参考图不可用，请重新上传后重试" }, { status: 400 });
+      }
+    }
 
     if (!userPrompt && referenceUrls.length === 0) {
       return NextResponse.json({ error: mode === "image-to-image" ? "请先输入基本想法或上传参考图" : "请先输入基本想法" }, { status: 400 });
-    }
-
-    const llm = await getLlmConfig(referenceUrls.length ? "vision" : "text");
-    if (!llm.apiKey || !llm.baseUrl) {
-      return NextResponse.json({
-        prompt: buildFallbackPrompt({ mode, userPrompt, referenceUrls }),
-        source: "fallback",
-      });
     }
 
     const imageRoleText = referenceUrls.length
@@ -62,42 +72,24 @@ ${userPrompt || "请根据参考图生成高质量商业摄影图片。"}`;
       | { type: "text"; text: string }
       | { type: "image_url"; image_url: { url: string } }
     > = [{ type: "text", text: textPrompt }];
-    for (const url of referenceUrls) {
+    for (const url of providerReferenceUrls) {
       content.push({ type: "image_url", image_url: { url } });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), OPTIMIZE_TIMEOUT_MS);
-    const res = await fetch(getChatCompletionsUrl(llm), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${llm.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: llm.model,
+    const completion = await executeLlmChatRouted({
+      kind: referenceUrls.length ? "vision" : "text",
+      context: { userId: auth.user.id },
+      body: {
         messages: [{ role: "user", content }],
         max_tokens: 1200,
         temperature: 0.45,
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    const resText = await res.text();
-    if (!res.ok) {
-      console.error("[general-image/optimize-prompt] LLM error:", res.status, resText.slice(0, 500));
-      return NextResponse.json({
-        prompt: buildFallbackPrompt({ mode, userPrompt, referenceUrls }),
-        source: "fallback",
-        reason: `llm_http_${res.status}`,
-      });
-    }
-
-    const data = JSON.parse(resText) as Record<string, unknown>;
+      },
+    });
+    const data = completion.data;
     const prompt = extractMessageText(data).trim();
     return NextResponse.json({
       prompt: prompt || buildFallbackPrompt({ mode, userPrompt, referenceUrls }),
-      source: prompt ? llm.provider : "fallback",
+      source: prompt ? completion.providerId : "fallback",
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
@@ -110,14 +102,6 @@ ${userPrompt || "请根据参考图生成高质量商业摄影图片。"}`;
 
 function normalizeMode(value: unknown): GeneralImageMode {
   return value === "image-to-image" ? "image-to-image" : "text-to-image";
-}
-
-function normalizeReferenceUrls(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => typeof item === "string" ? item.trim() : "")
-    .filter((url) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
-    .slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
 }
 
 function extractMessageText(data: Record<string, unknown>) {

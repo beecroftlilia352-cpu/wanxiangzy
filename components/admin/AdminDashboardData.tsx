@@ -4,6 +4,7 @@ import type { AdminOverview } from "@/lib/admin/data";
 
 const EMPTY_OVERVIEW: AdminOverview = {
   metrics: [],
+  periodHealth: { total: 0, completed: 0, failed: 0, failureRate: 0, creditsSpent: 0, creditsRefunded: 0, newUsers: 0 },
   taskHealth: { queued: 0, running: 0, completed: 0, failed: 0 },
   generationHealth: { total: 0, today: 0, queued: 0, running: 0, completed: 0, failed: 0, failureRate: 0 },
   creditHealth: { sampledBalance: 0, sampledConsumed: 0, recentSpend: 0, recentRefund: 0 },

@@ -20,6 +20,8 @@ import {
   type AdminAssetLifecyclePolicy,
 } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,8 @@ const moduleOptions = [
 ];
 
 export default async function AdminAssetLifecyclePage({ searchParams }: PageProps) {
+  const admin = await requireAdmin("assets:read");
+  const canManage = hasAdminPermission(admin.role, "assets:write");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const moduleFilter = getSearchParam(params.module);
@@ -48,8 +52,8 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="资产生命周期"
-        title="素材生命周期与批量迁移"
+        eyebrow="存储治理 · 高级"
+        title="素材生命周期审计"
         description="统一识别 OSS、ImgBB、外部 URL、临时输入图、收藏素材和审核下架结果；V1 先创建可审计计划，真实迁移/删除由后续异步 worker 执行。"
         actions={
           <Link
@@ -106,12 +110,13 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
         </div>
       </AdminSection>
 
-      <AdminSection
-        title="创建生命周期计划"
-        description="当前只写审计计划，不会立即改动存储对象；后续可以把相同 action 接入队列 worker。"
-      >
-        <AdminAssetLifecyclePlanForm q={q} module={moduleFilter} limit={120} />
-      </AdminSection>
+      {canManage ? (
+        <AdminSection title="创建生命周期计划" description="当前只写审计计划，不会立即改动存储对象；后续可以把相同 action 接入队列 worker。">
+          <AdminAssetLifecyclePlanForm q={q} module={moduleFilter} limit={120} />
+        </AdminSection>
+      ) : (
+        <AdminNotice tone="info">当前角色只能查看资产治理审计结果。创建计划需要资产写权限，避免只读人员产生待审批操作。</AdminNotice>
+      )}
 
       <AdminSection title="生命周期策略" description="策略来自后台规则，后续可升级为配置版本和审批发布。">
         <AdminTable<AdminAssetLifecyclePolicy>

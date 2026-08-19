@@ -31,6 +31,7 @@ export default [
       ".claude/**",
       ".codex-logs/**",
       ".next/**",
+      ".next-dev/**",
       ".next-dev-logs/**",
       ".next-local-logs/**",
       ".ui-check/**",

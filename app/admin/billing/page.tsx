@@ -1,6 +1,7 @@
 import { CreditCard } from "lucide-react";
 import { AdminBillingActionButton } from "@/components/admin/AdminBillingActions";
 import { AdminBillingCatalogForms } from "@/components/admin/AdminBillingCatalogForms";
+import { AdminPricingStrategy } from "@/components/admin/AdminPricingStrategy";
 import {
   AdminMetricCard,
   AdminNotice,
@@ -12,6 +13,7 @@ import {
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
 import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 import {
   listAdminBillingOverview,
   type AdminBillingConfigStatus,
@@ -25,7 +27,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminBillingPage() {
-  await requireAdmin("billing:read");
+  const admin = await requireAdmin("billing:read");
+  const canWrite = hasAdminPermission(admin.role, "billing:write");
+  const canOperate = hasAdminPermission(admin.role, "billing:operate");
   const billing = await listAdminBillingOverview();
 
   return (
@@ -33,8 +37,8 @@ export default async function AdminBillingPage() {
       <AdminPageHeader
         eyebrow="支付账单"
         title="账单控制台"
-        description="集中查看 Stripe 商品、价格、支付流水、订阅、Webhook 事件和运行配置状态。当前页面只读取后台数据，并预留管理操作入口。"
-        actions={<AdminBillingActionButton action="sync" />}
+        description="管理套餐售价、模块扣点与支付履约。售卖价格、用户消耗和供应商成本分层治理，避免在订单流水中直接改价。"
+        actions={<AdminBillingActionButton action="sync" canOperate={canOperate} />}
       />
 
       {!billing.available && (
@@ -44,6 +48,9 @@ export default async function AdminBillingPage() {
       )}
       {billing.warnings.length > 0 && (
         <AdminNotice tone="info">Billing 数据源提示：{billing.warnings.slice(0, 4).join("；")}</AdminNotice>
+      )}
+      {billing.summarySource === "sample" && (
+        <AdminNotice tone="warning">当前账单经营指标使用最近加载样本，不能作为全量收入或履约报表。请先执行 Billing 汇总迁移。</AdminNotice>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
@@ -58,10 +65,16 @@ export default async function AdminBillingPage() {
         ))}
       </div>
 
+      <AdminPricingStrategy products={billing.products} prices={billing.prices} canManage={canWrite} />
+
+      <AdminSection title="创建套餐与价格版本" description="金额或到账灵点变化时创建新的价格版本；同步 Stripe 成功后，再在上方套餐矩阵停用旧版本。">
+        {canWrite ? <AdminBillingCatalogForms products={billing.products.map((product) => ({ id: product.id, name: product.name }))} /> : <AdminNotice tone="info">当前角色只能查看套餐与价格。创建商品、价格版本和停用价格需要账单写权限。</AdminNotice>}
+      </AdminSection>
+
       <details className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)]">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-[var(--admin-fg)] [&::-webkit-details-marker]:hidden">
-          支付渠道配置（高级）
-          <span className="ml-2 text-xs font-semibold text-[var(--admin-muted)]">商品、价格与回调事件 · 仅技术角色排查用 · 点击展开</span>
+          支付履约与 Stripe 运维（高级）
+          <span className="ml-2 text-xs font-semibold text-[var(--admin-muted)]">创建套餐 SKU、同步 Stripe、订单、订阅和 Webhook · 点击展开</span>
         </summary>
       <AdminSection title="配置状态" description="只显示是否配置，不暴露密钥明文。表状态来自约定的 Billing 后台数据表。">
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
@@ -71,8 +84,7 @@ export default async function AdminBillingPage() {
         </div>
       </AdminSection>
 
-      <AdminSection title="商品 / 价格" description="商品与价格来自本地 Billing 镜像表，便于和 Stripe 后台对账。">
-        <AdminBillingCatalogForms products={billing.products.map((product) => ({ id: product.id, name: product.name }))} />
+      <AdminSection title="商品 / 价格映射" description="本地 Billing 镜像与 Stripe 标识符，用于对账和排查；售卖配置请使用上方的定价工作台。">
         <div className="border-b border-[var(--admin-border)]">
           <div className="px-4 py-3">
             <h3 className="text-xs font-black uppercase tracking-[0.1em] text-[var(--admin-faint)]">Products</h3>
@@ -152,7 +164,7 @@ export default async function AdminBillingPage() {
             {
               key: "actions",
               label: "操作",
-              render: (row) => <AdminBillingActionButton action="refund" targetId={row.id} disabled={!row.id || row.refundedAmount >= row.amountTotal} />,
+              render: (row) => <AdminBillingActionButton action="refund" targetId={row.id} disabled={!row.id || row.refundedAmount >= row.amountTotal} canOperate={canOperate} />,
             },
           ]}
         />
@@ -187,6 +199,7 @@ export default async function AdminBillingPage() {
                   action="cancel-subscription"
                   targetId={row.stripeSubscriptionId || row.id}
                   disabled={!row.stripeSubscriptionId || row.status === "canceled" || row.status === "cancelled"}
+                  canOperate={canOperate}
                 />
               ),
             },
@@ -218,7 +231,7 @@ export default async function AdminBillingPage() {
             {
               key: "actions",
               label: "操作",
-              render: (row) => <AdminBillingActionButton action="replay-event" targetId={row.stripeEventId || row.id} disabled={!row.stripeEventId && !row.id} />,
+              render: (row) => <AdminBillingActionButton action="replay-event" targetId={row.stripeEventId || row.id} disabled={!row.stripeEventId && !row.id} canOperate={canOperate} />,
             },
           ]}
         />
@@ -288,6 +301,6 @@ function formatPriceCadence(row: AdminBillingPrice) {
 }
 
 function formatMetricValue(label: string, value: number) {
-  if (label === "Sample revenue") return formatNumber(Math.round(value * 100) / 100);
+  if (label === "净收入") return formatNumber(Math.round(value * 100) / 100);
   return formatNumber(value);
 }

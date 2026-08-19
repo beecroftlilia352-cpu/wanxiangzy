@@ -3,16 +3,19 @@ import { AdminPageHeader } from "@/components/admin/AdminPrimitives";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Alert, Button, Card, Image, Input, Select, Space, Table, Tag, Typography } from "@/components/ui/shadcn-compat";
 import type { ColumnsType } from "@/components/ui/shadcn-compat";
 import { DatabaseOutlined, SearchOutlined } from "@/components/ui/ant-icons-compat";
 import { AdminAssetModerationForm } from "@/components/admin/AdminAssetModerationForm";
+import { App } from "@/components/ui/shadcn-compat";
 import type { AdminAssetList, AdminAssetListItem } from "@/lib/admin/data";
 
 type AdminAssetsClientProps = {
   assets: AdminAssetList;
   q: string;
   module: string;
+  canModerate?: boolean;
 };
 
 const moduleOptions = [
@@ -27,37 +30,60 @@ const moduleOptions = [
   { value: "faceSwap", label: "换脸" },
 ];
 
-export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps) {
+export function AdminAssetsClient({ assets, q, module, canModerate = false }: AdminAssetsClientProps) {
+  const router = useRouter();
+  const { message, modal } = App.useApp();
   const [moduleValue, setModuleValue] = useState(module);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [batchReason, setBatchReason] = useState("");
   const [batchLoading, setBatchLoading] = useState(false);
+  const [batchMessage, setBatchMessage] = useState("");
 
   const selectedRows = assets.rows.filter((row) => selectedKeys.includes(`${row.sourceType}:${row.id}`));
 
-  async function runBatch(action: string) {
-    if (!selectedRows.length) return;
+  function runBatch(action: "pass" | "hide") {
+    if (!canModerate || !selectedRows.length || batchLoading) return;
     const reason = batchReason.trim();
-    if (!reason) {
-      alert("请先填写审核原因");
+    if (reason.length < 4) {
+      setBatchMessage("请先填写至少 4 个字的审核原因。");
       return;
     }
+    modal.confirm({
+      title: action === "hide" ? "确认批量下架" : "确认批量通过",
+      content: `将对当前选中的 ${selectedRows.length} 项资产写入审核记录。原因：${reason}`,
+      okText: action === "hide" ? "确认下架" : "确认通过",
+      okButtonProps: { danger: action === "hide" },
+      async onOk() {
+        await executeBatch(action, reason);
+      },
+    });
+  }
+
+  async function executeBatch(action: "pass" | "hide", reason: string) {
     setBatchLoading(true);
-    let ok = 0;
-    for (const row of selectedRows) {
-      try {
-        const res = await fetch(`/api/admin/assets/${encodeURIComponent(row.id)}/moderate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sourceType: row.sourceType, action, reason }),
-        });
-        if (res.ok) ok += 1;
-      } catch { /* 单条失败继续 */ }
-    }
+    setBatchMessage("");
+    const results = await Promise.allSettled(selectedRows.map(async (row) => {
+      const res = await fetch(`/api/admin/assets/${encodeURIComponent(row.id)}/moderate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceType: row.sourceType, action, reason }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof payload.error === "string" ? payload.error : `HTTP ${res.status}`);
+    }));
+    const failed = results.filter((result) => result.status === "rejected").length;
+    const succeeded = results.length - failed;
     setBatchLoading(false);
-    setSelectedKeys([]);
     setBatchReason("");
-    window.location.reload();
+    if (failed) {
+      setBatchMessage(`批量操作完成：成功 ${succeeded} 项，失败 ${failed} 项。失败项未被隐藏，请刷新后单独重试。`);
+      message.error(`批量操作有 ${failed} 项失败`);
+    } else {
+      setBatchMessage(`批量操作已完成：${succeeded} 项已写入审核记录。`);
+      message.success(`已处理 ${succeeded} 项资产`);
+      setSelectedKeys([]);
+    }
+    router.refresh();
   }
 
   const columns = useMemo<ColumnsType<AdminAssetListItem>>(() => [
@@ -88,8 +114,8 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
     { title: "图片", width: 90, render: (_, row) => <span className="tabular-nums">{`${row.urls.length}/${row.inputUrls.length}`}</span> },
     { title: "归属", dataIndex: "userId", width: 120, render: (value) => value ? <Tag>用户作品</Tag> : <Tag>系统素材</Tag> },
     { title: "时间", width: 130, render: (_, row) => formatDateTime(row.updatedAt || row.createdAt) },
-    { title: "操作", width: 250, render: (_, row) => <AdminAssetModerationForm sourceId={row.id} sourceType={row.sourceType} /> },
-  ], []);
+    { title: "操作", width: 250, render: (_, row) => canModerate ? <AdminAssetModerationForm sourceId={row.id} sourceType={row.sourceType} /> : <span className="text-xs font-bold text-[var(--admin-muted)]">只读</span> },
+  ], [canModerate]);
 
   return (
     <Space orientation="vertical" size={16} className="w-full">
@@ -103,7 +129,7 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
             className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
           >
             <DatabaseOutlined aria-hidden="true" />
-            生命周期
+            存储治理（高级）
           </Link>
         }
       />
@@ -130,7 +156,8 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
           </form>
         }
       >
-        {selectedKeys.length > 0 ? (
+        {batchMessage && <Alert className="mb-3" type={batchMessage.includes("失败") ? "warning" : "success"} showIcon message={batchMessage} />}
+        {canModerate && selectedKeys.length > 0 ? (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2">
             <span className="text-xs font-black text-[var(--admin-fg)]">已选 {selectedKeys.length} 项</span>
             <input
@@ -139,10 +166,10 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
               placeholder="批量审核原因（必填）"
               className="h-8 w-56 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-semibold outline-none"
             />
-            <Button size="small" type="primary" disabled={batchLoading} onClick={() => void runBatch("pass")}>
+            <Button size="small" type="primary" disabled={batchLoading} onClick={() => runBatch("pass")}>
               批量通过
             </Button>
-            <Button size="small" danger disabled={batchLoading} onClick={() => void runBatch("hide")}>
+            <Button size="small" danger disabled={batchLoading} onClick={() => runBatch("hide")}>
               批量下架
             </Button>
             <Button size="small" onClick={() => { setSelectedKeys([]); setBatchReason(""); }}>
@@ -153,10 +180,10 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
         <Table<AdminAssetListItem>
           size="small"
           rowKey={(row) => `${row.sourceType}:${row.id}`}
-          rowSelection={{
+          rowSelection={canModerate ? {
             selectedRowKeys: selectedKeys,
             onChange: (keys) => setSelectedKeys(keys as string[]),
-          }}
+          } : undefined}
           columns={columns}
           dataSource={assets.rows}
           scroll={{ x: 1250 }}

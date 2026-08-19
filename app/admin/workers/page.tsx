@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import {
   AdminMetricCard,
   AdminNotice,
@@ -12,27 +12,36 @@ import {
   shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { AdminWorkerRunForm } from "@/components/admin/AdminWorkerRunForm";
-import { getAdminWorkerOverview, type AdminAuditLog, type AdminTaskListItem, type AdminWorkerProcessor } from "@/lib/admin/data";
+import { AdminWorkerRuntimeConfigForm } from "@/components/admin/AdminWorkerRuntimeConfigForm";
+import { AdminWorkerAutoRefresh } from "@/components/admin/AdminWorkerAutoRefresh";
+import { getAdminWorkerOverview, type AdminAuditLog, type AdminTaskListItem } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminWorkersPage() {
+  const admin = await requireAdmin("workers:read");
+  const canManage = hasAdminPermission(admin.role, "workers:write");
   const overview = await getAdminWorkerOverview();
 
   return (
     <div className="space-y-5">
       <AdminPageHeader
         eyebrow="任务队列"
-        title="任务队列与处理服务"
-        description="查看队列积压、长时间未完成任务和处理服务健康状态，并在有操作记录的前提下手动触发处理。"
+        title="Worker 控制面"
+        description="管理期望容量，观察实际在线 Worker、BullMQ 队列与事务 Outbox。服务器扩容由发布控制器执行，网页不会直接操作 PM2。"
         actions={
-          <Link
-            href="/admin/workers"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            刷新
-          </Link>
+          <div className="flex items-center gap-2">
+            <AdminWorkerAutoRefresh />
+            <Link
+              href="/admin/workers"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              刷新
+            </Link>
+          </div>
         }
       />
 
@@ -43,42 +52,61 @@ export default async function AdminWorkersPage() {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <AdminMetricCard label="在线 Worker" value={formatNumber(overview.runtime.actual.onlineInstances)} tone={overview.runtime.actual.drift ? "warning" : "good"} hint={`期望 ${overview.runtime.desired.desiredInstances}`} />
+        <AdminMetricCard label="实际并发容量" value={formatNumber(overview.runtime.actual.activeCapacity)} hint={`${overview.runtime.actual.workerConcurrency} / 进程`} />
         <AdminMetricCard label="样本任务" value={formatNumber(overview.queue.sampled)} hint="最近队列样本" />
-        <AdminMetricCard label="排队" value={formatNumber(overview.queue.queued)} tone="warning" />
-        <AdminMetricCard label="运行" value={formatNumber(overview.queue.running)} />
-        <AdminMetricCard label="长时间未完成" value={formatNumber(overview.queue.stale)} tone={overview.queue.stale > 0 ? "danger" : "good"} hint={`${overview.queue.staleMinutes} 分钟无进展`} />
-        <AdminMetricCard label="失败" value={formatNumber(overview.queue.failed)} tone={overview.queue.failed > 0 ? "danger" : "neutral"} />
-        <AdminMetricCard label="完成" value={formatNumber(overview.queue.completed)} tone="good" />
+        <AdminMetricCard
+          label="排队"
+          value={formatNumber(overview.queue.queued)}
+          tone={overview.runtime.alerts.waiting.breached ? "danger" : overview.queue.source === "bullmq" ? "good" : "neutral"}
+          hint={queueSourceLabel(overview.queue.source)}
+        />
+        <AdminMetricCard label="运行" value={formatNumber(overview.queue.running)} hint={queueSourceLabel(overview.queue.source)} />
+        <AdminMetricCard label="长时间未完成" value={formatNumber(overview.queue.stale)} tone={overview.queue.stale > 0 ? "danger" : "good"} hint={`${overview.queue.staleMinutes} 分钟无进展 · 最近 ${overview.queue.sampled} 条样本`} />
+        <AdminMetricCard label="失败" value={formatNumber(overview.queue.failed)} tone={overview.queue.failed > 0 ? "danger" : "neutral"} hint={queueSourceLabel(overview.queue.source)} />
+        <AdminMetricCard label="完成" value={formatNumber(overview.queue.completed)} tone="good" hint={queueSourceLabel(overview.queue.source)} />
       </div>
 
-      <AdminSection title="手动触发处理" description="用于处理积压或验证修复。所有触发都会保留操作记录，并返回处理结果摘要。">
-        <AdminWorkerRunForm />
+      <AdminSection title="Worker 运行策略" description="配置会版本化并保留审计记录。告警阈值保存后立即生效；实例数和进程并发由下一次部署应用，支持回滚和横向扩展。">
+        {canManage ? <AdminWorkerRuntimeConfigForm initialConfig={overview.runtime.desired} /> : <AdminNotice tone="info">当前角色只能查看容量与队列健康。修改 Worker 期望配置需要队列写权限。</AdminNotice>}
       </AdminSection>
 
-      <AdminSection title="处理服务健康" description="只展示配置是否可用，不展示密钥内容。">
-        <AdminTable<AdminWorkerProcessor>
-          rows={overview.processors}
-          rowKey={(row) => row.key}
-          columns={[
-            { key: "label", label: "处理服务", render: (row) => <span className="font-black text-[var(--admin-fg)]">{row.label}</span> },
-            { key: "endpoint", label: "入口", render: (row) => <code className="text-xs font-bold text-[var(--admin-fg)]">{row.endpoint}</code> },
-            { key: "configured", label: "配置状态", render: (row) => <AdminStatusBadge status={row.configured ? "completed" : "failed"} group={row.configured ? "completed" : "failed"} /> },
-            { key: "batch", label: "批量", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.batchSize}</span> },
-            {
-              key: "secretNames",
-              label: "候选变量",
-              render: (row) => (
-                <div className="flex max-w-[360px] flex-wrap gap-1">
-                  {row.secretNames.map((name) => <code key={name} className="rounded bg-[var(--admin-surface-soft)] px-1.5 py-1 text-[11px] font-bold text-[var(--admin-fg)]">{name}</code>)}
-                </div>
-              ),
-            },
-            { key: "hint", label: "状态", render: (row) => <p className="max-w-[320px] text-xs leading-5 text-[var(--admin-muted)]">{row.statusHint}</p> },
-          ]}
-        />
+      <AdminSection title="实时运行健康" description="容量模型：在线 Worker 实例 × 单进程并发。供应商自身的并发、RPM、熔断和智能路由仍在统一模型控制面内生效。">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <RuntimeHealthItem label="运行模式" value={overview.runtime.actual.mode} ok={overview.runtime.actual.mode === "bullmq"} />
+          <RuntimeHealthItem label="BullMQ Redis" value={overview.runtime.bullmq.reachable ? `${overview.runtime.bullmq.latencyMs ?? 0} ms` : "不可达"} ok={overview.runtime.bullmq.reachable} />
+          <RuntimeHealthItem label="队列状态" value={overview.runtime.bullmq.paused === null ? "未知" : overview.runtime.bullmq.paused ? "已暂停" : "运行中"} ok={overview.runtime.bullmq.paused === false} />
+          <RuntimeHealthItem label="配置漂移" value={overview.runtime.actual.drift ? "待发布应用" : "一致"} hint={overview.runtime.actual.driftReasons.join("；")} ok={!overview.runtime.actual.drift} />
+          <RuntimeHealthItem label="BullMQ Waiting" value={overview.runtime.alerts.waiting.current === null ? "未知" : formatNumber(overview.runtime.alerts.waiting.current)} hint={`告警阈值 ${formatNumber(overview.runtime.alerts.waiting.threshold)} 个`} ok={overview.runtime.alerts.waiting.current !== null && !overview.runtime.alerts.waiting.breached} />
+          <RuntimeHealthItem label="Outbox 最老待发布" value={overview.runtime.alerts.oldestPending.currentSeconds === null ? "未知" : formatDurationSeconds(overview.runtime.alerts.oldestPending.currentSeconds)} hint={`阈值 ${formatDurationSeconds(overview.runtime.alerts.oldestPending.thresholdSeconds)}`} ok={overview.runtime.alerts.oldestPending.currentSeconds !== null && !overview.runtime.alerts.oldestPending.breached} />
+        </div>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--admin-border)]">
+          <table className="min-w-full text-left text-xs">
+            <thead className="bg-[var(--admin-surface-soft)] text-[var(--admin-muted)]"><tr><th className="px-3 py-2 font-black">指标</th><th className="px-3 py-2 font-black">当前</th><th className="px-3 py-2 font-black">说明</th></tr></thead>
+            <tbody className="divide-y divide-[var(--admin-border)]">
+              <RuntimeRow label="Waiting / Active / Delayed / Failed" value={`${overview.runtime.bullmq.counts.waiting ?? 0} / ${overview.runtime.bullmq.counts.active ?? 0} / ${overview.runtime.bullmq.counts.delayed ?? 0} / ${overview.runtime.bullmq.counts.failed ?? 0}`} hint="BullMQ 实时任务状态" />
+              <RuntimeRow label="Outbox pending / publishing / dead" value={`${overview.runtime.outbox.pending_count ?? 0} / ${overview.runtime.outbox.publishing_count ?? 0} / ${overview.runtime.outbox.dead_count ?? 0}`} hint="PostgreSQL 事务消息发布状态" />
+              <RuntimeRow label="当前告警" value={overview.runtime.alerts.breached ? String(overview.runtime.alerts.reasons.length) : "0"} hint={overview.runtime.alerts.reasons.join("；") || "当前队列指标均低于已发布阈值"} />
+              <RuntimeRow label="Relay 并发" value={String(overview.runtime.actual.relayConcurrency)} hint="每个 Worker 进程的 Outbox 发布并发" />
+              <RuntimeRow label="配置版本" value={overview.runtime.configVersion?.id ? shortAdminCode(overview.runtime.configVersion.id, "版本") : "默认值"} hint={overview.runtime.configVersion?.publishedAt ? formatDateTime(overview.runtime.configVersion.publishedAt) : "尚未发布 Worker 配置"} />
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--admin-border)]">
+          <table className="min-w-full text-left text-xs">
+            <thead className="bg-[var(--admin-surface-soft)] text-[var(--admin-muted)]"><tr>{["Worker 实例", "发布版本", "PID", "并发", "最后心跳"].map((label) => <th key={label} className="px-3 py-2 font-black">{label}</th>)}</tr></thead>
+            <tbody className="divide-y divide-[var(--admin-border)]">
+              {overview.runtime.instances.length ? overview.runtime.instances.map((instance) => <tr key={instance.instanceId}><td className="px-3 py-2 font-mono font-black text-[var(--admin-fg)]">{instance.instanceId}</td><td className="px-3 py-2 font-mono text-[var(--admin-muted)]">{instance.release}</td><td className="px-3 py-2 font-mono text-[var(--admin-fg)]">{instance.pid}</td><td className="px-3 py-2 font-black text-[var(--admin-fg)]">{instance.concurrency}</td><td className="px-3 py-2 text-[var(--admin-muted)]">{formatDateTime(instance.lastSeenAt)}</td></tr>) : <tr><td colSpan={5} className="px-3 py-8 text-center font-bold text-[var(--admin-muted)]">暂无 Worker 应用心跳</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </AdminSection>
 
-      <AdminSection title="长时间未完成任务" description="运行中且超过阈值没有进展的任务。手动重新处理前先查看任务详情，避免重复扣费或重复补偿。">
+      <AdminSection title="受审计恢复" description="仅用于 Outbox 恢复或故障演练。正常任务由 BullMQ Worker 自动消费，不需要网页手动运行 Worker。">
+        {canManage ? <AdminWorkerRunForm /> : <AdminNotice tone="info">当前角色不能手动触发恢复任务。正常任务由 BullMQ Worker 自动消费。</AdminNotice>}
+      </AdminSection>
+
+      <AdminSection title="长时间未完成任务" description={`最近 ${overview.queue.sampled} 条队列样本中，运行超过阈值且没有进展的任务。手动重新处理前先查看任务详情，避免重复扣费或重复补偿。`}>
         <AdminTable<AdminTaskListItem>
           rows={overview.staleTasks}
           rowKey={(row) => row.id}
@@ -119,4 +147,22 @@ export default async function AdminWorkersPage() {
       </AdminSection>
     </div>
   );
+}
+
+function queueSourceLabel(source: "bullmq" | "task_queue_sample") {
+  return source === "bullmq" ? "BullMQ 实时计数" : "数据库样本回退";
+}
+
+function formatDurationSeconds(seconds: number) {
+  if (seconds < 60) return `${seconds} 秒`;
+  if (seconds < 3_600) return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+  return `${Math.floor(seconds / 3_600)} 小时 ${Math.floor((seconds % 3_600) / 60)} 分`;
+}
+
+function RuntimeHealthItem({ label, value, hint, ok }: { label: string; value: string; hint?: string; ok: boolean }) {
+  return <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-3"><div><p className="text-[11px] font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{label}</p><p className="mt-1 text-sm font-black text-[var(--admin-fg)]">{value}</p>{hint ? <p className="mt-1 text-[11px] font-semibold text-[var(--admin-muted)]">{hint}</p> : null}</div>{ok ? <CheckCircle2 className="h-4 w-4 text-[var(--admin-success)]" /> : <AlertTriangle className="h-4 w-4 text-[var(--admin-warning)]" />}</div>;
+}
+
+function RuntimeRow({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return <tr><td className="px-3 py-2 font-black text-[var(--admin-fg)]">{label}</td><td className="px-3 py-2 font-mono font-black text-[var(--admin-fg)]">{value}</td><td className="px-3 py-2 text-[var(--admin-muted)]">{hint}</td></tr>;
 }

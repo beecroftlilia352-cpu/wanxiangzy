@@ -17,6 +17,8 @@ import {
   type AdminInviteCodeUsage,
   type AdminInviteReward,
 } from "@/lib/admin/invite-codes";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,8 @@ type PageProps = {
 };
 
 export default async function AdminInviteCodesPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin("settings:read");
+  const canManage = hasAdminPermission(admin.role, "settings:write");
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const status = getSearchParam(params.status);
@@ -77,9 +81,11 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
         <AdminMetricCard label="发放灵点" value={overview.rewardMetrics.totalGrantedCredits} />
       </div>
 
-      <AdminSection title="生成邀请码" description="默认单码一次。主流运营配置包括批次渠道、生效时间、过期时间、单码次数和停用开关。">
-        <AdminInviteCodeForm />
-      </AdminSection>
+      {canManage ? (
+        <AdminSection title="生成邀请码" description="默认单码一次。主流运营配置包括批次渠道、生效时间、过期时间、单码次数和停用开关。">
+          <AdminInviteCodeForm />
+        </AdminSection>
+      ) : <AdminNotice tone="info">当前角色只能查看邀请码和使用记录。生成、启停邀请码与奖励配置需要系统配置写权限。</AdminNotice>}
 
       <AdminSection title="邀请码列表" description="前台注册只接受启用、未过期且仍有剩余额度的邀请码。">
         <AdminTable<AdminInviteCode>
@@ -135,7 +141,7 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "actions",
               label: "操作",
-              render: (row) => <AdminInviteCodeActions id={row.id} status={row.status} />,
+              render: (row) => canManage ? <AdminInviteCodeActions id={row.id} status={row.status} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">只读</span>,
             },
           ]}
         />
@@ -199,7 +205,7 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
         title="奖励配置"
         description="邀请人与被邀请人的灵点额度统一在后台管理，发布后运行时读取（无需环境变量）。新注册用户按发布时的额度发放。"
       >
-        <AdminInviteRewardConfigForm />
+        {canManage ? <AdminInviteRewardConfigForm /> : <AdminNotice tone="info">当前角色可以查看生效额度，但不能修改邀请奖励配置。</AdminNotice>}
       </AdminSection>
 
       <AdminSection
@@ -272,7 +278,7 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "actions",
               label: "操作",
-              render: (row) => (row.status === "granted" ? <AdminInviteRewardActions id={row.id} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">-</span>),
+              render: (row) => canManage && row.status === "granted" ? <AdminInviteRewardActions id={row.id} /> : <span className="text-xs font-semibold text-[var(--admin-muted)]">{canManage ? "-" : "只读"}</span>,
             },
           ]}
         />

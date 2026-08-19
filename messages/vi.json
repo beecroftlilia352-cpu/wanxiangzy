@@ -3281,6 +3281,14 @@
       "complexMaterial": "Chất liệu phức tạp và ánh sáng thương mại",
       "recommended": "Đề xuất"
     },
+    "mode": {
+      "faithfulLabel": "Tinh chỉnh tiêu chuẩn",
+      "faithfulDesc": "Giữ nền gốc · Làm sạch khuyết điểm và nhiễu; hiệu chỉnh màu sắc, ánh sáng và độ nét",
+      "whiteBackgroundLabel": "Tinh chỉnh nền trắng",
+      "whiteBackgroundDesc": "Tạo nền trắng tinh · Chuẩn hóa bố cục và đường viền, giữ bóng tiếp xúc tự nhiên",
+      "studioLabel": "Tinh chỉnh studio",
+      "studioDesc": "Tái tạo ánh sáng và phông nền studio · Tăng cường chất liệu, phản xạ và chiều sâu"
+    },
     "aspect": {
       "autoLabel": "Tỷ lệ ảnh gốc",
       "auto": "Theo ảnh sản phẩm gốc",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "Ảnh chủ thể trọn vẹn, lấy nét rõ, không che phù hợp sản xuất hàng loạt."
     },
     "example": {
+      "sampleLabel": "Ví dụ {index}",
       "alreadyAdded": "Ví dụ {title} đã có trong lô hiện tại",
       "added": "Đã thêm ví dụ {title}"
     },
@@ -4811,6 +4820,138 @@
     "delete": "Xóa",
     "reuseImages": "Dùng lại ảnh",
     "taskGenericTitle": "Tác vụ ghép trang phục",
-    "imageNumber": "Ảnh {index}"
+    "imageNumber": "Ảnh {index}",
+    "uploadLibrary": "Chọn từ thư viện nội dung"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Thư viện nội dung",
+      "description": "Quản lý nội dung tải lên có thể sử dụng lại, nội dung được tạo và lời nhắc ở cùng một nơi."
+    },
+    "tabs": {
+      "label": "Phần thư viện nội dung",
+      "uploads": "Tải lên cục bộ",
+      "generated": "Nội dung đã tạo",
+      "prompts": "Lời nhắc của tôi"
+    },
+    "actions": {
+      "cancel": "Hủy bỏ",
+      "close": "Đóng",
+      "confirm": "Xác nhận",
+      "loadMore": "Tải thêm",
+      "localUpload": "Tải lên từ thiết bị",
+      "newPrompt": "Lời nhắc mới",
+      "remove": "Xóa",
+      "removeAsset": "Xóa nội dung",
+      "removePrompt": "Xóa lời nhắc",
+      "retry": "Thử lại",
+      "save": "Lưu",
+      "add": "Thêm vào thư viện nội dung",
+      "added": "Đã thêm vào thư viện nội dung"
+    },
+    "categories": {
+      "title": "Danh mục tài sản",
+      "localUploads": "Tải lên cục bộ"
+    },
+    "filters": {
+      "allMedia": "Tất cả phương tiện truyền thông",
+      "allModules": "Tất cả các tính năng",
+      "image": "Hình ảnh",
+      "mediaLabel": "Loại phương tiện",
+      "moduleLabel": "tính năng",
+      "video": "Video"
+    },
+    "picker": {
+      "title": "Chọn nội dung",
+      "selectionHint": "{selected} đã chọn của {max}",
+      "selectedCount": "Đã chọn {selected}/{max}",
+      "gridLabel": "Tài sản có sẵn",
+      "limitReachedTitle": "Đã đạt đến giới hạn lựa chọn",
+      "limitReachedDescription": "Bỏ chọn một nội dung trước khi chọn một nội dung khác.",
+      "limitReachedInline": "Bạn có thể chọn tối đa nội dung {max}."
+    },
+    "card": {
+      "select": "Chọn {title}",
+      "removeSelection": "Bỏ chọn {title}",
+      "preview": "Xem trước {title}",
+      "previewTitle": "Xem trước nội dung",
+      "previewDescription": "Xem trước nội dung đã chọn."
+    },
+    "empty": {
+      "uploadTitle": "Chưa có nội dung tải lên cục bộ nào",
+      "uploadDescription": "Tải hình ảnh hoặc video lên để sử dụng lại trên các công cụ sáng tạo.",
+      "moduleTitle": "Không có nội dung đã lưu nào trong tính năng này",
+      "moduleDescription": "Lưu kết quả được tạo để hiển thị ở đây.",
+      "generatedTitle": "Chưa có tài sản nào được tạo",
+      "generatedDescription": "Lưu kết quả từ trang sáng tạo để sử dụng lại tại đây.",
+      "promptTitle": "Chưa có lời nhắc nào",
+      "promptDescription": "Tạo lời nhắc có thể tái sử dụng để tăng tốc cho những lần sáng tạo tiếp theo."
+    },
+    "states": {
+      "loading": "Đang tải",
+      "uploading": "Đang tải lên",
+      "saving": "Đang lưu",
+      "uploadFailed": "Tải lên không thành công",
+      "loadFailedTitle": "Không thể tải nội dung",
+      "loadFailedDescription": "Hãy kiểm tra kết nối của bạn và thử lại.",
+      "deleteFailed": "Không thể xóa mục",
+      "createFailed": "Không thể tạo lời nhắc",
+      "operationFailed": "Hành động thư viện nội dung không thành công. Vui lòng thử lại."
+    },
+    "toast": {
+      "uploadSuccess": "Nội dung {count} đã tải lên",
+      "assetRemoved": "Đã xóa nội dung",
+      "promptCreated": "Đã tạo lời nhắc",
+      "promptRemoved": "Đã xóa lời nhắc"
+    },
+    "upload": {
+      "supportedFormats": "Hỗ trợ các định dạng hình ảnh và video phổ biến"
+    },
+    "prompts": {
+      "allTypes": "Tất cả các loại",
+      "typeLabel": "Loại lời nhắc",
+      "searchLabel": "Lời nhắc tìm kiếm",
+      "searchPlaceholder": "Lời nhắc tìm kiếm",
+      "createTitle": "Tạo lời nhắc",
+      "createDescription": "Lưu tiêu đề và nội dung nhắc nhở để sử dụng lại.",
+      "titleLabel": "Tiêu đề nhắc nhở",
+      "titlePlaceholder": "Nhập tiêu đề lời nhắc",
+      "contentLabel": "Nội dung nhắc nhở",
+      "contentPlaceholder": "Nhập nội dung nhắc nhở"
+    },
+    "confirm": {
+      "removeAssetTitle": "Xóa nội dung?",
+      "removeAssetDescription": "Nội dung này sẽ bị xóa khỏi thư viện của bạn.",
+      "removePromptTitle": "Xóa lời nhắc?",
+      "removePromptDescription": "Lời nhắc này sẽ bị xóa vĩnh viễn."
+    },
+    "promptTypes": {
+      "text-to-image": "Văn bản thành hình ảnh",
+      "image-to-image": "Hình ảnh thành hình ảnh",
+      "model-background": "Nền mô hình",
+      "pose": "tư thế",
+      "video": "Video",
+      "other": "Khác"
+    },
+    "modules": {
+      "tryon": "Mặc thử",
+      "grass": "Ảnh gợi mua trang phục",
+      "productRetouch": "Tinh chỉnh sản phẩm",
+      "productSet": "Bộ ảnh sản phẩm",
+      "modelBackground": "Đổi nền người mẫu",
+      "materialEnhancement": "Tăng cường chất liệu",
+      "generalImage": "Tạo ảnh chung",
+      "outfitFusion": "Kết hợp phối đồ",
+      "pose": "Biến thể tư thế",
+      "model": "Người mẫu độc quyền",
+      "garment3d": "Trang phục sang 3D",
+      "faceSwap": "Đổi mặt",
+      "imageTranslation": "Dịch hình ảnh",
+      "commerceDetail": "Hình ảnh chi tiết sản phẩm",
+      "allCategoryProductImage": "Hình ảnh sản phẩm đủ loại",
+      "videoImageToVideo": "Ảnh sang video",
+      "videoMotion": "Mô phỏng động tác",
+      "videoFirstLastFrame": "Khung đầu-cuối"
+    }
   }
 }

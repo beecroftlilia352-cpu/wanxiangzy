@@ -8,6 +8,7 @@ import {
   shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { listAdminAuditLogs, type AdminAuditLog } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,7 @@ type PageProps = {
 };
 
 export default async function AdminAuditPage({ searchParams }: PageProps) {
+  await requireAdmin("audit:read");
   const params = (await searchParams) || {};
   const action = getSearchParam(params.action);
   const q = getSearchParam(params.q);

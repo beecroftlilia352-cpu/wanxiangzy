@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { storeImage } from "../image-storage";
+import { getImageStorageAdapter, isStableStoredImageUrl, storeImage } from "../image-storage";
 import { persistGeneratedImageUrls } from "../result-image-storage";
 
 describe("result image storage", () => {
   const originalKey = process.env.IMGBB_API_KEY;
   const originalStorageProvider = process.env.IMAGE_STORAGE_PROVIDER;
+  const originalNodeEnv = process.env.NODE_ENV;
   const originalOssAccessKeyId = process.env.ALIYUN_OSS_ACCESS_KEY_ID;
   const originalOssAccessKeySecret = process.env.ALIYUN_OSS_ACCESS_KEY_SECRET;
   const originalOssBucket = process.env.ALIYUN_OSS_BUCKET;
@@ -19,18 +20,20 @@ describe("result image storage", () => {
   const tinyAvifBase64 = "AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAAA5waXRtAAAAAAABAAAAImlsb2MAAAAAREAAAQABAAAAAAD6AAEAAAAAAAAAHgAAACNpaW5mAAAAAAABAAAAFWluZmUCAAAAAAEAAGF2MDEAAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAmbWRhdBIACgc4ADYQENBpMhEWQAYYYYQAAHlM2KcgXkzU8A==";
 
   beforeEach(() => {
-    delete process.env.IMAGE_STORAGE_PROVIDER;
+    process.env.IMAGE_STORAGE_PROVIDER = "imgbb";
     process.env.IMGBB_API_KEY = "test-key";
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     if (originalKey === undefined) {
       delete process.env.IMGBB_API_KEY;
     } else {
       process.env.IMGBB_API_KEY = originalKey;
     }
     restoreEnv("IMAGE_STORAGE_PROVIDER", originalStorageProvider);
+    restoreEnv("NODE_ENV", originalNodeEnv);
     restoreEnv("ALIYUN_OSS_ACCESS_KEY_ID", originalOssAccessKeyId);
     restoreEnv("ALIYUN_OSS_ACCESS_KEY_SECRET", originalOssAccessKeySecret);
     restoreEnv("ALIYUN_OSS_BUCKET", originalOssBucket);
@@ -42,6 +45,28 @@ describe("result image storage", () => {
     restoreEnv("ALIYUN_OSS_FAVORITE_PREFIX", originalOssFavoritePrefix);
     restoreEnv("ALIYUN_OSS_SITE_ASSET_PREFIX", originalOssSiteAssetPrefix);
     restoreEnv("ALIYUN_OSS_TEMP_PREFIX", originalOssTempPrefix);
+  });
+
+  it("defaults to OSS and rejects explicit ImgBB in production", () => {
+    delete process.env.IMAGE_STORAGE_PROVIDER;
+    expect(getImageStorageAdapter().provider).toBe("aliyun-oss");
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.IMAGE_STORAGE_PROVIDER = "imgbb";
+    expect(() => getImageStorageAdapter()).toThrow("生产环境仅允许");
+  });
+
+  it("only treats canonical registry capabilities as durable in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
+    process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
+
+    expect(isStableStoredImageUrl("/api/media-assets/6ba7b810-9dad-41d1-80b4-00c04fd430c8")).toBe(true);
+    expect(isStableStoredImageUrl("https://vasthk.oss-cn-hongkong.aliyuncs.com/generated/raw.png")).toBe(false);
+    expect(isStableStoredImageUrl("https://vasthk.oss-cn-hongkong.aliyuncs.com/generated/raw.png?Signature=secret")).toBe(false);
   });
 
   it("returns already-persisted ImgBB URLs without reuploading", async () => {
@@ -76,19 +101,17 @@ describe("result image storage", () => {
     expect(uploadedImages).toEqual(["https://provider.example/result.png"]);
   });
 
-  it("falls back to the provider URL when ImgBB upload fails", async () => {
+  it("fails closed instead of persisting a temporary provider URL when storage fails", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchMock = vi.fn(async () => new Response("bad request", { status: 400 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const providerUrl = "https://provider.example/result.png";
 
-    await expect(persistGeneratedImageUrls([providerUrl], "gen-3")).resolves.toEqual([providerUrl]);
+    await expect(persistGeneratedImageUrls([providerUrl], "gen-3"))
+      .rejects.toThrow("generated image was not durably stored");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledWith(
-      "[result-image-storage] generated image storage failed; falling back to provider URL:",
-      "图片上传失败: ImgBB HTTP 400"
-    );
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("preserves generated result naming with start indexes", async () => {
@@ -123,7 +146,7 @@ describe("result image storage", () => {
     process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
     process.env.ALIYUN_OSS_GENERATED_PREFIX = "generated-results/original";
 
-    const pngBase64 = "iVBORw0KGgo=";
+    const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==";
     const putCalls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       putCalls.push({ url, init });
@@ -133,11 +156,12 @@ describe("result image storage", () => {
 
     const [url] = await persistGeneratedImageUrls([`data:image/png;base64,${pngBase64}`], "gen-oss");
 
-    expect(url).toMatch(/^https:\/\/vasthk\.oss-cn-hongkong\.aliyuncs\.com\/generated-results\/original\/\d{4}\/\d{2}\/\d{2}\//);
+    expect(url).toMatch(/^https:\/\/vasthk\.oss-cn-hongkong\.aliyuncs\.com\/generated-results\/original\/by-generation\//);
     expect(putCalls).toHaveLength(1);
     expect(putCalls[0].url).toContain("https://vasthk.oss-cn-hongkong.aliyuncs.com/generated-results/original/");
     expect((putCalls[0].init?.headers as Record<string, string>).Authorization).toMatch(/^OSS test-access-key-id:/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/png");
+    expect((putCalls[0].init?.headers as Record<string, string>)["x-oss-object-acl"]).toBe("private");
   });
 
   it("normalizes AVIF uploads to JPEG before storing in Aliyun OSS", async () => {
@@ -162,7 +186,7 @@ describe("result image storage", () => {
       storageClass: "upload",
     });
 
-    expect(stored.url).toMatch(/source-avif\.jpg$/);
+    expect(new URL(stored.url).pathname).toMatch(/source-avif\.jpg$/);
     expect(putCalls).toHaveLength(1);
     expect(putCalls[0].url).toMatch(/source-avif\.jpg$/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
@@ -193,7 +217,7 @@ describe("result image storage", () => {
       storageClass: "upload",
     });
 
-    expect(stored.url).toMatch(/reference-photo\.jpg$/);
+    expect(new URL(stored.url).pathname).toMatch(/reference-photo\.jpg$/);
     expect(putCalls).toHaveLength(1);
     expect(putCalls[0].url).toMatch(/reference-photo\.jpg$/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
@@ -223,7 +247,7 @@ describe("result image storage", () => {
       storageClass: "upload",
     });
 
-    expect(stored.url).toMatch(/mislabeled-reference\.jpg$/);
+    expect(new URL(stored.url).pathname).toMatch(/mislabeled-reference\.jpg$/);
     expect(putCalls).toHaveLength(1);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
     expect(Buffer.from(putCalls[0].init?.body as ArrayBuffer).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));

@@ -16,7 +16,9 @@ import {
   writeCachedTaskSummary,
 } from "@/lib/redis/task-queue-cache";
 import type { TaskQueueItem, TaskStatusGroup } from "@/lib/task-queue";
+import { taskMatchesScope } from "@/lib/task-queue";
 import { TASK_RESULT_THUMBNAIL_LIMIT, normalizeModule } from "@/lib/task-queue-index";
+import { getAiToolPath, isAiToolSlug } from "@/lib/ai-tools/catalog";
 import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/tryon-input-references";
 import { getGeneralImageHistoryMode, getHistoryModulePath } from "@/lib/history-apply";
 import {
@@ -589,6 +591,31 @@ async function loadLightweightModuleQueue(
   scopeFilter: string,
   limit: number
 ): Promise<{ rows: TaskQueueItem[]; hasMore: boolean; nextCursor: string | null }> {
+  if (moduleFilter === "toolbox") {
+    const indexedLimit = Math.min(100, Math.max(limit * 4, 48));
+    const indexed = await withTimeout(
+      loadTaskQueueItemsFromIndex(supabase, {
+        userId,
+        module: "toolbox",
+        limit: indexedLimit,
+      }),
+      LIGHTWEIGHT_MODULE_PRIMARY_TIMEOUT_MS,
+      "AI tool queue index timeout",
+    ).catch((error) => ({ ok: false as const, error: toLogMessage(error) }));
+    if (indexed.ok) {
+      const scopedRows = indexed.rows.filter((row) => taskMatchesScope(row, scopeFilter));
+      const rows = scopedRows.slice(0, limit);
+      return {
+        rows,
+        hasMore: indexed.hasMore || scopedRows.length > limit,
+        nextCursor: indexed.hasMore || scopedRows.length > limit
+          ? rows[rows.length - 1]?.createdAt || null
+          : null,
+      };
+    }
+    logTaskQueueWarning("AI tool queue index unavailable", indexed.error);
+  }
+
   let recentQuery = supabase
     .from("generations")
     .select(QUEUE_COLUMNS)
@@ -837,6 +864,7 @@ function normalizeWorkflowRow(row: WorkflowRow): TaskQueueItem {
 }
 
 function inferGenerationModule(row: QueueRow, payload: Record<string, unknown>) {
+  if (aiToolOperation(payload)) return "toolbox";
   const clothingUrls = [
     ...stringArray(payload.clothingUrls),
     ...(Array.isArray(row.clothing_urls) ? row.clothing_urls : []),
@@ -920,6 +948,7 @@ function moduleLabel(kind: string) {
   if (kind === "productSet") return "商品套图";
   if (kind === "generalImage") return "创意生图";
   if (kind === "outfitFusion") return "搭配融图";
+  if (kind === "toolbox") return "AI工具箱";
   return "AI任务";
 }
 
@@ -988,12 +1017,17 @@ function getDisplayThumbnails(resultUrls: string[], inputUrls: string[]) {
 }
 
 function getApplyUrl(kind: string, generationId: string, payload?: Record<string, unknown>) {
+  if (kind === "toolbox") {
+    const operation = aiToolOperation(payload);
+    if (operation) return `${getAiToolPath(operation)}?task=${encodeURIComponent(generationId)}`;
+  }
   const path = getHistoryModulePath(kind, payload) || getModulePath(kind);
   if (!path) return `/history?detail=${encodeURIComponent(generationId)}`;
   return `${path}?apply=${encodeURIComponent(generationId)}`;
 }
 
 function getTaskScope(kind: string, payload?: Record<string, unknown>) {
+  if (kind === "toolbox") return aiToolOperation(payload) || undefined;
   if (kind !== "generalImage") return undefined;
   return getGeneralImageHistoryMode(payload);
 }
@@ -1011,6 +1045,7 @@ function getModulePath(kind: string) {
   if (kind === "faceSwap") return "/face-swap";
   if (kind === "model") return "/model";
   if (kind === "pose") return "/pose";
+  if (kind === "toolbox") return "/ai-tools/matting";
   return "";
 }
 
@@ -1021,8 +1056,16 @@ function normalizeModuleFilter(value: string | null) {
 }
 
 function normalizeScopeFilter(moduleFilter: string, value: string | null) {
+  if (moduleFilter === "toolbox") return isAiToolSlug(value) ? value : "";
   if (moduleFilter !== "generalImage") return "";
   return value === "image-to-image" || value === "text-to-image" ? value : "";
+}
+
+function aiToolOperation(payload?: Record<string, unknown>) {
+  const aiTool = payload?.aiTool;
+  if (!isRecord(aiTool)) return "";
+  const operation = stringValue(aiTool.operation);
+  return isAiToolSlug(operation) ? operation : "";
 }
 
 function matchesSearch(row: TaskQueueItem, query: string) {

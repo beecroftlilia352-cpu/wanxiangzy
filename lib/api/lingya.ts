@@ -60,6 +60,9 @@ import {
   type PricedImageModel,
   type PricedImageSize,
 } from "@/lib/model-pricing";
+import { getRegisteredImageCreditCost, getRegisteredImageSizes } from "@/lib/image-model-catalog";
+import { RetryableGenerationError, sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
+import type { AiResolvedDeployment } from "@/lib/ai-control-plane/types";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
@@ -118,10 +121,13 @@ export function normalizeAspectRatio(value: unknown, fallback: AspectRatio = "3:
 }
 
 export function getCreditCost(model: LingyaModel, size: ImageSize = "1K", aspectRatio?: AspectRatio): number {
-  return getImageCreditCost(model, normalizeImageSize(model, size, aspectRatio));
+  const normalized = normalizeImageSize(model, size, aspectRatio);
+  return getRegisteredImageCreditCost(model, normalized) ?? getImageCreditCost(model, normalized);
 }
 
 export function getSupportedImageSizes(model: LingyaModel, aspectRatio?: AspectRatio): ImageSize[] {
+  const registered = getRegisteredImageSizes(model);
+  if (registered?.length) return registered;
   if (isSeedreamModel(model)) return ["2K", "4K"];
   return ["1K", "2K", "4K"];
 }
@@ -131,7 +137,7 @@ export function normalizeImageSize(model: LingyaModel, size: ImageSize = "1K", a
   return supported.includes(size) ? size : supported[0] || "1K";
 }
 
-interface GenerateInput {
+export interface GenerateInput {
   model: LingyaModel;
   prompt: string;
   prompt_kind?: ImagePromptKind;
@@ -141,9 +147,10 @@ interface GenerateInput {
   image_size?: ImageSize;
   search?: boolean;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
+  routingDeployment?: AiResolvedDeployment;
 }
 
-interface GenerateResult {
+export interface GenerateResult {
   url?: string;
   b64_json?: string;
   prompt?: string;
@@ -191,6 +198,7 @@ interface BatchTryOnInput {
   candidateIndex?: number;
   candidateCount?: number;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
+  imageGenerator?: (input: GenerateInput, retries?: number) => Promise<GenerateResult>;
 }
 
 type TryOnRequestPromptOptions = {
@@ -209,7 +217,9 @@ type TryOnRequestPromptOptions = {
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
   const requestInput = await resolveGenerateInputAspectRatio(input);
-  const provider = await getImageProvider(requestInput.model);
+  const provider = requestInput.routingDeployment
+    ? imageProviderFromDeployment(requestInput.routingDeployment)
+    : await getImageProvider(requestInput.model);
   if (provider.enabled === false) {
     throw new Error(`模型 ${requestInput.model} 已在后台关闭，暂不可用`);
   }
@@ -263,7 +273,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
           : useImageEditEndpoint
             ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: requestInput.image || [] })
             : buildImageGenerationRequest({ apiBase, apiKey, provider, body });
-        res = await fetch(request.url, request.init);
+        res = await fetch(request.url, { ...request.init, signal: requestInput.routingDeployment?.abortSignal });
 
         resText = await res.text();
       } finally {
@@ -271,12 +281,18 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
       }
 
       if (!res.ok) {
-        console.error(`[api:${provider.name}] 第${attempt}次失败: ${res.status}`, resText.slice(0, 300));
+        // Provider bodies are untrusted and frequently contain signed URLs or
+        // internal diagnostics. Keep them out of logs, DB error fields and the
+        // user-facing generation payload.
+        console.error(`[api:${provider.name}] 第${attempt}次失败: HTTP ${res.status}`);
         if (isRetryableStatus(res.status) && attempt < retries) {
           await new Promise(r => setTimeout(r, attempt * 5000));
           continue;
         }
-        throw new Error(`API 错误 ${res.status}: ${resText.slice(0, 300)}`);
+        if (isRetryableStatus(res.status)) {
+          throw new RetryableGenerationError(`供应商暂时不可用（HTTP ${res.status}）`, `PROVIDER_HTTP_${res.status}`);
+        }
+        throw new Error(`供应商拒绝了生成请求（HTTP ${res.status}）`);
       }
 
       const json = JSON.parse(resText);
@@ -331,6 +347,23 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   }
 
   throw new Error("API 多次重试后失败");
+}
+
+function imageProviderFromDeployment(deployment: AiResolvedDeployment): ImageProvider {
+  if (deployment.protocol !== "openai-image" && deployment.protocol !== "gemini-native") {
+    throw new Error(`图片部署 ${deployment.id} 的协议 ${deployment.protocol} 不受支持`);
+  }
+  const apiBase = deployment.protocol === "gemini-native"
+    ? normalizeGeminiNativeApiBaseUrl(deployment.provider.baseUrl, deployment.provider.baseUrl)
+    : normalizeOpenAiCompatibleBaseUrl(deployment.provider.baseUrl);
+  return {
+    name: "admin",
+    apiBase,
+    apiKey: deployment.apiKey,
+    upstreamModel: deployment.upstreamModel,
+    responseType: deployment.protocol,
+    enabled: deployment.enabled,
+  };
 }
 
 async function resolveGenerateInputAspectRatio(input: GenerateInput): Promise<GenerateInput> {
@@ -462,7 +495,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     garmentDetailUrls,
   });
 
-  const result = await generateImage({
+  const result = await (input.imageGenerator || generateImage)({
     model: input.model,
     prompt: finalPrompt,
     prompt_kind: "tryon",
@@ -675,6 +708,7 @@ async function buildImageEditRequest(params: {
   apiKey: string;
   body: Record<string, any>;
   imageUrls: string[];
+  maskUrl?: string;
 }): Promise<{ url: string; init: RequestInit }> {
   if (!params.imageUrls.length) {
     throw new Error("gpt-image-2 image edit requires at least one reference image");
@@ -695,6 +729,10 @@ async function buildImageEditRequest(params: {
   const images = await Promise.all(params.imageUrls.map(fetchImageFormPart));
   for (const image of images) {
     form.append("image", image.blob, image.filename);
+  }
+  if (params.maskUrl) {
+    const mask = await fetchImageFormPart(params.maskUrl, images.length);
+    form.append("mask", mask.blob, mask.filename);
   }
 
   return {
@@ -722,13 +760,14 @@ async function fetchImageFormPart(src: string, index: number): Promise<{ blob: B
   try {
     res = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_EDIT_FETCH_TIMEOUT_MS) });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to download reference image: ${message}`);
+    throw new RetryableGenerationError("参考图片下载网络暂时不可用", "REFERENCE_IMAGE_NETWORK", { cause: err });
   }
 
   if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Failed to download reference image ${res.status}: ${detail.slice(0, 200)}`);
+    if (isRetryableStatus(res.status)) {
+      throw new RetryableGenerationError(`参考图片下载暂时失败（HTTP ${res.status}）`, `REFERENCE_IMAGE_HTTP_${res.status}`);
+    }
+    throw new Error(`参考图片下载被拒绝（HTTP ${res.status}）`);
   }
 
   const responseMimeType = normalizeImageMimeType(res.headers.get("content-type"));
@@ -777,7 +816,7 @@ async function pollImageTask(params: {
     });
     const resText = await res.text();
     if (!res.ok) {
-      const message = `任务查询失败 ${res.status}: ${resText.slice(0, 300)}`;
+      const message = `任务查询失败（HTTP ${res.status}）`;
       if (isRetryableStatus(res.status) && transientQueryErrors < transientQueryErrorLimit) {
         transientQueryErrors += 1;
         lastTransientQueryError = message;
@@ -790,6 +829,9 @@ async function pollImageTask(params: {
           error: message,
         });
         continue;
+      }
+      if (isRetryableStatus(res.status)) {
+        throw new RetryableGenerationError(message, `IMAGE_TASK_POLL_HTTP_${res.status}`);
       }
       throw new Error(message);
     }
@@ -814,14 +856,14 @@ async function pollImageTask(params: {
       providerStatus: task.providerStatus,
       progress,
       urls: task.urls,
-      error: task.error,
+      error: task.error ? sanitizeGenerationErrorMessage(task.error, "异步图片任务失败") : undefined,
     });
 
     if (task.status === "completed") {
       return { urls: task.urls, b64Json: task.b64Json };
     }
     if (task.status === "failed") {
-      throw new Error(task.error || "异步图片任务失败");
+      throw new Error(sanitizeGenerationErrorMessage(task.error, "异步图片任务失败"));
     }
     if (completedWithoutResultAt && Date.now() - completedWithoutResultAt >= resultGraceMs) {
       throw new Error(

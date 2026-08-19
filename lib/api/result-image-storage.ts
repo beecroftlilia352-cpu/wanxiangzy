@@ -1,5 +1,10 @@
 import { getBase64Payload, isStableStoredImageUrl, storeImage } from "@/lib/api/image-storage";
+import {
+  isAliyunOssRemoteTransferEnabled,
+  mirrorRemoteImageToAliyunOss,
+} from "@/lib/api/oss-mirror-transfer";
 import { isRemoteUrl } from "@/lib/utils";
+import { canonicalizeStoredGeneratedObject } from "@/lib/api/generated-media-asset.server";
 
 export async function persistGeneratedImageUrls(
   urls: string[],
@@ -36,14 +41,18 @@ async function persistGeneratedImageUrl(
   }
 
   if (isRemoteUrl(urlOrDataUrl)) {
+    if (isAliyunOssRemoteTransferEnabled()) {
+      // Production is fail-closed: a provider capability is never persisted as
+      // a result URL. This resolves only after the dedicated transfer worker
+      // has stored and verified the OSS object.
+      return mirrorRemoteImageToAliyunOss(urlOrDataUrl, name);
+    }
     try {
       return await storeGeneratedImage(urlOrDataUrl, name, { suppressErrorLog: true });
     } catch (err) {
-      console.warn(
-        "[result-image-storage] generated image storage failed; falling back to provider URL:",
-        err instanceof Error ? err.message : String(err)
+      throw new Error(
+        `generated image was not durably stored: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return urlOrDataUrl;
     }
   }
 
@@ -55,6 +64,16 @@ async function storeGeneratedImage(
   name: string,
   options: { suppressErrorLog?: boolean } = {}
 ) {
-  const stored = await storeImage({ image, name, namePrefix: "generated-", storageClass: "generated" }, options);
+  const stored = await storeImage({
+    image,
+    name,
+    namePrefix: "generated-",
+    storageClass: "generated",
+    forbidOverwrite: true,
+  }, options);
+  if (process.env.NODE_ENV === "production" && stored.object_key) {
+    return canonicalizeStoredGeneratedObject(stored, name);
+  }
+  if (process.env.NODE_ENV === "production") throw new Error("generated image storage bypassed the canonical media registry");
   return stored.url;
 }

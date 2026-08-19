@@ -34,6 +34,7 @@ import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import {
   AI_VIDEO_ACTION_TEMPLATES,
   AI_VIDEO_ASPECT_RATIO_OPTIONS,
@@ -60,12 +61,12 @@ import {
   type AiVideoResolution,
 } from "@/lib/ai-video";
 import {
+  calculateVideoCreditCost,
   getVideoCreditCost,
   getVideoDefaultMode,
   getVideoDefaultResolution,
   getVideoDurationOptions,
   getVideoModes,
-  getVideoPerVideoCreditCost,
   getVideoResolutions,
   resolveVideoSelection,
   type VideoProviderName,
@@ -92,6 +93,7 @@ const VIDEO_GENERATION_POLL_SLOW_MS = 7 * 1000;
 type VideoImagePayload = Extract<HistoryJobPayload, { kind: "videoImageToVideo" }>;
 type VideoMotionPayload = Extract<HistoryJobPayload, { kind: "videoMotion" }>;
 type VideoFirstLastPayload = Extract<HistoryJobPayload, { kind: "videoFirstLastFrame" }>;
+type VideoPricingMap = Partial<Record<VideoProviderName, Record<string, { minimum: number; perSecond: number }>>>;
 
 type AiVideoExperienceProps = {
   mode: AiVideoMode;
@@ -105,6 +107,7 @@ function normalizeHappyHorseUiAudioMode(value: unknown): AiVideoAudioMode {
 export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const router = useRouter();
   const t = useTranslations("Video");
+  const { openResourcePicker } = useResourcePicker();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelImageInputRef = useRef<HTMLInputElement>(null);
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
@@ -130,12 +133,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         const res = await fetch("/api/video/options", { cache: "no-store" });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        const providers = Array.isArray(data?.providers)
-          ? (data.providers as Array<{ provider: VideoProviderName }>).map((item) => item.provider).filter((item) => item === "minimax" || item === "seedance")
+        const providerEntries = Array.isArray(data?.providers)
+          ? (data.providers as Array<{ provider: VideoProviderName; pricingByMode?: Record<string, { minimum: number; perSecond: number }> }>)
           : [];
+        const providers = providerEntries.map((item) => item.provider).filter((item) => item === "minimax" || item === "seedance");
         if (providers.length) {
           setAvailableProviders(providers);
           setVideoProvider((current) => current && providers.includes(current) ? current : providers[0]);
+          setVideoPricing(Object.fromEntries(providerEntries.map((item) => [item.provider, item.pricingByMode || {}])) as VideoPricingMap);
         }
       } catch {
         // keep defaults when options are unavailable
@@ -158,6 +163,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [resolution, setResolution] = useState<AiVideoResolution>("720p");
   const [videoProvider, setVideoProvider] = useState<VideoProviderName | null>(null);
   const [availableProviders, setAvailableProviders] = useState<VideoProviderName[]>([]);
+  const [videoPricing, setVideoPricing] = useState<VideoPricingMap>({});
   const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("auto");
   const [duration, setDuration] = useState<AiVideoDuration>(AI_VIDEO_DEFAULT_DURATION);
   const [audioMode, setAudioMode] = useState<AiVideoAudioMode>(AI_VIDEO_DEFAULT_AUDIO_MODE);
@@ -177,6 +183,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -202,14 +209,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     : normalizeAiVideoFixedAspectRatio(aspectRatio);
   const aspectRatioSummary = aspectRatio === "auto" ? `${t("aspectAuto")}(${effectiveAspectRatio})` : effectiveAspectRatio;
   const resolutionOptions = useMemo(
-    () => getVideoResolutions(providerKey, effectiveModelMode).map((item) => ({
-      value: item.value,
-      label: item.label,
-      description: item.description,
-    })),
-    [providerKey, effectiveModelMode]
+    () => getVideoResolutions(providerKey, effectiveModelMode).map((item) => {
+      const price = videoPricing[providerKey]?.[`${effectiveModelMode}:${item.value}`];
+      return {
+        value: item.value,
+        label: item.label,
+        description: price ? `${item.label} · ${price.perSecond} 灵点/秒` : item.description,
+      };
+    }),
+    [providerKey, effectiveModelMode, videoPricing]
   );
-  const cost = getVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, genCount, audioMode });
+  const cost = getDisplayedVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, genCount, audioMode }, videoPricing);
   const inputThumbnails = isFirstLastFrame
     ? [firstFrameUrl, lastFrameUrl].filter(Boolean)
     : isMotion
@@ -289,7 +299,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     })),
     [providerKey, isFirstLastFrame]
   );
-  const perVideoCost = getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, audioMode });
+  const perVideoCost = getDisplayedVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, audioMode }, videoPricing);
 
   useEffect(() => {
     if (!videoProvider) return;
@@ -526,7 +536,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             };
       const res = await fetch(apiPath, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${crypto.randomUUID()}` },
         body: JSON.stringify(requestBody),
       });
       const data = await res.json().catch(() => ({}));
@@ -551,6 +561,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
           expectedCount: genCount,
@@ -651,6 +662,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     generationRunRef.current += 1;
     submitLockRef.current = false;
     setIsSubmitting(false);
@@ -664,6 +676,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, generationKind, session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -769,6 +782,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setAudioPrompt("");
     setGenCount(1);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError("");
     setProgress(0);
     setIsSubmitting(false);
@@ -813,7 +827,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     isDragging={isDraggingFirstFrame}
                     loading={isUploadingFirstFrame}
                     onUploadClick={() => firstFrameInputRef.current?.click()}
-                    onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                    onLibraryClick={async () => {
+                      const assets = await openResourcePicker({
+                        title: t("uploadFirstFrameTitle"),
+                        role: "first-frame",
+                        selectionMode: "single",
+                        maxCount: 1,
+                        existingCount: firstFrameUrl ? 1 : 0,
+                        excludedUrls: firstFrameUrl ? [firstFrameUrl] : [],
+                        mediaTypes: ["image"],
+                        moduleKey: "videoFirstLastFrame",
+                      });
+                      const [url] = assetUrls(assets);
+                      if (!url) return;
+                      setFirstFrameUrl(url);
+                      setFirstFrameRatio(null);
+                    }}
                     onPreview={firstFrameUrl ? () => setLightboxImage(firstFrameUrl) : undefined}
                     onRemove={firstFrameUrl ? () => {
                       setFirstFrameUrl("");
@@ -846,7 +875,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     isDragging={isDraggingLastFrame}
                     loading={isUploadingLastFrame}
                     onUploadClick={() => lastFrameInputRef.current?.click()}
-                    onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                    onLibraryClick={async () => {
+                      const assets = await openResourcePicker({
+                        title: t("uploadLastFrameTitle"),
+                        role: "last-frame",
+                        selectionMode: "single",
+                        maxCount: 1,
+                        existingCount: lastFrameUrl ? 1 : 0,
+                        excludedUrls: lastFrameUrl ? [lastFrameUrl] : [],
+                        mediaTypes: ["image"],
+                        moduleKey: "videoFirstLastFrame",
+                      });
+                      const [url] = assetUrls(assets);
+                      if (!url) return;
+                      setLastFrameUrl(url);
+                      setLastFrameRatio(null);
+                    }}
                     onPreview={lastFrameUrl ? () => setLightboxImage(lastFrameUrl) : undefined}
                     onRemove={lastFrameUrl ? () => {
                       setLastFrameUrl("");
@@ -883,7 +927,23 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               isDragging={isDraggingImage}
               loading={isUploadingImage}
               onUploadClick={() => imageInputRef.current?.click()}
-              onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+              onLibraryClick={async () => {
+                const assets = await openResourcePicker({
+                  title: t("uploadImageTitle"),
+                  role: "source-image",
+                  selectionMode: "single",
+                  maxCount: 1,
+                  existingCount: imageUrl ? 1 : 0,
+                  excludedUrls: imageUrl ? [imageUrl] : [],
+                  mediaTypes: ["image"],
+                  moduleKey: "videoImageToVideo",
+                });
+                const [url] = assetUrls(assets);
+                if (!url) return;
+                setImageUrl(url);
+                setImageRatio(null);
+                setSelectedTemplateId(null);
+              }}
               onPreview={imageUrl ? () => setLightboxImage(imageUrl) : undefined}
               onRemove={imageUrl ? () => {
                 setImageUrl("");
@@ -919,7 +979,22 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 isDragging={isDraggingModelImage}
                 loading={isUploadingModelImage}
                 onUploadClick={() => modelImageInputRef.current?.click()}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("uploadModelImageTitle"),
+                    role: "model-image",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: modelImageUrl ? 1 : 0,
+                    excludedUrls: modelImageUrl ? [modelImageUrl] : [],
+                    mediaTypes: ["image"],
+                    moduleKey: "videoMotion",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setModelImageUrl(url);
+                  setModelImageRatio(null);
+                }}
                 onPreview={modelImageUrl ? () => setLightboxImage(modelImageUrl) : undefined}
                 onRemove={modelImageUrl ? () => {
                   setModelImageUrl("");
@@ -949,7 +1024,23 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 isDragging={isDraggingVideo}
                 loading={isUploadingVideo}
                 onUploadClick={() => videoInputRef.current?.click()}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("uploadReferenceVideoTitle"),
+                    role: "motion-video",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: referenceVideoUrl ? 1 : 0,
+                    excludedUrls: referenceVideoUrl ? [referenceVideoUrl] : [],
+                    mediaTypes: ["video"],
+                    view: "video",
+                    moduleKey: "videoMotion",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setReferenceVideoUrl(url);
+                  setSelectedTemplateId(null);
+                }}
                 onRemove={referenceVideoUrl ? removeReferenceVideo : undefined}
                 sourceLabel={selectedTemplate ? t("sampleReferenceVideo", { title: selectedTemplate.title }) : undefined}
                 uploadLabel={t("uploadClickLabel")}
@@ -1073,7 +1164,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             options={getVideoDurationOptions(providerKey).map((value) => ({
               value: String(value),
               label: t("durationValue", { seconds: value }),
-              description: t("durationDesc", { cost: getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration: value, audioMode }) }),
+              description: t("durationDesc", { cost: getDisplayedVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration: value, audioMode }, videoPricing) }),
             }))}
             value={String(duration)}
             onChange={(value) => setDuration(normalizeAiVideoDuration(value))}
@@ -1194,6 +1285,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               isGenerating={isGenerating}
               inputThumbnails={inputThumbnails}
               statusGroup={isGenerating ? "running" : undefined}
+              resourceFavorite={{ generationId: activeGenerationId, moduleKey: generationKind, mediaType: "video" }}
             />
           </div>
         ) : isFirstLastFrame ? (
@@ -1565,6 +1657,23 @@ function MotionControlCanvas() {
       />
     </div>
   );
+}
+
+function getDisplayedVideoCreditCost(
+  input: {
+    provider: VideoProviderName;
+    modelMode: AiVideoModelMode;
+    resolution: AiVideoResolution;
+    duration?: AiVideoDuration | number;
+    genCount?: number;
+    audioMode?: AiVideoAudioMode;
+  },
+  pricing: VideoPricingMap,
+) {
+  const selection = resolveVideoSelection(input.provider, input.modelMode, input.resolution);
+  const configured = pricing[input.provider]?.[`${selection.mode}:${selection.resolution}`];
+  if (!configured) return getVideoCreditCost(input);
+  return calculateVideoCreditCost({ provider: input.provider, price: configured, duration: input.duration, genCount: input.genCount, audioMode: input.audioMode });
 }
 
 function sleep(ms: number) {

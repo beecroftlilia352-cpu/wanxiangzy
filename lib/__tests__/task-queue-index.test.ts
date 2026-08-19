@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyStaleRunningFallback,
   indexRowToTaskQueueItem,
+  normalizeAiToolTaskQueueItem,
   normalizeGenerationTaskQueueItem,
   taskQueueItemToIndexWrite,
 } from "../task-queue-index";
@@ -120,6 +121,83 @@ describe("task queue index", () => {
       statusGroup: "running",
       error: "",
       progress: 99,
+    });
+  });
+
+  it("projects an AI tool task into the shared toolbox rail", () => {
+    const item = normalizeAiToolTaskQueueItem({
+      id: "7cc2845a-5a1d-4891-8af4-8908e7f03b1e",
+      user_id: "user_1",
+      provider_task_id: "task-12345678",
+      operation: "repair-garment",
+      status: "completed",
+      source_url: "https://example.com/source.png",
+      provider_payload: { expected_count: 2, progress: 100 },
+      output_persistence_status: "completed",
+      result_urls: ["https://example.com/result.png"],
+      last_error: null,
+      created_at: "2026-08-18T10:00:00.000Z",
+      updated_at: "2026-08-18T10:01:00.000Z",
+      completed_at: "2026-08-18T10:01:00.000Z",
+    });
+
+    expect(item).toMatchObject({
+      module: "toolbox",
+      scope: "repair-garment",
+      title: "服饰修复",
+      statusGroup: "completed",
+      expectedCount: 2,
+      resultCount: 1,
+      applyUrl: "/ai-tools/clothing-repair?task=task-12345678",
+    });
+    expect(item.thumbnails).toEqual(["https://example.com/result.png"]);
+  });
+
+  it("recognizes the fallback generation row as the same toolbox operation", () => {
+    const item = normalizeGenerationTaskQueueItem({
+      id: "gen-ai-tool",
+      user_id: "user_1",
+      status: "processing",
+      error_message: null,
+      result_urls: [],
+      created_at: "2026-08-18T10:00:00.000Z",
+      completed_at: null,
+      job_payload: {
+        kind: "generalImage",
+        aiTool: { operation: "erase" },
+        sourceUrl: "https://example.com/source.png",
+      },
+      clothing_urls: [],
+      model_face_url: null,
+      reference_url: null,
+    });
+
+    expect(item).toMatchObject({
+      module: "toolbox",
+      scope: "erase",
+      applyUrl: "/ai-tools/erase?task=gen-ai-tool",
+    });
+  });
+
+  it("keeps provider-complete AI tools running until outputs are durably stored", () => {
+    const item = normalizeAiToolTaskQueueItem({
+      id: "d4045f3e-b3da-4d28-bf1d-3773841e3a22",
+      user_id: "user_1",
+      provider_task_id: "task-persisting",
+      operation: "outpaint",
+      status: "completed",
+      output_persistence_status: "processing",
+      source_url: "https://example.com/source.png",
+      provider_payload: { progress: 100 },
+      result_urls: [],
+      created_at: "2026-08-18T10:00:00.000Z",
+    });
+
+    expect(item).toMatchObject({
+      status: "processing",
+      statusGroup: "running",
+      progress: 99,
+      resultCount: 0,
     });
   });
 });

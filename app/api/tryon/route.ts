@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       : normalizeLingyaModel(ai_model);
     const aspectRatio = normalizeAspectRatio(aspect_ratio, "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
-    const costPerImage = getCreditCost(model, size, aspectRatio);
+    const costPerImage = await getConfiguredImageCreditCost(model, size);
     const sceneMode = scene_mode === undefined && requestedReferenceUrls.length
       ? "upload_reference"
       : normalizeSceneMode(scene_mode);
@@ -159,6 +160,14 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `生成 ${expectedCount} 张，输入 ${clothing_urls.length} 件服装、${effectiveReferenceUrls.length || 1} 组参考${activeGarmentDetailUrls.length ? `、${activeGarmentDetailUrls.length} 张细节` : ""} (${model}, ${size}, ${TRYON_GARMENT_CATEGORY_LABELS[garmentCategory]})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [
+        ...clothing_urls,
+        ...effectiveReferenceUrls,
+        model_face_url,
+        ...activeGarmentDetailUrls,
+      ].filter((url): url is string => Boolean(url)).map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

@@ -11,6 +11,9 @@ export type AdminBillingProduct = {
   stripeProductId: string;
   name: string;
   description: string | null;
+  tierKey: string | null;
+  creditAmount: number;
+  bonusCredits: number;
   active: boolean;
   metadata: Record<string, unknown>;
   createdAt: string | null;
@@ -86,6 +89,7 @@ export type AdminBillingConfigStatus = {
 
 export type AdminBillingOverview = {
   available: boolean;
+  summarySource: "rpc" | "sample";
   metrics: AdminMetric[];
   products: AdminBillingProduct[];
   prices: AdminBillingPrice[];

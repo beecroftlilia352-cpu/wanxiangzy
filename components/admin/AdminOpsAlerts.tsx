@@ -24,8 +24,8 @@ export function AdminOpsAlerts({ overview }: { overview: AdminOverview }) {
       key: "queue",
       tone: "warning",
       icon: <Clock3 aria-hidden="true" className="h-4 w-4" />,
-      text: `${overview.taskHealth.queued} 个任务排队中，可手动触发一轮处理`,
-      href: "/admin/generations?status=queued",
+      text: `${overview.taskHealth.queued} 个任务排队中，建议检查 Worker 在线状态与队列健康`,
+      href: "/admin/workers",
     });
   }
   if (overview.pendingApprovals > 0) {
@@ -42,7 +42,7 @@ export function AdminOpsAlerts({ overview }: { overview: AdminOverview }) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] px-4 py-2.5">
         <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--admin-success)]" />
-        <p className="text-xs font-bold text-[var(--admin-success)]">当前运营状态正常：失败率在阈值内、无排队积压、无待处理审批。</p>
+        <p className="text-xs font-bold text-[var(--admin-success)]">当前运营状态正常：失败率在阈值内、无明显排队积压、无待处理审批。</p>
       </div>
     );
   }

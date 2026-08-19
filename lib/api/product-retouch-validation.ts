@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import sharp from "sharp";
+import type { AspectRatio } from "@/lib/api/lingya";
 import type {
   ProductRetouchHardValidationPolicy,
   ProductRetouchHardValidationResult,
@@ -9,6 +10,10 @@ import { fetchRemoteImageBuffer } from "@/lib/api/remote-image-fetch";
 export async function validateGeneratedProductImage(
   input: string,
   policy: ProductRetouchHardValidationPolicy,
+  options: {
+    expectedAspectRatio?: AspectRatio;
+    aspectRatioTolerance?: number;
+  } = {},
 ): Promise<ProductRetouchHardValidationResult> {
   const bytes = await readImageBytes(input, policy.maxBytes);
   const image = sharp(bytes, {
@@ -29,6 +34,12 @@ export async function validateGeneratedProductImage(
   if (width > policy.maxWidth || height > policy.maxHeight) {
     throw new Error(`生成结果尺寸过大: ${width}×${height}`);
   }
+  assertExpectedAspectRatio(
+    width,
+    height,
+    options.expectedAspectRatio,
+    options.aspectRatioTolerance,
+  );
 
   const statsBuffer = await image
     .clone()
@@ -50,6 +61,23 @@ export async function validateGeneratedProductImage(
     sha256: createHash("sha256").update(bytes).digest("hex"),
     variance: Number(variance.toFixed(4)),
   };
+}
+
+function assertExpectedAspectRatio(
+  width: number,
+  height: number,
+  expected: AspectRatio | undefined,
+  tolerance = 0.04,
+) {
+  if (!expected || expected === "auto") return;
+  const match = /^(\d+):(\d+)$/.exec(expected);
+  if (!match) return;
+  const target = Number(match[1]) / Number(match[2]);
+  const actual = width / height;
+  const relativeError = Math.abs(actual - target) / target;
+  if (relativeError > Math.min(Math.max(tolerance, 0), 0.2)) {
+    throw new Error(`生成结果比例不符合要求: ${width}×${height}，期望 ${expected}`);
+  }
 }
 
 async function readImageBytes(input: string, maxBytes: number): Promise<Buffer> {

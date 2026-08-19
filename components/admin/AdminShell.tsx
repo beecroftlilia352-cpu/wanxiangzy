@@ -3,31 +3,11 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
-import {
-  ApiOutlined,
-  AppstoreOutlined,
-  AuditOutlined,
-  CheckCircleOutlined,
-  ControlOutlined,
-  CreditCardOutlined,
-  DashboardOutlined,
-  DatabaseOutlined,
-  DollarOutlined,
-  ExperimentOutlined,
-  KeyOutlined,
-  MenuFoldOutlined,
-  MenuOutlined,
-  MenuUnfoldOutlined,
-  PictureOutlined,
-  SafetyCertificateOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  ToolOutlined,
-  UserOutlined,
-} from "@/components/ui/ant-icons-compat";
+import { MenuFoldOutlined, MenuOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined, UserOutlined } from "@/components/ui/ant-icons-compat";
 import { Avatar, Breadcrumb, Button, Drawer, Layout, Menu, Space, Spin, Tag, Typography, type MenuProps } from "@/components/ui/shadcn-compat";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { AdminRole } from "@/lib/admin/permissions";
+import { getAdminNavigationItem, getVisibleAdminNavigation } from "@/lib/admin/navigation";
 
 type AdminShellProps = {
   admin: {
@@ -38,67 +18,6 @@ type AdminShellProps = {
   pendingApprovals?: number;
   children: React.ReactNode;
 };
-
-type AdminNavItem = {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  badgeKey?: string;
-  techOnly?: boolean;
-};
-
-const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }> = [
-  {
-    key: "overview",
-    label: "总览",
-    children: [
-      { href: "/admin", label: "运营总览", icon: <DashboardOutlined aria-hidden="true" /> },
-    ],
-  },
-  {
-    key: "operations",
-    label: "运营",
-    children: [
-      { href: "/admin/features", label: "功能管理", icon: <AppstoreOutlined aria-hidden="true" /> },
-      { href: "/admin/users", label: "用户账户", icon: <TeamOutlined aria-hidden="true" /> },
-      { href: "/admin/invite-codes", label: "邀请码", icon: <KeyOutlined aria-hidden="true" /> },
-      { href: "/admin/generations", label: "任务中心", icon: <ControlOutlined aria-hidden="true" /> },
-      { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined aria-hidden="true" />, badgeKey: "requests" },
-    ],
-  },
-  {
-    key: "content",
-    label: "内容",
-    children: [
-      { href: "/admin/assets", label: "资产作品", icon: <PictureOutlined aria-hidden="true" /> },
-      { href: "/admin/showcase", label: "示例内容", icon: <PictureOutlined aria-hidden="true" /> },
-      { href: "/admin/assets/lifecycle", label: "生命周期", icon: <DatabaseOutlined aria-hidden="true" /> },
-      { href: "/admin/moderation", label: "内容审核", icon: <SafetyCertificateOutlined aria-hidden="true" /> },
-      { href: "/admin/tryon", label: "试衣配置", icon: <AppstoreOutlined aria-hidden="true" /> },
-      { href: "/admin/product-retouch-skill", label: "商品精修", icon: <ExperimentOutlined aria-hidden="true" /> },
-      { href: "/admin/prompts", label: "提示词实验", icon: <ExperimentOutlined aria-hidden="true" />, techOnly: true },
-    ],
-  },
-  {
-    key: "finance",
-    label: "财务",
-    children: [
-      { href: "/admin/credits", label: "灵点流水", icon: <DollarOutlined aria-hidden="true" /> },
-      { href: "/admin/billing", label: "支付账单", icon: <CreditCardOutlined aria-hidden="true" /> },
-    ],
-  },
-  {
-    key: "system",
-    label: "系统",
-    children: [
-      { href: "/admin/providers", label: "模型通道", icon: <ApiOutlined aria-hidden="true" />, techOnly: true },
-      { href: "/admin/workers", label: "任务队列", icon: <ToolOutlined aria-hidden="true" />, techOnly: true },
-      { href: "/admin/members", label: "成员权限", icon: <UserOutlined aria-hidden="true" /> },
-      { href: "/admin/settings", label: "系统配置", icon: <SettingOutlined aria-hidden="true" />, techOnly: true },
-      { href: "/admin/audit", label: "审计日志", icon: <AuditOutlined aria-hidden="true" /> },
-    ],
-  },
-];
 
 export function AdminShell({ admin, pendingApprovals = 0, children }: AdminShellProps) {
   const pathname = usePathname();
@@ -113,18 +32,8 @@ export function AdminShell({ admin, pendingApprovals = 0, children }: AdminShell
   const breadcrumbTitle = mounted ? currentTitle(pathname) : "Console";
   const routeKey = `${pathname}?${searchParams.toString()}`;
   const lastRouteKeyRef = useRef(routeKey);
-  const openKeys = useMemo(() => navGroups.filter((group) => group.children.some((item) => item.href === activeHref)).map((group) => group.key), [activeHref]);
-  // 技术向菜单（任务队列/模型通道/系统配置）只对负责人和技术角色显示
-  const technicalRoles: AdminRole[] = ["owner", "engineer"];
-  const visibleGroups = useMemo(
-    () => navGroups
-      .map((group) => ({
-        ...group,
-        children: group.children.filter((item) => item.techOnly !== true || technicalRoles.includes(admin.role)),
-      }))
-      .filter((group) => group.children.length > 0),
-    [admin.role],
-  );
+  const visibleGroups = useMemo(() => getVisibleAdminNavigation(admin.role), [admin.role]);
+  const openKeys = useMemo(() => visibleGroups.filter((group) => group.children.some((item) => item.href === activeHref)).map((group) => group.key), [activeHref, visibleGroups]);
 
   const menuItems = useMemo<MenuProps["items"]>(
     () =>
@@ -144,9 +53,10 @@ export function AdminShell({ admin, pendingApprovals = 0, children }: AdminShell
                 if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                 setDrawerOpen(false);
               }}
-              className="inline-flex items-center gap-2"
+              className="admin-nav-link"
+              title={item.description}
             >
-              {item.label}
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.badgeKey === "requests" && pendingApprovals > 0 ? (
                 <span className="admin-nav-badge">{pendingApprovals > 99 ? "99+" : pendingApprovals}</span>
               ) : null}
@@ -154,7 +64,7 @@ export function AdminShell({ admin, pendingApprovals = 0, children }: AdminShell
           ),
         })),
       })),
-    [],
+    [pendingApprovals, visibleGroups],
   );
 
   useEffect(() => {
@@ -248,7 +158,7 @@ export function AdminShell({ admin, pendingApprovals = 0, children }: AdminShell
             />
             <Breadcrumb
               items={[
-                { title: "产品管理后台" },
+                { title: "万象智艺" },
                 { title: breadcrumbTitle },
               ]}
             />
@@ -300,10 +210,10 @@ function AdminBrand({ collapsed, compact = false }: { collapsed: boolean; compac
       {!collapsed && (
         <span className="min-w-0">
           <Typography.Text strong className="block !text-[var(--admin-fg)]">
-            产品管理后台
+            运营控制台
           </Typography.Text>
           <Typography.Text type="secondary" className="block truncate !text-xs">
-            万象智艺运营台
+            万象智艺 · 商业化运营
           </Typography.Text>
         </span>
       )}
@@ -330,17 +240,11 @@ function AdminAccount({ admin, collapsed }: { admin: AdminShellProps["admin"]; c
 }
 
 function getActiveHref(pathname: string) {
-  const allItems = navGroups.flatMap((group) => group.children);
-  return (
-    allItems
-      .filter((item) => item.href !== "/admin")
-      .sort((a, b) => b.href.length - a.href.length)
-      .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.href || "/admin"
-  );
+  return getAdminNavigationItem(pathname).href;
 }
 
 function currentTitle(pathname: string) {
-  return navGroups.flatMap((group) => group.children).find((item) => item.href === getActiveHref(pathname))?.label || "总览";
+  return getAdminNavigationItem(pathname).label;
 }
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {

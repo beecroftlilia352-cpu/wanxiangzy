@@ -9,6 +9,7 @@ import {
   Camera,
   CheckCircle2,
   ChevronRight,
+  FolderOpen,
   Images,
   UserRound,
   ZoomIn,
@@ -33,6 +34,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -118,6 +120,7 @@ type UploadTarget = "source" | "model" | "background";
 
 export default function ModelBackgroundPage() {
   const t = useTranslations("ModelBackground");
+  const { openResourcePicker } = useResourcePicker();
   const router = useRouter();
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -166,6 +169,7 @@ export default function ModelBackgroundPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -237,6 +241,7 @@ export default function ModelBackgroundPage() {
   const previewSession = useStudioPreview({
     module: "modelBackground",
     title: t("title"),
+    taskId: activeGenerationId || undefined,
     urls: resultUrls,
     expectedCount: activeResultExpectedCount,
     isGenerating,
@@ -571,7 +576,7 @@ export default function ModelBackgroundPage() {
     try {
       const res = await fetch("/api/model-background", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           source_url: runSourceUrls[0] || "",
           source_urls: runSourceUrls,
@@ -609,6 +614,7 @@ export default function ModelBackgroundPage() {
       }
       setProgress(25);
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
           expectedCount: displayExpectedCount,
@@ -650,6 +656,7 @@ export default function ModelBackgroundPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, MAX_MODEL_BACKGROUND_SOURCE_IMAGES * 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
@@ -661,6 +668,7 @@ export default function ModelBackgroundPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "modelBackground", session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyModelBackgroundHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -694,6 +702,7 @@ export default function ModelBackgroundPage() {
     setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError("");
     setLightboxSrc(null);
     closeRulesPopover();
@@ -753,7 +762,22 @@ export default function ModelBackgroundPage() {
                 ]}
                 imageFit="cover"
                 onUploadClick={openFileDialog}
-                onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                onLibraryClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("uploadSectionTitle"),
+                    role: "source",
+                    selectionMode: "multiple",
+                    maxCount: MAX_MODEL_BACKGROUND_SOURCE_IMAGES,
+                    existingCount: sourceUrls.length,
+                    excludedUrls: sourceUrls,
+                    mediaTypes: ["image"],
+                    moduleKey: "modelBackground",
+                  });
+                  const urls = assetUrls(assets);
+                  if (!urls.length) return;
+                  setSourceUrls((current) => Array.from(new Set([...current, ...urls])).slice(0, MAX_MODEL_BACKGROUND_SOURCE_IMAGES));
+                  setPromptOverride(null);
+                }}
                 onPreview={(url) => setLightboxSrc(url)}
                 onRemove={(_, index) => {
                   setSourceUrls((prev) => prev.filter((__, i) => i !== index));
@@ -858,6 +882,30 @@ export default function ModelBackgroundPage() {
                   ) : null}
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const assets = await openResourcePicker({
+                    title: t("modelReference"),
+                    role: "model-reference",
+                    selectionMode: "single",
+                    maxCount: 1,
+                    existingCount: modelReferenceUrl ? 1 : 0,
+                    excludedUrls: modelReferenceUrl ? [modelReferenceUrl] : [],
+                    mediaTypes: ["image"],
+                    moduleKey: "modelBackground",
+                  });
+                  const [url] = assetUrls(assets);
+                  if (!url) return;
+                  setModelReferenceUrl(url);
+                  setModelReferenceName(assets?.[0]?.title || t("customModel"));
+                  setPromptOverride(null);
+                }}
+                className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white/80 text-xs font-semibold text-codex-muted transition hover:border-[var(--codex-accent-35)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)]"
+              >
+                <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                {t("uploadLibrary")}
+              </button>
             </section>
           ) : null}
 
@@ -935,6 +983,7 @@ export default function ModelBackgroundPage() {
                   </div>
                 </div>
               ) : backgroundSource === "upload" ? (
+                <div className="space-y-2">
                 <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone studio-fixed-upload-slot flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[var(--codex-border)] p-3 text-center transition hover:bg-[var(--codex-accent-08)]" style={{ "--studio-fixed-upload-height": "328px" } as CSSProperties}>
                   {backgroundReferenceUrl ? (
                     <div className="studio-fixed-upload-preview studio-checkerboard relative mb-2 overflow-hidden rounded-xl" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
@@ -957,6 +1006,31 @@ export default function ModelBackgroundPage() {
                   <span className="text-sm font-semibold text-codex-ink">{backgroundReferenceUrl ? t("changeBackgroundReference") : t("uploadBackgroundReference")}</span>
                   <span className="mt-1 block text-xs leading-relaxed text-codex-faint">{t("uploadBackgroundHint")}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("referenceScene"),
+                      role: "background-reference",
+                      selectionMode: "single",
+                      maxCount: 1,
+                      existingCount: backgroundReferenceUrl ? 1 : 0,
+                      excludedUrls: backgroundReferenceUrl ? [backgroundReferenceUrl] : [],
+                      mediaTypes: ["image"],
+                      moduleKey: "modelBackground",
+                    });
+                    const [url] = assetUrls(assets);
+                    if (!url) return;
+                    setBackgroundSource("upload");
+                    setBackgroundReferenceUrl(url);
+                    setPromptOverride(null);
+                  }}
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white/80 text-xs font-semibold text-codex-muted transition hover:border-[var(--codex-accent-35)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)]"
+                >
+                  <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                  {t("uploadLibrary")}
+                </button>
+                </div>
               ) : (
                 <div className="space-y-3">
                 <PromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} placeholder={t("backgroundTextPlaceholder")} maxLength={1000} onClear={() => setBackgroundText("")} />
@@ -1073,6 +1147,7 @@ export default function ModelBackgroundPage() {
                   isGenerating={isGenerating}
                   statusGroup={statusGroup}
                   variant="task"
+                  resourceFavorite={{ generationId: activeGenerationId, moduleKey: "modelBackground", mediaType: "image" }}
                   inputReferences={[
                     ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: t("modelReference") }] : []),
                     ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: t("backgroundReference") }] : []),
@@ -1100,6 +1175,7 @@ export default function ModelBackgroundPage() {
                     isGenerating={isGenerating}
                     statusGroup={statusGroup}
                     variant="task"
+                    resourceFavorite={{ generationId: activeGenerationId, moduleKey: "modelBackground", mediaType: "image", resultIndexOffset: start }}
                     inputReferences={[
                       { url: sourceUrl, label: t("sourceIndexed", { index: sIndex + 1 }) },
                       ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: t("modelReference") }] : []),

@@ -3288,6 +3288,7 @@
       "tryIt": "Essayer"
     },
     "example": {
+      "sampleLabel": "Exemple {index}",
       "added": "Exemple {title} ajouté",
       "alreadyAdded": "L'exemple {title} est déjà dans le lot actuel"
     },
@@ -3321,6 +3322,14 @@
       "consistencyFirst": "Priorise la cohérence produit et le détail de retouche",
       "recommended": "Recommandé",
       "speedFirst": "Production par lot axée vitesse"
+    },
+    "mode": {
+      "faithfulLabel": "Retouche standard",
+      "faithfulDesc": "Conserver l’arrière-plan d’origine · Corriger les défauts, le bruit, les couleurs, la lumière et la netteté",
+      "whiteBackgroundLabel": "Retouche sur fond blanc",
+      "whiteBackgroundDesc": "Générer un fond blanc pur · Normaliser le cadrage et les contours tout en conservant une ombre de contact naturelle",
+      "studioLabel": "Retouche studio",
+      "studioDesc": "Recréer l’éclairage et le fond studio · Renforcer les matières, les reflets et le volume"
     },
     "moduleName": "Retouche produit",
     "preview": {
@@ -4811,6 +4820,138 @@
     "delete": "Supprimer",
     "reuseImages": "Réutiliser les images",
     "taskGenericTitle": "Tâche de fusion de tenues",
-    "imageNumber": "Image {index}"
+    "imageNumber": "Image {index}",
+    "uploadLibrary": "Choisissez parmi la bibliothèque d'actifs"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Bibliothèque d'actifs",
+      "description": "Gérez les téléchargements réutilisables, les ressources générées et les invites en un seul endroit."
+    },
+    "tabs": {
+      "label": "Sections de la bibliothèque d'actifs",
+      "uploads": "Téléchargements locaux",
+      "generated": "Mes créations",
+      "prompts": "Mes prompts"
+    },
+    "actions": {
+      "cancel": "Annuler",
+      "close": "Fermer",
+      "confirm": "Confirmer",
+      "loadMore": "Charger plus",
+      "localUpload": "Télécharger depuis l'appareil",
+      "newPrompt": "Nouvelle invite",
+      "remove": "Supprimer",
+      "removeAsset": "Supprimer l'élément",
+      "removePrompt": "Supprimer l'invite",
+      "retry": "Réessayer",
+      "save": "Enregistrer",
+      "add": "Ajouter à la bibliothèque d'éléments",
+      "added": "Ajouté à la bibliothèque d'actifs"
+    },
+    "categories": {
+      "title": "Catégories d'actifs",
+      "localUploads": "Téléchargements locaux"
+    },
+    "filters": {
+      "allMedia": "Tous les médias",
+      "allModules": "Toutes les fonctionnalités",
+      "image": "Images",
+      "mediaLabel": "Type de média",
+      "moduleLabel": "Caractéristique",
+      "video": "Vidéos"
+    },
+    "picker": {
+      "title": "Sélectionnez les actifs",
+      "selectionHint": "Sélectionné {selected} de {max}",
+      "selectedCount": "{selected}/{max} sélectionné",
+      "gridLabel": "Actifs disponibles",
+      "limitReachedTitle": "Limite de sélection atteinte",
+      "limitReachedDescription": "Désélectionnez un actif avant d’en sélectionner un autre.",
+      "limitReachedInline": "Vous pouvez sélectionner jusqu'à des actifs {max}."
+    },
+    "card": {
+      "select": "Sélectionnez {title}",
+      "removeSelection": "Désélectionner {title}",
+      "preview": "Aperçu {title}",
+      "previewTitle": "Aperçu de l'actif",
+      "previewDescription": "Prévisualisez l'actif sélectionné."
+    },
+    "empty": {
+      "uploadTitle": "Aucun téléchargement local pour l'instant",
+      "uploadDescription": "Téléchargez des images ou des vidéos pour les réutiliser dans les outils de création.",
+      "moduleTitle": "Aucun élément enregistré dans cette fonctionnalité",
+      "moduleDescription": "Enregistrez un résultat généré pour le faire apparaître ici.",
+      "generatedTitle": "Aucun élément généré pour l'instant",
+      "generatedDescription": "Enregistrez les résultats d'une page de création pour les réutiliser ici.",
+      "promptTitle": "Aucune invite pour l'instant",
+      "promptDescription": "Créez des prompts réutilisables pour accélérer vos prochaines créations."
+    },
+    "states": {
+      "loading": "Chargement",
+      "uploading": "Téléchargement",
+      "saving": "Enregistrement",
+      "uploadFailed": "Échec du téléchargement",
+      "loadFailedTitle": "Impossible de charger les éléments",
+      "loadFailedDescription": "Vérifiez votre connexion et réessayez.",
+      "deleteFailed": "Impossible de supprimer l'élément",
+      "createFailed": "Impossible de créer l'invite",
+      "operationFailed": "L’action de la bibliothèque d’actifs a échoué. Veuillez réessayer."
+    },
+    "toast": {
+      "uploadSuccess": "Éléments {count} importés",
+      "assetRemoved": "Élément supprimé",
+      "promptCreated": "Invite créée",
+      "promptRemoved": "Invite supprimée"
+    },
+    "upload": {
+      "supportedFormats": "Prend en charge les formats d'image et vidéo courants"
+    },
+    "prompts": {
+      "allTypes": "Tous types",
+      "typeLabel": "Type d'invite",
+      "searchLabel": "Invites de recherche",
+      "searchPlaceholder": "Invites de recherche",
+      "createTitle": "Créer une invite",
+      "createDescription": "Enregistrez un titre et invitez le contenu à être réutilisé.",
+      "titleLabel": "Titre rapide",
+      "titlePlaceholder": "Entrez un titre d'invite",
+      "contentLabel": "Contenu rapide",
+      "contentPlaceholder": "Saisir le contenu de l'invite"
+    },
+    "confirm": {
+      "removeAssetTitle": "Supprimer l'élément ?",
+      "removeAssetDescription": "Cet actif sera supprimé de votre bibliothèque.",
+      "removePromptTitle": "Supprimer l'invite ?",
+      "removePromptDescription": "Cette invite sera définitivement supprimée."
+    },
+    "promptTypes": {
+      "text-to-image": "Texte en image",
+      "image-to-image": "Image à image",
+      "model-background": "Contexte du modèle",
+      "pose": "Poser",
+      "video": "Vidéo",
+      "other": "Autre"
+    },
+    "modules": {
+      "tryon": "Essayage",
+      "grass": "Image de plantation de style",
+      "productRetouch": "Retouche produit",
+      "productSet": "Set produit",
+      "modelBackground": "Changement de fond de mannequin",
+      "materialEnhancement": "Amélioration de matière",
+      "generalImage": "Image générale",
+      "outfitFusion": "Fusion de tenues",
+      "pose": "Variation de pose",
+      "model": "Mannequin personnalisé",
+      "garment3d": "Vêtement vers 3D",
+      "faceSwap": "Échange de visage",
+      "imageTranslation": "Traduction d'images",
+      "commerceDetail": "Image détaillée du produit",
+      "allCategoryProductImage": "Image du produit toutes catégories",
+      "videoImageToVideo": "Image vers vidéo",
+      "videoMotion": "Imitation de mouvement",
+      "videoFirstLastFrame": "Première/dernière image"
+    }
   }
 }

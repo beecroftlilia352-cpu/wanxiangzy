@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 trim_value() {
   local value="${1-}"
@@ -40,6 +40,15 @@ PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
 # Application shutdown waits up to 30 seconds. PM2 must allow a larger drain
 # window before SIGKILL so BullMQ can release locks and close QueueEvents.
 PM2_KILL_TIMEOUT_MS=45000
+PM2_READY_TIMEOUT_MS="${PM2_READY_TIMEOUT_MS:-60000}"
+PM2_WEB_INSTANCES="${PM2_WEB_INSTANCES:-2}"
+PM2_WORKER_INSTANCES=""
+PM2_ROLLBACK_CONFIG="$SHARED_DIR/.pm2-rollback-${SAFE_TAG}.cjs"
+SHARED_ENV_BACKUP="$SHARED_DIR/.env.production.rollback-${SAFE_TAG}"
+SHARED_ENV_TEMP="$SHARED_DIR/.env.production.deploy-${SAFE_TAG}.tmp"
+CUTOVER_STARTED=0
+ROLLBACK_IN_PROGRESS=0
+SHARED_ENV_SWITCHED=0
 
 start_app() {
   local app_dir="$1"
@@ -52,28 +61,121 @@ start_app() {
   node_bin="$(command -v node)"
   echo "pm2 interpreter: $node_bin ($(node -v))"
 
+  if [ ! -f "$app_dir/ecosystem.production.cjs" ]; then
+    echo "Missing controlled PM2 ecosystem config in $app_dir" >&2
+    return 1
+  fi
+
+  # startOrReload performs a rolling cluster reload for Web. Both entrypoints
+  # send PM2's explicit `ready` message, so the next process is not replaced
+  # until its successor has completed real application initialization.
+  PM2_APP_NAME="$APP_NAME" \
+    PM2_RELEASE_DIR="$app_dir" \
+    PM2_NODE_BIN="$node_bin" \
+    PM2_WEB_INSTANCES="$PM2_WEB_INSTANCES" \
+    PM2_WORKER_INSTANCES="$PM2_WORKER_INSTANCES" \
+    PM2_KILL_TIMEOUT_MS="$PM2_KILL_TIMEOUT_MS" \
+    PM2_READY_TIMEOUT_MS="$PM2_READY_TIMEOUT_MS" \
+    NODE_ENV=production \
+    pm2 startOrReload "$app_dir/ecosystem.production.cjs" --update-env
+}
+
+verify_pm2_process_contract() {
+  local expected_dir="$1"
+  node "$RELEASE_DIR/scripts/verify-pm2-contract.cjs" \
+    "$APP_NAME" \
+    "$expected_dir" \
+    "$PM2_WEB_INSTANCES" \
+    "$PM2_WORKER_INSTANCES"
+}
+
+snapshot_pm2_process_config() {
+  node "$RELEASE_DIR/scripts/snapshot-pm2-config.cjs" \
+    "$PM2_ROLLBACK_CONFIG" \
+    "$APP_NAME" \
+    "${APP_NAME}-worker"
+}
+
+stage_shared_environment() {
+  local candidate="$RELEASE_DIR/.env.production"
+  if [ ! -f "$candidate" ]; then
+    echo "Missing candidate environment file in $RELEASE_DIR" >&2
+    return 1
+  fi
+
+  rm -f -- "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
+  cp -p "$SHARED_DIR/.env.production" "$SHARED_ENV_BACKUP"
+  chmod 600 "$SHARED_ENV_BACKUP"
+  cp -p "$candidate" "$SHARED_ENV_TEMP"
+  chmod 600 "$SHARED_ENV_TEMP"
+  mv -f "$SHARED_ENV_TEMP" "$SHARED_DIR/.env.production"
+  SHARED_ENV_SWITCHED=1
+}
+
+restore_shared_environment() {
+  if [ "$SHARED_ENV_SWITCHED" -eq 0 ]; then
+    return 0
+  fi
+  if [ ! -f "$SHARED_ENV_BACKUP" ]; then
+    echo "Previous shared environment backup is missing; refusing to continue rollback." >&2
+    return 1
+  fi
+  cp -p "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
+  chmod 600 "$SHARED_ENV_TEMP"
+  mv -f "$SHARED_ENV_TEMP" "$SHARED_DIR/.env.production"
+  rm -f -- "$SHARED_ENV_BACKUP"
+  SHARED_ENV_SWITCHED=0
+}
+
+restore_pm2_snapshot() {
+  local snapshot="$1"
+  local expected_dir="$2"
+  local restored_count
+  local expected_web_instances
+  local expected_worker_instances
+  restored_count="$(node -e 'const value=require(process.argv[1]); process.stdout.write(String(Array.isArray(value.apps) ? value.apps.length : 0))' "$snapshot")"
+  expected_web_instances="$(node -e 'const value=require(process.argv[1]); const app=value.apps?.find((entry)=>entry.name===process.argv[2]); process.stdout.write(String(app?.instances || 0))' "$snapshot" "$APP_NAME")"
+  expected_worker_instances="$(node -e 'const value=require(process.argv[1]); const app=value.apps?.find((entry)=>entry.name===process.argv[2]); process.stdout.write(String(app?.instances || 0))' "$snapshot" "${APP_NAME}-worker")"
+
+  if [ "$restored_count" -gt 0 ]; then
+    NODE_ENV=production pm2 startOrReload "$snapshot" --update-env || return $?
+  fi
+
   for proc in "$APP_NAME" "${APP_NAME}-worker"; do
-    if pm2 describe "$proc" >/dev/null 2>&1; then
-      pm2 delete "$proc"
+    if ! node -e 'const value=require(process.argv[1]); process.exit(value.apps?.some((app)=>app.name===process.argv[2]) ? 0 : 1)' "$snapshot" "$proc"; then
+      if pm2 describe "$proc" >/dev/null 2>&1; then
+        pm2 delete "$proc" || return $?
+      fi
     fi
   done
 
-  cd "$app_dir"
-  pm2 start npm --name "$APP_NAME" --interpreter "$node_bin" --kill-timeout "$PM2_KILL_TIMEOUT_MS" -- start
+  node "$RELEASE_DIR/scripts/verify-pm2-contract.cjs" \
+    "$APP_NAME" \
+    "$expected_dir" \
+    "$expected_web_instances" \
+    "$expected_worker_instances"
+}
 
-  # 生产 BullMQ worker 必须与 Web 进程一起由 PM2 托管。
-  # --max-memory-restart 防御内存泄漏。
-  # --cwd 显式指定 cwd：worker's loadDotEnvIfPresent() 用 process.cwd() 找
-  # .env.production，PM2 默认不继承 bash 的 cd，所以必须显式给到 release 目录，
-  # 否则 env 加载失败、worker 死循环重启。
-  pm2 start npm \
-    --name "${APP_NAME}-worker" \
-    --cwd "$app_dir" \
-    --interpreter "$node_bin" \
-    --kill-timeout "$PM2_KILL_TIMEOUT_MS" \
-    --max-memory-restart 1500M \
-    --time \
-    -- run worker
+release_matches_runtime_contract() {
+  local candidate_dir="$1"
+  node - "$RELEASE_DIR/runtime-contract.json" "$candidate_dir/runtime-contract.json" <<'NODE'
+const { readFileSync } = require("node:fs");
+
+try {
+  const expected = JSON.parse(readFileSync(process.argv[2], "utf8"));
+  const candidate = JSON.parse(readFileSync(process.argv[3], "utf8"));
+  const valid =
+    expected?.schemaVersion === 1
+    && candidate?.schemaVersion === 1
+    && typeof expected.contractVersion === "string"
+    && /^[a-f0-9]{64}$/.test(expected.contractHash || "")
+    && candidate.contractVersion === expected.contractVersion
+    && candidate.contractHash === expected.contractHash;
+  process.exit(valid ? 0 : 1);
+} catch {
+  process.exit(1);
+}
+NODE
 }
 
 healthcheck_app() {
@@ -111,15 +213,102 @@ healthcheck_app() {
 }
 
 rollback_previous_release() {
+  ROLLBACK_IN_PROGRESS=1
+  local rollback_status=0
+  set +e
+  restore_shared_environment || rollback_status=$?
   if [ -n "$PREVIOUS_TARGET" ] && [ -d "$PREVIOUS_TARGET" ]; then
+    if ! release_matches_runtime_contract "$PREVIOUS_TARGET"; then
+      echo "Automatic rollback blocked: the previous release does not declare the exact active database runtime contract." >&2
+      echo "Stopping the incompatible application processes; roll forward, or restore the database and application together from backup." >&2
+      for proc in "${APP_NAME}-worker" "$APP_NAME"; do
+        if pm2 describe "$proc" >/dev/null 2>&1; then
+          pm2 stop "$proc" >/dev/null 2>&1 || true
+        fi
+      done
+      pm2 save >/dev/null 2>&1 || true
+      set -e
+      ROLLBACK_IN_PROGRESS=0
+      return 1
+    fi
     echo "Rolling back to previous release: $PREVIOUS_TARGET" >&2
-    ln -sfn "$PREVIOUS_TARGET" "$BASE_DIR/current"
-    start_app "$BASE_DIR/current"
-    pm2 save
+    ln -sfn "$PREVIOUS_TARGET" "$BASE_DIR/current" || rollback_status=$?
+    # The snapshot is authoritative because it preserves the exact instance
+    # count and execution mode that were healthy before this release. An old
+    # ecosystem is only a fallback if snapshot restoration itself fails.
+    if [ "$rollback_status" -eq 0 ] && [ -f "$PM2_ROLLBACK_CONFIG" ]; then
+      restore_pm2_snapshot "$PM2_ROLLBACK_CONFIG" "$PREVIOUS_TARGET" || rollback_status=$?
+      if [ "$rollback_status" -ne 0 ] && [ -f "$BASE_DIR/current/ecosystem.production.cjs" ]; then
+        rollback_status=0
+        start_app "$BASE_DIR/current" || rollback_status=$?
+        if [ "$rollback_status" -eq 0 ]; then
+          verify_pm2_process_contract "$PREVIOUS_TARGET" || rollback_status=$?
+        fi
+      fi
+    elif [ "$rollback_status" -eq 0 ] && [ -f "$BASE_DIR/current/ecosystem.production.cjs" ]; then
+      start_app "$BASE_DIR/current" || rollback_status=$?
+      if [ "$rollback_status" -eq 0 ]; then
+        verify_pm2_process_contract "$PREVIOUS_TARGET" || rollback_status=$?
+      fi
+    elif [ "$rollback_status" -ne 0 ]; then
+      :
+    else
+      echo "No PM2 rollback process configuration is available." >&2
+      rollback_status=1
+    fi
+    if [ "$rollback_status" -eq 0 ]; then
+      healthcheck_app || rollback_status=$?
+    fi
+    if [ "$rollback_status" -eq 0 ]; then
+      pm2 save || rollback_status=$?
+    fi
   else
     echo "No previous release found for rollback." >&2
+    rollback_status=1
   fi
+  if [ "$rollback_status" -ne 0 ]; then
+    echo "Rollback could not establish a contract-compatible healthy release; stopping managed application processes." >&2
+    for proc in "${APP_NAME}-worker" "$APP_NAME"; do
+      if pm2 describe "$proc" >/dev/null 2>&1; then
+        pm2 stop "$proc" >/dev/null 2>&1 || true
+      fi
+    done
+    pm2 save >/dev/null 2>&1 || true
+  fi
+  set -e
+  ROLLBACK_IN_PROGRESS=0
+  return "$rollback_status"
 }
+
+handle_deploy_error() {
+  local status="$1"
+  local line="$2"
+  trap - ERR
+  if [ "$CUTOVER_STARTED" -eq 1 ] && [ "$ROLLBACK_IN_PROGRESS" -eq 0 ]; then
+    echo "Deployment failed after traffic cutover at line $line; restoring previous release and PM2 configuration." >&2
+    rollback_previous_release || echo "Automatic rollback failed; manual intervention is required." >&2
+  fi
+  rm -f -- "$PM2_ROLLBACK_CONFIG" "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
+  exit "$status"
+}
+
+trap 'handle_deploy_error $? $LINENO' ERR
+
+handle_deploy_signal() {
+  local signal="$1"
+  local status="$2"
+  trap - ERR INT TERM HUP
+  echo "Deployment interrupted by $signal." >&2
+  if [ "$CUTOVER_STARTED" -eq 1 ] && [ "$ROLLBACK_IN_PROGRESS" -eq 0 ]; then
+    rollback_previous_release || echo "Automatic rollback failed; manual intervention is required." >&2
+  fi
+  rm -f -- "$PM2_ROLLBACK_CONFIG" "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
+  exit "$status"
+}
+
+trap 'handle_deploy_signal SIGINT 130' INT
+trap 'handle_deploy_signal SIGTERM 143' TERM
+trap 'handle_deploy_signal SIGHUP 129' HUP
 
 cleanup_legacy_root_lockfiles() {
   for lockfile in package-lock.json npm-shrinkwrap.json yarn.lock pnpm-lock.yaml; do
@@ -393,76 +582,144 @@ NODE
 }
 
 # Refuse to switch traffic to a release whose database is missing the durable
-# outbox RPCs for BullMQ generation or OSS mirror publication. Both migrations
-# are destructive and must be applied manually in a maintenance window. Without
-# these RPCs every API/Worker request would 500; fail closed instead.
+# generation/OSS/media data-plane RPCs. These migrations must be applied in the
+# planned maintenance window. Without the full contract, some API or Worker
+# paths would accept traffic and then strand durable jobs; fail closed instead.
 verify_production_migration() {
   node --env-file=.env.production - <<'NODE'
 const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/\\/+$/, "");
 const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-const mirrorEnabled = /^(1|true|yes)$/i.test((process.env.ALIYUN_OSS_MIRROR_ENABLED || "").trim());
+const { readFileSync } = require("node:fs");
+let runtimeContract;
+try {
+  runtimeContract = JSON.parse(readFileSync("runtime-contract.json", "utf8"));
+} catch {
+  console.error("Migration gate: runtime-contract.json is missing or invalid.");
+  process.exit(1);
+}
+const expectedContractVersion = runtimeContract?.contractVersion;
+const expectedContractHash = runtimeContract?.contractHash;
+if (
+  runtimeContract?.schemaVersion !== 1
+  || typeof expectedContractVersion !== "string"
+  || !/^[a-f0-9]{64}$/.test(expectedContractHash || "")
+) {
+  console.error("Migration gate: release runtime contract manifest is invalid.");
+  process.exit(1);
+}
 const required = [
+  "get_runtime_contract_version",
   "create_generation_with_credit_debit_v2",
   "claim_generation_outbox",
   "confirm_generation_outbox",
   "nack_generation_outbox",
   "recover_generation_outbox",
+  "redrive_generation_outbox",
   "get_generation_queue_health",
+  "publish_ai_control_plane_config",
+  "record_ai_provider_outcome",
+  "admin_ai_provider_metrics",
+  "publish_worker_runtime_config",
+  "get_admin_dashboard_period",
+  "get_admin_billing_summary",
+  "claim_generation_job",
+  "heartbeat_generation_job",
+  "defer_generation_for_ai_capacity",
+  "fail_generation_with_credit_refund",
+  "complete_generation_with_credit_adjustment",
   "register_oss_mirror_transfer",
   "claim_oss_mirror_transfers",
+  "heartbeat_oss_mirror_transfer",
   "complete_oss_mirror_transfer",
   "defer_oss_mirror_transfer",
   "expire_oss_mirror_transfers",
   "cleanup_oss_mirror_transfers",
+  "record_oss_mirror_resolution",
+  "get_oss_mirror_queue_health",
+  "recover_oss_mirror_transfers",
+  "create_media_asset_upload",
+  "complete_media_asset_upload",
+  "fail_media_asset_upload",
+  "verify_media_asset",
+  "resolve_media_asset_object",
+  "resolve_verified_media_asset_for_worker",
+  "get_media_asset_status",
+  "claim_media_validation_jobs",
+  "heartbeat_media_validation_job",
+  "complete_media_validation_job",
+  "defer_media_validation_job",
+  "recover_media_validation_jobs",
+  "get_media_validation_queue_health",
+  "claim_media_asset_cleanup",
+  "authorize_media_asset_cleanup",
+  "confirm_media_asset_cleanup",
+  "nack_media_asset_cleanup",
+  "get_media_asset_lifecycle_health",
 ];
-if (mirrorEnabled) {
-  required.push("get_oss_mirror_queue_health", "recover_oss_mirror_transfers");
-}
-const missing = [];
-let anyOk = false;
-
 if (!url || !serviceKey) {
   console.error("Migration gate: missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.production.");
   process.exit(1);
 }
 
 (async () => {
-  for (const name of required) {
-    try {
-      const res = await fetch(`${url}/rest/v1/rpc/${name}`, {
-        method: "POST",
-        headers: {
-          apikey: serviceKey,
-          authorization: `Bearer ${serviceKey}`,
-          "content-type": "application/json",
-          accept: "application/json",
-        },
-        body: "{}",
-      });
-      const text = await res.text();
-      if (res.status === 404 || /does not exist|undefined function|relation .* does not exist/i.test(text)) {
-        missing.push(name);
-        continue;
-      }
-      if (res.ok || res.status === 200 || res.status === 204 || res.status === 500) {
-        anyOk = true;
-      }
-    } catch {
-      missing.push(name);
-    }
-  }
-
-  if (missing.length === required.length || !anyOk) {
-    console.error(
-      "Migration gate: no outbox RPCs are reachable. Apply supabase/migrations/20260818072132_bullmq_generation_outbox.sql and supabase/migrations/20260818025519_oss_mirror_transfers.sql before deploying.",
-    );
+  let response;
+  try {
+    response = await fetch(`${url}/rest/v1/`, {
+      headers: {
+        apikey: serviceKey,
+        authorization: `Bearer ${serviceKey}`,
+        accept: "application/openapi+json",
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    console.error("Migration gate: Supabase Data API is unreachable.");
     process.exit(1);
   }
+  if (!response.ok) {
+    console.error("Migration gate: could not read the authenticated Data API schema.");
+    process.exit(1);
+  }
+  const schema = await response.json();
+  const paths = schema && typeof schema.paths === "object" ? schema.paths : {};
+  const missing = required.filter((name) => !Object.prototype.hasOwnProperty.call(paths, `/rpc/${name}`));
   if (missing.length > 0) {
     console.error(`Migration gate: missing RPCs (${missing.join(", ")}). Apply the corresponding migration first.`);
     process.exit(1);
   }
-  console.log("Migration gate: BullMQ generation and OSS mirror RPCs are present.");
+
+  let contractResponse;
+  try {
+    contractResponse = await fetch(`${url}/rest/v1/rpc/get_runtime_contract_version`, {
+      method: "POST",
+      headers: {
+        apikey: serviceKey,
+        authorization: `Bearer ${serviceKey}`,
+        "content-type": "application/json",
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    console.error("Migration gate: runtime contract RPC is unreachable.");
+    process.exit(1);
+  }
+  if (!contractResponse.ok) {
+    console.error("Migration gate: runtime contract RPC rejected the service-role check.");
+    process.exit(1);
+  }
+  const contractPayload = await contractResponse.json();
+  const contract = Array.isArray(contractPayload) ? contractPayload[0] : contractPayload;
+  if (
+    contract?.contract_version !== expectedContractVersion
+    || contract?.contract_hash !== expectedContractHash
+  ) {
+    console.error(
+      `Migration gate: runtime contract mismatch (expected ${expectedContractVersion}/${expectedContractHash}).`,
+    );
+    process.exit(1);
+  }
+  console.log(`Migration gate: exact runtime contract ${expectedContractVersion} is present.`);
 })();
 NODE
 }
@@ -501,6 +758,16 @@ fi
 
 mkdir -p "$RELEASE_DIR" "$SHARED_DIR"
 
+if ! command -v flock >/dev/null 2>&1; then
+  echo "flock is required to serialize production deployments." >&2
+  exit 1
+fi
+exec 9>"$SHARED_DIR/deploy.lock"
+if ! flock -n 9; then
+  echo "Another production deployment is already running for $BASE_DIR." >&2
+  exit 1
+fi
+
 if [ ! -f "$SHARED_DIR/.env.production" ] && [ -f "$BASE_DIR/.env.production" ]; then
   cp "$BASE_DIR/.env.production" "$SHARED_DIR/.env.production"
 fi
@@ -512,7 +779,8 @@ if [ ! -f "$SHARED_DIR/.env.production" ]; then
 fi
 
 tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
-ln -sfn "$SHARED_DIR/.env.production" "$RELEASE_DIR/.env.production"
+cp -p "$SHARED_DIR/.env.production" "$RELEASE_DIR/.env.production"
+chmod 600 "$RELEASE_DIR/.env.production"
 cleanup_legacy_root_lockfiles
 
 cd "$RELEASE_DIR"
@@ -521,11 +789,17 @@ ensure_node_version
 ensure_build_swap
 install_dependencies
 
+# Admin stores a versioned desired capacity policy. Deployment is the only
+# component allowed to apply it to the EC2 environment and PM2 process count.
+node --env-file=.env.production scripts/apply-worker-runtime-config.mjs .env.production
+PM2_WORKER_INSTANCES="$(node --env-file=.env.production -e 'process.stdout.write(process.env.PM2_WORKER_INSTANCES || "1")')"
+
 # Manual and automated deploys share the same production fail-closed gate.
 # Validate only structure and presence; never print the credential-bearing URL.
 if ! node --env-file=.env.production - <<'NODE'
 const mode = (process.env.GENERATION_QUEUE_MODE || "bullmq").trim().toLowerCase();
-if (mode !== "bullmq") process.exit(1);
+const capacityMode = (process.env.AI_ROUTER_CAPACITY_MODE || "").trim().toLowerCase();
+if (mode !== "bullmq" || capacityMode !== "redis") process.exit(1);
 try {
   const url = new URL(process.env.REDIS_URL || "");
   if (!["redis:", "rediss:"].includes(url.protocol) || !url.hostname) process.exit(1);
@@ -534,7 +808,7 @@ try {
 }
 NODE
 then
-  echo "Production queue configuration invalid: require GENERATION_QUEUE_MODE=bullmq and a valid REDIS_URL" >&2
+  echo "Production queue configuration invalid: require GENERATION_QUEUE_MODE=bullmq, AI_ROUTER_CAPACITY_MODE=redis, and a valid REDIS_URL" >&2
   exit 1
 fi
 
@@ -551,36 +825,46 @@ verify_production_migration
 # resolver and the persistent Bucket Website rule pass an exact, read-only
 # check. First-time rollout must therefore be staged with the flag disabled,
 # then configured, then enabled in a later release.
-OSS_MIRROR_FLAG="$(node --env-file-if-exists=.env.production -e 'process.stdout.write(process.env.ALIYUN_OSS_MIRROR_ENABLED || "false")')"
-if [[ "${OSS_MIRROR_FLAG,,}" =~ ^(1|true|yes)$ ]]; then
+OSS_REMOTE_TRANSFER_MODE="$(node --env-file-if-exists=.env.production -e 'process.stdout.write(process.env.ALIYUN_OSS_REMOTE_TRANSFER_MODE || "stream")')"
+if [[ "${OSS_REMOTE_TRANSFER_MODE,,}" =~ ^(stream|mirror)$ ]]; then
   if ! npm run oss:configure-mirror -- --check; then
     echo "Pre-deploy OSS mirror configuration check failed for $APP_NAME from tag $TAG" >&2
     exit 1
   fi
 fi
 
+snapshot_pm2_process_config
+CUTOVER_STARTED=1
+stage_shared_environment
 ln -sfn "$RELEASE_DIR" "$BASE_DIR/current"
 start_app "$BASE_DIR/current"
+verify_pm2_process_contract "$RELEASE_DIR"
 
 if ! healthcheck_app; then
   echo "Healthcheck failed for $APP_NAME from tag $TAG" >&2
   pm2 logs "$APP_NAME" --lines 80 --nostream >&2 || true
-  rollback_previous_release
+  rollback_previous_release || echo "Automatic rollback failed; manual intervention is required." >&2
+  CUTOVER_STARTED=0
+  rm -f -- "$PM2_ROLLBACK_CONFIG"
   exit 1
 fi
 
 # Once cloud-pull is enabled, every release must prove the persistent Bucket
 # rule still matches the deployed resolver. This is read-only and fails the
 # release before it can serve generated results with a missing mirror rule.
-if [[ "${OSS_MIRROR_FLAG,,}" =~ ^(1|true|yes)$ ]]; then
+if [[ "${OSS_REMOTE_TRANSFER_MODE,,}" =~ ^(stream|mirror)$ ]]; then
   if ! npm run oss:configure-mirror -- --check; then
     echo "OSS mirror configuration check failed for $APP_NAME from tag $TAG" >&2
-    rollback_previous_release
+    rollback_previous_release || echo "Automatic rollback failed; manual intervention is required." >&2
+    CUTOVER_STARTED=0
+    rm -f -- "$PM2_ROLLBACK_CONFIG"
     exit 1
   fi
 fi
 
 pm2 save
+CUTOVER_STARTED=0
+rm -f -- "$PM2_ROLLBACK_CONFIG" "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
 cleanup_dependency_cache
 
 CURRENT_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"

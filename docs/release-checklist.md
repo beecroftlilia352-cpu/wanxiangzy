@@ -29,17 +29,25 @@
    supabase/agent-workflows.sql
    supabase/task-queue-items.sql
    supabase/admin-console.sql
+   supabase/migrations/20260818072132_bullmq_generation_outbox.sql
+   supabase/migrations/20260818083000_oss_mirror_transfers.sql
+   supabase/migrations/20260818090000_oss_mirror_queue_health.sql
+   supabase/migrations/20260818093405_commercial_media_asset_registry.sql
+   supabase/migrations/20260818103000_ai_control_plane_runtime.sql
+   supabase/migrations/20260818110000_worker_runtime_control.sql
+   supabase/migrations/20260819101500_admin_dashboard_period_aggregate.sql
+   supabase/migrations/20260819112000_admin_billing_summary.sql
    ```
 
-   只在需要对应功能时再应用后续专项 SQL，例如计费、积分包、运营配置、参考图工作台等。
+   前四个时间戳迁移是 clean-slate 破坏性迁移：先备份，在停写维护窗口严格顺序执行，随后只允许向前修复。统一模型、Worker 控制面和后台经营指标聚合迁移是非破坏性的，必须在发布前紧随其后执行。部署会精确校验 runtime contract 和所需 RPC，旧签名同名 RPC 不能通过。
 
-4. 检查生产环境变量。EC2 上的文件固定在：
+4. 检查生产环境变量。EC2 上的文件位于 `AWS_APP_DIR`（未配置时默认 `~/apps/wanxiangzy`）下：
 
    ```bash
-   ~/apps/wanxiangzy/shared/.env.production
+   $AWS_APP_DIR/shared/.env.production
    ```
 
-   必需项包括 `NEXT_PUBLIC_APP_URL`、`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`JOB_PROCESSOR_SECRET`、阿里云 OSS 与 Upstash Redis 凭据（若启用对应模块）。生图 / 视觉识别 / 文本 / 视频供应商在 `/admin/providers` 配置并加密入库，不写入 `.env.production`。商品精修无开关，发布后直接可用。
+   必需项包括 `NEXT_PUBLIC_APP_URL`、`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、阿里云 OSS 凭据和自托管/云托管标准 Redis 的 `REDIS_URL`。生图 / 视觉识别 / 文本 / 视频供应商在 `/admin/providers` 配置并加密入库，不写入 `.env.production`。商品精修无开关，发布后直接可用。
 
 5. 确认后台处理器密钥是强随机值，长度不少于 32 个字符。不要使用 `change-me`、`secret`、`password` 或示例值。
 
@@ -60,7 +68,7 @@
    /history
    /pricing
    /admin
-   /api/jobs/process-generations  (手动触发, 非必需)
+   管理端 BullMQ / Outbox / OSS mirror / media validation 健康卡片
    ```
 
 ## GitHub Secrets
@@ -71,6 +79,7 @@ GitHub 仓库的 `Settings -> Secrets and variables -> Actions` 至少需要：
 AWS_HOST=
 AWS_USER=ec2-user
 AWS_SSH_PRIVATE_KEY=
+AWS_SSH_KNOWN_HOSTS=EC2固定主机公钥记录
 AWS_PORT=22
 AWS_APP_DIR=/home/ec2-user/apps/wanxiangzy
 AWS_APP_NAME=wanxiangzy
@@ -99,7 +108,7 @@ PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=true
    Run release checks
    Create deployment archive
    Upload deployment archive
-   Update production GPT image provider env
+   Update production rollout flags
    Deploy on EC2
    ```
 
@@ -115,25 +124,20 @@ PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=true
 1. 打开线上域名，确认首页和 `/create` 可访问。
 2. 登录普通用户，发起一次低风险生成或测试任务。
 3. 登录后台，确认用户、任务、资产、账单、运营配置页面可加载。
-4. 确认 PM2 同时拉起了 Next.js server 与 worker 进程 (默认情况下):
+4. 确认 PM2 同时拉起了 Next.js Web cluster 与 Admin 期望数量的 Worker（默认 Web 至少 2 个实例、Worker 至少 1 个）：
 
    ```bash
    pm2 status
-   # 应显示 wanxiangzy 与 wanxiangzy-worker 两个 online 进程
+   # Worker 数量必须与 /admin/workers 的期望实例一致
    ```
 
-5. 查看 worker 心跳与最近批次日志 (应有 `event=heartbeat` / `event=batch.complete` 行):
+5. 查看 worker 主管进程日志（新实例必须出现 `"event":"supervisor.ready"`）：
 
    ```bash
    pm2 logs wanxiangzy-worker --lines 60 --nostream
    ```
 
-6. (可选) 手动触发一次 HTTP 任务处理器作为兜底验证 (HTTP 路由仍保留):
-
-   ```bash
-   curl -i -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-     https://your-domain.example/api/jobs/process-generations
-   ```
+6. `/api/jobs/process-generations` 已固定返回 410，禁止绕过 BullMQ 直接执行业务。需要恢复时使用后台 Outbox recovery/redrive 控制面。
 
 7. 查看 PM2 日志，确认没有启动循环或持续 5xx：
 
@@ -143,7 +147,9 @@ PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=true
 
 ## 回滚
 
-部署脚本在新版本健康检查失败时会自动回滚：它会把 `~/apps/wanxiangzy/current` 重新指向上一版 release，并重启 PM2。
+部署使用受版本控制的 `ecosystem.production.cjs` 和 `pm2 startOrReload`：Web cluster 等每个新实例发出 readiness 后才逐个替换，Worker 在交接时保留 30 秒应用 drain、PM2 预留 45 秒。进程契约或 HTTP 健康检查失败时，脚本会把 `current` 重新指向上一版，并恢复旧 ecosystem；首次切换自旧版 PM2 配置时则使用发布前生成的权限为 `0600` 的临时进程快照，成功或失败后都会删除快照。
+
+自动回滚还必须通过 `runtime-contract.json` 精确兼容门禁。上一版只有在数据库契约版本和哈希与当前发布完全一致时才会被重新启动；clean-slate 迁移后的首次发布或任何跨契约发布失败时，脚本会拒绝启动旧代码并停止 Web/Worker，保持不可写的 fail-closed 维护状态，要求向前修复，或将数据库与应用一起从备份恢复。
 
 如果发布已经成功但后续需要人工回滚，优先重新部署上一个稳定 tag：
 
@@ -157,8 +163,13 @@ git push origin v0.9.9
 ls -lt ~/apps/wanxiangzy/releases
 ln -sfn ~/apps/wanxiangzy/releases/v0.9.9 ~/apps/wanxiangzy/current
 cd ~/apps/wanxiangzy/current
-pm2 delete wanxiangzy || true
-pm2 start npm --name wanxiangzy -- start
+NODE_BIN="$(command -v node)"
+PM2_APP_NAME=wanxiangzy \
+PM2_RELEASE_DIR="$PWD" \
+PM2_NODE_BIN="$NODE_BIN" \
+NODE_ENV=production \
+pm2 startOrReload ecosystem.production.cjs --update-env
+curl -fsS http://127.0.0.1:3000/ >/dev/null
 pm2 save
 ```
 

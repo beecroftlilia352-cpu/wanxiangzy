@@ -1,0 +1,48 @@
+name: wanxiangzy-redis
+
+services:
+  redis:
+    # Pin both the Redis release and the multi-architecture manifest so a
+    # future tag update cannot silently change the production queue runtime.
+    image: redis:7.4.10-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-768mb}
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        exec redis-server
+        --bind 0.0.0.0
+        --protected-mode yes
+        --requirepass "$${REDIS_PASSWORD}"
+        --appendonly yes
+        --appendfsync everysec
+        --aof-use-rdb-preamble yes
+        --save 900 1
+        --save 300 10
+        --maxmemory "$${REDIS_MAXMEMORY}"
+        --maxmemory-policy noeviction
+        --latency-monitor-threshold 100
+    ports:
+      # The application runs on the same host during the local/EC2 phase.
+      # Never expose Redis directly to the public internet.
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  redis-data:
+    name: wanxiangzy-redis-data

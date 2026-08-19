@@ -70,8 +70,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 #   npx tsx --env-file-if-exists=.env.local scripts/seed-video-provider-config.ts
 
 # Feature required: uploads and background processors
-IMAGE_STORAGE_PROVIDER=imgbb
-IMGBB_API_KEY=your-imgbb-api-key
+IMAGE_STORAGE_PROVIDER=aliyun-oss
 JOB_PROCESSOR_SECRET=replace-with-at-least-32-random-characters
 GENERATION_JOB_BATCH_SIZE=2
 GENERATION_JOB_STALE_MINUTES=8
@@ -84,7 +83,7 @@ REPLICATE_API_TOKEN=
 环境变量按三类处理：
 
 - Production required: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`。生产环境必须设置 `NEXT_PUBLIC_APP_URL`，服务端生成公开图片 URL 时不会信任 forwarded host/proto 作为替代。
-- Feature required: 对应功能实际被调用时必须设置，例如 `IMGBB_API_KEY` 或阿里云 OSS 环境变量用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。生图 / 视觉识别 / 文本 / 视频供应商不再依赖环境变量，统一在 `/admin/providers` 配置并加密入库。
+- Feature required: 对应功能实际被调用时必须设置，例如阿里云 OSS 环境变量用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。生图 / 视觉识别 / 文本 / 视频供应商不再依赖环境变量，统一在 `/admin/providers` 配置并加密入库。
 - Optional: base URL、模型名、批处理大小、allowlist、legacy provider token 等可按部署需要覆盖。`GPT_TRYON_PROMPT_TEMPLATE=legacy` 可将服装上身的 GPT 提示词回滚到旧模板；默认 `banana`。模块导入只会提示缺失项；具体运行路径需要某个值时才会报错。
 
 生产环境的任务处理器密钥必须使用至少 32 个随机字符，不能使用 `change-me`、`secret`、`password` 等默认或弱值。`AGENT_WORKFLOW_PROCESSOR_SECRET` 和 `AGENT_EVAL_PROCESSOR_SECRET` 可作为 route-specific 覆盖；未设置时会回退到 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET`。
@@ -100,7 +99,7 @@ REPLICATE_API_TOKEN=
 
 > 注：`supabase/agent-workflows.sql` 虽然属于智能 Agent 模块基础表，但当前任务轨道 `task-queue-items.sql` 依赖 `public.agent_workflows`，新环境仍需先执行它。`supabase/agent-conversations.sql` 和 `supabase/agent-brain-traces.sql` 只有恢复 Agent 功能时再运行。
 
-当前上传和生成结果默认通过 `lib/api/image-storage.ts` 的存储适配器保存。默认值为 ImgBB；生产环境可切换到阿里云 OSS：
+当前上传和生成结果通过存储适配器保存。本地开发可使用 ImgBB；生产用户上传必须使用阿里云 OSS 客户端直传，服务端只签发短时、用户/用途/大小/MIME/Key 绑定的 PostObject policy，不向浏览器下发长期 AccessKey Secret：
 
 ```env
 IMAGE_STORAGE_PROVIDER=aliyun-oss
@@ -115,9 +114,17 @@ ALIYUN_OSS_UPLOAD_PREFIX=user-uploads/original
 ALIYUN_OSS_GENERATED_PREFIX=generated-results/original
 ALIYUN_OSS_FAVORITE_PREFIX=user-favorites/original
 ALIYUN_OSS_TEMP_PREFIX=temp/original
+UPLOAD_DELIVERY_MODE=direct
+UPLOAD_INTENT_SECRET=replace-with-independent-random-secret-at-least-32-bytes
+UPLOAD_INTENT_TTL_SECONDS=300
+UPLOAD_READ_URL_TTL_SECONDS=600
+UPLOAD_DAILY_QUOTA_MB=2048
+UPLOAD_INTENT_RATE_PER_MINUTE=120
+UPLOAD_MAX_ACTIVE_INTENTS=20
+REDIS_URL=rediss://private-redis-endpoint/0
 ```
 
-OSS Bucket 建议使用“公共读，私有写”，RAM 用户只授予当前 bucket/prefix 的 `oss:PutObject`、`oss:GetObject`，可选 `oss:DeleteObject`。对象按用途分前缀保存：`site-assets/original` 永久保留网站资源，`user-uploads/original` 适合短期清理，`generated-results/original` 适合中期保留，`user-favorites/original` 永久保留收藏图，`temp/original` 可设置短生命周期。列表和小卡片通过 OSS `x-oss-process` 动态生成缩略图，不额外保存小图文件。Supabase Storage bucket 暂不作为默认运行依赖；如后续切换到 Supabase Storage，应在适配器中新增实现后再创建并配置对应 bucket/RLS。
+OSS Bucket 建议使用“公共读，私有写”，RAM 用户只授予当前 bucket/prefix 的 `oss:PutObject`、`oss:GetObject`、`oss:HeadObject` 和 `oss:DeleteObject`。对象按用途分前缀保存：`site-assets/original` 永久保留网站资源，`user-uploads/original` 适合短期清理，`generated-results/original` 适合中期保留，`user-favorites/original` 永久保留收藏图，`temp/original` 可设置短生命周期。列表和小卡片通过 OSS `x-oss-process` 动态生成缩略图，不额外保存小图文件。直传 CORS、不可变内容键、完成回执、文件魔数/像素限制、Redis 配额和故障演练见 [生产用户上传数据面](docs/production-upload-data-plane.md)。
 
 上传项目网站静态资源到 OSS：
 
@@ -138,9 +145,9 @@ npm run dev
 
 ### 5. 后台任务处理
 
-生成接口会先写入 `generations.job_payload`，再由后台处理器认领执行。接口返回后即使运行环境中断，任务也能通过处理器继续恢复。
+生成接口通过 PostgreSQL 原子事务完成幂等请求、积分扣减、generation 与 Transactional Outbox；Relay 再把轻量 delivery 投递到 BullMQ。Redis 可重建，PostgreSQL 始终是业务真源。
 
-**生产环境**: 由 PM2 拉起的常驻 Node worker 进程 (`${APP_NAME}-worker`，对应 `npm run worker` -> `tsx scripts/worker.ts`) 负责每秒轮询 `claim_next_generation_jobs` 任务队列, 不受 Vercel 函数 5 分钟超时限制. HTTP 路由 `/api/jobs/process-generations` 仍保留, 用于运维手动触发或回退; 不再需要外部 cron 调它.
+**生产环境**：PM2 拉起常驻 Node worker（`${APP_NAME}-worker`，`npm run worker`），统一运行 BullMQ consumer、Outbox relay、OSS mirror、持久媒体验证和资产清理。Worker 生产启动强制 `NODE_ENV=production`、标准 `REDIS_URL` 与精确数据库 runtime contract。`/api/jobs/process-generations` 固定返回 410，不能绕过队列直接执行业务。
 
 本地开发时可直接运行 worker:
 
@@ -149,7 +156,7 @@ npm run worker          # 单进程
 npm run worker:dev      # 监听文件变更自动重启
 ```
 
-Worker 全部配置通过 `WORKER_*` 环境变量, 详见 `lib/worker/config.ts` 的默认值. 关键不变量: `WORKER_MAX_INFLIGHT_TIMEOUT_MS` 必须严格小于 `WORKER_STALE_MINUTES * 60_000`, 否则长任务会被并发回收.
+Worker 通过 `BULLMQ_*`、`GENERATION_*`、`OSS_MIRROR_*`、`MEDIA_VALIDATION_*` 与 `MEDIA_CLEANUP_*` 配置。默认并发、锁时长、relay batch、retention 都由严格解析器校验；执行互斥由数据库 `delivery_version + execution_token` fence 保证。
 
 **运维命令**:
 
@@ -157,11 +164,9 @@ Worker 全部配置通过 `WORKER_*` 环境变量, 详见 `lib/worker/config.ts`
 pm2 status                                   # 查看 ${APP_NAME} 与 ${APP_NAME}-worker
 pm2 logs ${APP_NAME}-worker --lines 100      # 查看 worker 日志 (心跳每 60s)
 pm2 restart ${APP_NAME}-worker               # 触发热重启 (SIGTERM 优雅退出)
-pm2 stop ${APP_NAME}-worker                  # 临时下线 worker (HTTP 路由仍可手动触发)
+pm2 stop ${APP_NAME}-worker                  # 临时停止消费；Outbox/BullMQ 保留工作
 pm2 start npm --name ${APP_NAME}-worker-2 -- run worker  # 启动第二个 worker 进程扩容
 ```
-
-需要临时禁用 worker (例如排查问题时) 在 `BASE_DIR/shared/.env.production` 中设置 `WORKER_ENABLED=false` 然后 `pm2 restart ${APP_NAME}-worker`. 干跑 (不修改数据库) 设置 `WORKER_DRY_RUN=true`.
 
 > 智能 Agent 模块当前临时下线，对应的 `/api/jobs/process-agent-workflows` 和 `/api/jobs/run-agent-evals` 路由返回 no-op（含 `disabled: "agent module disabled"`），保留鉴权和路径以便恢复时不破坏 cron 配置。模块完整代码在 `refactor/extract-agent-module` 分支，恢复时合并该分支即可。
 
@@ -177,6 +182,7 @@ pm2 start npm --name ${APP_NAME}-worker-2 -- run worker  # 启动第二个 worke
 AWS_HOST=你的 EC2 公网 IP 或域名
 AWS_USER=ec2-user
 AWS_SSH_PRIVATE_KEY=你的 EC2 私钥内容
+AWS_SSH_KNOWN_HOSTS=固定并审核过的 EC2 host key 记录
 AWS_PORT=22
 AWS_APP_DIR=/home/ec2-user/apps/wanxiangzy
 AWS_APP_NAME=wanxiangzy
@@ -354,13 +360,8 @@ sudo systemctl cat pm2-ec2-user | grep -E "ExecStart|Environment|PATH"
 # 期待：所有路径指向 v22，没有 v20
 ```
 
-### Worker 自适应轮询（Supabase RPC 节流）
+### BullMQ / Outbox 调度
 
-`claim_next_generation_jobs` 是 Supabase RPC。如果队列空着还每秒钟打一次，对 RPC quota 不友好。worker 现在用指数退避：
+生成 Worker 不再轮询 `claim_next_generation_jobs`。PostgreSQL Outbox relay 使用有界、租户公平的 `SKIP LOCKED` claim，把 delivery 发布到 BullMQ；Worker 通过 `delivery_version + execution_token` 认领业务执行。Redis 故障时任务留在 Outbox，恢复后重投；Worker 崩溃由 Bull stalled recovery 与数据库 execution lease 共同恢复。
 
-| 配置 | 默认 | 说明 |
-|---|---|---|
-| `WORKER_POLL_INTERVAL_MS` | 1000 | 首次空轮询间隔 |
-| `WORKER_IDLE_BACKOFF_MAX_MS` | 60000 | 退避上限（60s ≈ 60 RPCs/hr idle） |
-
-连续空轮询时 sleep 翻倍（1s → 2s → 4s → … → 60s 封顶），队列里出现任务时立即重置为紧密循环。数据迁移完成后再调小 `WORKER_IDLE_BACKOFF_MAX_MS` 提升响应延迟。
+主要参数见 `.env.local.example`：`BULLMQ_WORKER_CONCURRENCY`、`BULLMQ_RELAY_BATCH_SIZE`、`BULLMQ_RELAY_CONCURRENCY`、`GENERATION_MAX_ACTIVE_PER_USER`。完整架构、压测与故障恢复手册见 `docs/production-generation-queue.md`。

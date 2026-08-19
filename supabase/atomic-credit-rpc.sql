@@ -6,10 +6,15 @@
 ALTER TABLE public.generations
   ADD COLUMN IF NOT EXISTS job_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   ADD COLUMN IF NOT EXISTS job_attempts INTEGER NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS generations_job_queue_idx
   ON public.generations (status, created_at)
+  WHERE status IN ('queued', 'processing_tryon');
+
+CREATE INDEX IF NOT EXISTS generations_job_ready_idx
+  ON public.generations (status, next_attempt_at, created_at)
   WHERE status IN ('queued', 'processing_tryon');
 
 CREATE OR REPLACE FUNCTION public.create_generation_with_credit_debit(
@@ -143,7 +148,11 @@ BEGIN
     WHERE id = p_generation_id
       AND user_id = p_user_id
       AND status NOT IN ('completed', 'success', 'succeeded')
-      AND COALESCE(array_length(result_urls, 1), 0) > 0;
+      AND EXISTS (
+        SELECT 1
+        FROM unnest(COALESCE(result_urls, '{}'::TEXT[])) AS result_url
+        WHERE NULLIF(btrim(result_url), '') IS NOT NULL
+      );
 
   SELECT LEAST(GREATEST(p_amount, 0), GREATEST(COALESCE(credits_used, credits_cost, 0), 0))
     INTO v_refund_amount
@@ -328,10 +337,12 @@ BEGIN
     SET
       status = 'processing_tryon',
       processing_started_at = now(),
+      next_attempt_at = NULL,
       job_attempts = COALESCE(g.job_attempts, 0) + 1,
       error_message = NULL
     WHERE g.id = p_generation_id
       AND COALESCE(g.job_attempts, 0) < 3
+      AND (g.next_attempt_at IS NULL OR g.next_attempt_at <= now())
       AND (
         g.status = 'queued'
         OR (
@@ -370,6 +381,7 @@ BEGIN
     SELECT g.id
     FROM public.generations g
     WHERE COALESCE(g.job_attempts, 0) < 3
+      AND (g.next_attempt_at IS NULL OR g.next_attempt_at <= now())
       AND (
         g.status = 'queued'
         OR (
@@ -388,6 +400,7 @@ BEGIN
     SET
       status = 'processing_tryon',
       processing_started_at = now(),
+      next_attempt_at = NULL,
       job_attempts = COALESCE(g.job_attempts, 0) + 1,
       error_message = NULL
     FROM candidates

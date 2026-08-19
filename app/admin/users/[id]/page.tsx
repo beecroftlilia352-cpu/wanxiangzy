@@ -19,6 +19,8 @@ import {
   type AdminCreditLogItem,
   type AdminTaskListItem,
 } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,10 @@ type PageProps = {
 };
 
 export default async function AdminUserDetailPage({ params }: PageProps) {
+  const admin = await requireAdmin("users:read");
+  const canManageUser = hasAdminPermission(admin.role, "users:write");
+  const canAdjustCredits = hasAdminPermission(admin.role, "credits:write");
+  const canOperateTasks = hasAdminPermission(admin.role, "tasks:operate");
   const { id } = await params;
   const detail = await getAdminUserDetail(id);
   const profile = detail.profile;
@@ -76,7 +82,11 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           title="用户操作"
           description="所有写操作都会进入后台审计日志；暂停生成会在扣灵点和创建任务前生效。"
         >
-          <AdminUserManagementForm profile={profile} />
+          <AdminUserManagementForm
+            profile={profile}
+            canManageUser={canManageUser}
+            canAdjustCredits={canAdjustCredits}
+          />
         </AdminSection>
       )}
 
@@ -117,7 +127,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
             { key: "thumbs", label: "图像", render: (row) => <ThumbnailStrip urls={row.resultThumbnails.length ? row.resultThumbnails : row.inputThumbnails} /> },
             { key: "module", label: "模块", render: (row) => <span className="text-sm font-bold text-[var(--admin-fg)]">{row.moduleLabel}</span> },
             { key: "stale", label: "处理状态", render: (row) => <span className={`whitespace-nowrap text-xs font-black ${row.isStale ? "text-orange-700" : "text-[var(--admin-faint)]"}`}>{row.isStale ? `长时间未完成 ${row.staleMinutes} 分钟` : "正常"}</span> },
-            { key: "actions", label: "操作", render: (row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
+            { key: "actions", label: "操作", render: (row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact canOperate={canOperateTasks} /> },
             { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />

@@ -18,6 +18,7 @@ type CustomTemplateSourcePanelProps = {
   customOtherRefInputRef: RefObject<HTMLInputElement | null>;
   onCustomDraftChange: (updater: (value: CustomDraft) => CustomDraft) => void;
   onUploadCustomReference: (kind: "style" | "model" | "other", file?: File) => void;
+  onPickCustomReference?: (kind: "style" | "model" | "other") => void;
   onAddCustomTemplate: () => void;
   onRemoveCustomTemplate: (id: string) => void;
   onOpenLibrary: () => void;
@@ -34,6 +35,7 @@ export function CustomTemplateSourcePanel({
   customOtherRefInputRef,
   onCustomDraftChange,
   onUploadCustomReference,
+  onPickCustomReference,
   onAddCustomTemplate,
   onRemoveCustomTemplate,
   onOpenLibrary,
@@ -70,6 +72,7 @@ export function CustomTemplateSourcePanel({
         customOtherRefInputRef={customOtherRefInputRef}
         onCustomDraftChange={onCustomDraftChange}
         onUploadCustomReference={onUploadCustomReference}
+        onPickCustomReference={onPickCustomReference}
         onAddCustomTemplate={onAddCustomTemplate}
       />
 

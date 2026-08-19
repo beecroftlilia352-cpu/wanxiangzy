@@ -23,6 +23,7 @@ import type { AdminFeatureConfig, AdminFeatureRegistry } from "@/lib/admin/featu
 
 type AdminFeaturesClientProps = {
   registry: AdminFeatureRegistry;
+  canManage?: boolean;
 };
 
 type FeatureFormValue = Omit<AdminFeatureConfig, "updatedAt"> & {
@@ -44,7 +45,7 @@ const statusOptions = [
   { label: "归档", value: "archived" },
 ];
 
-export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
+export function AdminFeaturesClient({ registry, canManage = false }: AdminFeaturesClientProps) {
   const router = useRouter();
   const { message, modal } = AntdApp.useApp();
   const [form] = Form.useForm<FeatureFormValue>();
@@ -130,7 +131,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       key: "actions",
       fixed: "right",
       width: 150,
-      render: (_, row) => (
+      render: (_, row) => canManage ? (
         <Space>
           <Button size="small" icon={<EditOutlined aria-hidden="true" />} onClick={() => startEdit(row)} aria-label={`编辑 ${row.label}`}>
             编辑
@@ -139,7 +140,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
             归档
           </Button>
         </Space>
-      ),
+      ) : <Typography.Text type="secondary" className="text-xs">只读</Typography.Text>,
     },
   ];
 
@@ -173,6 +174,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
   }
 
   async function submit(values: FeatureFormValue) {
+    if (!canManage) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/features", {
@@ -201,6 +203,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
   }
 
   function archiveFeature(feature: AdminFeatureConfig) {
+    if (!canManage) return;
     let reason = `归档 ${feature.label} 功能配置`;
     modal.confirm({
       title: `归档 ${feature.label}`,
@@ -240,9 +243,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
             用版本化配置统一管理前端功能展示、模型、灵点策略和后台关联入口。
           </Typography.Paragraph>
         </div>
-        <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={startCreate}>
-          新增功能配置
-        </Button>
+        {canManage && <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={startCreate}>新增功能配置</Button>}
       </div>
 
       {registry.warnings.length > 0 && (
@@ -277,7 +278,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
         />
       </Card>
 
-      <Modal
+      {canManage && <Modal
         title={editing ? `编辑 ${editing.label}` : "新增功能配置"}
         open={open}
         onCancel={() => setOpen(false)}
@@ -332,7 +333,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
             <Input.TextArea rows={2} maxLength={240} />
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal>}
     </Space>
   );
 }

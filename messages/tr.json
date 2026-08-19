@@ -3281,6 +3281,14 @@
       "complexMaterial": "Karmaşık materyaller ve ticari ışıklandırma",
       "recommended": "Önerilen"
     },
+    "mode": {
+      "faithfulLabel": "Standart rötuş",
+      "faithfulDesc": "Orijinal arka planı koru · Kusurları ve paraziti temizle; renk, ışık ve netliği düzelt",
+      "whiteBackgroundLabel": "Beyaz arka plan rötuşu",
+      "whiteBackgroundDesc": "Saf beyaz arka plan oluştur · Doğal temas gölgelerini koruyarak kadrajı ve konturları standartlaştır",
+      "studioLabel": "Stüdyo rötuşu",
+      "studioDesc": "Stüdyo ışığını ve arka planı yeniden oluştur · Malzeme, yansıma ve derinliği güçlendir"
+    },
     "aspect": {
       "autoLabel": "Orijinal oran",
       "auto": "Ürün orijinalini izle",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "Eksiksiz konu, keskin odak ve engel olmayan görseller toplu üretim için en iyi sonucu verir."
     },
     "example": {
+      "sampleLabel": "Örnek {index}",
       "alreadyAdded": "{title} örneği zaten mevcut partide",
       "added": "{title} örneği eklendi"
     },
@@ -4811,6 +4820,138 @@
     "delete": "Sil",
     "reuseImages": "Görselleri yeniden kullan",
     "taskGenericTitle": "Kombin Füzyonu görevi",
-    "imageNumber": "Görsel {index}"
+    "imageNumber": "Görsel {index}",
+    "uploadLibrary": "Varlık kitaplığından seçim yapın"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Varlık kitaplığı",
+      "description": "Yeniden kullanılabilir yüklemeleri, oluşturulan varlıkları ve istemleri tek bir yerden yönetin."
+    },
+    "tabs": {
+      "label": "Varlık kitaplığı bölümleri",
+      "uploads": "Yerel yüklemeler",
+      "generated": "Oluşturduklarım",
+      "prompts": "İstemlerim"
+    },
+    "actions": {
+      "cancel": "İptal",
+      "close": "Kapat",
+      "confirm": "Onayla",
+      "loadMore": "Daha fazlasını yükle",
+      "localUpload": "Cihazdan yükle",
+      "newPrompt": "Yeni istem",
+      "remove": "Kaldır",
+      "removeAsset": "Öğeyi kaldır",
+      "removePrompt": "İstemi kaldır",
+      "retry": "Yeniden dene",
+      "save": "Kaydet",
+      "add": "Varlık kitaplığına ekle",
+      "added": "Öğe kitaplığına eklendi"
+    },
+    "categories": {
+      "title": "Varlık kategorileri",
+      "localUploads": "Yerel yüklemeler"
+    },
+    "filters": {
+      "allMedia": "Tüm medya",
+      "allModules": "Tüm özellikler",
+      "image": "Görseller",
+      "mediaLabel": "Medya türü",
+      "moduleLabel": "Özellik",
+      "video": "Videolar"
+    },
+    "picker": {
+      "title": "Varlıkları seçin",
+      "selectionHint": "{max}'den seçilmiş {selected}",
+      "selectedCount": "{selected}/{max} seçildi",
+      "gridLabel": "Mevcut varlıklar",
+      "limitReachedTitle": "Seçim sınırına ulaşıldı",
+      "limitReachedDescription": "Başka bir varlık seçmeden önce bir varlığın seçimini kaldırın.",
+      "limitReachedInline": "En fazla {max} varlığını seçebilirsiniz."
+    },
+    "card": {
+      "select": "{title}'yi seçin",
+      "removeSelection": "{title} seçimini kaldır",
+      "preview": "Önizleme {title}",
+      "previewTitle": "Varlık önizlemesi",
+      "previewDescription": "Seçilen varlığı önizleyin."
+    },
+    "empty": {
+      "uploadTitle": "Henüz yerel yükleme yok",
+      "uploadDescription": "Oluşturma araçlarında yeniden kullanmak için görselleri veya videoları yükleyin.",
+      "moduleTitle": "Bu özellikte kayıtlı öğe yok",
+      "moduleDescription": "Oluşturulan sonucu burada görünmesini sağlamak için kaydedin.",
+      "generatedTitle": "Henüz oluşturulmuş öğe yok",
+      "generatedDescription": "Burada yeniden kullanmak için bir oluşturma sayfasındaki sonuçları kaydedin.",
+      "promptTitle": "Henüz herhangi bir istem yok",
+      "promptDescription": "Sonraki üretimlerinizi hızlandırmak için yeniden kullanılabilir istemler oluşturun."
+    },
+    "states": {
+      "loading": "Yükleniyor",
+      "uploading": "Yükleniyor",
+      "saving": "Kaydediliyor",
+      "uploadFailed": "Yükleme başarısız oldu",
+      "loadFailedTitle": "Öğeler yüklenemedi",
+      "loadFailedDescription": "Bağlantınızı kontrol edip tekrar deneyin.",
+      "deleteFailed": "Öğe kaldırılamadı",
+      "createFailed": "İstem oluşturulamadı",
+      "operationFailed": "Varlık kitaplığı eylemi başarısız oldu. Lütfen tekrar deneyin."
+    },
+    "toast": {
+      "uploadSuccess": "Yüklenen {count} öğeleri",
+      "assetRemoved": "Öğe kaldırıldı",
+      "promptCreated": "İstem oluşturuldu",
+      "promptRemoved": "İstem kaldırıldı"
+    },
+    "upload": {
+      "supportedFormats": "Yaygın resim ve video formatlarını destekler"
+    },
+    "prompts": {
+      "allTypes": "Tüm türler",
+      "typeLabel": "İstem türü",
+      "searchLabel": "Arama istemleri",
+      "searchPlaceholder": "Arama istemleri",
+      "createTitle": "İstem oluştur",
+      "createDescription": "Yeniden kullanmak üzere bir başlık ve istem içeriğini kaydedin.",
+      "titleLabel": "Bilgi istemi başlığı",
+      "titlePlaceholder": "Bir bilgi istemi başlığı girin",
+      "contentLabel": "İstemi içerik",
+      "contentPlaceholder": "Bilgi istemi içeriğini girin"
+    },
+    "confirm": {
+      "removeAssetTitle": "Öğe kaldırılsın mı?",
+      "removeAssetDescription": "Bu öğe kitaplığınızdan kaldırılacak.",
+      "removePromptTitle": "İstem kaldırılsın mı?",
+      "removePromptDescription": "Bu istem kalıcı olarak kaldırılacak."
+    },
+    "promptTypes": {
+      "text-to-image": "Metinden resme",
+      "image-to-image": "Resimden resme",
+      "model-background": "Modelin arka planı",
+      "pose": "Poz",
+      "video": "video",
+      "other": "Diğer"
+    },
+    "modules": {
+      "tryon": "Prova",
+      "grass": "Stil tohumlama görseli",
+      "productRetouch": "Ürün rötuşu",
+      "productSet": "Ürün seti",
+      "modelBackground": "Model arka plan değişimi",
+      "materialEnhancement": "Materyal iyileştirme",
+      "generalImage": "Genel görsel",
+      "outfitFusion": "Kombin füzyonu",
+      "pose": "Poz genişletme",
+      "model": "Özel model",
+      "garment3d": "Giysiden 3D'ye",
+      "faceSwap": "Yüz değiştirme",
+      "imageTranslation": "Resim çevirisi",
+      "commerceDetail": "Ürün detay resmi",
+      "allCategoryProductImage": "Tüm kategorideki ürün görseli",
+      "videoImageToVideo": "Görselden videoya",
+      "videoMotion": "Hareket taklidi",
+      "videoFirstLastFrame": "İlk/son kare"
+    }
   }
 }

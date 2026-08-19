@@ -82,6 +82,48 @@ describe("newapi video adapter (new.bi gateway)", () => {
     expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "running" }));
   });
 
+  it("forwards a deterministic idempotency key on provider submission", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method || "GET").toUpperCase() === "POST") {
+        return jsonResponse({ task_id: "task_idempotent", object: "video", status: "queued" });
+      }
+      return jsonResponse({ object: "video", task_id: "task_idempotent", status: "completed", video_url: "https://cdn.example.com/idempotent.mp4" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = generateNewApiImageToVideo({
+      ...minimaxInput(),
+      idempotencyKey: "gen-6ba7b810-9dad-41d1-80b4-00c04fd430c8-video-0",
+    }, minimaxProvider);
+    await vi.advanceTimersByTimeAsync(20_000);
+    await pending;
+
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Record<string, string>;
+    expect(headers["Idempotency-Key"]).toBe("gen-6ba7b810-9dad-41d1-80b4-00c04fd430c8-video-0");
+  });
+
+  it("resumes polling a persisted provider task without resubmitting", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect((init?.method || "GET").toUpperCase()).toBe("GET");
+      return jsonResponse({ object: "video", task_id: "task_resume_1", status: "completed", video_url: "https://cdn.example.com/resumed.mp4" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onProgress = vi.fn();
+    const pending = generateNewApiImageToVideo({
+      ...minimaxInput(),
+      resumeTask: { taskId: "task_resume_1", requestId: "request_resume_1" },
+      onProgress,
+    }, minimaxProvider);
+    await vi.advanceTimersByTimeAsync(20_000);
+    const result = await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/v1/video/generations/task_resume_1");
+    expect(result.url).toBe("https://cdn.example.com/resumed.mp4");
+    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ providerStatus: "RESUMING" }));
+  });
+
   it("maps minimax 768p and seedance mini to their upstream models", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || "GET").toUpperCase();

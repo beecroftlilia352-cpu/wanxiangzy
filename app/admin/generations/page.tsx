@@ -2,6 +2,8 @@ import { AdminTasksClient } from "@/components/admin/AdminTasksClient";
 import { listAdminTasks } from "@/lib/admin/data";
 import { parseAdminListQuery } from "@/lib/admin/query";
 import type { AdminTaskList } from "@/lib/admin/data";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 15;
@@ -19,6 +21,7 @@ type PageProps = {
 };
 
 export default async function AdminGenerationsPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin("tasks:read");
   const params = (await searchParams) || {};
   const query = parseAdminListQuery(toUrlSearchParams(params), {
     defaultPageSize: 20,
@@ -58,6 +61,7 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
       page={query.page}
       pageSize={query.pageSize}
       fetchError={fetchError}
+      canOperate={hasAdminPermission(admin.role, "tasks:operate")}
     />
   );
 }

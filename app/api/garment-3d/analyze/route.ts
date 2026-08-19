@@ -1,12 +1,10 @@
 import { getLlmLanguageName } from "@/lib/api/llm-locale";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { GARMENT_3D_QUALITY } from "@/lib/garment-3d-prompt";
 import { buildGarment3dDisplayStylePrompt, getGarment3dDisplayStyleLabel, normalizeGarment3dDisplayStyle } from "@/lib/module-style-presets";
-
-const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,13 +14,8 @@ export async function POST(request: NextRequest) {
     const limit = await checkRateLimit(`garment-3d-analyze:${auth.user.id}`, 20, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
-    const llm = await getLlmConfig("vision");
-    if (!llm.apiKey) return NextResponse.json({ prompt: "" });
-
     const { garment_url, garment_type, custom_garment_type, display_style, prompt } = await request.json();
     if (!garment_url) return NextResponse.json({ prompt: "" });
-
-    if (!llm.baseUrl) return NextResponse.json({ prompt: "" });
 
     const finalType = garment_type === "其他"
       ? custom_garment_type?.trim() || "其他服装"
@@ -64,14 +57,10 @@ ${displayStylePrompt}
 用户当前提示词（仅供参考方向，不要照搬，必须基于图片分析重新生成）：
 ${prompt || ""}`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetch(getChatCompletionsUrl(llm), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: llm.model,
+    const completion = await executeLlmChatRouted({
+      kind: "vision",
+      context: { userId: auth.user.id },
+      body: {
         messages: [{
           role: "user",
           content: [
@@ -80,11 +69,9 @@ ${prompt || ""}`;
           ],
         }],
         max_tokens: 500,
-      }),
-    }).finally(() => clearTimeout(timeout));
-
-    if (!res.ok) return NextResponse.json({ prompt: "" });
-    const data = await res.json();
+      },
+    });
+    const data = completion.data as { choices?: Array<{ message?: { content?: string } }> };
     const analyzedPrompt = data.choices?.[0]?.message?.content?.trim() || "";
     return NextResponse.json({ prompt: enforcePromptRequirements(analyzedPrompt) });
   } catch (err: unknown) {

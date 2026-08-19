@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { executeLlmChatRouted } from "@/lib/api/llm-routing.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { findDisallowedProductionImageInputs, isGeneralImageReferenceUrl } from "@/lib/api/general-image-inputs";
+import { getPublicBaseUrlFromRequest, resolveImageInputs } from "@/lib/api/image-inputs.server";
 
 export const maxDuration = 60;
-
-const IMAGE_TO_PROMPT_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,13 +17,22 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : "";
-    if (!/^https?:\/\//i.test(imageUrl) && !/^data:image\//i.test(imageUrl)) {
+    if (!isGeneralImageReferenceUrl(imageUrl)) {
       return NextResponse.json({ error: "请先上传图片" }, { status: 400 });
     }
-
-    const llm = await getLlmConfig("vision");
-    if (!llm.apiKey || !llm.baseUrl) {
-      return NextResponse.json({ error: "图片理解服务未配置，请稍后重试" }, { status: 503 });
+    const publicBaseUrl = getPublicBaseUrlFromRequest(request);
+    if (process.env.NODE_ENV === "production" && findDisallowedProductionImageInputs([imageUrl], publicBaseUrl).length) {
+      return NextResponse.json({ error: "生产环境请使用已验证的媒体资产" }, { status: 400 });
+    }
+    let providerImageUrl = imageUrl;
+    try {
+      const resolved = await resolveImageInputs(
+        { clothingUrls: [], referenceUrls: [imageUrl] },
+        { publicBaseUrl, ownerUserId: auth.user.id },
+      );
+      providerImageUrl = resolved.referenceUrls?.[0] || imageUrl;
+    } catch {
+      return NextResponse.json({ error: "图片不可用，请重新上传后重试" }, { status: 400 });
     }
 
     const textPrompt = `你是专业图片内容描述师和文生图提示词工程师。请观察用户上传的图片，把画面内容反推成一段“纯文字文生图提示词”。
@@ -40,41 +49,27 @@ export async function POST(request: NextRequest) {
 6. 禁止使用“参考图、参考图片、原图、上传图片、这张图片、图中、根据图片、保留图片”等依赖图片上下文的词。
 7. 禁止写成“根据参考图片生成...”这种图生图指令；必须直接描述画面内容，例如“年轻女性模特身穿灰色无袖连衣裙，长发披肩...”`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), IMAGE_TO_PROMPT_TIMEOUT_MS);
-    const res = await fetch(getChatCompletionsUrl(llm), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${llm.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: llm.model,
+    const completion = await executeLlmChatRouted({
+      kind: "vision",
+      context: { userId: auth.user.id },
+      body: {
         messages: [{
           role: "user",
           content: [
             { type: "text", text: textPrompt },
-            { type: "image_url", image_url: { url: imageUrl } },
+            { type: "image_url", image_url: { url: providerImageUrl } },
           ],
         }],
         max_tokens: 600,
         temperature: 0.25,
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    const resText = await res.text();
-    if (!res.ok) {
-      console.error("[general-image/image-to-prompt] LLM error:", res.status, resText.slice(0, 500));
-      return NextResponse.json({ error: "图片理解失败，请稍后重试", reason: `llm_http_${res.status}` }, { status: 502 });
-    }
-
-    const data = JSON.parse(resText) as Record<string, unknown>;
+      },
+    });
+    const data = completion.data;
     const prompt = sanitizeImagePrompt(extractMessageText(data));
     if (!prompt) {
       return NextResponse.json({ error: "图片理解结果为空，请换一张图片重试" }, { status: 502 });
     }
-    return NextResponse.json({ prompt, source: llm.provider });
+    return NextResponse.json({ prompt, source: completion.providerId });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json({ error: "图片理解超时，请稍后重试", reason: "timeout" }, { status: 504 });

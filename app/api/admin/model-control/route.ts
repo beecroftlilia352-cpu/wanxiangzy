@@ -29,14 +29,24 @@ import { getOssMirrorHealth } from "@/lib/queue/oss-mirror-health.server";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const auth = await requireAdminApi("providers:write");
+  const auth = await requireAdminApi("providers:read");
   if (!auth.ok) return auth.response;
   const url = new URL(request.url);
   const hours = Number(url.searchParams.get("hours") || 24);
   const snapshot = await getAiControlPlanePublicSnapshot();
   const deploymentIds = snapshot.config.deployments.map((item) => item.id);
   const admin = getAdminClient();
-  const [health, metrics, versions, inFlight, queueHealth, bullmqHealth, ossMirrorHealth] = await Promise.all([
+  const [
+    health,
+    metrics,
+    versions,
+    inFlight,
+    queueHealth,
+    bullmqHealth,
+    ossMirrorHealth,
+    mediaValidationHealth,
+    mediaAssetLifecycleHealth,
+  ] = await Promise.all([
     loadAiProviderHealth(deploymentIds),
     loadAiProviderMetrics(hours),
     admin
@@ -49,6 +59,8 @@ export async function GET(request: Request) {
     admin.rpc("get_generation_queue_health"),
     getGenerationBullMqHealth(),
     getOssMirrorHealth(),
+    admin.rpc("get_media_validation_queue_health"),
+    admin.rpc("get_media_asset_lifecycle_health"),
   ]);
   const capacityBackend = getAiCapacityBackendStatus();
   const generationQueueMode = process.env.GENERATION_QUEUE_MODE?.trim().toLowerCase()
@@ -97,6 +109,10 @@ export async function GET(request: Request) {
         lastCompletedAt: ossMirrorHealth.lastCompletedAt,
         error: ossMirrorHealth.error ? "[redacted]" : null,
       },
+      mediaValidation: normalizeMediaValidationHealth(mediaValidationHealth.data),
+      mediaValidationError: Boolean(mediaValidationHealth.error),
+      mediaAssets: normalizeMediaAssetLifecycleHealth(mediaAssetLifecycleHealth.data),
+      mediaAssetsError: Boolean(mediaAssetLifecycleHealth.error),
     },
     versions: versions.data || [],
     versionError: versions.error?.message || null,
@@ -114,6 +130,41 @@ function normalizeGenerationQueueHealth(value: unknown) {
     deadCount: nonNegativeNumber(row.dead_count),
     oldestPendingAgeSeconds: nonNegativeNumber(row.oldest_pending_age_seconds),
   };
+}
+
+function normalizeMediaValidationHealth(value: unknown) {
+  const row = firstHealthRow(value);
+  if (!row) return null;
+  return {
+    pendingCount: nonNegativeNumber(row.pending_count),
+    processingCount: nonNegativeNumber(row.processing_count),
+    completedCount: nonNegativeNumber(row.completed_count),
+    deadCount: nonNegativeNumber(row.dead_count),
+    staleProcessingCount: nonNegativeNumber(row.stale_processing_count),
+    uploadedWithoutJobCount: nonNegativeNumber(row.uploaded_without_job_count),
+    oldestPendingAgeSeconds: nonNegativeNumber(row.oldest_pending_age_seconds),
+  };
+}
+
+function normalizeMediaAssetLifecycleHealth(value: unknown) {
+  const row = firstHealthRow(value);
+  if (!row) return null;
+  return {
+    pendingCount: nonNegativeNumber(row.pending_count),
+    uploadedCount: nonNegativeNumber(row.uploaded_count),
+    verifiedCount: nonNegativeNumber(row.verified_count),
+    quarantinedCount: nonNegativeNumber(row.quarantined_count),
+    deletedCount: nonNegativeNumber(row.deleted_count),
+    cleanupReadyCount: nonNegativeNumber(row.cleanup_ready_count),
+    expiredLeaseCount: nonNegativeNumber(row.expired_lease_count),
+    oldestPendingAgeSeconds: nonNegativeNumber(row.oldest_pending_age_seconds),
+    oldestCleanupReadyAgeSeconds: nonNegativeNumber(row.oldest_cleanup_ready_age_seconds),
+  };
+}
+
+function firstHealthRow(value: unknown) {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate && typeof candidate === "object" ? candidate as Record<string, unknown> : null;
 }
 
 function nonNegativeNumber(value: unknown) {

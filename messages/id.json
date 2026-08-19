@@ -3281,6 +3281,14 @@
       "complexMaterial": "Tekstur kompleks dan pencahayaan komersial",
       "recommended": "Rekomendasi"
     },
+    "mode": {
+      "faithfulLabel": "Retouch standar",
+      "faithfulDesc": "Pertahankan latar asli · Bersihkan cacat dan noise; koreksi warna, cahaya, dan ketajaman",
+      "whiteBackgroundLabel": "Retouch latar putih",
+      "whiteBackgroundDesc": "Buat latar putih murni · Rapikan komposisi dan kontur sambil mempertahankan bayangan kontak alami",
+      "studioLabel": "Retouch studio",
+      "studioDesc": "Bangun ulang pencahayaan dan latar studio · Perkuat material, pantulan, dan dimensi"
+    },
     "aspect": {
       "autoLabel": "Rasio gambar asli",
       "auto": "Ikuti gambar produk asli",
@@ -3323,6 +3331,7 @@
       "tipAdvice": "Gambar dengan subjek utuh, fokus jelas, tanpa halangan lebih cocok produksi batch."
     },
     "example": {
+      "sampleLabel": "Contoh {index}",
       "alreadyAdded": "Contoh {title} sudah ada di batch saat ini",
       "added": "Contoh {title} ditambahkan"
     },
@@ -4811,6 +4820,138 @@
     "delete": "Hapus",
     "reuseImages": "Pakai gambar lagi",
     "taskGenericTitle": "Tugas Fusi Outfit",
-    "imageNumber": "Gambar {index}"
+    "imageNumber": "Gambar {index}",
+    "uploadLibrary": "Pilih dari perpustakaan aset"
+  },
+  "ResourceLibrary": {
+    "page": {
+      "title": "Perpustakaan aset",
+      "description": "Kelola upload yang dapat digunakan kembali, aset yang dihasilkan, dan perintah di satu tempat."
+    },
+    "tabs": {
+      "label": "Bagian perpustakaan aset",
+      "uploads": "Unggahan lokal",
+      "generated": "Hasil saya",
+      "prompts": "Prompt saya"
+    },
+    "actions": {
+      "cancel": "Batalkan",
+      "close": "Tutup",
+      "confirm": "Konfirmasikan",
+      "loadMore": "Muat lebih banyak",
+      "localUpload": "Unggah dari perangkat",
+      "newPrompt": "Perintah baru",
+      "remove": "Hapus",
+      "removeAsset": "Hapus aset",
+      "removePrompt": "Hapus perintah",
+      "retry": "Coba lagi",
+      "save": "Simpan",
+      "add": "Tambahkan ke perpustakaan aset",
+      "added": "Ditambahkan ke perpustakaan aset"
+    },
+    "categories": {
+      "title": "Kategori aset",
+      "localUploads": "Unggahan lokal"
+    },
+    "filters": {
+      "allMedia": "Semua media",
+      "allModules": "Semua fitur",
+      "image": "Gambar",
+      "mediaLabel": "Jenis media",
+      "moduleLabel": "Fitur",
+      "video": "Video"
+    },
+    "picker": {
+      "title": "Pilih aset",
+      "selectionHint": "{selected} yang dipilih dari {max}",
+      "selectedCount": "{selected}/{max} dipilih",
+      "gridLabel": "Aset yang tersedia",
+      "limitReachedTitle": "Batas seleksi tercapai",
+      "limitReachedDescription": "Batalkan pilihan aset sebelum memilih aset lainnya.",
+      "limitReachedInline": "Anda dapat memilih hingga aset {max}."
+    },
+    "card": {
+      "select": "Pilih {title}",
+      "removeSelection": "Batalkan pilihan {title}",
+      "preview": "Pratinjau {title}",
+      "previewTitle": "Pratinjau aset",
+      "previewDescription": "Pratinjau aset yang dipilih."
+    },
+    "empty": {
+      "uploadTitle": "Belum ada upload lokal",
+      "uploadDescription": "Unggah gambar atau video untuk digunakan kembali di seluruh alat pembuatan.",
+      "moduleTitle": "Tidak ada aset yang disimpan dalam fitur ini",
+      "moduleDescription": "Simpan hasil yang dihasilkan agar muncul di sini.",
+      "generatedTitle": "Belum ada aset yang dihasilkan",
+      "generatedDescription": "Simpan hasil dari halaman pembuatan untuk digunakan kembali di sini.",
+      "promptTitle": "Belum ada petunjuknya",
+      "promptDescription": "Buat prompt yang dapat digunakan kembali untuk mempercepat kreasi berikutnya."
+    },
+    "states": {
+      "loading": "Memuat",
+      "uploading": "Mengunggah",
+      "saving": "Menyimpan",
+      "uploadFailed": "Gagal mengunggah",
+      "loadFailedTitle": "Tidak dapat memuat aset",
+      "loadFailedDescription": "Periksa koneksi Anda dan coba lagi.",
+      "deleteFailed": "Tidak dapat menghapus item tersebut",
+      "createFailed": "Tidak dapat membuat perintah",
+      "operationFailed": "Tindakan pustaka aset gagal. Silakan coba lagi."
+    },
+    "toast": {
+      "uploadSuccess": "Aset {count} yang diunggah",
+      "assetRemoved": "Aset dihapus",
+      "promptCreated": "Perintah dibuat",
+      "promptRemoved": "Perintah dihapus"
+    },
+    "upload": {
+      "supportedFormats": "Mendukung format gambar dan video umum"
+    },
+    "prompts": {
+      "allTypes": "Semua tipe",
+      "typeLabel": "Tipe cepat",
+      "searchLabel": "Petunjuk pencarian",
+      "searchPlaceholder": "Petunjuk pencarian",
+      "createTitle": "Buat perintah",
+      "createDescription": "Simpan judul dan konten yang diminta untuk digunakan kembali.",
+      "titleLabel": "Judul cepat",
+      "titlePlaceholder": "Masukkan judul cepat",
+      "contentLabel": "Konten yang cepat",
+      "contentPlaceholder": "Masukkan konten cepat"
+    },
+    "confirm": {
+      "removeAssetTitle": "Hapus aset?",
+      "removeAssetDescription": "Aset ini akan dihapus dari perpustakaan Anda.",
+      "removePromptTitle": "Hapus perintah?",
+      "removePromptDescription": "Perintah ini akan dihapus secara permanen."
+    },
+    "promptTypes": {
+      "text-to-image": "Teks ke gambar",
+      "image-to-image": "Gambar ke gambar",
+      "model-background": "Latar belakang model",
+      "pose": "Berpose",
+      "video": "Video",
+      "other": "Lainnya"
+    },
+    "modules": {
+      "tryon": "Coba pakaian",
+      "grass": "Seeding pakaian",
+      "productRetouch": "Retouch produk",
+      "productSet": "Set gambar produk",
+      "modelBackground": "Ganti latar model",
+      "materialEnhancement": "Peningkatan tekstur",
+      "generalImage": "Generate umum",
+      "outfitFusion": "Fusi padu padan",
+      "pose": "Variasi pose",
+      "model": "Model eksklusif",
+      "garment3d": "Pakaian ke 3D",
+      "faceSwap": "Tukar wajah",
+      "imageTranslation": "Terjemahan gambar",
+      "commerceDetail": "Gambar detail produk",
+      "allCategoryProductImage": "Gambar produk semua kategori",
+      "videoImageToVideo": "Gambar ke video",
+      "videoMotion": "Tiru gerakan",
+      "videoFirstLastFrame": "Frame awal-akhir"
+    }
   }
 }

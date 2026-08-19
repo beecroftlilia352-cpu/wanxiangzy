@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       hasModelReference: Boolean(modelReferenceUrl),
       hasBackgroundReference: Boolean(backgroundReferenceUrl),
     });
-    const totalCost = getCreditCost(model, size, aspectRatio) * expectedCount;
+    const totalCost = await getConfiguredImageCreditCost(model, size) * expectedCount;
 
     const jobPayload: GenerationJobPayload = {
       kind: "modelBackground",
@@ -113,6 +114,11 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `换背景 ${sourceUrls.length} 张原图 × ${genCount} (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [...sourceUrls, modelReferenceUrl, backgroundReferenceUrl]
+        .filter((url): url is string => Boolean(url))
+        .map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Loader2, Upload, X, ZoomIn } from "lucide-react";
+import { CheckCircle2, ChevronRight, FolderOpen, Loader2, Upload, X, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -26,6 +26,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioRulesPopover } from "@/components/studio/StudioRulesPopover";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { assetUrls, useResourcePicker } from "@/features/resource-library";
 import { useGenerationPolling } from "@/hooks/use-generation-polling";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -93,6 +94,7 @@ const GRASS_PREVIEW_ACTIONS: ImagePreviewAction[] = [
 export default function GrassPage() {
   const router = useRouter();
   const t = useTranslations("Grass");
+  const { openResourcePicker } = useResourcePicker();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
 
@@ -140,6 +142,7 @@ export default function GrassPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -216,6 +219,7 @@ export default function GrassPage() {
   const previewSession = useStudioPreview({
     module: "grass",
     title: t("title"),
+    taskId: activeGenerationId || undefined,
     urls: resultUrls,
     expectedCount: activeResultExpectedCount,
     isGenerating,
@@ -509,7 +513,7 @@ export default function GrassPage() {
     try {
       const res = await fetch("/api/grass", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `generation-${activeTaskId}` },
         body: JSON.stringify({
           garment_url: garmentUrl,
           template_id: templateId,
@@ -543,6 +547,7 @@ export default function GrassPage() {
       }
       setProgress(25);
       if (typeof data.generation_id === "string" && data.generation_id) {
+        setActiveGenerationId(data.generation_id);
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
           expectedCount: displayExpectedCount,
@@ -578,6 +583,7 @@ export default function GrassPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveGenerationId(item.id);
     setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
@@ -589,6 +595,7 @@ export default function GrassPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "grass", session.signal);
       if (!session.isCurrent()) return true;
+      setActiveGenerationId(item.id);
       applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
@@ -623,6 +630,7 @@ export default function GrassPage() {
     setIsGenerating(false);
     setProgress(0);
     setResultUrls([]);
+    setActiveGenerationId(null);
     setError("");
     setLightboxSrc(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -674,7 +682,23 @@ export default function GrassPage() {
                   isDragging={isDragging}
                   loading={isUploadingGarment}
                   onUploadClick={openFileDialog}
-                  onLibraryClick={() => toast.info(t("libraryComingSoon"))}
+                  onLibraryClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("uploadSectionTitle"),
+                      role: "product",
+                      selectionMode: "single",
+                      maxCount: 1,
+                      existingCount: garmentUrl ? 1 : 0,
+                      excludedUrls: garmentUrl ? [garmentUrl] : [],
+                      mediaTypes: ["image"],
+                      moduleKey: "grass",
+                    });
+                    const [url] = assetUrls(assets);
+                    if (!url) return;
+                    setGarmentUrl(url);
+                    setGarmentName(assets?.[0]?.title || t("alreadyUploaded"));
+                    setPromptOverride(null);
+                  }}
                   onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
                   onRemove={garmentUrl ? () => setGarmentUrl("") : undefined}
                   onDropFile={(file) => handleFile(file)}
@@ -805,6 +829,30 @@ export default function GrassPage() {
                     <span className="mt-1 text-[12px] text-codex-faint">{t("uploadReferenceSub")}</span>
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const assets = await openResourcePicker({
+                      title: t("sceneModeUpload"),
+                      role: "scene-reference",
+                      selectionMode: "single",
+                      maxCount: 1,
+                      existingCount: uploadedReferenceUrl ? 1 : 0,
+                      excludedUrls: uploadedReferenceUrl ? [uploadedReferenceUrl] : [],
+                      mediaTypes: ["image"],
+                      moduleKey: "grass",
+                    });
+                    const [url] = assetUrls(assets);
+                    if (!url) return;
+                    setUploadedReferenceUrl(url);
+                    setUploadedReferenceName(assets?.[0]?.title || t("uploadedReferenceBadge"));
+                    setPromptOverride(null);
+                  }}
+                  className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--codex-border)] bg-white/80 text-xs font-semibold text-codex-muted transition hover:border-[var(--codex-accent-35)] hover:bg-[var(--codex-accent-08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent-35)]"
+                >
+                  <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                  {t("uploadFromWorks")}
+                </button>
               </div>
             )}
 
@@ -963,6 +1011,7 @@ export default function GrassPage() {
                 inputThumbnails={promptImages.map((item) => item.url)}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                resourceFavorite={{ generationId: activeGenerationId, moduleKey: "grass", mediaType: "image" }}
                 markMissingAsFailed={hasCompletedPartialResults}
                 missingFailureLabel={t("missingFailureLabel")}
                 missingFailureDetail={partialFailureMessage}

@@ -1,0 +1,104 @@
+.overlay {
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: none;
+}
+
+.content {
+  width: min(1024px, calc(100vw - 32px));
+  max-width: none;
+  height: min(592px, calc(100dvh - 32px));
+  max-height: none;
+  display: block;
+  overflow: hidden;
+  border-radius: 10px;
+  padding: 0;
+}
+
+.instruction {
+  position: absolute;
+  z-index: 4;
+  top: 94px;
+  left: 24px;
+  margin: 0;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.76);
+  padding: 5px 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 16px;
+  pointer-events: none;
+}
+
+.quickSelection {
+  position: absolute;
+  z-index: 5;
+  top: 94px;
+  right: 24px;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.quickSelection > strong {
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.76);
+  padding: 4px 7px;
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.quickSelection > div {
+  display: flex;
+  gap: 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--codex-surface) 92%, transparent);
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.shortcutButton {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 4px;
+  height: 24px;
+  color: var(--codex-muted);
+  font-size: 11px;
+}
+
+.shortcutPopover {
+  width: 260px;
+}
+
+.shortcutPopover dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.shortcutPopover dl div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shortcutPopover dt {
+  color: var(--codex-muted);
+}
+
+.shortcutPopover dd {
+  margin: 0;
+  color: var(--codex-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+@media (max-width: 799px) {
+  .content {
+    height: calc(100dvh - 24px);
+    width: calc(100vw - 24px);
+  }
+}

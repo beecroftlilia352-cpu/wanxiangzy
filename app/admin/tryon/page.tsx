@@ -6,6 +6,8 @@ import {
   type TryOnAdminSceneRow,
 } from "@/components/admin/AdminTryOnReferenceConsole";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin/auth";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +58,7 @@ const SCENE_SELECT = [
 const SCENE_LIST_LIMIT = 1000;
 
 export default async function AdminTryOnPage() {
+  const adminAuth = await requireAdmin("settings:read");
   const warnings: string[] = [];
   const admin = getAdminClient();
 
@@ -106,6 +109,7 @@ export default async function AdminTryOnPage() {
         initialScenes={scenes}
         initialVersions={versions}
         warnings={warnings}
+        canManage={hasAdminPermission(adminAuth.role, "settings:write")}
       />
     </div>
   );

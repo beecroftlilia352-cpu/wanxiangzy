@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  getCreditCost,
   normalizeAspectRatio,
   normalizeImageSize,
   normalizeLingyaModel,
@@ -9,6 +8,7 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       textureEnhance,
       faceSwapMode,
     ), faceSwapMode);
-    const costPerImage = getCreditCost(model, imageSize, aspectRatio);
+    const costPerImage = await getConfiguredImageCreditCost(model, imageSize);
     const totalCost = costPerImage * expectedCount;
 
     const jobPayload: GenerationJobPayload = {
@@ -96,6 +96,9 @@ export async function POST(request: NextRequest) {
       imageSize,
       reason: `AI 换脸 ${sourceUrls.length} 张原图 × ${genCount} (${model}, ${imageSize})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [...sourceUrls, faceUrl].map((url) => ({ url, kind: "image" as const })),
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

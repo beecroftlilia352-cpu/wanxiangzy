@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  getCreditCost,
   normalizeAspectRatio,
   normalizeImageSize,
   normalizeLingyaModel,
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import { getConfiguredImageCreditCost } from "@/lib/ai-control-plane/server";
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { buildOutfitFusionRuntimePlan, type OutfitFusionAsset, type OutfitFusionConfig } from "@/lib/outfit-fusion";
-import { MAX_GENERAL_IMAGE_REFERENCE_IMAGES } from "@/lib/general-image-config";
+import {
+  containsInlineImageUrl,
+  findDisallowedProductionImageInputs,
+  isGeneralImageReferenceUrl,
+  normalizeGeneralImageReferenceUrls,
+} from "@/lib/api/general-image-inputs";
 
 export const maxDuration = 60;
 
@@ -46,7 +51,18 @@ export async function POST(request: NextRequest) {
         : undefined;
     if (!prompt) return NextResponse.json({ error: "请输入提示词" }, { status: 400 });
 
-    const referenceUrls = normalizeReferenceUrls(body.reference_urls);
+    const normalizedReferences = normalizeGeneralImageReferenceUrls(body.reference_urls);
+    const publicBaseUrl = getPublicBaseUrlFromRequest(request);
+    if (process.env.NODE_ENV === "production") {
+      const disallowedInputs = [
+        ...findDisallowedProductionImageInputs(normalizedReferences.urls, publicBaseUrl),
+        ...findDisallowedProductionImageInputs(body.input_assets, publicBaseUrl),
+      ];
+      if (normalizedReferences.hasInlineImage || containsInlineImageUrl(body.input_assets) || disallowedInputs.length) {
+        return NextResponse.json({ error: "生产环境参考图必须使用已验证的媒体资产或站点素材" }, { status: 400 });
+      }
+    }
+    const referenceUrls = normalizedReferences.urls;
     if (mode === "image-to-image" && referenceUrls.length === 0) {
       return NextResponse.json({ error: "请先上传参考图" }, { status: 400 });
     }
@@ -55,7 +71,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Math.floor(Number(body.gen_count) || 1), 1), 4);
-    const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
+    const totalCost = await getConfiguredImageCreditCost(model, size) * genCount;
     const moduleKind = normalizeModuleKind(body.module_kind || body.module);
     const outfitFusionAssets = moduleKind === "outfitFusion" ? normalizeOutfitFusionAssets(body.input_assets, referenceUrls) : undefined;
     const outfitFusionAspectRatio: OutfitFusionConfig["aspectRatio"] = aspectRatio === "1:1" || aspectRatio === "3:4" ? aspectRatio : "auto";
@@ -79,7 +95,7 @@ export async function POST(request: NextRequest) {
     const moduleLabel = moduleKind === "outfitFusion" ? "搭配融图" : "通用生图";
 
     const payloadBase = {
-      publicBaseUrl: getPublicBaseUrlFromRequest(request),
+      publicBaseUrl,
       mode,
       referenceUrls: mode === "image-to-image"
         ? moduleKind === "outfitFusion"
@@ -104,6 +120,14 @@ export async function POST(request: NextRequest) {
         }
       : { kind: "generalImage", ...payloadBase };
 
+    const mediaInputs = Array.from(new Set([
+      ...payloadBase.referenceUrls,
+      ...(moduleKind === "outfitFusion" ? outfitFusionClothingUrls : []),
+      ...(moduleKind === "outfitFusion" && outfitFusionModelFaceUrl ? [outfitFusionModelFaceUrl] : []),
+      ...(moduleKind === "outfitFusion" && outfitFusionReferenceUrl ? [outfitFusionReferenceUrl] : []),
+      ...(moduleKind === "outfitFusion" ? (outfitFusionRuntimePlan?.assets || outfitFusionAssets || []).map((asset) => asset.url) : []),
+    ])).map((url) => ({ url, kind: "image" as const }));
+
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
       clothingUrls: payloadBase.referenceUrls,
@@ -114,6 +138,9 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       reason: `${moduleLabel}${mode === "text-to-image" ? "文生图" : "图生图"} ${genCount} 张 (${model}, ${size})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs,
+      publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);
@@ -147,14 +174,6 @@ function normalizeModuleKind(value: unknown): GeneralImageModuleKind {
   return "generalImage";
 }
 
-function normalizeReferenceUrls(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => typeof item === "string" ? item.trim() : "")
-    .filter((url) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
-    .slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
-}
-
 function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): OutfitFusionAsset[] {
   const fallback = fallbackUrls.map((url, index) => ({
     id: `input-${index}`,
@@ -167,7 +186,7 @@ function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): Ou
     if (!item || typeof item !== "object") return [];
     const record = item as Record<string, unknown>;
     const url = typeof record.url === "string" ? record.url.trim() : "";
-    if (!(/^https?:\/\//i.test(url) || /^data:image\//i.test(url))) return [];
+    if (!isGeneralImageReferenceUrl(url)) return [];
     const role: OutfitFusionAsset["role"] = record.role === "reference" || record.role === "model" || record.role === "outfit" ? record.role : "outfit";
     const name = typeof record.name === "string" && record.name.trim() ? record.name.trim().slice(0, 32) : undefined;
     const id = typeof record.id === "string" && record.id.trim() ? record.id.trim().slice(0, 80) : `input-${index}`;

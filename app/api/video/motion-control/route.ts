@@ -15,13 +15,13 @@ import {
 } from "@/lib/ai-video";
 import {
   clampVideoDuration,
-  getVideoCreditCost,
   resolveUpstreamVideoModel,
   resolveVideoSelection,
   supportsVideoMotionControl,
 } from "@/lib/api/video-catalog";
 import { getEnabledVideoProviders } from "@/lib/api/video-provider";
 import { normalizeVideoProviderName } from "@/lib/api/video-provider-registry";
+import { getConfiguredVideoCreditCost } from "@/lib/ai-control-plane/server";
 
 export const maxDuration = 60;
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const resolution = selection.resolution;
     const effectiveDuration = clampVideoDuration(provider, duration) as typeof duration;
     const aiModel = resolveUpstreamVideoModel(provider, modelMode, resolution);
-    const totalCost = getVideoCreditCost({
+    const totalCost = await getConfiguredVideoCreditCost({
       provider,
       modelMode,
       resolution,
@@ -104,6 +104,13 @@ export async function POST(request: NextRequest) {
       imageSize: `${resolution} · ${aspectRatio} · ${effectiveDuration}s`,
       reason: `动作模仿视频 (${modelMode}, ${aiModel}, ${resolution}, ${aspectRatio}, ${effectiveDuration}s, ${getAudioReasonLabel(audioMode)} × ${genCount})`,
       jobPayload,
+      idempotencyKey: request.headers.get("idempotency-key") || "",
+      mediaInputs: [
+        { url: modelImageUrl, kind: "image" as const },
+        { url: referenceVideoUrl, kind: "video" as const },
+        ...(audioMode === "custom" && audioUrl ? [{ url: audioUrl, kind: "audio" as const }] : []),
+      ],
+      publicBaseUrl: jobPayload.publicBaseUrl,
     });
 
     startGenerationJob(debit.generationId);

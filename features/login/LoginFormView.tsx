@@ -38,7 +38,7 @@ export function LoginFormView({
 }: Props) {
   const t = useTranslations("Login");
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form method="post" onSubmit={onSubmit} className="space-y-4">
       <div>
         <label htmlFor="login-email" className="mb-1.5 block text-sm font-bold text-codex-ink dark:text-codex-muted">
           {t("email")}

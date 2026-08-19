@@ -9,6 +9,8 @@ import type { AdminUserListItem } from "@/lib/admin/data";
 
 type AdminUserManagementFormProps = {
   profile: AdminUserListItem;
+  canManageUser?: boolean;
+  canAdjustCredits?: boolean;
 };
 
 type ControlPayload = {
@@ -28,7 +30,7 @@ type CreditPayload = {
   reason: string;
 };
 
-export function AdminUserManagementForm({ profile }: AdminUserManagementFormProps) {
+export function AdminUserManagementForm({ profile, canManageUser = false, canAdjustCredits = false }: AdminUserManagementFormProps) {
   const router = useRouter();
   const { modal } = App.useApp();
   const [profileMessage, setProfileMessage] = useState("");
@@ -40,6 +42,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
 
   async function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageUser) return;
     setProfileLoading(true);
     setProfileMessage("");
     const form = new FormData(event.currentTarget);
@@ -65,6 +68,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
   }
 
   async function runControl(payload: ControlPayload) {
+    if (!canManageUser) return;
     const res = await fetch(`/api/admin/users/${profile.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -76,6 +80,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
 
   function handleControlSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageUser) return;
     const form = new FormData(event.currentTarget);
     const payload: ControlPayload = {
       action: "update_control",
@@ -115,6 +120,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
   }
 
   async function runCredit(payload: CreditPayload) {
+    if (!canAdjustCredits) return;
     const res = await fetch("/api/admin/credits/adjust", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -126,6 +132,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
 
   function handleCreditSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canAdjustCredits) return;
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const amount = Number(form.get("amount") || 0);
@@ -170,7 +177,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
 
   return (
     <div className="grid gap-4 p-4 xl:grid-cols-3">
-      <form onSubmit={submitProfile} className="space-y-3">
+      {canManageUser ? <form onSubmit={submitProfile} className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-black text-[var(--admin-fg)]">
           <Save aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />
           基础资料
@@ -187,9 +194,9 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
         </label>
         <SubmitButton loading={profileLoading} icon={<Save aria-hidden="true" className="h-4 w-4" />} label="保存资料" />
         <FormMessage message={profileMessage} />
-      </form>
+      </form> : <ReadOnlyPanel title="基础资料" description="当前角色仅可查看用户资料，不能修改显示名。" icon={<Save aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />} />}
 
-      <form onSubmit={handleControlSubmit} className="space-y-3">
+      {canManageUser ? <form onSubmit={handleControlSubmit} className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-black text-[var(--admin-fg)]">
           <Ban aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />
           运营控制
@@ -254,9 +261,9 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
         </label>
         <SubmitButton loading={controlLoading} icon={<ShieldCheck aria-hidden="true" className="h-4 w-4" />} label="保存控制" />
         <FormMessage message={controlMessage} />
-      </form>
+      </form> : <ReadOnlyPanel title="运营控制" description="当前角色无用户控制权限，状态和生成开关保持只读。" icon={<Ban aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />} />}
 
-      <form onSubmit={handleCreditSubmit} className="space-y-3">
+      {canAdjustCredits ? <form onSubmit={handleCreditSubmit} className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-black text-[var(--admin-fg)]">
           <Coins aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />
           灵点调整
@@ -286,7 +293,20 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
         </label>
         <SubmitButton loading={creditLoading} icon={<Coins aria-hidden="true" className="h-4 w-4" />} label="提交调整" />
         <FormMessage message={creditMessage} />
-      </form>
+      </form> : <ReadOnlyPanel title="灵点调整" description="灵点变动需要 credits:write 权限，并会进入审计日志。" icon={<Coins aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />} />}
+    </div>
+  );
+}
+
+function ReadOnlyPanel({ title, description, icon }: { title: string; description: string; icon: ReactNode }) {
+  return (
+    <div className="space-y-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+      <div className="flex items-center gap-2 text-sm font-black text-[var(--admin-fg)]">
+        {icon}
+        {title}
+      </div>
+      <p className="text-sm font-semibold leading-6 text-[var(--admin-muted)]">{description}</p>
+      <span className="inline-flex h-8 items-center rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-muted)]">只读</span>
     </div>
   );
 }

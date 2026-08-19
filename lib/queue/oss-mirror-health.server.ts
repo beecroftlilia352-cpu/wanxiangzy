@@ -9,6 +9,7 @@
 
 import { getAdminClient } from "@/lib/supabase/admin";
 import { isAliyunOssMirrorEnabled } from "@/lib/api/oss-mirror-transfer";
+import { sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
 
 export type OssMirrorHealthCounts = {
   pending: number;
@@ -142,8 +143,7 @@ function optionalIsoString(value: unknown) {
 }
 
 function safeError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  return String(error);
+  return sanitizeGenerationErrorMessage(error, "OSS mirror health check failed");
 }
 
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
