@@ -686,6 +686,9 @@ function TaskCard({
     ? inputThumbnails[0] || ""
     : resultThumbnails[0] || inputThumbnails[0] || thumbnails[0] || "";
   const progress = clampProgress(item.progress);
+  const expectedCount = Math.max(1, Math.round(Number(item.expectedCount) || 1));
+  const resultCount = Math.min(expectedCount, Math.max(safeTaskUrls(item.resultThumbnails).length, Math.round(Number(item.resultCount) || 0)));
+  const compactProgressLabel = running ? `${resultCount}/${expectedCount}` : undefined;
 
   if (compact) {
     return (
@@ -702,7 +705,7 @@ function TaskCard({
         )}
         title={item.title || item.id}
       >
-        <TaskThumb url={cover} running={running} failed={failed} applying={applying} compact className="h-full w-full" />
+        <TaskThumb url={cover} running={running} failed={failed} applying={applying} compact progressLabel={compactProgressLabel} className="h-full w-full" />
         {selected && (
           <span className="studio-task-card-selection-marker" aria-hidden="true">
             <Check className="h-2 w-2" />
@@ -757,6 +760,7 @@ function TaskThumb({
   running,
   failed,
   applying,
+  progressLabel,
   compact = false,
   className,
 }: {
@@ -764,6 +768,7 @@ function TaskThumb({
   running: boolean;
   failed: boolean;
   applying: boolean;
+  progressLabel?: string;
   compact?: boolean;
   className?: string;
 }) {
@@ -804,7 +809,7 @@ function TaskThumb({
       {running && (
         <span className="studio-task-running-badge absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
           <span className="studio-task-running-dot h-1.5 w-1.5 shrink-0 rounded-full" />
-          <span className="truncate">{t("generating")}</span>
+          <span className="truncate tabular-nums">{progressLabel || t("generating")}</span>
         </span>
       )}
       {applying && !running && (
@@ -901,7 +906,6 @@ function TaskStripImage({ url }: { url: string }) {
 
 function StatusPill({ item }: { item: TaskQueueItem }) {
   const t = useTranslations("Shared");
-  const progress = clampProgress(item.progress);
   const state = item.statusGroup === "failed"
     ? "failed"
     : item.statusGroup === "completed"
@@ -910,7 +914,7 @@ function StatusPill({ item }: { item: TaskQueueItem }) {
   return (
     <span className={cn("studio-task-status-pill inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-bold", `studio-task-status-pill--${state}`)}>
       {isTaskRunning(item) && <Loader2 className="h-3 w-3 animate-spin" />}
-      {statusText(item, progress, t)}
+      {statusText(item, t)}
     </span>
   );
 }
@@ -991,17 +995,23 @@ function TaskRailEmpty({
   );
 }
 
-function statusText(item: TaskQueueItem, progress: number, t: (key: string) => string) {
+function statusText(item: TaskQueueItem, t: (key: string) => string) {
+  const expectedCount = Math.max(1, Math.round(Number(item.expectedCount) || 1));
+  const resultCount = Math.min(expectedCount, Math.max(safeTaskUrls(item.resultThumbnails).length, Math.round(Number(item.resultCount) || 0)));
+  const resultProgress = `${resultCount}/${expectedCount}`;
   if (item.statusGroup === "queued") return t("queued");
   if (item.status === "processing_delayed") return t("backgroundProcessing");
-  if (item.statusGroup === "running") return progress > 0 ? `${progress}%` : t("generating");
+  if (item.statusGroup === "running") return `${t("generating")} ${resultProgress}`;
   if (item.statusGroup === "failed") return t("failed");
-  return t("completed");
+  return resultCount >= expectedCount ? t("completed") : resultProgress;
 }
 
 function getTaskMeta(item: TaskQueueItem, progress: number, t: (key: string) => string) {
   if (isTaskRunning(item)) {
     const pieces = [item.status === "processing_delayed" ? t("processingDelayed") : item.expectedCount > 4 ? t("multiImageLonger") : t("estimatedMinutes")];
+    const expectedCount = Math.max(1, Math.round(Number(item.expectedCount) || 1));
+    const resultCount = Math.min(expectedCount, Math.max(safeTaskUrls(item.resultThumbnails).length, Math.round(Number(item.resultCount) || 0)));
+    pieces.unshift(`${resultCount}/${expectedCount}`);
     if (progress > 0) pieces.unshift(`${progress}%`);
     return pieces.join(" · ");
   }

@@ -149,6 +149,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [isImagePromptUploading, setIsImagePromptUploading] = useState(false);
   const [isImagePromptGenerating, setIsImagePromptGenerating] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
+  const [displayedTaskId, setDisplayedTaskId] = useState<string | null>(null);
+  const displayedTaskIdRef = useRef<string | null>(null);
   const [cleanDraftSignature, setCleanDraftSignature] = useState(() => createDraftSignature("", []));
   const currentDraftSignature = useMemo(
     () => createDraftSignature(
@@ -233,13 +235,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           state.result_urls,
           ctx.displayExpectedCount
         );
-        ctx.setResultUrls(ctx.latestTaskResultUrlsRef.current);
+        if (displayedTaskIdRef.current === ctx.activeTaskId) {
+          ctx.setResultUrls(ctx.latestTaskResultUrlsRef.current);
+        }
       }
 
       const nextProgress = Number(state.progress);
       if (Number.isFinite(nextProgress)) {
         const runningProgress = Math.min(Math.max(Math.round(nextProgress), 0), 99);
-        ctx.setProgress(runningProgress);
+        if (displayedTaskIdRef.current === ctx.activeTaskId) {
+          ctx.setProgress(runningProgress);
+        }
       }
       const runningTask = ctx.taskQueue.markRunning(ctx.activeTaskId, {
         expectedCount: ctx.displayExpectedCount,
@@ -249,13 +255,16 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         progress: Number.isFinite(nextProgress) ? Math.min(Math.max(Math.round(nextProgress), 0), 99) : 25,
         status: state.status || "processing",
       });
-      ctx.setActiveQueueTask(runningTask);
+      if (displayedTaskIdRef.current === ctx.activeTaskId) {
+        ctx.setActiveQueueTask(runningTask);
+      }
     },
     onComplete: (state) => {
       const ctx = pollCtxRef.current;
       if (!ctx) return;
 
       if (state.status === "completed") {
+        const isDisplayedTask = displayedTaskIdRef.current === ctx.activeTaskId;
         const finalUrls = mergeRetryResultUrls(
           ctx.retryPreviousResultUrls,
           ctx.retryResultIndex,
@@ -268,8 +277,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           ? (state.partial_failure as { message?: unknown })
           : null;
         const completedError = state.error || coerceErrorMessage(partialFailure?.message);
-        ctx.setProgress(100);
-        ctx.setResultUrls(finalUrls);
         const completedTask = ctx.taskQueue.markCompleted(ctx.activeTaskId, {
           expectedCount: ctx.displayExpectedCount,
           inputThumbnails: ctx.taskInputThumbnails,
@@ -277,47 +284,59 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           resultCount: finalResultCount,
           error: completedError ? summarizeGenerationError(completedError) : "",
         });
-        ctx.setActiveQueueTask(completedTask);
-        ctx.setIsGenerating(false);
+        if (isDisplayedTask) {
+          ctx.setProgress(100);
+          ctx.setResultUrls(finalUrls);
+          ctx.setActiveQueueTask(completedTask);
+          ctx.setIsGenerating(false);
+        }
         if (completedError || finalResultCount < ctx.displayExpectedCount) {
           void ctx.refreshCredits();
-          toast.warning(t(ctx.isImageMode ? "partialCompleteImageToImage" : "partialCompleteTextToImage", { done: finalResultCount, expected: ctx.displayExpectedCount }));
-        } else {
+          if (isDisplayedTask) {
+            toast.warning(t(ctx.isImageMode ? "partialCompleteImageToImage" : "partialCompleteTextToImage", { done: finalResultCount, expected: ctx.displayExpectedCount }));
+          }
+        } else if (isDisplayedTask) {
           toast.success(t(ctx.isImageMode ? "completeImageToImage" : "completeTextToImage"));
         }
         return;
       }
 
       if (state.status === "failed") {
+        const isDisplayedTask = displayedTaskIdRef.current === ctx.activeTaskId;
         const message = summarizeGenerationError(state.error || t("generateFailed"));
-        ctx.setError(message);
         const failedTask = ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
           expectedCount: ctx.displayExpectedCount,
           inputThumbnails: ctx.taskInputThumbnails,
           resultThumbnails: ctx.latestTaskResultUrlsRef.current,
           resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
         });
-        ctx.setActiveQueueTask(failedTask);
-        toast.error(message);
+        if (isDisplayedTask) {
+          ctx.setError(message);
+          ctx.setActiveQueueTask(failedTask);
+          ctx.setIsGenerating(false);
+        }
+        if (isDisplayedTask) toast.error(message);
         void ctx.refreshCredits();
-        ctx.setIsGenerating(false);
       }
     },
     onError: (error) => {
       const ctx = pollCtxRef.current;
       if (!ctx) return;
       const message = summarizeGenerationError(error.message || t("generateTimeout"));
-      ctx.setError(message);
+      const isDisplayedTask = displayedTaskIdRef.current === ctx.activeTaskId;
       const failedTask = ctx.taskQueue.markFailed(ctx.activeTaskId, message, {
         expectedCount: ctx.displayExpectedCount,
         inputThumbnails: ctx.taskInputThumbnails,
         resultThumbnails: ctx.latestTaskResultUrlsRef.current,
         resultCount: ctx.latestTaskResultUrlsRef.current.filter(Boolean).length,
       });
-      ctx.setActiveQueueTask(failedTask);
-      toast.error(message);
+      if (isDisplayedTask) {
+        ctx.setError(message);
+        ctx.setActiveQueueTask(failedTask);
+        ctx.setIsGenerating(false);
+      }
+      if (isDisplayedTask) toast.error(message);
       void ctx.refreshCredits();
-      ctx.setIsGenerating(false);
     },
   });
   const modeMeta = isImageMode
@@ -429,7 +448,16 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     }
   }, [t]);
 
-  function applyGeneralImageHistoryPayload(payload: GeneralImageHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
+  function selectDisplayedTask(taskId: string | null) {
+    displayedTaskIdRef.current = taskId;
+    setDisplayedTaskId(taskId);
+  }
+
+  function applyGeneralImageHistoryPayload(
+    payload: GeneralImageHistoryPayload,
+    historyResultUrls: string[] = [],
+    options?: { silent?: boolean; task?: TaskQueueItem | null; taskId?: string | null }
+  ) {
     const restoredAiModel = normalizeLingyaModel(payload.aiModel);
     const restoredAspectRatio = normalizeAspectRatio(payload.aspectRatio, "auto");
     const restoredImageSize = normalizeImageSize(restoredAiModel, payload.imageSize, restoredAspectRatio);
@@ -461,7 +489,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     })));
     setImagePromptImage(null);
     setCleanDraftSignature(createDraftSignature(payload.prompt, payload.referenceUrls ?? []));
-    setActiveQueueTask(null);
+    selectDisplayedTask(options?.task?.id || options?.taskId || null);
+    setActiveQueueTask(options?.task || null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
     setError("");
@@ -472,7 +501,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   useHistoryApply({
     kind: "generalImage",
     apply: (payload, resultUrls, { row }) => {
-      applyGeneralImageHistoryPayload(payload, resultUrls, { silent: true });
+      applyGeneralImageHistoryPayload(payload, resultUrls, { silent: true, taskId: row.id });
       if (isHistoryApplyRowFailed(row)) {
         setError(getHistoryApplyFailureMessage(row));
       }
@@ -481,6 +510,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   });
 
   function resetOutput() {
+    selectDisplayedTask(null);
     setActiveQueueTask(null);
     setIsGenerating(false);
     setResultUrls([]);
@@ -739,6 +769,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       inputThumbnails: taskInputThumbnails,
       progress: 8,
     });
+    selectDisplayedTask(provisionalTask.id);
     setActiveQueueTask(provisionalTask);
     let activeTaskId = provisionalTask.id;
     try {
@@ -781,6 +812,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           status: data.status || "processing",
           progress: 12,
         });
+        selectDisplayedTask(serverTask.id);
         setActiveQueueTask(serverTask);
         activeTaskId = serverTask.id;
       }
@@ -822,6 +854,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    selectDisplayedTask(item.id);
     setActiveQueueTask(item);
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
@@ -830,6 +863,15 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
+    // Switch the visible task identity before awaiting history. Any older
+    // generation poll may keep updating its queue row, but can no longer
+    // overwrite the newly selected preview.
+    selectDisplayedTask(item.id);
+    setActiveQueueTask(item);
+    setIsGenerating(false);
+    setProgress(item.statusGroup === "completed" ? 100 : Math.min(Math.max(Math.round(Number(item.progress) || 0), 0), 99));
+    setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
+    setError(item.statusGroup === "failed" ? item.error : "");
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
       if (!session.isCurrent()) return true;
@@ -839,6 +881,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       }
       applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
+        task: item,
       });
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
         setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
@@ -1066,7 +1109,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                 variant="task"
-                resourceFavorite={{ generationId: activeQueueTask?.id, moduleKey: "generalImage", mediaType: "image" }}
+                resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
                 failureLabel={t("failedLabel")}
                 failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
                 markMissingAsFailed={hasCompletedPartialResults}

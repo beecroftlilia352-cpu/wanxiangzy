@@ -28,6 +28,7 @@ describe("downloadMediaFile", () => {
     expect(downloadUrl.pathname).toBe("/api/download-image");
     expect(downloadUrl.searchParams.get("url")).toBe("https://oss.example.com/result.png");
     expect(downloadUrl.searchParams.get("filename")).toBe("result.png");
+    expect(downloadUrl.searchParams.get("proxy")).toBeNull();
     expect(clickedFilename).toBe("result.png");
     expect(progress).toEqual(["saving", "completed"]);
   });
@@ -63,6 +64,25 @@ describe("downloadMediaFile", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(clickedHref).toBe("blob:local-result");
+  });
+
+  it("routes canonical media assets through the authenticated download proxy", async () => {
+    let clickedHref = "";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      clickedHref = this.href;
+    });
+
+    await downloadMediaFile(
+      "/api/media-assets/123e4567-e89b-12d3-a456-426614174000",
+      "result.png",
+    );
+
+    const downloadUrl = new URL(clickedHref);
+    expect(downloadUrl.pathname).toBe("/api/download-image");
+    expect(downloadUrl.searchParams.get("url")).toBe(
+      "/api/media-assets/123e4567-e89b-12d3-a456-426614174000",
+    );
+    expect(downloadUrl.searchParams.get("proxy")).toBe("1");
   });
 
   it("hands every result directly to the browser with distinct filenames", async () => {

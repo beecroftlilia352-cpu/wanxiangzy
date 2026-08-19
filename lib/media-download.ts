@@ -53,7 +53,7 @@ export async function downloadMediaFile(
     percent: 100,
   });
 
-  const downloadUrl = isBrowserLocalUrl(url)
+  const downloadUrl = isInlineBrowserUrl(url)
     ? url
     : buildBrowserDownloadUrl(url, filename);
   triggerUrlDownload(downloadUrl, filename);
@@ -73,7 +73,7 @@ export async function downloadMediaFiles(options: {
 
   urls.forEach((url, index) => {
     const filename = buildIndexedFilename(options.filenamePrefix, url, index);
-    const downloadUrl = isBrowserLocalUrl(url)
+    const downloadUrl = isInlineBrowserUrl(url)
       ? url
       : buildBrowserDownloadUrl(url, filename);
     triggerUrlDownload(downloadUrl, filename);
@@ -162,7 +162,19 @@ function buildBrowserDownloadUrl(url: string, filename: string) {
   const endpoint = new URL("/api/download-image", window.location.origin);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("filename", filename);
+  // Stable OSS URLs are redirected to a signed attachment URL so EC2 does
+  // not carry the image bytes. Canonical media assets stay on the guarded
+  // same-origin proxy because their ownership must be checked server-side.
+  if (isCanonicalMediaAssetUrl(url)) endpoint.searchParams.set("proxy", "1");
   return endpoint.toString();
+}
+
+function isInlineBrowserUrl(url: string) {
+  return url.startsWith("blob:") || url.startsWith("data:");
+}
+
+function isCanonicalMediaAssetUrl(url: string) {
+  return /^\/?api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:[/?#]|$)/i.test(url);
 }
 
 function buildIndexedFilename(prefix: string, url: string, index: number) {

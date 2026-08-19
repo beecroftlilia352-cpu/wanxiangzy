@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { createAliyunOssDownloadUrl } from "@/lib/api/image-storage";
+import { createAliyunOssRegistryReadUrl } from "@/lib/api/media-storage";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { rateLimitResponse } from "@/lib/api/rate-limit";
 import { fetchRemoteImageResponse, RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
 
@@ -37,7 +39,7 @@ export async function GET(request: NextRequest) {
   const rateLimit = checkDownloadRateLimit(request);
   if (!rateLimit.ok) return downloadRateLimitResponse(rateLimit.retryAfterSeconds);
 
-  const { response: authResponse } = await requireApiUser();
+  const { supabase, user, response: authResponse } = await requireApiUser();
   if (authResponse) return authResponse;
 
   const imageUrl = request.nextUrl.searchParams.get("url");
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   let parsedUrl: URL;
   try {
-    parsedUrl = new URL(imageUrl);
+    parsedUrl = new URL(imageUrl, request.nextUrl.origin);
   } catch {
     return NextResponse.json({ error: "Invalid url" }, { status: 400 });
   }
@@ -60,13 +62,41 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unsupported url protocol" }, { status: 400 });
   }
 
-  if (!isAllowedHost(parsedUrl.hostname)) {
+  const canonicalAssetMatch = parsedUrl.origin === request.nextUrl.origin
+    ? parsedUrl.pathname.match(/^\/api\/media-assets\/([0-9a-f-]{36})$/i)
+    : null;
+  const isCanonicalAsset = Boolean(canonicalAssetMatch);
+  if (canonicalAssetMatch) {
+    const assetId = canonicalAssetMatch[1];
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(assetId)) {
+      return NextResponse.json({ error: "Invalid media asset" }, { status: 400 });
+    }
+    const { data: record } = await supabase
+      .from("media_asset_records")
+      .select("id,status")
+      .eq("id", assetId)
+      .maybeSingle();
+    if (!record || record.status !== "verified") {
+      return NextResponse.json({ error: "Media asset is not available" }, { status: 404 });
+    }
+    const { data, error } = await getAdminClient().rpc("resolve_verified_media_asset_for_worker", {
+      p_asset_id: assetId,
+      p_expected_owner_user_id: user.id,
+    });
+    const row = Array.isArray(data) && data[0] && typeof data[0] === "object"
+      ? data[0] as { bucket_name?: unknown; object_key?: unknown }
+      : null;
+    if (error || !row || typeof row.bucket_name !== "string" || typeof row.object_key !== "string") {
+      return NextResponse.json({ error: "Media asset is not available" }, { status: 404 });
+    }
+    parsedUrl = new URL(createAliyunOssRegistryReadUrl(row.object_key, row.bucket_name));
+  } else if (parsedUrl.origin === request.nextUrl.origin || !isAllowedHost(parsedUrl.hostname)) {
     return NextResponse.json({ error: "Image host is not allowed" }, { status: 400 });
   }
 
   const aliyunOssDownloadUrl = createAliyunOssDownloadUrl(parsedUrl.toString(), filename);
   if (resolveOnly) {
-    if (aliyunOssDownloadUrl) {
+    if (!isCanonicalAsset && aliyunOssDownloadUrl) {
       return NextResponse.json({ strategy: "direct", url: aliyunOssDownloadUrl });
     }
     const proxyUrl = new URL("/api/download-image", request.nextUrl.origin);
@@ -75,7 +105,7 @@ export async function GET(request: NextRequest) {
     proxyUrl.searchParams.set("proxy", "1");
     return NextResponse.json({ strategy: "proxy", url: proxyUrl.pathname + proxyUrl.search });
   }
-  if (aliyunOssDownloadUrl && !forceProxy) {
+  if (aliyunOssDownloadUrl && !forceProxy && !isCanonicalAsset) {
     const redirect = NextResponse.redirect(aliyunOssDownloadUrl, 302);
     redirect.headers.set("Cache-Control", "no-store");
     return redirect;
