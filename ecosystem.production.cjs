@@ -24,7 +24,7 @@ if (!/^[A-Za-z0-9._-]+$/.test(appName)) {
 
 const releaseDir = resolve(required("PM2_RELEASE_DIR"));
 const nodeBin = resolve(required("PM2_NODE_BIN"));
-const webInstances = boundedInteger("PM2_WEB_INSTANCES", 2, 2, 32);
+const webInstances = boundedInteger("PM2_WEB_INSTANCES", 2, 1, 32);
 const workerInstances = boundedInteger("PM2_WORKER_INSTANCES", 1, 1, 32);
 const killTimeoutMs = boundedInteger("PM2_KILL_TIMEOUT_MS", 45_000, 31_000, 120_000);
 const readyTimeoutMs = boundedInteger("PM2_READY_TIMEOUT_MS", 60_000, 10_000, 180_000);

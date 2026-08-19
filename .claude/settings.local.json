@@ -37,7 +37,9 @@
       "Bash(git push origin main:*)",
       "Bash(git push origin v*:*)",
       "Bash(git tag v*:*)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(git fetch *)",
+      "Bash(git ls-tree *)"
     ]
   }
 }
