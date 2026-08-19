@@ -5,6 +5,7 @@ import type {
 } from "@/lib/queue/generation-queue.server";
 import { sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
 import { emptyQueueDelayMs } from "@/lib/queue/queue-backoff";
+import type { WakeNotifier } from "@/lib/queue/outbox-wake.server";
 
 export type GenerationOutboxRow = {
   outbox_id: string;
@@ -57,6 +58,8 @@ export interface GenerationOutboxPublisher {
 export type GenerationOutboxRelayControl = {
   isStopping: () => boolean;
 };
+
+type GenerationOutboxWake = Pick<WakeNotifier, "wait" | "isConnected">;
 
 export async function runGenerationOutboxRelayBatch(options: {
   database: GenerationOutboxDatabase;
@@ -157,6 +160,7 @@ export async function runGenerationOutboxRelay(options: {
   publisher: GenerationOutboxPublisher;
   config: BullMqRuntimeConfig["relay"];
   control: GenerationOutboxRelayControl;
+  wake?: GenerationOutboxWake;
   onMetric?: (metric: GenerationOutboxRelayMetric) => void;
   sleep?: (ms: number) => Promise<void>;
   now?: () => Date;
@@ -193,9 +197,18 @@ export async function runGenerationOutboxRelay(options: {
 
     if (batch.claimed === 0 && !options.control.isStopping()) {
       consecutiveEmpty += 1;
-      await sleep(
-        emptyQueueDelayMs(consecutiveEmpty, options.config.pollIntervalMs, options.config.maxPollIntervalMs),
-      );
+      if (options.wake?.isConnected()) {
+        // Event-driven path: sleep until an outbox INSERT wakes us or the
+        // periodic recovery sweep fires. No idle polling while connected.
+        await options.wake.wait(
+          Math.max(options.config.recoveryIntervalMs, options.config.maxPollIntervalMs),
+          () => options.control.isStopping(),
+        );
+      } else {
+        await sleep(
+          emptyQueueDelayMs(consecutiveEmpty, options.config.pollIntervalMs, options.config.maxPollIntervalMs),
+        );
+      }
     } else {
       consecutiveEmpty = 0;
     }

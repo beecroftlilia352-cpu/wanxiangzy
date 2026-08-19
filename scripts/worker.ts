@@ -23,6 +23,7 @@ import { createConfiguredGenerationQueueRuntime } from "@/lib/queue/generation-q
 import { createConfiguredGenerationWorkerRuntime } from "@/lib/queue/generation-worker.server";
 import { createWorkerHeartbeat } from "@/lib/queue/worker-heartbeat.server";
 import { runOssMirrorRecoveryLoop } from "@/lib/queue/oss-mirror-recovery.server";
+import { createWakeNotifier, subscribeOutboxWake } from "@/lib/queue/outbox-wake.server";
 import {
   parseMediaValidationConfig,
   runMediaValidationLoop,
@@ -80,6 +81,9 @@ export async function runWorkerSupervisor() {
   });
   const heartbeat = createWorkerHeartbeat(bull);
   const sleep = createInterruptibleSleep(control);
+  const wake = createWakeNotifier({
+    subscribe: (handlers) => subscribeOutboxWake(database, handlers),
+  });
   const signalHandler = (signal: NodeJS.Signals) => control.requestStop(signal);
   process.once("SIGTERM", signalHandler);
   process.once("SIGINT", signalHandler);
@@ -89,6 +93,7 @@ export async function runWorkerSupervisor() {
     publisher: producer,
     config: bull.relay,
     control,
+    wake,
     sleep,
     onMetric: (metric) => emit("generation.outbox", metric),
   }));
@@ -124,6 +129,7 @@ export async function runWorkerSupervisor() {
     shutdownPromise ??= shutdownInOrder({
       workerClose: () => worker.close(),
       loops: [relay, mirror, validation, cleanup],
+      wakeClose: () => wake.close(),
       producerClose: async () => {
         await heartbeat.close();
         await producer.close();
@@ -161,12 +167,14 @@ export async function runWorkerSupervisor() {
 export async function shutdownInOrder(options: {
   workerClose: () => Promise<void>;
   loops: Promise<unknown>[];
+  wakeClose?: () => void;
   producerClose: () => Promise<void>;
 }) {
   try {
     await options.workerClose();
     await Promise.allSettled(options.loops);
   } finally {
+    options.wakeClose?.();
     await options.producerClose();
   }
 }
