@@ -28,7 +28,7 @@ describe("downloadMediaFile", () => {
     expect(downloadUrl.pathname).toBe("/api/download-image");
     expect(downloadUrl.searchParams.get("url")).toBe("https://oss.example.com/result.png");
     expect(downloadUrl.searchParams.get("filename")).toBe("result.png");
-    expect(downloadUrl.searchParams.get("proxy")).toBeNull();
+    expect(downloadUrl.searchParams.get("proxy")).toBe("1");
     expect(clickedFilename).toBe("result.png");
     expect(progress).toEqual(["saving", "completed"]);
   });

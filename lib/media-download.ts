@@ -162,10 +162,13 @@ function buildBrowserDownloadUrl(url: string, filename: string) {
   const endpoint = new URL("/api/download-image", window.location.origin);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("filename", filename);
-  // Stable OSS URLs are redirected to a signed attachment URL so EC2 does
-  // not carry the image bytes. Canonical media assets stay on the guarded
-  // same-origin proxy because their ownership must be checked server-side.
-  if (isCanonicalMediaAssetUrl(url)) endpoint.searchParams.set("proxy", "1");
+  // In local development Chrome extensions commonly block direct OSS
+  // downloads. Proxy local requests so they are testable; production keeps
+  // stable OSS URLs on signed redirects and avoids carrying image bytes via
+  // EC2. Canonical media assets always require the guarded proxy.
+  if (isCanonicalMediaAssetUrl(url) || isLocalDevelopmentOrigin()) {
+    endpoint.searchParams.set("proxy", "1");
+  }
   return endpoint.toString();
 }
 
@@ -175,6 +178,10 @@ function isInlineBrowserUrl(url: string) {
 
 function isCanonicalMediaAssetUrl(url: string) {
   return /^\/?api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:[/?#]|$)/i.test(url);
+}
+
+function isLocalDevelopmentOrigin() {
+  return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 }
 
 function buildIndexedFilename(prefix: string, url: string, index: number) {
