@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
@@ -866,7 +867,7 @@ export default function ModelBackgroundPage() {
                 <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-colors ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-[var(--codex-accent-55)] bg-[var(--codex-accent-08)]" : "border-[var(--codex-border)] hover:bg-[var(--codex-accent-08)]"}`}>
                   <button type="button" onClick={() => modelInputRef.current?.click()} className="flex aspect-square w-full flex-col items-center justify-center">
                     {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl)
-                      ? <RawPreviewImage src={modelReferenceUrl} alt={modelReferenceName || t("customModel")} className="h-full w-full rounded-lg object-contain p-1" />
+                      ? <RawPreviewImage src={getImageVariantUrl(modelReferenceUrl, "card")} alt={modelReferenceName || t("customModel")} className="h-full w-full rounded-lg object-contain p-1" />
                       : <><Camera className="w-5 h-5 text-codex-faint" /><span className="mt-1 text-[11px] text-codex-faint">{t("clickToUpload")}</span></>
                     }
                   </button>
@@ -987,7 +988,7 @@ export default function ModelBackgroundPage() {
                 <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone studio-fixed-upload-slot flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[var(--codex-border)] p-3 text-center transition hover:bg-[var(--codex-accent-08)]" style={{ "--studio-fixed-upload-height": "328px" } as CSSProperties}>
                   {backgroundReferenceUrl ? (
                     <div className="studio-fixed-upload-preview studio-checkerboard relative mb-2 overflow-hidden rounded-xl" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
-                      <RawPreviewImage src={backgroundReferenceUrl} alt={t("backgroundReference")} className="h-full w-full object-contain p-2" />
+                      <RawPreviewImage src={getImageVariantUrl(backgroundReferenceUrl, "card")} alt={t("backgroundReference")} className="h-full w-full object-contain p-2" />
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(backgroundReferenceUrl); }}

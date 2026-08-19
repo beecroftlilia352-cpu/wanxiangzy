@@ -3,6 +3,7 @@
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import {
   getOutfitFusionAssetLabel,
   OUTFIT_FUSION_TEMPLATES,
@@ -59,7 +60,7 @@ export function OutfitFusionExampleGallery({
                       <div className="truncate bg-black/55 px-1 py-0.5 text-[10px] leading-none text-white">
                         {label}
                       </div>
-                      <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover" />
+                      <RawPreviewImage src={getImageVariantUrl(asset.url, "thumb")} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover" />
                     </div>
                   );
                 })}

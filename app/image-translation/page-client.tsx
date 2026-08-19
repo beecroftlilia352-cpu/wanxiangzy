@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
@@ -886,7 +887,7 @@ export default function ImageTranslationPage() {
             <section className="rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)]/70 p-3">
               <p className="mb-2 text-[12px] font-semibold text-codex-faint">{t("previewNote")}</p>
               <div className="relative overflow-hidden rounded-xl bg-codex-surface">
-                <RawPreviewImage src={primarySourceUrl} alt={t("previewImageAlt")} className="aspect-[3/4] w-full object-contain" />
+                <RawPreviewImage src={getImageVariantUrl(primarySourceUrl, "preview")} alt={t("previewImageAlt")} className="aspect-[3/4] w-full object-contain" />
                 <button
                   type="button"
                   onClick={() => setLightboxSrc(primarySourceUrl)}

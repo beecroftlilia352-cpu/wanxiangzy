@@ -14,7 +14,15 @@ const CONFIGURED_OSS_IMAGE_HOSTS = (process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOS
 
 export function getImageVariantUrl(url: string | null | undefined, variant: ImageVariant = "thumb") {
   if (!url) return "";
-  if (!isAliyunOssImageUrl(url)) return url;
+  if (!isAliyunOssImageUrl(url)) {
+    // canonical /api/media-assets/<uuid> 也支持缩略：由路由按 variant 302 到带
+    // x-oss-process 的签名 OSS 地址，避免缩略图加载完整大图。
+    if (isCanonicalMediaAssetUrl(url)) {
+      const separator = url.includes("?") ? "&" : "?";
+      return `${url}${separator}variant=${variant}`;
+    }
+    return url;
+  }
 
   try {
     const parsed = new URL(url);
@@ -48,4 +56,8 @@ export function isAliyunOssImageUrl(url: string) {
   } catch {
     return false;
   }
+}
+
+function isCanonicalMediaAssetUrl(url: string) {
+  return /^\/?api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:[/?#]|$)/i.test(url);
 }

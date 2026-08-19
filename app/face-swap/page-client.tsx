@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
@@ -1119,7 +1120,7 @@ export default function FaceSwapPage() {
                       aria-label={t("selectLabel", { label })}
                     >
                       <span className="face-swap-face-library-image">
-                        <RawPreviewImage src={item.url} alt={label} />
+                        <RawPreviewImage src={getImageVariantUrl(item.url, "card")} alt={label} />
                       </span>
                       <span className="face-swap-face-library-name">{label}</span>
                     </button>

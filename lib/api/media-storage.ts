@@ -53,13 +53,14 @@ export function createAliyunOssRegistryReadUrl(
   objectKey: string,
   expectedBucket: string,
   filename?: string,
+  variant?: string,
 ) {
   const config = getAliyunOssConfig();
   if (!expectedBucket || expectedBucket !== config.bucket) {
     throw new Error("媒体资产 bucket 与当前 OSS 配置不匹配");
   }
   assertRegistryObjectKey(objectKey);
-  return buildAliyunSignedReadUrl(config, objectKey, filename);
+  return buildAliyunSignedReadUrl(config, objectKey, filename, variant);
 }
 
 export async function storeMedia(input: StoreMediaInput, options: StoreMediaOptions = {}): Promise<StoredMedia> {
@@ -293,12 +294,16 @@ function buildAliyunSignedReadUrl(
   config: ReturnType<typeof getAliyunOssConfig>,
   objectKey: string,
   filename?: string,
+  variant?: string,
 ) {
   const expiresInSeconds = boundedReadExpiry(process.env.UPLOAD_READ_URL_TTL_SECONDS);
   const expires = String(Math.floor(Date.now() / 1000) + expiresInSeconds);
   const query: Record<string, string> = {};
   if (filename) {
     query["response-content-disposition"] = buildAttachmentContentDisposition(filename);
+  }
+  if (variant && OSS_PROCESS_VARIANTS[variant]) {
+    query["x-oss-process"] = OSS_PROCESS_VARIANTS[variant];
   }
   if (config.securityToken) query["security-token"] = config.securityToken;
   const canonicalQuery = Object.entries(query)
@@ -316,6 +321,13 @@ function buildAliyunSignedReadUrl(
   url.searchParams.set("Signature", signature);
   return url.toString();
 }
+
+const OSS_PROCESS_VARIANTS: Record<string, string> = {
+  thumb: "image/resize,m_lfit,w_320/format,webp/quality,q_82",
+  card: "image/resize,m_lfit,w_640/format,webp/quality,q_84",
+  preview: "image/resize,m_lfit,w_1280/format,webp/quality,q_86",
+  detail: "image/resize,m_lfit,w_2560/format,webp/quality,q_94",
+};
 
 function buildAttachmentContentDisposition(filename: string) {
   const safeFilename = filename

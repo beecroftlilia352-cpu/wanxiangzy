@@ -3,6 +3,7 @@ import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, FolderOpen, Loader2, Upload, X, ZoomIn } from "lucide-react";
@@ -790,7 +791,7 @@ export default function GrassPage() {
                 />
                 {uploadedReferenceUrl ? (
                   <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-[var(--codex-surface-soft)]" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
-                    <RawPreviewImage src={uploadedReferenceUrl} alt={t("uploadedReferenceAlt")} className="h-full w-full object-contain p-2" />
+                    <RawPreviewImage src={getImageVariantUrl(uploadedReferenceUrl, "card")} alt={t("uploadedReferenceAlt")} className="h-full w-full object-contain p-2" />
                     <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
                       <span className="truncate rounded-full bg-codex-surface px-2.5 py-1 text-[12px] font-medium text-codex-muted shadow-sm">{uploadedReferenceName || t("uploadedReferenceBadge")}</span>
                       <span className="flex gap-1">

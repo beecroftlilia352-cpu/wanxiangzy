@@ -271,6 +271,8 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       imageSize: ImageSize;
       prompt: string;
       genCount: number;
+      batchId?: string;
+      batchIndex?: number;
       aiTool?: {
         requestId: string;
         operation: string;

@@ -1688,6 +1688,8 @@
     "resolutionAriaLabel": "Choose resolution",
     "countSectionTitle": "Generation count",
     "countAriaLabel": "Generation count",
+    "onePerReferenceLabel": "Generate each reference separately",
+    "onePerReferenceHint": "When enabled, each reference image generates separately using the same prompt",
     "summaryImageToImage": "Image to image · {count} reference(s)",
     "summaryTextToImage": "Text to image",
     "costLoginView": "Sign in to view credits",

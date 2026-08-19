@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight,
@@ -1365,7 +1366,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
     <div className="relative" onMouseLeave={() => setPreviewTemplate(null)}>
       {previewTemplate && (
         <div className="pointer-events-none absolute bottom-[94px] left-0 z-30 aspect-[4/5] w-[232px] overflow-hidden rounded-2xl border border-white/90 bg-codex-ink shadow-[0_28px_70px_rgba(15,23,42,0.22)] ring-1 ring-blue-200/80">
-          <RawPreviewImage src={previewTemplate.previewImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <RawPreviewImage src={getImageVariantUrl(previewTemplate.previewImage, "card")} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <video
             ref={previewVideoRef}
             key={previewTemplate.id}
@@ -1405,7 +1406,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
               }`}
               title={template.title}
             >
-              <RawPreviewImage src={template.previewImage} alt={template.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]" />
+              <RawPreviewImage src={getImageVariantUrl(template.previewImage, "card")} alt={template.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]" />
               <span className={`absolute inset-0 transition ${previewing ? "bg-blue-500/10" : "bg-transparent"}`} />
               {selected && (
                 <span className="absolute left-1.5 top-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-black leading-none text-white shadow-sm">
@@ -1589,7 +1590,7 @@ function TemplateCard({
       onBlur={() => setActive(false)}
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-[var(--codex-surface-soft)]">
-        <RawPreviewImage src={template.previewImage} alt={template.title} className={`h-full w-full object-cover transition ${active ? "opacity-0" : "opacity-100"}`} />
+        <RawPreviewImage src={getImageVariantUrl(template.previewImage, "card")} alt={template.title} className={`h-full w-full object-cover transition ${active ? "opacity-0" : "opacity-100"}`} />
         <video
           ref={videoRef}
           src={template.previewVideo}

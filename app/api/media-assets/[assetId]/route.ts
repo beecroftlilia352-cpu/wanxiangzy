@@ -13,6 +13,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   if (!user) return response;
   const { assetId } = await params;
   const filename = new URL(request.url).searchParams.get("filename") || undefined;
+  const variant = new URL(request.url).searchParams.get("variant") || undefined;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(assetId)) {
     return NextResponse.json({ error: "无效的媒体资产 ID" }, { status: 400 });
   }
@@ -76,7 +77,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   try {
     return NextResponse.redirect(
-      createAliyunOssRegistryReadUrl(row.object_key, row.bucket_name, filename),
+      createAliyunOssRegistryReadUrl(row.object_key, row.bucket_name, filename, variant),
       {
       status: 302,
       headers: {
