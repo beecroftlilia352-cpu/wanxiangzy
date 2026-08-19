@@ -78,6 +78,15 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
     expect(deploy).toContain("healthcheck_app || rollback_status=$?");
     expect(deploy).toContain("pm2 save || rollback_status=$?");
 
+    const stageIndex = deploy.indexOf("\nstage_shared_environment\n");
+    expect(stageIndex).toBeGreaterThan(snapshotIndex);
+    expect(stageIndex).toBeLessThan(switchIndex);
+    expect(deploy).toContain('cp -p "$SHARED_DIR/.env.production" "$RELEASE_DIR/.env.production"');
+    expect(deploy).toContain("restore_shared_environment || rollback_status=$?");
+    expect(deploy).toContain('SHARED_ENV_SWITCHED=1');
+    expect(deploy).toContain('mv -f "$SHARED_ENV_TEMP" "$SHARED_DIR/.env.production"');
+    expect(deploy).toContain('rm -f -- "$PM2_ROLLBACK_CONFIG" "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"');
+
     const snapshot = read("scripts/snapshot-pm2-config.cjs");
     expect(snapshot).toContain('safeRuntimeEnvironmentKeys = ["NODE_ENV", "PORT", "HOST", "TZ"]');
     expect(snapshot).not.toContain("env: pm2.env");

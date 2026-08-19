@@ -100,7 +100,7 @@ Redis                       托管 Redis/Tair/ElastiCache，noeviction
 Provider 可用并发总和       至少 64（否则实际吞吐以 Provider 上限为准）
 ```
 
-在 `/admin/workers` 发布 `4 / 16 / 8` 后，下次 tag 部署会由发布控制器读取 `worker.runtime.v1`，原子写入共享 `.env.production` 并启动 4 个 PM2 Worker。当前 2 vCPU / 2 GiB EC2 不应直接套用 4×16；它适合 1×16 验证环境。生产扩容前必须把 Redis 移出单机 loopback，并完成 10k 任务、Provider 429、Worker kill -9 和 Redis 故障转移演练。
+在 `/admin/workers` 发布 `4 / 16 / 8` 后，下次 tag 部署会由发布控制器读取 `worker.runtime.v1`，先在新 release 生成候选 `.env.production`，所有 Redis、数据库契约和 OSS 门禁通过后，再原子切换共享环境并启动 4 个 PM2 Worker；任何门禁或健康检查失败都会恢复旧环境和旧 PM2 配置。当前 2 vCPU / 2 GiB EC2 不应直接套用 4×16；它适合 1×16 验证环境。生产扩容前必须把 Redis 移出单机 loopback，并完成 10k 任务、Provider 429、Worker kill -9 和 Redis 故障转移演练。
 
 Admin 只保存版本化期望配置，不能执行 shell 或直接调用 PM2。页面同时显示期望实例、BullMQ 实际在线实例、总 active 容量和配置漂移；部署控制器是唯一基础设施写入者。
 

@@ -44,8 +44,11 @@ PM2_READY_TIMEOUT_MS="${PM2_READY_TIMEOUT_MS:-60000}"
 PM2_WEB_INSTANCES="${PM2_WEB_INSTANCES:-2}"
 PM2_WORKER_INSTANCES=""
 PM2_ROLLBACK_CONFIG="$SHARED_DIR/.pm2-rollback-${SAFE_TAG}.cjs"
+SHARED_ENV_BACKUP="$SHARED_DIR/.env.production.rollback-${SAFE_TAG}"
+SHARED_ENV_TEMP="$SHARED_DIR/.env.production.deploy-${SAFE_TAG}.tmp"
 CUTOVER_STARTED=0
 ROLLBACK_IN_PROGRESS=0
+SHARED_ENV_SWITCHED=0
 
 start_app() {
   local app_dir="$1"
@@ -91,6 +94,37 @@ snapshot_pm2_process_config() {
     "$PM2_ROLLBACK_CONFIG" \
     "$APP_NAME" \
     "${APP_NAME}-worker"
+}
+
+stage_shared_environment() {
+  local candidate="$RELEASE_DIR/.env.production"
+  if [ ! -f "$candidate" ]; then
+    echo "Missing candidate environment file in $RELEASE_DIR" >&2
+    return 1
+  fi
+
+  rm -f -- "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
+  cp -p "$SHARED_DIR/.env.production" "$SHARED_ENV_BACKUP"
+  chmod 600 "$SHARED_ENV_BACKUP"
+  cp -p "$candidate" "$SHARED_ENV_TEMP"
+  chmod 600 "$SHARED_ENV_TEMP"
+  mv -f "$SHARED_ENV_TEMP" "$SHARED_DIR/.env.production"
+  SHARED_ENV_SWITCHED=1
+}
+
+restore_shared_environment() {
+  if [ "$SHARED_ENV_SWITCHED" -eq 0 ]; then
+    return 0
+  fi
+  if [ ! -f "$SHARED_ENV_BACKUP" ]; then
+    echo "Previous shared environment backup is missing; refusing to continue rollback." >&2
+    return 1
+  fi
+  cp -p "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
+  chmod 600 "$SHARED_ENV_TEMP"
+  mv -f "$SHARED_ENV_TEMP" "$SHARED_DIR/.env.production"
+  rm -f -- "$SHARED_ENV_BACKUP"
+  SHARED_ENV_SWITCHED=0
 }
 
 restore_pm2_snapshot() {
@@ -182,6 +216,7 @@ rollback_previous_release() {
   ROLLBACK_IN_PROGRESS=1
   local rollback_status=0
   set +e
+  restore_shared_environment || rollback_status=$?
   if [ -n "$PREVIOUS_TARGET" ] && [ -d "$PREVIOUS_TARGET" ]; then
     if ! release_matches_runtime_contract "$PREVIOUS_TARGET"; then
       echo "Automatic rollback blocked: the previous release does not declare the exact active database runtime contract." >&2
@@ -253,7 +288,7 @@ handle_deploy_error() {
     echo "Deployment failed after traffic cutover at line $line; restoring previous release and PM2 configuration." >&2
     rollback_previous_release || echo "Automatic rollback failed; manual intervention is required." >&2
   fi
-  rm -f -- "$PM2_ROLLBACK_CONFIG"
+  rm -f -- "$PM2_ROLLBACK_CONFIG" "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
   exit "$status"
 }
 
@@ -267,7 +302,7 @@ handle_deploy_signal() {
   if [ "$CUTOVER_STARTED" -eq 1 ] && [ "$ROLLBACK_IN_PROGRESS" -eq 0 ]; then
     rollback_previous_release || echo "Automatic rollback failed; manual intervention is required." >&2
   fi
-  rm -f -- "$PM2_ROLLBACK_CONFIG"
+  rm -f -- "$PM2_ROLLBACK_CONFIG" "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
   exit "$status"
 }
 
@@ -744,7 +779,8 @@ if [ ! -f "$SHARED_DIR/.env.production" ]; then
 fi
 
 tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
-ln -sfn "$SHARED_DIR/.env.production" "$RELEASE_DIR/.env.production"
+cp -p "$SHARED_DIR/.env.production" "$RELEASE_DIR/.env.production"
+chmod 600 "$RELEASE_DIR/.env.production"
 cleanup_legacy_root_lockfiles
 
 cd "$RELEASE_DIR"
@@ -799,6 +835,7 @@ fi
 
 snapshot_pm2_process_config
 CUTOVER_STARTED=1
+stage_shared_environment
 ln -sfn "$RELEASE_DIR" "$BASE_DIR/current"
 start_app "$BASE_DIR/current"
 verify_pm2_process_contract "$RELEASE_DIR"
@@ -827,7 +864,7 @@ fi
 
 pm2 save
 CUTOVER_STARTED=0
-rm -f -- "$PM2_ROLLBACK_CONFIG"
+rm -f -- "$PM2_ROLLBACK_CONFIG" "$SHARED_ENV_BACKUP" "$SHARED_ENV_TEMP"
 cleanup_dependency_cache
 
 CURRENT_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
