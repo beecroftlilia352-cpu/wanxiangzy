@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   computeOutboxRetryDelaySeconds,
+  runGenerationOutboxRelay,
   runGenerationOutboxRelayBatch,
   type GenerationOutboxDatabase,
 } from "@/lib/queue/generation-outbox-relay.server";
@@ -88,5 +89,35 @@ describe("generation outbox relay", () => {
       concurrency: 2,
       claimTtlMs: 60_000,
     })).rejects.toThrow(/malformed/);
+  });
+
+  it("bounds connected wake waits by the polling fallback", async () => {
+    const db = database([
+      { data: [], error: null },
+      { data: { recovered_leases: 0 }, error: null },
+    ]);
+    let stopping = false;
+    const wait = vi.fn(async () => {
+      stopping = true;
+      return false;
+    });
+
+    await runGenerationOutboxRelay({
+      database: db,
+      publisher: { enqueue: vi.fn() },
+      config: {
+        batchSize: 10,
+        concurrency: 2,
+        pollIntervalMs: 500,
+        maxPollIntervalMs: 60_000,
+        recoveryIntervalMs: 300_000,
+        claimTtlMs: 60_000,
+      },
+      control: { isStopping: () => stopping },
+      wake: { isConnected: () => true, wait },
+    });
+
+    expect(wait).toHaveBeenCalledOnce();
+    expect(wait).toHaveBeenCalledWith(60_000, expect.any(Function));
   });
 });

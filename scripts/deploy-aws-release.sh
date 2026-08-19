@@ -609,6 +609,7 @@ if (
 }
 const required = [
   "get_runtime_contract_version",
+  "is_generation_outbox_realtime_ready",
   "create_generation_with_credit_debit_v2",
   "claim_generation_outbox",
   "confirm_generation_outbox",
@@ -717,6 +718,35 @@ if (!url || !serviceKey) {
     console.error(
       `Migration gate: runtime contract mismatch (expected ${expectedContractVersion}/${expectedContractHash}).`,
     );
+    process.exit(1);
+  }
+
+  let realtimeResponse;
+  try {
+    realtimeResponse = await fetch(`${url}/rest/v1/rpc/is_generation_outbox_realtime_ready`, {
+      method: "POST",
+      headers: {
+        apikey: serviceKey,
+        authorization: `Bearer ${serviceKey}`,
+        "content-type": "application/json",
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    console.error("Migration gate: generation outbox Realtime status is unreachable.");
+    process.exit(1);
+  }
+  let realtimeReady = false;
+  if (realtimeResponse.ok) {
+    try {
+      realtimeReady = await realtimeResponse.json() === true;
+    } catch {
+      realtimeReady = false;
+    }
+  }
+  if (!realtimeReady) {
+    console.error("Migration gate: generation outbox is missing from the Supabase Realtime publication.");
     process.exit(1);
   }
   console.log(`Migration gate: exact runtime contract ${expectedContractVersion} is present.`);

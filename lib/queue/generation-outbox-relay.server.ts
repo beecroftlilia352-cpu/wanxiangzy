@@ -199,7 +199,7 @@ export async function runGenerationOutboxRelay(options: {
       consecutiveEmpty += 1;
       if (options.wake?.isConnected()) {
         // Event-driven path: sleep until an outbox INSERT wakes us or the
-        // periodic recovery sweep fires. No idle polling while connected.
+        // bounded polling/recovery backstop expires.
         // The wait is bounded by the smallest fallback interval so a missed
         // Realtime event (or an unconfigured publication) can never delay
         // dispatch beyond the polling backstop.

@@ -20,16 +20,58 @@ RELEASE_NAME="manual-$TAG"
 LOCAL_TAR="/tmp/wanxiangzy-next-$TAG.tar.gz"
 REMOTE_TAR="/tmp/wanxiangzy-next-$TAG.tar.gz"
 
-echo "==> [1/4] 本地构建 .next"
+echo "==> [1/5] 验证 Supabase Realtime 发布配置"
+node --env-file-if-exists=.env.production --env-file-if-exists=.env.local - <<'NODE'
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!url || !serviceKey) {
+  console.error("Migration gate: Supabase URL or service role key is missing.");
+  process.exit(1);
+}
+
+let response;
+try {
+  response = await fetch(`${url}/rest/v1/rpc/is_generation_outbox_realtime_ready`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      authorization: `Bearer ${serviceKey}`,
+      "content-type": "application/json",
+    },
+    body: "{}",
+    signal: AbortSignal.timeout(10_000),
+  });
+} catch {
+  console.error("Migration gate: generation outbox Realtime status is unreachable.");
+  process.exit(1);
+}
+
+let ready = false;
+if (response.ok) {
+  try {
+    ready = await response.json() === true;
+  } catch {
+    ready = false;
+  }
+}
+if (!ready) {
+  console.error("Migration gate: generation outbox is missing from the Supabase Realtime publication.");
+  process.exit(1);
+}
+console.log("Migration gate: generation outbox Realtime publication is ready.");
+NODE
+
+echo "==> [2/5] 本地构建 .next"
 npm run build
 
-echo "==> [2/4] 打包 .next"
+echo "==> [3/5] 打包 .next"
 tar -czf "$LOCAL_TAR" .next
 
-echo "==> [3/4] 上传 .next 到 EC2"
+echo "==> [4/5] 上传 .next 到 EC2"
 scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$LOCAL_TAR" "$SSH_USER@$SSH_HOST:$REMOTE_TAR"
 
-echo "==> [4/4] 远端准备 + 启动"
+echo "==> [5/5] 远端准备 + 启动"
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" "TAG=$TAG WORKER_INSTANCES=$WORKER_INSTANCES WEB_INSTANCES=$WEB_INSTANCES NODE_BIN=$NODE_BIN APP_DIR=$APP_DIR REPO=$REPO REMOTE_TAR=$REMOTE_TAR bash -s" <<'REMOTE'
 set -euo pipefail
 RELEASE="$HOME/$APP_DIR/releases/manual-$TAG"

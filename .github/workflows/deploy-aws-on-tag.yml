@@ -1,9 +1,7 @@
-name: Deploy AWS on tag
+name: Deploy AWS manually
 
 on:
-  push:
-    tags:
-      - "*"
+  workflow_dispatch:
 
 concurrency:
   group: aws-production

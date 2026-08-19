@@ -18,7 +18,8 @@ function notifier() {
 
 describe("outbox wake notifier", () => {
   it("resolves immediately when a wake event fires", async () => {
-    const { wake, fire } = notifier();
+    const { wake, fire, setStatus } = notifier();
+    setStatus(true);
     const pending = wake.wait(30_000);
     fire();
     await expect(pending).resolves.toBe(true);
@@ -26,17 +27,45 @@ describe("outbox wake notifier", () => {
   });
 
   it("resolves false on timeout", async () => {
-    const { wake } = notifier();
+    const { wake, setStatus } = notifier();
+    setStatus(true);
     await expect(wake.wait(10)).resolves.toBe(false);
     wake.close();
   });
 
   it("resolves false when stopping is requested", async () => {
-    const { wake } = notifier();
+    const { wake, setStatus } = notifier();
+    setStatus(true);
     let stopping = false;
     const pending = wake.wait(30_000, () => stopping);
     stopping = true;
     await expect(pending).resolves.toBe(false);
+    wake.close();
+  });
+
+  it("buffers an event that arrives before wait registers", async () => {
+    const { wake, fire, setStatus } = notifier();
+    setStatus(true);
+    fire();
+
+    await expect(wake.wait(30_000)).resolves.toBe(true);
+    wake.close();
+  });
+
+  it("releases a waiter when the subscription disconnects", async () => {
+    const { wake, setStatus } = notifier();
+    setStatus(true);
+    const pending = wake.wait(30_000);
+
+    setStatus(false);
+
+    await expect(pending).resolves.toBe(false);
+    wake.close();
+  });
+
+  it("does not sleep when disconnected before wait", async () => {
+    const { wake } = notifier();
+    await expect(wake.wait(30_000)).resolves.toBe(false);
     wake.close();
   });
 

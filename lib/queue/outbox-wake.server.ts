@@ -5,10 +5,9 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
  *
  * The relay normally polls the Postgres outbox with an idle backoff. When the
  * Realtime subscription is connected, an outbox INSERT wakes the relay
- * immediately so generation dispatch latency stays sub-second even while the
- * relay makes no idle polling calls. The subscription is strictly an
- * accelerator: the polling backoff remains the delivery fallback, so a
- * transient Realtime outage can never stall generation dispatch.
+ * immediately so generation dispatch latency normally stays sub-second. The
+ * subscription is strictly an accelerator: bounded polling remains the
+ * delivery fallback, so a transient Realtime outage can never stall dispatch.
  */
 export type WakeSubscriptionHandlers = {
   onEvent: () => void;
@@ -26,17 +25,29 @@ export function createWakeNotifier(options: {
   subscribe: (handlers: WakeSubscriptionHandlers) => () => void;
 }): WakeNotifier {
   let resolveCurrent: ((woken: boolean) => void) | null = null;
+  let pendingWake = false;
   let connected = false;
   let closed = false;
 
   const unsubscribe = options.subscribe({
     onEvent: () => {
       const resolve = resolveCurrent;
-      resolveCurrent = null;
-      resolve?.(true);
+      if (resolve) {
+        resolveCurrent = null;
+        resolve(true);
+      } else {
+        // Coalesce events that arrive after an empty claim but before wait()
+        // installs its resolver. The next wait consumes the buffered edge.
+        pendingWake = true;
+      }
     },
     onStatus: (ok: boolean) => {
       connected = ok;
+      if (!ok) {
+        const resolve = resolveCurrent;
+        resolveCurrent = null;
+        resolve?.(false);
+      }
     },
   });
 
@@ -44,6 +55,13 @@ export function createWakeNotifier(options: {
     isConnected: () => connected,
     wait(timeoutMs, isStopping) {
       if (closed) return Promise.resolve(false);
+      if (pendingWake) {
+        pendingWake = false;
+        return Promise.resolve(true);
+      }
+      // The channel can disconnect between the relay's isConnected() check
+      // and this call. Return immediately so the relay switches to polling.
+      if (!connected) return Promise.resolve(false);
       return new Promise<boolean>((resolve) => {
         let settled = false;
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -51,7 +69,7 @@ export function createWakeNotifier(options: {
         const finish = (woken: boolean) => {
           if (settled) return;
           settled = true;
-          resolveCurrent = null;
+          if (resolveCurrent === finish) resolveCurrent = null;
           if (timer) clearTimeout(timer);
           if (interval) clearInterval(interval);
           resolve(woken);
@@ -68,6 +86,7 @@ export function createWakeNotifier(options: {
     close() {
       if (closed) return;
       closed = true;
+      pendingWake = false;
       const resolve = resolveCurrent;
       resolveCurrent = null;
       resolve?.(false);
