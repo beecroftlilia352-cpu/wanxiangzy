@@ -3,7 +3,6 @@
 import type { CSSProperties } from "react";
 import { Loader2, Play, XCircle } from "lucide-react";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioSingleDownloadButton } from "@/components/studio/StudioMediaDownloadButton";
 import { FavoriteAssetButton } from "@/components/resource-library/FavoriteAssetButton";
@@ -64,7 +63,7 @@ export function ResultVideoGrid({
                 {isVideoUrl(url) ? (
                   <video src={url} muted playsInline preload="metadata" />
                 ) : (
-                  <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt={t("inputThumb", { index: index + 1 })} width={96} height={96} loading="lazy" decoding="async" />
+                  <RawPreviewImage src={url} alt={t("inputThumb", { index: index + 1 })} width={96} height={96} loading="lazy" decoding="async" />
                 )}
                 <span className="studio-result-reference-label">{t("inputThumb", { index: index + 1 })}</span>
               </div>

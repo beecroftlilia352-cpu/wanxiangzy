@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, ChevronRight, FolderOpen, UserRound } from "lucide-react";
@@ -919,7 +918,7 @@ export default function ModelPage() {
               >
                 {hairColorReferenceUrl ? (
                   <>
-                    <RawPreviewImage src={getImageVariantUrl(hairColorReferenceUrl, "card")} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairColorRef")} />
+                    <RawPreviewImage src={hairColorReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairColorRef")} />
                     <span className="absolute inset-0 bg-gradient-to-t from-codex-ink/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-white/5 text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />

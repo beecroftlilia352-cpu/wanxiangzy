@@ -134,7 +134,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(defaultSettings.aspectRatio);
   const [imageSize, setImageSize] = useState<ImageSize>(defaultSettings.imageSize);
   const [genCount, setGenCount] = useState(1);
-  const [onePerReference, setOnePerReference] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -172,7 +171,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const isImageMode = mode === "image-to-image";
-  const displayTotalCost = totalCost * (onePerReference && isImageMode ? referenceImages.length : 1);
   const authIsAnonymous = authChecked && !isAuthenticated;
   const activeFeature = isImageMode ? "imageToImage" : "textToImage";
   const taskInputThumbnails = useMemo(
@@ -736,66 +734,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     toast.success(t("appliedToDescription"));
   }
 
-  async function pollBatchReferences(taskId: string, generationIds: string[], expectedCount: number) {
-    const remaining = new Set(generationIds);
-    const merged: string[] = [];
-    let attempts = 0;
-    while (remaining.size > 0 && attempts < 150) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      attempts += 1;
-      await Promise.all([...remaining].map(async (id) => {
-        try {
-          const res = await fetch(`/api/general-image?generation_id=${encodeURIComponent(id)}`);
-          if (!res.ok) return;
-          const state = await res.json().catch(() => null) as { status?: string; result_urls?: unknown } | null;
-          if (!state || (state.status !== "completed" && state.status !== "failed")) return;
-          remaining.delete(id);
-          if (Array.isArray(state.result_urls)) {
-            for (const url of state.result_urls) {
-              if (typeof url === "string" && url && !merged.includes(url)) merged.push(url);
-            }
-          }
-        } catch {
-          // transient network error; keep polling
-        }
-      }));
-      const done = generationIds.length - remaining.size;
-      const percent = remaining.size === 0 ? 100 : Math.min(99, Math.max(12, Math.round((done / generationIds.length) * 100)));
-      setProgress(percent);
-      if (displayedTaskIdRef.current === taskId) {
-        setResultUrls(merged);
-        const runningTask = taskQueue.markRunning(taskId, {
-          expectedCount,
-          inputThumbnails: taskInputThumbnails,
-          resultThumbnails: merged,
-          resultCount: merged.length,
-          progress: percent,
-        });
-        setActiveQueueTask(runningTask);
-      }
-    }
-    const finalCount = merged.length;
-    setProgress(100);
-    setIsGenerating(false);
-    const completedTask = taskQueue.markCompleted(taskId, {
-      expectedCount,
-      inputThumbnails: taskInputThumbnails,
-      resultThumbnails: merged,
-      resultCount: finalCount,
-      error: finalCount < expectedCount ? t("partialCompleteImageToImage", { done: finalCount, expected: expectedCount }) : "",
-    });
-    if (displayedTaskIdRef.current === taskId) {
-      setResultUrls(merged);
-      setActiveQueueTask(completedTask);
-    }
-    if (finalCount < expectedCount) {
-      toast.warning(t("partialCompleteImageToImage", { done: finalCount, expected: expectedCount }));
-    } else {
-      toast.success(t("completeImageToImage"));
-    }
-    void refreshCredits();
-  }
-
   async function generate(options: GeneralImageGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error(t("pleaseLogin"));
@@ -805,7 +743,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (!prompt.trim()) return toast.error(t("enterPrompt"));
     if (isImageMode && !referenceImages.length) return toast.error(t("needReference"));
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
-    const shouldSplit = onePerReference && isImageMode && referenceImages.length > 1;
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
     const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
     const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
@@ -815,7 +752,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       previousUrls: retryPreviousResultUrls,
       fallbackExpectedCount: runExpectedCount,
     });
-    const runTotalCost = costPerImage * runExpectedCount * (shouldSplit ? referenceImages.length : 1);
+    const runTotalCost = costPerImage * runExpectedCount;
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
@@ -846,7 +783,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
-          one_per_reference: shouldSplit,
           gen_count: runGenCount,
         }),
       });
@@ -866,25 +802,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
-      }
-
-      if (Array.isArray(data.generation_ids) && data.generation_ids.length > 1) {
-        const batchId = typeof data.batch_id === "string" && data.batch_id
-          ? data.batch_id
-          : String(data.generation_ids[0]);
-        const batchExpectedCount = displayExpectedCount * data.generation_ids.length;
-        const batchTask = taskQueue.replaceWithServerTask(activeTaskId, {
-          id: batchId,
-          expectedCount: batchExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          status: data.status || "processing",
-          progress: 12,
-        });
-        selectDisplayedTask(batchTask.id);
-        setActiveQueueTask(batchTask);
-        setCleanDraftSignature(currentDraftSignature);
-        void pollBatchReferences(batchTask.id, data.generation_ids as string[], batchExpectedCount);
-        return;
       }
 
       if (typeof data.generation_id === "string" && data.generation_id) {
@@ -1065,27 +982,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             </StudioUploadSection>
           )}
 
-          {isImageMode && referenceImages.length > 1 && (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface)] px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-codex-ink">{t("onePerReferenceLabel")}</p>
-                <p className="mt-0.5 text-xs leading-5 text-codex-muted">{t("onePerReferenceHint")}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={onePerReference}
-                aria-label={t("onePerReferenceLabel")}
-                onClick={() => setOnePerReference((value) => !value)}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${onePerReference ? "bg-[var(--codex-accent)]" : "bg-[var(--codex-border)]"}`}
-              >
-                <span
-                  className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${onePerReference ? "translate-x-5" : ""}`}
-                />
-              </button>
-            </div>
-          )}
-
           <div>
             <PromptTextarea
               title={t("textDescriptionTitle")}
@@ -1163,7 +1059,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         <StudioRunBar
           summary={`${isImageMode ? t("summaryImageToImage", { count: referenceImages.length }) : t("summaryTextToImage")} · ${costPerImage} × ${genCount}`}
           estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
-          costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost: displayTotalCost, balance: credits ?? "-" })}
+          costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost: totalCost, balance: credits ?? "-" })}
           disabled={!canGenerate}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? t("primaryLogin") : isGenerating ? t("primaryGenerating") : t("primaryGenerate", { count: genCount })}

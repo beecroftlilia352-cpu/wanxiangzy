@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import type { MutableRefObject } from "react";
 import { Camera, CheckCircle2, FolderOpen, UserRound } from "lucide-react";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -82,7 +81,7 @@ export function HairStyleSection({ gender, hairStyle, hairReferenceUrl, hairInpu
         >
           {hairReferenceUrl ? (
             <>
-              <RawPreviewImage src={getImageVariantUrl(hairReferenceUrl, "card")} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairRef")} />
+              <RawPreviewImage src={hairReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt={t("uploadedHairRef")} />
               <span className="absolute inset-0 bg-gradient-to-t from-codex-ink/38 via-transparent to-transparent" />
               <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-white/5 text-emerald-500 shadow">
                 <CheckCircle2 className="h-4 w-4" />

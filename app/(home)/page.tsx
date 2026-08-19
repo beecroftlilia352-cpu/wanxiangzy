@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { codexTheme } from "@/lib/design/codex-theme";
-import { getImageVariantUrl } from "@/lib/image-variants";
 
 const partnerLogos = [
   {
@@ -295,11 +294,10 @@ function HeroConsole({ t }: { t: (key: string) => string }) {
       <div className="home-codex-hero-shot home-codex-hero-shot-screenshot">
         <MacWindowShell className="home-hero-macos-shell">
           <Image
-            src={getImageVariantUrl(showcase.heroScreen, "preview")}
+            src={showcase.heroScreen}
             alt={t("heroScreenAlt")}
             fill
             priority
-            unoptimized
             sizes="(min-width: 1280px) 1180px, 92vw"
             className="home-codex-hero-image"
           />
@@ -365,7 +363,7 @@ function FeatureScreenshot({ src, alt, className = "" }: { src: string; alt: str
   return (
     <div className={`home-feature-visual home-feature-screen ${className}`}>
       <MacWindowShell className="home-feature-macos-shell">
-        <Image src={getImageVariantUrl(src, "preview")} alt={alt} fill unoptimized sizes="(min-width: 1024px) 58vw, 100vw" className="home-feature-screen-img" />
+        <Image src={src} alt={alt} fill sizes="(min-width: 1024px) 58vw, 100vw" className="home-feature-screen-img" />
       </MacWindowShell>
       <div className="home-feature-screen-glow" aria-hidden="true" />
     </div>

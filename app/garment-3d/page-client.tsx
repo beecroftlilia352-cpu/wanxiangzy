@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { ChevronRight, FolderOpen, Loader2, Plus, Wand, ZoomIn } from "lucide-react";
@@ -884,7 +883,7 @@ export default function Garment3dPage() {
                         title={ref.labelKey ? t(ref.labelKey) : ref.label}
                         className="absolute inset-0 w-full h-full cursor-pointer"
                       >
-                        <RawPreviewImage src={getImageVariantUrl(ref.url, "thumb")} alt={ref.labelKey ? t(ref.labelKey) : ref.label} className="w-full h-full object-cover" />
+                        <RawPreviewImage src={ref.url} alt={ref.labelKey ? t(ref.labelKey) : ref.label} className="w-full h-full object-cover" />
                       </button>
                       <button
                         type="button"

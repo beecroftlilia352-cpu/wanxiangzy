@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import { CheckCircle2, Loader2, Upload, X, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { ClientPortal } from "@/components/ClientPortal";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
@@ -256,7 +255,7 @@ export function GarmentDetailReferencePanel({
                                       className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                       aria-label={t("garmentDetail.previewDetailAria", { role: roleLabel, index: index + 1 })}
                                     >
-                                      <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt={t("garmentDetail.detailAlt", { role: roleLabel, index: index + 1 })} className="aspect-square w-full object-cover" />
+                                      <RawPreviewImage src={url} alt={t("garmentDetail.detailAlt", { role: roleLabel, index: index + 1 })} className="aspect-square w-full object-cover" />
                                       <span className="absolute bottom-1 left-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
                                         {index + 1}
                                       </span>
@@ -308,7 +307,7 @@ export function GarmentDetailReferencePanel({
                             className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                             aria-label={t("garmentDetail.previewUnassignedAria", { index: index + 1 })}
                           >
-                            <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt={t("garmentDetail.unassignedAlt", { index: index + 1 })} className="aspect-square w-full object-cover" />
+                            <RawPreviewImage src={url} alt={t("garmentDetail.unassignedAlt", { index: index + 1 })} className="aspect-square w-full object-cover" />
                           </button>
                           <button
                             type="button"
@@ -382,7 +381,7 @@ export function TryOnRulePopover({
                 <div className={`grid gap-1 ${demo.images.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
                   {demo.images.map((image, imageIndex) => (
                     <div key={`${demo.title}-${image.role}-${imageIndex}-${image.url}`} className="relative overflow-hidden rounded-xl bg-white">
-                      <RawPreviewImage src={getImageVariantUrl(image.url, "card")} alt={image.title} className="aspect-square w-full object-cover" />
+                      <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
                       <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
                     </div>
                   ))}
@@ -407,7 +406,7 @@ export function TryOnRulePopover({
               {rule.deprecatedImages.map((image) => (
                 <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center">
                   <div className="relative overflow-hidden rounded-xl bg-white">
-                    <RawPreviewImage src={getImageVariantUrl(image.url, "card")} alt={image.title} className="aspect-square w-full object-cover" />
+                    <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
                     <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" />
                   </div>
                   <p className="mt-2 text-xs font-medium text-slate-600">{image.title}</p>

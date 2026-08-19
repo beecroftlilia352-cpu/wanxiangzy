@@ -12,7 +12,6 @@ import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { cn } from "@/lib/utils";
 import { useStudioImageModelOptions } from "@/lib/studio-models";
 import { useTranslations } from "next-intl";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import {
   DEFAULT_OUTFIT_FUSION_CONFIG,
   type OutfitFusionAsset,
@@ -194,7 +193,7 @@ export function OutfitFusionComposer({
                     aria-label={t("previewAsset", { label, role: roleLabel })}
                     title={`${label} · ${roleLabel}`}
                   >
-                    <RawPreviewImage src={getImageVariantUrl(asset.url, "card")} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
+                    <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
                     <div className="truncate border-t border-[var(--codex-border)] dark:border-white/10 px-1.5 py-1 text-center text-[11px] font-medium leading-4 text-codex-muted dark:text-codex-faint">
                       {roleLabel}
                     </div>
@@ -537,7 +536,7 @@ function HighlightedPromptTextarea({
                     : "text-codex-ink dark:text-stone-300 hover:bg-[var(--codex-surface-soft)] dark:bg-white/5"
                 )}
               >
-                <RawPreviewImage src={getImageVariantUrl(option.asset.url, "thumb")} alt="" className="size-9 rounded object-cover ring-1 ring-[var(--codex-border)] dark:ring-white/10" />
+                <RawPreviewImage src={option.asset.url} alt="" className="size-9 rounded object-cover ring-1 ring-[var(--codex-border)] dark:ring-white/10" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold leading-5">{option.label}</span>
                   <span className="block truncate text-xs leading-4 text-codex-muted dark:text-codex-faint">{option.roleLabel}</span>
@@ -561,7 +560,7 @@ function HighlightedPromptTextarea({
                 className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold ring-1 transition", getAssetReferenceTone(option.asset.role))}
                 title={t("insertAgain", { label: option.label })}
               >
-                <RawPreviewImage src={getImageVariantUrl(option.asset.url, "thumb")} alt="" className="size-4 rounded object-cover" />
+                <RawPreviewImage src={option.asset.url} alt="" className="size-4 rounded object-cover" />
                 {option.label}
               </button>
             ))}

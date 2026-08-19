@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -1889,7 +1888,7 @@ export function AiToolboxExperience({ config }: { config: AiToolUiConfig }) {
                     aria-label="放大预览图片"
                   >
                     {displayedPreviewUrl ? (
-                      <RawPreviewImage src={getImageVariantUrl(displayedPreviewUrl, "preview")} alt={resultUrls.length ? `${config.title}结果` : "原图"} eager className={styles.previewImage} />
+                      <RawPreviewImage src={displayedPreviewUrl} alt={resultUrls.length ? `${config.title}结果` : "原图"} eager className={styles.previewImage} />
                     ) : null}
                   </button>
                   {activePreviewUrls.length > 1 ? (
@@ -1905,7 +1904,7 @@ export function AiToolboxExperience({ config }: { config: AiToolUiConfig }) {
                             : setSelectedSourceId(sources[index]?.id || null)}
                           aria-label={`查看第 ${index + 1} 张图片`}
                         >
-                          <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt="" />
+                          <RawPreviewImage src={url} alt="" />
                         </button>
                       ))}
                     </div>

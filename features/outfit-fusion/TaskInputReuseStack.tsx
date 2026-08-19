@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import {
   Tooltip,
@@ -57,7 +56,7 @@ export function TaskInputReuseStack({ assets, onReuse }: Props) {
                     <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-codex-ink/72 px-1 py-0.5 text-[10px] font-semibold leading-none text-white">
                       {label}
                     </span>
-                    <RawPreviewImage src={getImageVariantUrl(asset.url, "thumb")} alt={`${label}${roleLabel}`} className="h-full w-full object-cover" />
+                    <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="h-full w-full object-cover" />
                   </span>
                 );
               })}

@@ -3,7 +3,6 @@
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { ensureNotificationPermission, notifyGenerationComplete } from "@/lib/notifications";
 import { OnboardingCoach, hasSeenOnboarding } from "@/components/studio/OnboardingCoach";
@@ -2782,7 +2781,7 @@ export default function CreatePage() {
                         className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
                         aria-label={t("reference.previewSelected", { label: ref.label })}
                       >
-                        <RawPreviewImage eager src={getImageVariantUrl(ref.url, "thumb")} alt={ref.label || t("common.referenceImage")} className="aspect-[3/4] w-full object-cover" />
+                        <RawPreviewImage eager src={ref.url} alt={ref.label || t("common.referenceImage")} className="aspect-[3/4] w-full object-cover" />
                         <CheckCircle2 className="absolute right-1 top-1 h-4 w-4 rounded-full bg-[var(--codex-accent)] text-white" />
                       </button>
                     ))}
@@ -3175,7 +3174,7 @@ export default function CreatePage() {
               >
                 <span className="flex aspect-[4/5] items-center justify-center overflow-hidden bg-[var(--codex-surface-soft)] dark:bg-white/5">
                   {customModelImageUrl
-                    ? <RawPreviewImage src={getImageVariantUrl(customModelImageUrl, "card")} alt={t("model.uploadedAlt")} className="h-full w-full object-cover" />
+                    ? <RawPreviewImage src={customModelImageUrl} alt={t("model.uploadedAlt")} className="h-full w-full object-cover" />
                     : (
                       <span className="flex flex-col items-center gap-2 px-3 text-codex-faint">
                         <Camera className="h-7 w-7" />

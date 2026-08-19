@@ -1688,8 +1688,6 @@
     "resolutionAriaLabel": "选择分辨率",
     "countSectionTitle": "生成数量",
     "countAriaLabel": "生成数量",
-    "onePerReferenceLabel": "每张参考图单独生成",
-    "onePerReferenceHint": "开启后每张参考图会分别用同一个提示词各自生成",
     "summaryImageToImage": "图生图 · {count} 张参考",
     "summaryTextToImage": "文生图",
     "costLoginView": "登录后查看灵点",
