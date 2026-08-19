@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isRetryableGenerationError,
+  isStaleExecutionFenceError,
   RetryableGenerationError,
   sanitizeGenerationErrorMessage,
 } from "../generation-errors";
@@ -28,5 +29,11 @@ describe("generation error policy", () => {
   it("keeps deterministic validation and authorization failures terminal", () => {
     expect(isRetryableGenerationError(new Error("图片尺寸超过安全上限"))).toBe(false);
     expect(isRetryableGenerationError(new Error("供应商拒绝了生成请求（HTTP 400）"))).toBe(false);
+  });
+
+  it("does not retry a stale execution fence after recovery takes ownership", () => {
+    expect(isStaleExecutionFenceError({ code: "40001", message: "STALE_EXECUTION_FENCE" })).toBe(true);
+    expect(isRetryableGenerationError({ code: "40001", message: "STALE_EXECUTION_FENCE" })).toBe(false);
+    expect(isStaleExecutionFenceError(new Error("任务执行租约已丢失"))).toBe(true);
   });
 });

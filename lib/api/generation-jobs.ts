@@ -28,8 +28,10 @@ import { dispatchGenerationJob } from "@/lib/api/generation-job-dispatch";
 import { isAiCapacityUnavailableError } from "@/lib/ai-control-plane/router.server";
 import {
   isRetryableGenerationError,
+  isStaleExecutionFenceError,
   RetryableGenerationError,
   sanitizeGenerationErrorMessage,
+  StaleExecutionFenceError,
 } from "@/lib/api/generation-errors";
 import {
   attachGenerationMediaAssetReferences,
@@ -502,11 +504,22 @@ export async function runGenerationJobById(generationId: string, deliveryVersion
     : null;
   if (!job) return { processed: 0, skipped: 1 };
 
-  const result = await runWithExecutionHeartbeat(supabase, job, () => runClaimedJob(supabase, job));
+  let result: Awaited<ReturnType<typeof runClaimedJob>>;
+  try {
+    result = await runWithExecutionHeartbeat(supabase, job, () => runClaimedJob(supabase, job));
+  } catch (error) {
+    // Recovery may have advanced the delivery fence while the old provider
+    // call was still in flight. The newer delivery owns the job now; do not
+    // turn this expected race into another BullMQ retry.
+    if (isStaleExecutionFenceError(error)) {
+      return { processed: 0, skipped: 1 };
+    }
+    throw error;
+  }
   return {
-    processed: result.deferred ? 0 : 1,
+    processed: result.deferred || result.stale ? 0 : 1,
     deferred: result.deferred ? 1 : 0,
-    skipped: 0,
+    skipped: result.stale ? 1 : 0,
     failed: result.businessFailed ? 1 : 0,
   };
 }
@@ -528,10 +541,14 @@ async function runWithExecutionHeartbeat<T>(
       p_lease_seconds: 45,
     })).then(({ data, error }) => {
       if (error || data !== true) {
-        heartbeatError = new Error(`任务执行租约已丢失: ${error?.message || "stale execution fence"}`);
+        heartbeatError = isStaleExecutionFenceError(error) || (!error && data !== true)
+          ? new StaleExecutionFenceError("任务执行租约已丢失", { cause: error || undefined })
+          : new Error(`任务执行心跳失败: ${error?.message || "heartbeat rejected"}`);
       }
     }).catch((error: unknown) => {
-      heartbeatError = new Error(`任务执行心跳失败: ${error instanceof Error ? error.message : String(error)}`);
+      heartbeatError = isStaleExecutionFenceError(error)
+        ? new StaleExecutionFenceError("任务执行租约已丢失", { cause: error })
+        : new Error(`任务执行心跳失败: ${error instanceof Error ? error.message : String(error)}`);
     }).finally(() => {
       heartbeatInFlight = false;
     });
@@ -550,7 +567,7 @@ async function runWithExecutionHeartbeat<T>(
 async function runClaimedJob(
   supabase: ReturnType<typeof createAdminClient>,
   job: ClaimedJob
-): Promise<{ businessFailed: boolean; deferred: boolean }> {
+): Promise<{ businessFailed: boolean; deferred: boolean; stale?: boolean }> {
   let parsedPayload: GenerationJobPayload | null = null;
   let partialResultUrls: string[] = [];
   let partialModuleResults: ProductSetModuleResult[] = [];
@@ -746,6 +763,9 @@ async function runClaimedJob(
     });
     return { businessFailed: false, deferred: false };
   } catch (err) {
+    if (isStaleExecutionFenceError(err)) {
+      return { businessFailed: false, deferred: false, stale: true };
+    }
     const message = sanitizeGenerationErrorMessage(err, "生成失败");
     const hasPartialOutput = partialResultUrls.some(Boolean)
       || partialModuleResults.some((item) => Boolean(item.resultUrl));

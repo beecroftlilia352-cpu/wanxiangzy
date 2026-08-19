@@ -12,6 +12,34 @@ export class RetryableGenerationError extends Error {
     this.code = code;
   }
 }
+
+/**
+ * The database has already moved this execution to a newer delivery fence.
+ * This is an expected race between a stale worker and recovery, not a job
+ * failure that BullMQ should retry.
+ */
+export class StaleExecutionFenceError extends Error {
+  readonly code = "STALE_EXECUTION_FENCE";
+
+  constructor(message = "STALE_EXECUTION_FENCE", options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "StaleExecutionFenceError";
+  }
+}
+
+export function isStaleExecutionFenceError(error: unknown) {
+  if (error instanceof StaleExecutionFenceError) return true;
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  const code = typeof candidate.code === "string" ? candidate.code.toUpperCase() : "";
+  const message = typeof candidate.message === "string" ? candidate.message.toLowerCase() : "";
+  return code === "STALE_EXECUTION_FENCE"
+    || code === "40001"
+    || message.includes("stale_execution_fence")
+    || message.includes("execution fence")
+    || message.includes("任务执行租约已丢失");
+}
 export function sanitizeGenerationErrorMessage(value: unknown, fallback = "生成服务暂时不可用", maxLength = 500) {
   const raw = value instanceof Error ? value.message : typeof value === "string" ? value : String(value ?? "");
   const sanitized = raw
@@ -26,6 +54,7 @@ export function sanitizeGenerationErrorMessage(value: unknown, fallback = "生�
 }
 
 export function isRetryableGenerationError(error: unknown) {
+  if (isStaleExecutionFenceError(error)) return false;
   if (error instanceof RetryableGenerationError) return true;
   if (!error || typeof error !== "object") return false;
 
