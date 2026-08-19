@@ -97,6 +97,7 @@ export async function runWorkerSupervisor() {
     config: {
       batchSize: intEnv(process.env.OSS_MIRROR_WORKER_BATCH_SIZE, 1, 100, 8),
       pollIntervalMs: intEnv(process.env.OSS_MIRROR_WORKER_POLL_INTERVAL_MS, 100, 30_000, 500),
+      maxPollIntervalMs: intEnv(process.env.OSS_MIRROR_WORKER_MAX_POLL_INTERVAL_MS, 1_000, 300_000, 30_000),
       staleLeaseSeconds: intEnv(process.env.OSS_MIRROR_STALE_LEASE_SECONDS, 30, 3_600, 480),
     },
     control,

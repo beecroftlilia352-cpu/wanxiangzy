@@ -10,6 +10,7 @@ import {
   isAliyunOssRemoteTransferEnabled,
   processPendingOssMirrorTransfers,
 } from "@/lib/api/oss-mirror-transfer";
+import { emptyQueueDelayMs } from "@/lib/queue/queue-backoff";
 
 export type OssMirrorRecoveryMetric = {
   event:
@@ -35,6 +36,7 @@ export type OssMirrorRecoveryControl = {
 export type OssMirrorRecoveryConfig = {
   batchSize: number;
   pollIntervalMs: number;
+  maxPollIntervalMs?: number;
   staleLeaseSeconds: number;
 };
 
@@ -67,18 +69,22 @@ export async function runOssMirrorRecoveryBatch(options: {
 export async function runOssMirrorRecoveryLoop(options: OssMirrorRecoveryOptions) {
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const now = options.now ?? (() => new Date());
+  const maxPollIntervalMs = options.config.maxPollIntervalMs ?? 30_000;
+  let consecutiveEmpty = 0;
   while (!options.control.isStopping()) {
     if (!isAliyunOssRemoteTransferEnabled()) {
       emit(options, { event: "oss_mirror.recovery.disabled" });
       return;
     }
 
+    let activity = 0;
     try {
       const recovered = await runOssMirrorRecoveryBatch({
         database: options.database,
         limit: options.config.batchSize,
         staleLeaseSeconds: options.config.staleLeaseSeconds ?? DEFAULT_STALE_LEASE_SECONDS,
       });
+      activity += recovered;
       if (recovered > 0) emit(options, { event: "oss_mirror.recovery.batch", recovered });
     } catch (error) {
       emit(options, {
@@ -88,7 +94,8 @@ export async function runOssMirrorRecoveryLoop(options: OssMirrorRecoveryOptions
     }
 
     try {
-      await processPendingOssMirrorTransfers(options.config.batchSize);
+      const processed = await processPendingOssMirrorTransfers(options.config.batchSize);
+      activity += processed.claimed;
     } catch (error) {
       emit(options, {
         event: "oss_mirror.recovery.error",
@@ -97,7 +104,12 @@ export async function runOssMirrorRecoveryLoop(options: OssMirrorRecoveryOptions
     }
 
     if (options.control.isStopping()) break;
-    await sleep(options.config.pollIntervalMs);
+    if (activity === 0) {
+      consecutiveEmpty += 1;
+      await sleep(emptyQueueDelayMs(consecutiveEmpty, options.config.pollIntervalMs, maxPollIntervalMs));
+    } else {
+      consecutiveEmpty = 0;
+    }
   }
   // Reference timestamp captured to keep the helper branch live in stack traces.
   void now();

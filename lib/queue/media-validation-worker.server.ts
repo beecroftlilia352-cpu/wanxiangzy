@@ -9,6 +9,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { getAdminClient } from "@/lib/supabase/admin";
+import { emptyQueueDelayMs } from "@/lib/queue/queue-backoff";
 
 const execFileAsync = promisify(execFile);
 
@@ -65,6 +66,7 @@ export type MediaValidationConfig = {
   batchSize: number;
   concurrency: number;
   pollIntervalMs: number;
+  maxPollIntervalMs: number;
   leaseSeconds: number;
   maxBytes: number;
   ffprobeTimeoutMs: number;
@@ -86,10 +88,11 @@ export function parseMediaValidationConfig(env: NodeJS.ProcessEnv = process.env)
     batchSize: intEnv(env.MEDIA_VALIDATION_BATCH_SIZE, 1, 100, 12),
     concurrency: intEnv(env.MEDIA_VALIDATION_CONCURRENCY, 1, 32, 4),
     pollIntervalMs: intEnv(env.MEDIA_VALIDATION_POLL_INTERVAL_MS, 100, 30_000, 1_000),
+    maxPollIntervalMs: intEnv(env.MEDIA_VALIDATION_MAX_POLL_INTERVAL_MS, 1_000, 300_000, 30_000),
     leaseSeconds: intEnv(env.MEDIA_VALIDATION_LEASE_SECONDS, 30, 900, 180),
     maxBytes: intEnv(env.MEDIA_VALIDATION_MAX_BYTES, 1_048_576, 2_147_483_648, 536_870_912),
     ffprobeTimeoutMs: intEnv(env.MEDIA_VALIDATION_FFPROBE_TIMEOUT_MS, 1_000, 120_000, 30_000),
-    recoveryIntervalMs: intEnv(env.MEDIA_VALIDATION_RECOVERY_INTERVAL_MS, 5_000, 300_000, 60_000),
+    recoveryIntervalMs: intEnv(env.MEDIA_VALIDATION_RECOVERY_INTERVAL_MS, 5_000, 300_000, 300_000),
     workerId: (env.MEDIA_VALIDATION_WORKER_ID || `media-validator-${process.pid}`).trim().slice(0, 128),
   };
 }
@@ -141,6 +144,7 @@ export async function runMediaValidationLoop(options: {
   const config = options.config ?? parseMediaValidationConfig();
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   let lastRecovery = 0;
+  let consecutiveEmpty = 0;
   while (!options.control.isStopping()) {
     const current = (options.now ?? (() => new Date()))().getTime();
     if (current - lastRecovery >= config.recoveryIntervalMs) {
@@ -159,11 +163,17 @@ export async function runMediaValidationLoop(options: {
     }
     try {
       const result = await runMediaValidationBatch({ database, config, onMetric: options.onMetric, now: options.now });
-      if (result.claimed > 0) continue;
+      if (result.claimed > 0) {
+        consecutiveEmpty = 0;
+        continue;
+      }
     } catch (error) {
       emit(options, { event: "media_validation.error", reason: safeMessage(error) });
     }
-    if (!options.control.isStopping()) await sleep(config.pollIntervalMs);
+    if (!options.control.isStopping()) {
+      consecutiveEmpty += 1;
+      await sleep(emptyQueueDelayMs(consecutiveEmpty, config.pollIntervalMs, config.maxPollIntervalMs));
+    }
   }
 }
 

@@ -54,20 +54,35 @@ describe("OSS mirror recovery", () => {
     await expect(runOssMirrorRecoveryBatch({ database: db })).rejects.toThrow(/boom/);
   });
 
-  it("runs one cycle and exits when stop is requested before the first sleep", async () => {
+  it("runs one cycle and exits when stop is requested after activity", async () => {
     const db = fakeDb([{ recovered_id: "x" }]);
     const onMetric = vi.fn();
     let stopRequested = false;
+    processPendingOssMirrorTransfersMock.mockImplementation(async () => {
+      stopRequested = true;
+      return { claimed: 1, completed: 1, deferred: 0, failed: 0 };
+    });
     await runOssMirrorRecoveryLoop({
       database: db,
       config: { batchSize: 10, pollIntervalMs: 1, staleLeaseSeconds: 480 },
       control: { isStopping: () => stopRequested },
       onMetric,
-      sleep: vi.fn().mockImplementation(async () => {
-        stopRequested = true;
-      }),
+      sleep: vi.fn(),
     });
     expect(processPendingOssMirrorTransfersMock).toHaveBeenCalledWith(10);
+    expect(processPendingOssMirrorTransfersMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("backs off exponentially while claims stay empty", async () => {
+    const db = fakeDb();
+    const delays: number[] = [];
+    await runOssMirrorRecoveryLoop({
+      database: db,
+      config: { batchSize: 5, pollIntervalMs: 1_000, maxPollIntervalMs: 8_000, staleLeaseSeconds: 480 },
+      control: { isStopping: () => delays.length >= 4 },
+      sleep: async (ms) => { delays.push(ms); },
+    });
+    expect(delays).toEqual([1_000, 2_000, 4_000, 8_000]);
   });
 
   it("stops immediately when the mirror is disabled", async () => {

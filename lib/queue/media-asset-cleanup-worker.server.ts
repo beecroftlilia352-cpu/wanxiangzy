@@ -1,4 +1,5 @@
 import { getAdminClient } from "@/lib/supabase/admin";
+import { emptyQueueDelayMs } from "@/lib/queue/queue-backoff";
 import {
   deleteAliyunOssRegistryObject,
   MediaValidationError,
@@ -27,6 +28,7 @@ export type MediaCleanupConfig = {
   batchSize: number;
   concurrency: number;
   pollIntervalMs: number;
+  maxPollIntervalMs: number;
   leaseSeconds: number;
 };
 
@@ -35,6 +37,7 @@ export function parseMediaCleanupConfig(env: NodeJS.ProcessEnv = process.env): M
     batchSize: intEnv(env.MEDIA_CLEANUP_BATCH_SIZE, 1, 500, 20),
     concurrency: intEnv(env.MEDIA_CLEANUP_CONCURRENCY, 1, 32, 4),
     pollIntervalMs: intEnv(env.MEDIA_CLEANUP_POLL_INTERVAL_MS, 1_000, 3_600_000, 60_000),
+    maxPollIntervalMs: intEnv(env.MEDIA_CLEANUP_MAX_POLL_INTERVAL_MS, 5_000, 3_600_000, 600_000),
     leaseSeconds: intEnv(env.MEDIA_CLEANUP_LEASE_SECONDS, 30, 1_800, 300),
   };
 }
@@ -112,14 +115,23 @@ export async function runMediaAssetCleanupLoop(options: {
   now?: () => Date;
 }) {
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const basePollIntervalMs = options.config?.pollIntervalMs ?? 60_000;
+  const maxPollIntervalMs = options.config?.maxPollIntervalMs ?? 600_000;
+  let consecutiveEmpty = 0;
   while (!options.control.isStopping()) {
     try {
       const result = await runMediaAssetCleanupBatch(options);
-      if (result.claimed > 0) continue;
+      if (result.claimed > 0) {
+        consecutiveEmpty = 0;
+        continue;
+      }
     } catch (error) {
       emit(options, { event: "media_cleanup.error", reason: safeMessage(error) });
     }
-    if (!options.control.isStopping()) await sleep(options.config?.pollIntervalMs ?? 60_000);
+    if (!options.control.isStopping()) {
+      consecutiveEmpty += 1;
+      await sleep(emptyQueueDelayMs(consecutiveEmpty, basePollIntervalMs, maxPollIntervalMs));
+    }
   }
 }
 

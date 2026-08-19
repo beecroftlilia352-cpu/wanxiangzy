@@ -4,6 +4,7 @@ import type {
   EnqueueGenerationDeliveryResult,
 } from "@/lib/queue/generation-queue.server";
 import { sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
+import { emptyQueueDelayMs } from "@/lib/queue/queue-backoff";
 
 export type GenerationOutboxRow = {
   outbox_id: string;
@@ -56,8 +57,6 @@ export interface GenerationOutboxPublisher {
 export type GenerationOutboxRelayControl = {
   isStopping: () => boolean;
 };
-
-const RECOVERY_INTERVAL_MS = 60_000;
 
 export async function runGenerationOutboxRelayBatch(options: {
   database: GenerationOutboxDatabase;
@@ -165,6 +164,7 @@ export async function runGenerationOutboxRelay(options: {
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const now = options.now ?? (() => new Date());
   let lastRecoveryAt = 0;
+  let consecutiveEmpty = 0;
 
   while (!options.control.isStopping()) {
     const batch = await runGenerationOutboxRelayBatch({
@@ -178,7 +178,7 @@ export async function runGenerationOutboxRelay(options: {
     });
 
     const currentTime = now().getTime();
-    if (currentTime - lastRecoveryAt >= RECOVERY_INTERVAL_MS) {
+    if (currentTime - lastRecoveryAt >= options.config.recoveryIntervalMs) {
       lastRecoveryAt = currentTime;
       try {
         const recovery = await options.database.rpc("recover_generation_outbox", {
@@ -192,7 +192,12 @@ export async function runGenerationOutboxRelay(options: {
     }
 
     if (batch.claimed === 0 && !options.control.isStopping()) {
-      await sleep(options.config.pollIntervalMs);
+      consecutiveEmpty += 1;
+      await sleep(
+        emptyQueueDelayMs(consecutiveEmpty, options.config.pollIntervalMs, options.config.maxPollIntervalMs),
+      );
+    } else {
+      consecutiveEmpty = 0;
     }
   }
 }

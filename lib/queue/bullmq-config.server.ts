@@ -58,6 +58,8 @@ export type BullMqRuntimeConfig = {
     batchSize: number;
     concurrency: number;
     pollIntervalMs: number;
+    maxPollIntervalMs: number;
+    recoveryIntervalMs: number;
     claimTtlMs: number;
   };
 };
@@ -84,6 +86,8 @@ type BullMqConfigField =
   | "BULLMQ_RELAY_BATCH_SIZE"
   | "BULLMQ_RELAY_CONCURRENCY"
   | "BULLMQ_RELAY_POLL_INTERVAL_MS"
+  | "BULLMQ_RELAY_MAX_POLL_INTERVAL_MS"
+  | "BULLMQ_RELAY_RECOVERY_INTERVAL_MS"
   | "BULLMQ_RELAY_CLAIM_TTL_MS";
 
 export class BullMqConfigError extends Error {
@@ -113,6 +117,8 @@ const DEFAULTS = Object.freeze({
   relayBatchSize: 100,
   relayConcurrency: 8,
   relayPollIntervalMs: 500,
+  relayMaxPollIntervalMs: 10_000,
+  relayRecoveryIntervalMs: 300_000,
   relayClaimTtlMs: 60_000,
 });
 
@@ -145,6 +151,8 @@ export function parseBullMqConfig(env: BullMqEnvironment = process.env): BullMqR
     batchSize: integerEnv(env, "BULLMQ_RELAY_BATCH_SIZE", DEFAULTS.relayBatchSize, 1, 1_000),
     concurrency: integerEnv(env, "BULLMQ_RELAY_CONCURRENCY", DEFAULTS.relayConcurrency, 1, 128),
     pollIntervalMs: integerEnv(env, "BULLMQ_RELAY_POLL_INTERVAL_MS", DEFAULTS.relayPollIntervalMs, 100, 60_000),
+    maxPollIntervalMs: integerEnv(env, "BULLMQ_RELAY_MAX_POLL_INTERVAL_MS", DEFAULTS.relayMaxPollIntervalMs, 1_000, 600_000),
+    recoveryIntervalMs: integerEnv(env, "BULLMQ_RELAY_RECOVERY_INTERVAL_MS", DEFAULTS.relayRecoveryIntervalMs, 10_000, 3_600_000),
     claimTtlMs: integerEnv(env, "BULLMQ_RELAY_CLAIM_TTL_MS", DEFAULTS.relayClaimTtlMs, 5_000, 30 * 60_000),
   };
 
