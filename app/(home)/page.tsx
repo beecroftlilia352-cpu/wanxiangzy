@@ -1,3 +1,4 @@
+import { getImageVariantUrl } from "@/lib/image-variants";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -228,7 +229,7 @@ export default async function HomePage() {
                     </video>
                   ) : (
                     <Image
-                      src={card.image}
+                      src={getImageVariantUrl(card.image, "preview")}
                       alt={t(`sceneTitle.${index}`)}
                       fill
                       sizes="(min-width: 1024px) 33vw, 100vw"
@@ -251,7 +252,7 @@ export default async function HomePage() {
             {testimonials.map((item, index) => (
               <article key={item.initials} className="home-testimonial">
                 <Image
-                  src={item.avatar}
+                  src={getImageVariantUrl(item.avatar, "thumb")}
                   alt=""
                   width={64}
                   height={64}

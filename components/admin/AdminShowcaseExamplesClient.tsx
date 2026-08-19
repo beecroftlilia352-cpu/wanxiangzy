@@ -1,5 +1,6 @@
 "use client";
 
+import { getImageVariantUrl } from "@/lib/image-variants";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -55,7 +56,7 @@ export function AdminShowcaseExamplesClient({ registries, canManage = false }: {
       width: 82,
       render: (_, row) => (
         <div className="relative h-14 w-14 overflow-hidden rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-soft)]">
-          <Image src={row.imageUrl} alt="" fill sizes="56px" className="object-cover" />
+          <Image src={getImageVariantUrl(row.imageUrl, "thumb")} alt="" fill sizes="56px" className="object-cover" />
         </div>
       ),
     },

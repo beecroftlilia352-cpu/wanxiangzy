@@ -1,5 +1,6 @@
 "use client";
 
+import { getImageVariantUrl } from "@/lib/image-variants";
 import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
@@ -37,7 +38,7 @@ export function AuthHero() {
                   index % 2 === 1 ? "translate-y-8" : ""
                 }`}
               >
-                <Image src={src} alt="" fill sizes="180px" className="object-cover" />
+                <Image src={getImageVariantUrl(src, "card")} alt="" fill sizes="180px" className="object-cover" />
               </div>
             ))}
           </div>

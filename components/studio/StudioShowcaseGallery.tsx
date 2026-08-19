@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { StudioShowcaseExample, StudioShowcaseModule } from "@/lib/showcase-examples";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { cn } from "@/lib/utils";
 
 type StudioShowcaseGalleryProps = {
@@ -108,7 +109,7 @@ export function StudioShowcaseGallery({ module, onCreateSimilar }: StudioShowcas
               <DialogDescription className="sr-only">{copy.detailDescription}</DialogDescription>
               <div className="studio-showcase-dialog-media">
                 <Image
-                  src={selected.imageUrl}
+                  src={getImageVariantUrl(selected.imageUrl, "preview")}
                   alt={selected.title}
                   fill
                   priority
@@ -119,7 +120,7 @@ export function StudioShowcaseGallery({ module, onCreateSimilar }: StudioShowcas
               <aside className="studio-showcase-dialog-details">
                 <div className="studio-showcase-author">
                   {selected.authorAvatarUrl ? (
-                    <Image src={selected.authorAvatarUrl} alt="" width={32} height={32} className="rounded-full object-cover" />
+                    <Image src={getImageVariantUrl(selected.authorAvatarUrl, "thumb")} alt="" width={32} height={32} className="rounded-full object-cover" />
                   ) : (
                     <span className="studio-showcase-author-fallback"><ImageIcon aria-hidden="true" /></span>
                   )}
@@ -187,7 +188,7 @@ function ShowcaseCard({
   return (
     <article className="studio-showcase-card" style={{ aspectRatio: ratio }}>
       <Image
-        src={item.imageUrl}
+        src={getImageVariantUrl(item.imageUrl, "card")}
         alt={item.title}
         fill
         loading="lazy"
@@ -206,7 +207,7 @@ function ShowcaseCard({
             <div className="studio-showcase-card-references" aria-hidden="true">
               {visibleReferences.map((url, index) => (
                 <span className="studio-showcase-card-reference" key={`${url}-${index}`}>
-                  <Image src={url} alt="" fill sizes="48px" className="object-cover" />
+                  <Image src={getImageVariantUrl(url, "thumb")} alt="" fill sizes="48px" className="object-cover" />
                 </span>
               ))}
               {remainingReferenceCount > 0 ? (
