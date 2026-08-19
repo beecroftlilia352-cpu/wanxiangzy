@@ -901,26 +901,31 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function handleRunningTask(item: TaskQueueItem, session: TaskSelectionSession) {
-    selectDisplayedTask(item.id);
-    setActiveQueueTask(item);
-    setIsGenerating(true);
-    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
-    setError("");
-    setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
-    setResultGroupReferences([]);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
-      if (!session.isCurrent() || detail.payload.mode !== mode) return;
+      if (!session.isCurrent()) return true;
+      if (detail.payload.mode !== mode) return false;
       applyGeneralImageHistoryPayload(detail.payload, safeTaskQueueUrls(item.resultThumbnails), {
         silent: true,
         task: item,
       });
       setIsGenerating(true);
       setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+      return true;
     } catch (err) {
-      if (!session.signal.aborted && session.isCurrent()) {
-        console.warn("[general-image] failed to restore running task grouping", err);
-      }
+      if (session.signal.aborted || !session.isCurrent()) return true;
+      console.warn("[general-image] failed to restore running task grouping", err);
+      // Only fall back to the queue snapshot after the detailed task state
+      // fails to load. Until then, keep the previous task frame mounted so a
+      // split run never flashes through empty and flat-grid layouts.
+      selectDisplayedTask(item.id);
+      setActiveQueueTask(item);
+      setIsGenerating(true);
+      setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+      setError("");
+      setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
+      setResultGroupReferences([]);
+      return true;
     }
   }
 
@@ -1142,7 +1147,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       </div>
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
-        {!isGenerating && resultUrls.length === 0 && !error && (
+        {!isGenerating && resultUrls.length === 0 && !error && !activeQueueTask && (
           <div className="studio-empty-stage min-h-[260px] overflow-y-auto px-4 py-6 sm:min-h-[360px] lg:h-full">
             <div className="studio-general-empty-content">
               <PreviewGuide

@@ -14,7 +14,7 @@ type ModuleTaskRailProps = {
   taskScope?: string;
   moduleLabel: string;
   onContinue?: () => void;
-  onRunningTask?: (item: TaskQueueItem, session: TaskSelectionSession) => void | Promise<void>;
+  onRunningTask?: (item: TaskQueueItem, session: TaskSelectionSession) => boolean | void | Promise<boolean | void>;
   onCompletedTask?: (item: TaskQueueItem, session: TaskSelectionSession) => boolean | void | Promise<boolean | void>;
 };
 
@@ -70,7 +70,12 @@ export function ModuleTaskRail({
     }
 
     if (isTaskRunning(item)) {
-      await onRunningTask?.(item, session);
+      const handled = await onRunningTask?.(item, session);
+      if (!session.isCurrent()) return true;
+      // Some editors restore the complete running-task view themselves. In
+      // that case, do not pass the same task through the completed/history
+      // handler and then restore the running state a second time.
+      if (handled === true) return true;
       const applied = await applyTask(item, session);
       if (!session.isCurrent()) return;
       if (applied) await onRunningTask?.(item, session);
