@@ -55,6 +55,7 @@ module.exports = {
       instances: webInstances,
       instance_var: "PM2_INSTANCE_ID",
       max_memory_restart: "1200M",
+      node_args: ["--env-file-if-exists=.env.production", "--env-file-if-exists=.env.local"],
     },
     {
       ...common,
