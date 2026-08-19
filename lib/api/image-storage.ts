@@ -269,7 +269,7 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
   },
 };
 
-function getAliyunOssConfig() {
+export function getAliyunOssConfig() {
   const accessKeyId = process.env.ALIYUN_OSS_ACCESS_KEY_ID?.trim();
   const accessKeySecret = process.env.ALIYUN_OSS_ACCESS_KEY_SECRET?.trim();
   const bucket = process.env.ALIYUN_OSS_BUCKET?.trim();
