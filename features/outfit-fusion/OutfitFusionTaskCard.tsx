@@ -244,7 +244,7 @@ export function OutfitFusionTaskCard({
             <StudioBatchDownloadButton
               urls={task.resultUrls}
               filename={`pixel-diffusion-outfit-${task.id.slice(0, 8)}`}
-              label={`${t("download")} ZIP`}
+              label={sharedT("downloadAll", { count: task.resultUrls.length })}
               resultLabel={t("download")}
               size="sm"
               variant="ghost"

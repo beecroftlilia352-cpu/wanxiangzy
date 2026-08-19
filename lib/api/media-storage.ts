@@ -52,13 +52,14 @@ export function isStableStoredMediaUrl(url: string) {
 export function createAliyunOssRegistryReadUrl(
   objectKey: string,
   expectedBucket: string,
+  filename?: string,
 ) {
   const config = getAliyunOssConfig();
   if (!expectedBucket || expectedBucket !== config.bucket) {
     throw new Error("媒体资产 bucket 与当前 OSS 配置不匹配");
   }
   assertRegistryObjectKey(objectKey);
-  return buildAliyunSignedReadUrl(config, objectKey);
+  return buildAliyunSignedReadUrl(config, objectKey, filename);
 }
 
 export async function storeMedia(input: StoreMediaInput, options: StoreMediaOptions = {}): Promise<StoredMedia> {
@@ -288,10 +289,17 @@ function buildPublicObjectUrl(baseUrl: string, objectKey: string) {
   return `${normalizeBaseUrl(baseUrl)}/${encodeObjectKey(objectKey)}`;
 }
 
-function buildAliyunSignedReadUrl(config: ReturnType<typeof getAliyunOssConfig>, objectKey: string) {
+function buildAliyunSignedReadUrl(
+  config: ReturnType<typeof getAliyunOssConfig>,
+  objectKey: string,
+  filename?: string,
+) {
   const expiresInSeconds = boundedReadExpiry(process.env.UPLOAD_READ_URL_TTL_SECONDS);
   const expires = String(Math.floor(Date.now() / 1000) + expiresInSeconds);
   const query: Record<string, string> = {};
+  if (filename) {
+    query["response-content-disposition"] = buildAttachmentContentDisposition(filename);
+  }
   if (config.securityToken) query["security-token"] = config.securityToken;
   const canonicalQuery = Object.entries(query)
     .sort(([left], [right]) => left.localeCompare(right))
@@ -307,6 +315,16 @@ function buildAliyunSignedReadUrl(config: ReturnType<typeof getAliyunOssConfig>,
   for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
   url.searchParams.set("Signature", signature);
   return url.toString();
+}
+
+function buildAttachmentContentDisposition(filename: string) {
+  const safeFilename = filename
+    .replace(/[\\/:*?"<>|\r\n]+/g, "-")
+    .slice(0, 120) || "download";
+  const encoded = encodeURIComponent(safeFilename)
+    .replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/\*/g, "%2A");
+  return `attachment; filename="${safeFilename}"; filename*=UTF-8''${encoded}`;
 }
 
 function resolveObjectAcl(storageClass: ImageStorageClass) {

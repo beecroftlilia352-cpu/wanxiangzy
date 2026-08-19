@@ -666,7 +666,7 @@ export default function HistoryPage() {
                     <StudioBatchDownloadButton
                       urls={resultUrls}
                       filename={`pixel-diffusion-${g.id.slice(0, 8)}`}
-                      label={t("downloadZip")}
+                      label={sharedT("downloadAll", { count: resultUrls.length })}
                       resultLabel={t("zipLabel")}
                       size="sm"
                       variant="ghost"
@@ -934,7 +934,7 @@ export default function HistoryPage() {
                       <StudioBatchDownloadButton
                         urls={detailResults}
                         filename={`pixel-diffusion-${detailRow.id.slice(0, 8)}`}
-                        label={t("downloadAllZip", { count: detailResults.length })}
+                        label={sharedT("downloadAll", { count: detailResults.length })}
                         resultLabel={t("zipLabel")}
                         size="sm"
                         variant="outline"

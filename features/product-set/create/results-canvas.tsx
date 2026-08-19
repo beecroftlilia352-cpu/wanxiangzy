@@ -181,7 +181,7 @@ export function ResultsCanvas({
                     <StudioBatchDownloadButton
                       urls={completedUrls}
                       filename="pixel-diffusion-product-set"
-                      label={`${t("create.results.completed")} ZIP`}
+                      label={sharedT("downloadAll", { count: completedUrls.length })}
                       resultLabel={t("create.results.resultTitle")}
                       size="sm"
                       variant="outline"

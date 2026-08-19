@@ -56,7 +56,7 @@ export function ResultGrid({
           <StudioBatchDownloadButton
             urls={completedUrls}
             filename="pixel-diffusion-all-category-product"
-            label={`${t("actionDownload")} ZIP`}
+            label={sharedT("downloadAll", { count: completedUrls.length })}
             resultLabel={t("generationDoneTitle")}
             size="sm"
             variant="outline"

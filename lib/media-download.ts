@@ -14,30 +14,21 @@ export type MediaDownloadProgress = {
   totalBytes?: number;
 };
 
-export type DownloadTarget = {
-  strategy: "direct" | "proxy";
-  url: string;
-};
-
 type DownloadOptions = {
   signal?: AbortSignal;
   onProgress?: (progress: MediaDownloadProgress) => void;
 };
 
-type FetchBlobOptions = DownloadOptions & {
-  forceProxy?: boolean;
-};
-
-const DOWNLOAD_REQUEST_TIMEOUT_MS = 45_000;
-const DOWNLOAD_RESOLVE_TIMEOUT_MS = 12_000;
-const DOWNLOAD_RETRY_DELAYS_MS = [0, 650] as const;
-
 /**
  * Hands a single file to the browser's native download manager immediately.
  *
- * Remote files go through the guarded same-origin endpoint. That endpoint can
- * redirect OSS files to a signed attachment URL or stream other providers,
- * without making the UI buffer the entire image before the save begins.
+ * Public OSS URLs (e.g. `https://*.oss-cn-*.aliyuncs.com/...`) are handed to
+ * the browser directly so we never proxy image bytes through the Next.js
+ * server. The endpoint only returns a redirect to a signed attachment URL in
+ * a few narrow cases: a public bucket read times out, an internal staging
+ * host is not whitelisted, or the URL still points at a private canonical
+ * asset (`/api/media-assets/<uuid>`) which has to keep going through the
+ * server for ownership and verification checks.
  */
 export async function downloadMediaFile(
   url: string,
@@ -95,80 +86,23 @@ export async function downloadMediaFiles(options: {
   return { successCount: urls.length, failedCount: 0 };
 }
 
-/** Fetches media bytes for local ZIP creation. The proxy is forced because
- * cross-origin OSS responses do not expose readable bodies without CORS. */
-export async function fetchMediaBlob(
-  url: string,
-  filename: string,
-  options: FetchBlobOptions = {},
-) {
-  if (!url) throw new Error("没有可下载的文件");
-  if (isBrowserLocalUrl(url)) return fetchBlobFromUrl(url, options);
-
-  const target = options.forceProxy
-    ? buildProxyTarget(url, filename)
-    : await resolveDownloadTarget(url, filename, options.signal);
-  return fetchBlobWithRetry(
-    target.strategy === "proxy" ? target.url : buildProxyTarget(url, filename).url,
-    options,
-  );
-}
-
-export async function resolveDownloadTarget(
-  url: string,
-  filename: string,
-  signal?: AbortSignal,
-): Promise<DownloadTarget> {
-  const endpoint = new URL("/api/download-image", window.location.origin);
-  endpoint.searchParams.set("url", url);
-  endpoint.searchParams.set("filename", filename);
-  endpoint.searchParams.set("resolve", "1");
-
-  const response = await fetchWithTimeout(endpoint.toString(), {
-    cache: "no-store",
-    credentials: "same-origin",
-    signal,
-  }, DOWNLOAD_RESOLVE_TIMEOUT_MS);
-
-  if (!response.ok) throw await createDownloadError(response);
-  const payload = await response.json().catch(() => null) as DownloadTarget | null;
-  if (!payload || !payload.url || !["direct", "proxy"].includes(payload.strategy)) {
-    throw new Error("下载服务返回了无效地址");
+function buildBrowserDownloadUrl(url: string, filename: string) {
+  // Public OSS objects and the few non-OSS hosts we already allow are handed
+  // to the browser as-is so Chrome (and other user agents that block
+  // cross-origin downloads) can save the file directly. Canonical media
+  // assets are always routed through the server-side proxy because their
+  // ownership and verification status must be checked before the bytes leave
+  // the origin.
+  if (isCanonicalMediaAssetUrl(url)) {
+    const endpoint = new URL(url, window.location.origin);
+    endpoint.searchParams.set("filename", filename);
+    return endpoint.toString();
   }
-  return payload;
-}
-
-export function saveBlobToDevice(blob: Blob, filename: string) {
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = filename;
-  anchor.rel = "noopener";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
-}
-
-function buildProxyTarget(url: string, filename: string): DownloadTarget {
+  if (isDirectlyDownloadableUrl(url)) return url;
   const endpoint = new URL("/api/download-image", window.location.origin);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("filename", filename);
   endpoint.searchParams.set("proxy", "1");
-  return { strategy: "proxy", url: endpoint.toString() };
-}
-
-function buildBrowserDownloadUrl(url: string, filename: string) {
-  const endpoint = new URL("/api/download-image", window.location.origin);
-  endpoint.searchParams.set("url", url);
-  endpoint.searchParams.set("filename", filename);
-  // In local development Chrome extensions commonly block direct OSS
-  // downloads. Proxy local requests so they are testable; production keeps
-  // stable OSS URLs on signed redirects and avoids carrying image bytes via
-  // EC2. Canonical media assets always require the guarded proxy.
-  if (isCanonicalMediaAssetUrl(url) || isLocalDevelopmentOrigin()) {
-    endpoint.searchParams.set("proxy", "1");
-  }
   return endpoint.toString();
 }
 
@@ -180,8 +114,29 @@ function isCanonicalMediaAssetUrl(url: string) {
   return /^\/?api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:[/?#]|$)/i.test(url);
 }
 
-function isLocalDevelopmentOrigin() {
-  return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+function isDirectlyDownloadableUrl(url: string) {
+  if (!/^https?:\/\//i.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+    if (/\.oss-cn-(hongkong|hangzhou|shanghai|shenzhen|beijing|qingdao)\.aliyuncs\.com$/.test(host)) return true;
+    if (host === "oss.filenest.top") return true;
+    if (host === "vasthk.cn-hongkong.thepacificgls.com" || host === "cn-hongkong.thepacificgls.com") return true;
+    if (host === "replicate.delivery") return true;
+    if (host === "i.ibb.co" || host.endsWith(".ibb.co")) return true;
+    if (host === "yunwu.ai") return true;
+    if (host === "webstatic.aiproxy.vip") return true;
+    if (host.endsWith(".fashn.ai") || host === "fashn.ai") return true;
+    if (host.endsWith(".lingyaai.cn") || host === "lingyaai.cn") return true;
+    if (host.endsWith(".sssai.vip") || host === "sssai.vip") return true;
+    if (host.endsWith(".supabase.co")) return true;
+    if (host === "t.filesystem.site") return true;
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 function buildIndexedFilename(prefix: string, url: string, index: number) {
@@ -198,80 +153,6 @@ function buildIndexedFilename(prefix: string, url: string, index: number) {
   return `${safePrefix}-${String(index + 1).padStart(2, "0")}.${extension}`;
 }
 
-async function fetchBlobWithRetry(url: string, options: DownloadOptions) {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < DOWNLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      if (DOWNLOAD_RETRY_DELAYS_MS[attempt] > 0) {
-        await delay(DOWNLOAD_RETRY_DELAYS_MS[attempt], options.signal);
-      }
-      return await fetchBlobFromUrl(url, options);
-    } catch (error) {
-      if (options.signal?.aborted) throw abortError();
-      lastError = error;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("下载失败，请稍后重试");
-}
-
-async function fetchBlobFromUrl(url: string, options: DownloadOptions) {
-  const response = await fetchWithTimeout(url, {
-    cache: "no-store",
-    credentials: "same-origin",
-    signal: options.signal,
-  }, DOWNLOAD_REQUEST_TIMEOUT_MS);
-  if (!response.ok) throw await createDownloadError(response);
-
-  const totalBytes = parseContentLength(response.headers.get("content-length"));
-  if (!response.body) {
-    const blob = await response.blob();
-    options.onProgress?.({
-      phase: "downloading",
-      completed: 1,
-      total: 1,
-      percent: 100,
-      loadedBytes: blob.size,
-      totalBytes: blob.size,
-    });
-    return blob;
-  }
-
-  const reader = response.body.getReader();
-  const chunks: ArrayBuffer[] = [];
-  let loadedBytes = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = new Uint8Array(value.byteLength);
-    chunk.set(value);
-    chunks.push(chunk.buffer);
-    loadedBytes += value.byteLength;
-    options.onProgress?.({
-      phase: "downloading",
-      completed: totalBytes > 0 && loadedBytes >= totalBytes ? 1 : 0,
-      total: 1,
-      percent: totalBytes > 0 ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100)) : null,
-      loadedBytes,
-      totalBytes: totalBytes || undefined,
-    });
-  }
-
-  return new Blob(chunks, {
-    type: response.headers.get("content-type") || "application/octet-stream",
-  });
-}
-
-async function createDownloadError(response: Response) {
-  const payload = await response.clone().json().catch(() => null) as { error?: unknown } | null;
-  const message = typeof payload?.error === "string" ? payload.error : "";
-  if (message) return new Error(message);
-  if (response.status === 401) return new Error("登录状态已失效，请重新登录后下载");
-  if (response.status === 413) return new Error("图片文件过大，请单张下载或稍后重试");
-  if (response.status === 429) return new Error("下载请求较多，请稍后重试");
-  if (response.status === 504) return new Error("下载超时，请检查网络后重试");
-  return new Error(`下载失败 (${response.status})`);
-}
-
 function triggerUrlDownload(url: string, filename: string) {
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -280,59 +161,4 @@ function triggerUrlDownload(url: string, filename: string) {
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-}
-
-function isBrowserLocalUrl(url: string) {
-  return url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("/");
-}
-
-function parseContentLength(value: string | null) {
-  const size = Number(value || 0);
-  return Number.isFinite(size) && size > 0 ? size : 0;
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
-  const timeoutController = new AbortController();
-  const timeout = window.setTimeout(() => timeoutController.abort(), timeoutMs);
-  const signal = mergeAbortSignals(init.signal, timeoutController.signal);
-  try {
-    return await fetch(url, { ...init, signal });
-  } catch (error) {
-    if (timeoutController.signal.aborted && !init.signal?.aborted) {
-      throw new Error("下载超时，请检查网络后重试");
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
-function mergeAbortSignals(first: AbortSignal | null | undefined, second: AbortSignal) {
-  if (!first) return second;
-  if (first.aborted) return first;
-  if (typeof AbortSignal.any === "function") return AbortSignal.any([first, second]);
-
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  first.addEventListener("abort", abort, { once: true });
-  second.addEventListener("abort", abort, { once: true });
-  return controller.signal;
-}
-
-function delay(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(abortError());
-      return;
-    }
-    const timeout = window.setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      window.clearTimeout(timeout);
-      reject(abortError());
-    }, { once: true });
-  });
-}
-
-function abortError() {
-  return new DOMException("操作已取消", "AbortError");
 }

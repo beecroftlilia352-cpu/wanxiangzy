@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { downloadMediaFile, downloadMediaFiles, fetchMediaBlob } from "@/lib/media-download";
+import { downloadMediaFile, downloadMediaFiles } from "@/lib/media-download";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe("downloadMediaFile", () => {
-  it("hands remote media to the native browser download without buffering bytes", async () => {
+  it("hands public OSS objects directly to the browser", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     let clickedHref = "";
@@ -18,38 +18,15 @@ describe("downloadMediaFile", () => {
     });
     const progress: string[] = [];
 
-    await downloadMediaFile("https://oss.example.com/result.png", "result.png", {
+    await downloadMediaFile("https://vasthk.oss-cn-hongkong.aliyuncs.com/results/result.png", "result.png", {
       onProgress: (state) => progress.push(state.phase),
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalledTimes(1);
-    const downloadUrl = new URL(clickedHref);
-    expect(downloadUrl.pathname).toBe("/api/download-image");
-    expect(downloadUrl.searchParams.get("url")).toBe("https://oss.example.com/result.png");
-    expect(downloadUrl.searchParams.get("filename")).toBe("result.png");
-    expect(downloadUrl.searchParams.get("proxy")).toBe("1");
+    expect(clickedHref).toBe("https://vasthk.oss-cn-hongkong.aliyuncs.com/results/result.png");
     expect(clickedFilename).toBe("result.png");
     expect(progress).toEqual(["saving", "completed"]);
-  });
-
-  it("keeps byte progress for callers that need readable media blobs", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3, 4]), {
-      status: 200,
-      headers: { "content-type": "image/png", "content-length": "4" },
-    }));
-    vi.stubGlobal("fetch", fetchMock);
-    const progress: Array<{ phase: string; percent: number | null }> = [];
-
-    const blob = await fetchMediaBlob("https://provider.example.com/result.png", "result.png", {
-      forceProxy: true,
-      onProgress: ({ phase, percent }) => progress.push({ phase, percent }),
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toContain("proxy=1");
-    expect(blob.size).toBe(4);
-    expect(progress.some((state) => state.phase === "downloading" && state.percent === 100)).toBe(true);
   });
 
   it("downloads local blob URLs directly as well", async () => {
@@ -66,7 +43,7 @@ describe("downloadMediaFile", () => {
     expect(clickedHref).toBe("blob:local-result");
   });
 
-  it("routes canonical media assets through the authenticated download proxy", async () => {
+  it("routes canonical media assets through an authenticated redirect without proxying bytes", async () => {
     let clickedHref = "";
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
       clickedHref = this.href;
@@ -78,11 +55,11 @@ describe("downloadMediaFile", () => {
     );
 
     const downloadUrl = new URL(clickedHref);
-    expect(downloadUrl.pathname).toBe("/api/download-image");
-    expect(downloadUrl.searchParams.get("url")).toBe(
+    expect(downloadUrl.pathname).toBe(
       "/api/media-assets/123e4567-e89b-12d3-a456-426614174000",
     );
-    expect(downloadUrl.searchParams.get("proxy")).toBe("1");
+    expect(downloadUrl.searchParams.get("filename")).toBe("result.png");
+    expect(downloadUrl.searchParams.get("proxy")).toBeNull();
   });
 
   it("hands every result directly to the browser with distinct filenames", async () => {
@@ -95,8 +72,8 @@ describe("downloadMediaFile", () => {
 
     const result = await downloadMediaFiles({
       urls: [
-        "https://oss.example.com/first.webp",
-        "https://oss.example.com/second.jpg?version=2",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?version=2",
       ],
       filenamePrefix: "tryon-results",
     });
@@ -107,6 +84,9 @@ describe("downloadMediaFile", () => {
       "tryon-results-01.webp",
       "tryon-results-02.jpg",
     ]);
-    expect(downloads.every((item) => new URL(item.href).pathname === "/api/download-image")).toBe(true);
+    expect(downloads.map((item) => item.href)).toEqual([
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?version=2",
+    ]);
   });
 });

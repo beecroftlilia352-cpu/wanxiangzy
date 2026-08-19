@@ -258,8 +258,8 @@ export default async function HomePage() {
                   className="home-testimonial-avatar"
                   aria-hidden="true"
                 />
-                <p className="mt-12 text-[18px] font-medium leading-8 text-codex-ink">“{t("testimonialQuote", { count: index })}”</p>
-                <p className="mt-16 text-[14px] font-semibold text-codex-faint">{t("testimonialName", { count: index })}</p>
+                <p className="mt-12 text-[18px] font-medium leading-8 text-codex-ink">“{t(`testimonialQuote.${index}`)}”</p>
+                <p className="mt-16 text-[14px] font-semibold text-codex-faint">{t(`testimonialName.${index}`)}</p>
               </article>
             ))}
           </div>
