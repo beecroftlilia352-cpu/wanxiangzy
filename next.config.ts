@@ -67,6 +67,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "oss.filenest.top" },
     ],
     formats: ["image/avif", "image/webp"],
+    unoptimized: true, // disable next/image server-side Sharp processing on the 1.9G EC2 box
     minimumCacheTTL: 60,
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
   },
