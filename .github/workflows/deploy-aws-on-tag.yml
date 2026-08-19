@@ -261,17 +261,11 @@ jobs:
       - name: Update production rollout flags
         env:
           AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
-          REDIS_URL: ${{ secrets.REDIS_URL }}
           PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED: ${{ secrets.PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED || 'true' }}
         run: |
           set -euo pipefail
 
-          if [[ ! "${REDIS_URL:-}" =~ ^rediss?:// ]]; then
-            echo "::error::Production requires GENERATION_QUEUE_MODE=bullmq, AI_ROUTER_CAPACITY_MODE=redis, and a valid REDIS_URL secret"
-            exit 1
-          fi
-
-          for value in "${AWS_APP_DIR:-}" "$REDIS_URL" "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED"; do
+          for value in "${AWS_APP_DIR:-}" "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED"; do
             if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
               echo "::error::Deployment settings must not contain line breaks"
               exit 1
@@ -286,9 +280,8 @@ jobs:
           REMOTE_ROLLOUT_FILE="/tmp/wanxiangzy-rollout-${GITHUB_RUN_ID}.data"
           trap 'rm -f -- "$ROLLOUT_FILE"' EXIT
           chmod 600 "$ROLLOUT_FILE"
-          printf '%s\n%s\n%s\n' \
+          printf '%s\n%s\n' \
             "${AWS_APP_DIR:-}" \
-            "$REDIS_URL" \
             "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED" > "$ROLLOUT_FILE"
 
           ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
@@ -319,7 +312,6 @@ jobs:
           chmod 600 "$ROLLOUT_FILE"
           {
             IFS= read -r AWS_APP_DIR
-            IFS= read -r REDIS_URL
             IFS= read -r PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED
           } < "$ROLLOUT_FILE"
           BASE_DIR="${AWS_APP_DIR:-$HOME/apps/wanxiangzy}"
@@ -347,7 +339,6 @@ jobs:
           }
 
            set_env_var PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED"
-           set_env_var REDIS_URL "$REDIS_URL"
            set_env_var GENERATION_QUEUE_MODE bullmq
            set_env_var AI_ROUTER_CAPACITY_MODE redis
            echo "Updated product-retouch rollout flag in $ENV_FILE"

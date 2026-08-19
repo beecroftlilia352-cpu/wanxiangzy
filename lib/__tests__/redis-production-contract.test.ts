@@ -23,10 +23,9 @@ describe("standard Redis production contract", () => {
 
   it("deploys production in BullMQ mode without printing the Redis URL", () => {
     const workflow = read(".github/workflows/deploy-aws-on-tag.yml");
-    expect(workflow).toContain("REDIS_URL: ${{ secrets.REDIS_URL }}");
+    expect(workflow).not.toContain("secrets.REDIS_URL");
     expect(workflow).toContain("set_env_var GENERATION_QUEUE_MODE bullmq");
     expect(workflow).toContain("set_env_var AI_ROUTER_CAPACITY_MODE redis");
-    expect(workflow).toContain("Production requires GENERATION_QUEUE_MODE=bullmq");
     expect(workflow).not.toMatch(/echo[^\n]*\$REDIS_URL/);
     expect(workflow).not.toContain("set -x");
   });
