@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
           kind: "generalImage",
           ...payloadBase,
           referenceUrls: [referenceUrl],
+          onePerReference: true,
           batchId,
           batchIndex: index,
         };

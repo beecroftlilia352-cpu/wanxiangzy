@@ -42,12 +42,16 @@ export function StudioGenerationLoader({
   const t = useTranslations("Shared");
   const resolvedModuleName = moduleName ?? t("imageGeneration");
   const resolvedEstimatedTime = estimatedTime ?? t("estimating");
-  const safeCount = Math.max(1, Math.min(count, 4));
+  // Placeholders stay capped for visual balance; the "共 N 张" label shows the
+  // real expected count so multi-to-one runs (N references × M images) read
+  // correctly while still generating.
+  const placeholderCount = Math.max(1, Math.min(count, 4));
+  const displayCount = Math.max(1, Math.round(count));
   const displayProgress = Math.round(Math.max(0, Math.min(progress, 100)));
-  const gridClass = safeCount > 1 ? "grid-cols-2 max-w-[460px]" : "grid-cols-1 max-w-[330px]";
+  const gridClass = placeholderCount > 1 ? "grid-cols-2 max-w-[460px]" : "grid-cols-1 max-w-[330px]";
   const label = statusText || getProgressLabel(displayProgress, t);
   const visibleRefs = referenceImages.filter((item) => item.url).slice(0, 4);
-  const mergedMeta = [resolvedEstimatedTime, t("resultCountUnit", { count: safeCount }), ...metaItems].filter(Boolean);
+  const mergedMeta = [resolvedEstimatedTime, t("resultCountUnit", { count: displayCount }), ...metaItems].filter(Boolean);
 
   return (
     <div className="studio-loading-stage flex min-h-[280px] items-center justify-center p-5 sm:min-h-[380px] sm:p-8 lg:h-full" aria-busy="true">
@@ -87,7 +91,7 @@ export function StudioGenerationLoader({
         )}
 
         <div className={`mx-auto grid ${gridClass} gap-3 sm:gap-4`}>
-          {Array.from({ length: safeCount }).map((_, index) => (
+          {Array.from({ length: placeholderCount }).map((_, index) => (
             <div key={index} className="gen-card relative overflow-hidden rounded-2xl" style={{ aspectRatio }}>
               <StudioHomeHeroLoadingBackdrop />
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5">
@@ -97,13 +101,13 @@ export function StudioGenerationLoader({
                   </div>
                 </div>
                 <span className="text-xl font-semibold tabular-nums text-white">{displayProgress}%</span>
-                <p className="text-[11px] font-medium text-white/62">{safeCount > 1 ? t("generatingImageN", { index: index + 1 }) : label}</p>
+                <p className="text-[11px] font-medium text-white/62">{placeholderCount > 1 ? t("generatingImageN", { index: index + 1 }) : label}</p>
               </div>
             </div>
           ))}
         </div>
 
-        <div className={`mx-auto mt-4 flex items-center gap-3 px-1 ${safeCount > 1 ? "max-w-[460px]" : "max-w-[330px]"}`}>
+        <div className={`mx-auto mt-4 flex items-center gap-3 px-1 ${placeholderCount > 1 ? "max-w-[460px]" : "max-w-[330px]"}`}>
           <span className="shrink-0 text-[11px] font-medium text-codex-muted">{resolvedModuleName}</span>
           <div
             className="studio-loader-progress h-1.5 flex-1 overflow-hidden rounded-full bg-black/10"

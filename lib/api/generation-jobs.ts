@@ -268,6 +268,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       kind: "generalImage";
       mode: "text-to-image" | "image-to-image";
       referenceUrls: string[];
+      onePerReference?: boolean;
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;

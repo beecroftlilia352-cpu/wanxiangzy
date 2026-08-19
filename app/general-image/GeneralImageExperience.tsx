@@ -56,6 +56,7 @@ import { ImagePromptDialog, type ImagePromptSource } from "@/features/general-im
 import {
   getGeneralImageDefaultSettings,
   MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+  MAX_GENERAL_IMAGE_TOTAL_COUNT,
   type GeneralImageMode,
 } from "@/lib/general-image-config";
 import type { StudioShowcaseExample, StudioShowcaseModule } from "@/lib/showcase-examples";
@@ -141,6 +142,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [resultGroups, setResultGroups] = useState<string[][] | null>(null);
+  const [isSplitRun, setIsSplitRun] = useState(false);
+  const splitRunReferencesRef = useRef<Array<{ url: string; preview?: string | null; name?: string }>>([]);
   const [error, setError] = useState("");
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [referenceLightboxSrc, setReferenceLightboxSrc] = useState<string | null>(null);
@@ -170,9 +174,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   const supportedSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
-  const totalCost = costPerImage * genCount;
   const isImageMode = mode === "image-to-image";
-  const displayTotalCost = totalCost * (onePerReference && isImageMode ? referenceImages.length : 1);
+  const splitMultiplier = isImageMode && onePerReference && referenceImages.length > 1
+    ? referenceImages.length
+    : 1;
+  const effectiveGenCount = genCount * splitMultiplier;
+  const effectiveTotalCost = costPerImage * effectiveGenCount;
   const authIsAnonymous = authChecked && !isAuthenticated;
   const activeFeature = isImageMode ? "imageToImage" : "textToImage";
   const taskInputThumbnails = useMemo(
@@ -185,7 +192,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     module: "generalImage",
     scope: mode,
     title: t("taskQueueTitle"),
-    defaultExpectedCount: genCount,
+    defaultExpectedCount: effectiveGenCount,
     applyPath: isImageMode ? "/general-image/image-to-image" : "/general-image",
   });
 
@@ -365,9 +372,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails)
     : referenceImages.map((item) => item.preview || item.url).filter(Boolean);
   const activeResultExpectedCount = activeQueueTask
-    ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount)
+    ? clampTaskExpectedCount(activeQueueTask, 1, MAX_GENERAL_IMAGE_TOTAL_COUNT, effectiveGenCount)
     : isGenerating
-      ? genCount
+      ? effectiveGenCount
       : Math.max(resultUrls.length, 1);
   const displayedResultUrls = resultUrls.filter(Boolean);
   const hasCompletedPartialResults = Boolean(
@@ -483,6 +490,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     // the size to fall back to the lowest supported tier on re-apply.
     setImageSize(restoredImageSize);
     setGenCount(payload.genCount);
+    // A split (multi-to-one) history row carries onePerReference=true so the
+    // editor returns to the same mode; the row itself only holds one reference,
+    // and the toggle re-engages once the user adds a second reference.
+    setOnePerReference(payload.onePerReference === true);
+    setIsSplitRun(false);
+    setResultGroups(null);
     setReferenceImages((payload.referenceUrls ?? []).map((url, index) => ({
       id: `history-general-${index}-${url}`,
       name: t("historyReferenceName", { index: index + 1 }),
@@ -516,6 +529,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setActiveQueueTask(null);
     setIsGenerating(false);
     setResultUrls([]);
+    setResultGroups(null);
+    setIsSplitRun(false);
+    splitRunReferencesRef.current = [];
     setError("");
     setProgress(0);
   }
@@ -528,6 +544,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setAspectRatio(defaultSettings.aspectRatio);
     setImageSize(defaultSettings.imageSize);
     setGenCount(1);
+    setOnePerReference(false);
     setIsDragging(false);
     setShowImagePromptModal(false);
     setImagePromptImage(null);
@@ -574,6 +591,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setAspectRatio(nextAspectRatio);
     setImageSize(normalizeImageSize(nextModel, requestedSize, nextAspectRatio));
     setGenCount(1);
+    setOnePerReference(false);
     setImagePromptImage(null);
     resetOutput();
     toast.success(isImageMode ? t("broughtPreviewImage") : t("appliedToDescription"));
@@ -739,6 +757,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   async function pollBatchReferences(taskId: string, generationIds: string[], expectedCount: number) {
     const remaining = new Set(generationIds);
     const merged: string[] = [];
+    const groups: string[][] = generationIds.map(() => []);
+    const groupIndexById = new Map(generationIds.map((id, index) => [id, index]));
     let attempts = 0;
     while (remaining.size > 0 && attempts < 150) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -751,8 +771,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           if (!state || (state.status !== "completed" && state.status !== "failed")) return;
           remaining.delete(id);
           if (Array.isArray(state.result_urls)) {
+            const groupIndex = groupIndexById.get(id);
             for (const url of state.result_urls) {
-              if (typeof url === "string" && url && !merged.includes(url)) merged.push(url);
+              if (typeof url !== "string" || !url) continue;
+              if (!merged.includes(url)) merged.push(url);
+              const group = groupIndex === undefined ? undefined : groups[groupIndex];
+              if (group && !group.includes(url)) group.push(url);
             }
           }
         } catch {
@@ -764,6 +788,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       setProgress(percent);
       if (displayedTaskIdRef.current === taskId) {
         setResultUrls(merged);
+        setResultGroups(groups);
         const runningTask = taskQueue.markRunning(taskId, {
           expectedCount,
           inputThumbnails: taskInputThumbnails,
@@ -786,6 +811,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     });
     if (displayedTaskIdRef.current === taskId) {
       setResultUrls(merged);
+      setResultGroups(groups);
       setActiveQueueTask(completedTask);
     }
     if (finalCount < expectedCount) {
@@ -815,6 +841,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       previousUrls: retryPreviousResultUrls,
       fallbackExpectedCount: runExpectedCount,
     });
+    // Total images the UI should reserve (grid slots, run bar, cost):
+    // split runs produce genCount images per reference; retries keep the
+    // already-displayed total instead of multiplying again.
+    const displayTotalExpectedCount = retryResultIndex !== null
+      ? displayExpectedCount
+      : displayExpectedCount * (shouldSplit ? referenceImages.length : 1);
     const runTotalCost = costPerImage * runExpectedCount * (shouldSplit ? referenceImages.length : 1);
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
@@ -825,10 +857,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setIsGenerating(true);
     setProgress(8);
     setError("");
-    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
+    setIsSplitRun(shouldSplit);
+    splitRunReferencesRef.current = shouldSplit ? referenceImages : [];
+    setResultGroups(null);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayTotalExpectedCount));
     if (options.toastMessage) toast.info(options.toastMessage);
     const provisionalTask = taskQueue.startTask({
-      expectedCount: displayExpectedCount,
+      expectedCount: displayTotalExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 8,
     });
@@ -872,7 +907,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         const batchId = typeof data.batch_id === "string" && data.batch_id
           ? data.batch_id
           : String(data.generation_ids[0]);
-        const batchExpectedCount = displayExpectedCount * data.generation_ids.length;
+        const batchExpectedCount = displayTotalExpectedCount;
         const batchTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: batchId,
           expectedCount: batchExpectedCount,
@@ -890,7 +925,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: displayExpectedCount,
+          expectedCount: displayTotalExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing",
           progress: 12,
@@ -905,7 +940,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       pollCtxRef.current = {
         activeTaskId,
         generationId: typeof data.generation_id === "string" ? data.generation_id : "",
-        displayExpectedCount,
+        displayExpectedCount: displayTotalExpectedCount,
         retryPreviousResultUrls,
         retryResultIndex,
         taskInputThumbnails: taskInputThumbnails,
@@ -924,7 +959,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       const message = summarizeGenerationError(err instanceof Error ? err.message : t("generateFailed"));
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: displayExpectedCount,
+        expectedCount: displayTotalExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: pollCtxRef.current?.latestTaskResultUrlsRef.current ?? [],
         resultCount: pollCtxRef.current?.latestTaskResultUrlsRef.current.filter(Boolean).length ?? 0,
@@ -940,6 +975,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     selectDisplayedTask(item.id);
     setActiveQueueTask(item);
     setIsGenerating(true);
+    setIsSplitRun(false);
+    setResultGroups(null);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
     setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
@@ -1151,12 +1188,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         </div>
 
         <StudioRunBar
-          summary={`${isImageMode ? t("summaryImageToImage", { count: referenceImages.length }) : t("summaryTextToImage")} · ${costPerImage} × ${genCount}`}
-          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: genCount })}
-          costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost: totalCost, balance: credits ?? "-" })}
+          summary={`${isImageMode ? t("summaryImageToImage", { count: referenceImages.length }) : t("summaryTextToImage")} · ${costPerImage} × ${effectiveGenCount}`}
+          estimateLabel={isGenerating ? t("runBar.estimateGenerating") : t("runBar.estimateReady", { count: effectiveGenCount })}
+          costLabel={authIsAnonymous ? t("costLoginView") : t("costLabel", { cost: effectiveTotalCost, balance: credits ?? "-" })}
           disabled={!canGenerate}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? t("primaryLogin") : isGenerating ? t("primaryGenerating") : t("primaryGenerate", { count: genCount })}
+          primaryLabel={authIsAnonymous ? t("primaryLogin") : isGenerating ? t("primaryGenerating") : t("primaryGenerate", { count: effectiveGenCount })}
           isLoading={isGenerating}
           onPrimaryAction={generate}
         />
@@ -1184,7 +1221,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
         {isGenerating && resultUrls.length === 0 && !activeQueueTask && (
           <LoadingStage
-            genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : genCount}
+            genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, MAX_GENERAL_IMAGE_TOTAL_COUNT, effectiveGenCount) : effectiveGenCount}
             progress={progress}
             moduleName={modeMeta.title}
             referenceImages={referenceImages.map((item, index) => ({ label: item.name || t("referenceImageLabel", { index: index + 1 }), url: item.preview || item.url }))}
@@ -1194,28 +1231,77 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         {((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-start justify-start">
-              <ResultImageGrid
-                urls={resultUrls}
-                filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
-                expectedCount={activeResultExpectedCount}
-                isGenerating={isGenerating}
-                inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)}
-                createdAt={activeQueueTask?.createdAt}
-                statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
-                variant="task"
-                resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
-                failureLabel={t("failedLabel")}
-                failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
-                markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel={t("missingFailLabel")}
-                missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel={t("retryThis")}
-                onMissingFailureAction={handleRetryFailedResult}
-                missingFailureActionDisabled={retryDisabled}
-                onOpen={(_, index) => setPreviewIndex(index)}
-              
+              {isSplitRun && isImageMode && splitRunReferencesRef.current.length > 1 ? (
+                <div className="flex w-full flex-col gap-6">
+                  {splitRunReferencesRef.current.map((reference, groupIndex) => {
+                    const perGroupCount = Math.max(1, Math.round(activeResultExpectedCount / splitRunReferencesRef.current.length));
+                    const start = groupIndex * perGroupCount;
+                    const groupUrls = resultGroups?.[groupIndex] ?? [];
+                    const groupFailedCount = Math.max(0, perGroupCount - groupUrls.filter(Boolean).length);
+                    return (
+                      <ResultImageGrid
+                        key={`general-image-group-${groupIndex}-${reference.url}`}
+                        urls={groupUrls}
+                        filenamePrefix={`image-to-image-r${groupIndex + 1}`}
+                        expectedCount={perGroupCount}
+                        isGenerating={isGenerating}
+                        inputReferences={[{
+                          url: reference.preview || reference.url,
+                          label: t("referenceImageLabel", { index: groupIndex + 1 }),
+                        }]}
+                        createdAt={activeQueueTask?.createdAt}
+                        statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
+                        variant="task"
+                        resourceFavorite={{
+                          generationId: displayedTaskId || undefined,
+                          moduleKey: "generalImage",
+                          mediaType: "image",
+                          resultIndexOffset: start,
+                        }}
+                        failureLabel={t("failedLabel")}
+                        failureDetail={activeQueueTask?.statusGroup === "failed"
+                          ? buildFailedTaskDetail(activeQueueTask.error || error || undefined)
+                          : undefined}
+                        markMissingAsFailed={hasCompletedPartialResults}
+                        missingFailureLabel={t("missingFailLabel")}
+                        missingFailureDetail={groupFailedCount > 0
+                          ? buildPartialFailureDetail({
+                              message: activeQueueTask?.error,
+                              failedCount: groupFailedCount,
+                            })
+                          : undefined}
+                        missingFailureActionLabel={t("retryThis")}
+                        onMissingFailureAction={(index) => handleRetryFailedResult(start + index)}
+                        missingFailureActionDisabled={retryDisabled}
+                        onOpen={(_, index) => setPreviewIndex(start + index)}
+                        tileAspectRatio={aspectRatio}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <ResultImageGrid
+                  urls={resultUrls}
+                  filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
+                  expectedCount={activeResultExpectedCount}
+                  isGenerating={isGenerating}
+                  inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)}
+                  createdAt={activeQueueTask?.createdAt}
+                  statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
+                  variant="task"
+                  resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
+                  failureLabel={t("failedLabel")}
+                  failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
+                  markMissingAsFailed={hasCompletedPartialResults}
+                  missingFailureLabel={t("missingFailLabel")}
+                  missingFailureDetail={partialFailureMessage}
+                  missingFailureActionLabel={t("retryThis")}
+                  onMissingFailureAction={handleRetryFailedResult}
+                  missingFailureActionDisabled={retryDisabled}
+                  onOpen={(_, index) => setPreviewIndex(index)}
                   tileAspectRatio={aspectRatio}
                 />
+              )}
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}
