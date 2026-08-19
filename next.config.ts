@@ -19,6 +19,10 @@ const developmentDeploymentId =
     : undefined;
 
 const nextConfig: NextConfig = {
+  // `next build` deletes and rewrites its output directory. Keep development
+  // artifacts separate so release checks can run while the local dev server is
+  // serving pages without invalidating manifests or CSS chunks mid-request.
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   // BullMQ 6 exposes optional Valkey backends that are selected at runtime.
   // Keep queue clients as Node server dependencies so webpack does not try to
   // bundle optional drivers into admin route chunks.

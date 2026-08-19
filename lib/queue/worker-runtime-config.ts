@@ -11,6 +11,21 @@ export type WorkerRuntimeConfig = {
   updatedAt?: string;
 };
 
+export type WorkerRuntimeAlertStatus = {
+  breached: boolean;
+  reasons: string[];
+  waiting: {
+    current: number | null;
+    threshold: number;
+    breached: boolean;
+  };
+  oldestPending: {
+    currentSeconds: number | null;
+    thresholdSeconds: number;
+    breached: boolean;
+  };
+};
+
 export const DEFAULT_WORKER_RUNTIME_CONFIG: WorkerRuntimeConfig = {
   schemaVersion: WORKER_RUNTIME_SCHEMA_VERSION,
   desiredInstances: 1,
@@ -79,7 +94,48 @@ export function getWorkerRuntimeDrift(input: {
   return reasons;
 }
 
+export function getWorkerRuntimeAlerts(input: {
+  desired: WorkerRuntimeConfig;
+  waiting: number | null;
+  oldestPendingSeconds: number | null;
+}): WorkerRuntimeAlertStatus {
+  const waiting = nullableNonNegativeInteger(input.waiting);
+  const oldestPendingSeconds = nullableNonNegativeInteger(input.oldestPendingSeconds);
+  const waitingBreached = waiting !== null && waiting >= input.desired.alertWaiting;
+  const oldestPendingBreached = oldestPendingSeconds !== null
+    && oldestPendingSeconds >= input.desired.alertOldestPendingSeconds;
+  const reasons: string[] = [];
+
+  if (waitingBreached) {
+    reasons.push(`BullMQ 等待任务 ${waiting}，达到告警阈值 ${input.desired.alertWaiting}`);
+  }
+  if (oldestPendingBreached) {
+    reasons.push(`Outbox 最老待发布任务 ${oldestPendingSeconds} 秒，达到告警阈值 ${input.desired.alertOldestPendingSeconds} 秒`);
+  }
+
+  return {
+    breached: reasons.length > 0,
+    reasons,
+    waiting: {
+      current: waiting,
+      threshold: input.desired.alertWaiting,
+      breached: waitingBreached,
+    },
+    oldestPending: {
+      currentSeconds: oldestPendingSeconds,
+      thresholdSeconds: input.desired.alertOldestPendingSeconds,
+      breached: oldestPendingBreached,
+    },
+  };
+}
+
 function bounded(value: unknown, fallback: number, minimum: number, maximum: number) {
   const number = Number(value);
   return Number.isInteger(number) && number >= minimum && number <= maximum ? number : fallback;
+}
+
+function nullableNonNegativeInteger(value: unknown) {
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : null;
 }

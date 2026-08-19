@@ -53,9 +53,19 @@ export type MediaAssetRegistry = {
 };
 
 export class MediaAssetRegistryError extends Error {
-  constructor(public readonly operation: "create" | "complete" | "verify" | "fail") {
-    super(`media asset registry ${operation} failed`);
+  readonly code?: string;
+  readonly retryable: boolean;
+  readonly diagnostic?: string;
+
+  constructor(
+    public readonly operation: "create" | "complete" | "verify" | "fail",
+    options: { code?: string; retryable?: boolean; diagnostic?: string } = {},
+  ) {
+    super(`media asset registry ${operation} failed${options.code ? ` [${options.code}]` : ""}`);
     this.name = "MediaAssetRegistryError";
+    this.code = options.code;
+    this.retryable = options.retryable === true;
+    this.diagnostic = options.diagnostic;
   }
 }
 
@@ -137,7 +147,13 @@ export const databaseMediaAssetRegistry: MediaAssetRegistry = {
       p_fence_version: input.fenceVersion,
       p_error: sanitizeFailureCode(input.errorCode),
     });
-    if (result.error || result.data !== true) throw new MediaAssetRegistryError("fail");
+    if (result.error) throw registryRpcError("fail", result.error);
+    if (result.data !== true) {
+      throw new MediaAssetRegistryError("fail", {
+        retryable: true,
+        diagnostic: "RPC returned an invalid acknowledgement",
+      });
+    }
   },
 };
 
@@ -148,16 +164,59 @@ async function callRpc(
 ): Promise<RpcResult> {
   try {
     return await getAdminClient().rpc(functionName, args) as unknown as RpcResult;
-  } catch {
-    throw new MediaAssetRegistryError(operation);
+  } catch (error) {
+    throw registryRpcError(operation, error, true);
   }
 }
 
 function firstRow(result: RpcResult, operation: MediaAssetRegistryError["operation"]): Record<string, unknown> {
-  if (result.error || !Array.isArray(result.data) || !result.data[0] || typeof result.data[0] !== "object") {
-    throw new MediaAssetRegistryError(operation);
+  if (result.error) {
+    throw registryRpcError(operation, result.error);
+  }
+  if (!Array.isArray(result.data) || !result.data[0] || typeof result.data[0] !== "object") {
+    throw new MediaAssetRegistryError(operation, {
+      retryable: true,
+      diagnostic: "RPC returned no valid row",
+    });
   }
   return result.data[0] as Record<string, unknown>;
+}
+
+function registryRpcError(
+  operation: MediaAssetRegistryError["operation"],
+  value: unknown,
+  transportFailure = false,
+) {
+  const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const code = safeDiagnosticToken(record.code);
+  const diagnostic = safeDiagnosticText(record.message ?? (value instanceof Error ? value.message : value));
+  return new MediaAssetRegistryError(operation, {
+    code,
+    diagnostic,
+    retryable: transportFailure || isTransientRpcCode(code),
+  });
+}
+
+function isTransientRpcCode(code: string | undefined) {
+  if (!code) return false;
+  return /^(08|53|57P0|PGRST0|PGRST1)/.test(code.toUpperCase());
+}
+
+function safeDiagnosticToken(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z0-9_.-]{1,40}$/.test(normalized) ? normalized : undefined;
+}
+
+function safeDiagnosticText(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const normalized = value
+    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+    .replace(/\b(?:authorization|api[_-]?key|secret|token)\b\s*[:=]\s*\S+/gi, "[redacted]")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized ? normalized.slice(0, 300) : undefined;
 }
 
 function requiredStatus(value: unknown, operation: MediaAssetRegistryError["operation"]): MediaAssetUploadLease["status"] {

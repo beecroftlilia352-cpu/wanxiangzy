@@ -28,4 +28,17 @@ describe("BullMQ admin health integration", () => {
     expect(component).toContain("bullmqHealth?.latencyMs");
     expect(component).toContain("bullmqHealth?.workers");
   });
+
+  it("applies published Worker alert thresholds to live queue health", () => {
+    const data = read("lib/admin/data.ts");
+    const page = read("app/admin/workers/page.tsx");
+
+    expect(data).toContain("getWorkerRuntimeAlerts({");
+    expect(data).toContain("waiting: useBullMqCounts ? bullmqHealth.counts.waiting : null");
+    expect(data).toContain("oldestPendingSeconds: outboxResult.error ? null : outboxHealth.oldest_pending_age_seconds ?? 0");
+    expect(data).toContain("warnings.push(...runtimeAlerts.reasons)");
+    expect(page).toContain("BullMQ Waiting");
+    expect(page).toContain("Outbox 最老待发布");
+    expect(page).toContain("overview.runtime.alerts.reasons");
+  });
 });

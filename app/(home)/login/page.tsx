@@ -35,6 +35,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    let hadSensitiveQuery = false;
+    for (const key of ["email", "password", "newPassword"]) {
+      if (!url.searchParams.has(key)) continue;
+      url.searchParams.delete(key);
+      hadSensitiveQuery = true;
+    }
+    if (hadSensitiveQuery) {
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }, []);
+
   // 邀请链接落地：/login?invite=CODE 预填邀请码并直接进入注册
   useEffect(() => {
     const code = getNormalizedInviteCode();

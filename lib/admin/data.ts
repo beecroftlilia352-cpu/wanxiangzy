@@ -10,9 +10,11 @@ import { getGenerationBullMqHealth } from "@/lib/queue/generation-queue-health.s
 import { getWorkerHeartbeats, type WorkerHeartbeat } from "@/lib/queue/worker-heartbeat.server";
 import {
   DEFAULT_WORKER_RUNTIME_CONFIG,
+  getWorkerRuntimeAlerts,
   getWorkerRuntimeDrift,
   WORKER_RUNTIME_CONFIG_KEY,
   parseWorkerRuntimeConfig,
+  type WorkerRuntimeAlertStatus,
   type WorkerRuntimeConfig,
 } from "@/lib/queue/worker-runtime-config";
 import type {
@@ -448,6 +450,7 @@ export type AdminWorkerOverview = {
       error: string | null;
     };
     outbox: Record<string, number>;
+    alerts: WorkerRuntimeAlertStatus;
     instances: WorkerHeartbeat[];
     configVersion: { id: string; publishedAt: string | null } | null;
   };
@@ -1565,6 +1568,7 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   ]);
   if (outboxResult.error) warnings.push(`Outbox health: ${outboxResult.error.message}`);
   if (workerConfigResult.error) warnings.push(`Worker config: ${workerConfigResult.error.message}`);
+  const outboxHealth = normalizeWorkerOutboxHealth(outboxResult.data);
   const desired = workerConfigResult.data?.value
     ? parseWorkerRuntimeConfig(workerConfigResult.data.value)
     : { ...DEFAULT_WORKER_RUNTIME_CONFIG };
@@ -1615,6 +1619,12 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
     .filter((row) => row.statusGroup === "running" && isTaskStale(row, staleMinutes))
     .slice(0, 30);
   queue.stale = staleTasks.length;
+  const runtimeAlerts = getWorkerRuntimeAlerts({
+    desired,
+    waiting: useBullMqCounts ? bullmqHealth.counts.waiting : null,
+    oldestPendingSeconds: outboxResult.error ? null : outboxHealth.oldest_pending_age_seconds ?? 0,
+  });
+  if (runtimeAlerts.breached) warnings.push(...runtimeAlerts.reasons);
 
   const auditResult = await runQuery<Record<string, unknown>[]>(
     getAdminClient()
@@ -1641,7 +1651,8 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
         driftReasons,
       },
       bullmq: bullmqHealth,
-      outbox: normalizeWorkerOutboxHealth(outboxResult.data),
+      outbox: outboxHealth,
+      alerts: runtimeAlerts,
       instances: heartbeats,
       configVersion: workerConfigResult.data
         ? { id: String(workerConfigResult.data.id), publishedAt: workerConfigResult.data.published_at || null }

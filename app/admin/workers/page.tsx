@@ -55,23 +55,30 @@ export default async function AdminWorkersPage() {
         <AdminMetricCard label="在线 Worker" value={formatNumber(overview.runtime.actual.onlineInstances)} tone={overview.runtime.actual.drift ? "warning" : "good"} hint={`期望 ${overview.runtime.desired.desiredInstances}`} />
         <AdminMetricCard label="实际并发容量" value={formatNumber(overview.runtime.actual.activeCapacity)} hint={`${overview.runtime.actual.workerConcurrency} / 进程`} />
         <AdminMetricCard label="样本任务" value={formatNumber(overview.queue.sampled)} hint="最近队列样本" />
-        <AdminMetricCard label="排队" value={formatNumber(overview.queue.queued)} tone="warning" hint={queueSourceLabel(overview.queue.source)} />
+        <AdminMetricCard
+          label="排队"
+          value={formatNumber(overview.queue.queued)}
+          tone={overview.runtime.alerts.waiting.breached ? "danger" : overview.queue.source === "bullmq" ? "good" : "neutral"}
+          hint={queueSourceLabel(overview.queue.source)}
+        />
         <AdminMetricCard label="运行" value={formatNumber(overview.queue.running)} hint={queueSourceLabel(overview.queue.source)} />
         <AdminMetricCard label="长时间未完成" value={formatNumber(overview.queue.stale)} tone={overview.queue.stale > 0 ? "danger" : "good"} hint={`${overview.queue.staleMinutes} 分钟无进展 · 最近 ${overview.queue.sampled} 条样本`} />
         <AdminMetricCard label="失败" value={formatNumber(overview.queue.failed)} tone={overview.queue.failed > 0 ? "danger" : "neutral"} hint={queueSourceLabel(overview.queue.source)} />
         <AdminMetricCard label="完成" value={formatNumber(overview.queue.completed)} tone="good" hint={queueSourceLabel(overview.queue.source)} />
       </div>
 
-      <AdminSection title="Worker 运行策略" description="这些值是版本化的期望配置。保存后由下一次部署应用 PM2 实例和进程参数，便于审计、回滚和横向扩展。">
+      <AdminSection title="Worker 运行策略" description="配置会版本化并保留审计记录。告警阈值保存后立即生效；实例数和进程并发由下一次部署应用，支持回滚和横向扩展。">
         {canManage ? <AdminWorkerRuntimeConfigForm initialConfig={overview.runtime.desired} /> : <AdminNotice tone="info">当前角色只能查看容量与队列健康。修改 Worker 期望配置需要队列写权限。</AdminNotice>}
       </AdminSection>
 
       <AdminSection title="实时运行健康" description="容量模型：在线 Worker 实例 × 单进程并发。供应商自身的并发、RPM、熔断和智能路由仍在统一模型控制面内生效。">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <RuntimeHealthItem label="运行模式" value={overview.runtime.actual.mode} ok={overview.runtime.actual.mode === "bullmq"} />
           <RuntimeHealthItem label="BullMQ Redis" value={overview.runtime.bullmq.reachable ? `${overview.runtime.bullmq.latencyMs ?? 0} ms` : "不可达"} ok={overview.runtime.bullmq.reachable} />
           <RuntimeHealthItem label="队列状态" value={overview.runtime.bullmq.paused === null ? "未知" : overview.runtime.bullmq.paused ? "已暂停" : "运行中"} ok={overview.runtime.bullmq.paused === false} />
           <RuntimeHealthItem label="配置漂移" value={overview.runtime.actual.drift ? "待发布应用" : "一致"} hint={overview.runtime.actual.driftReasons.join("；")} ok={!overview.runtime.actual.drift} />
+          <RuntimeHealthItem label="BullMQ Waiting" value={overview.runtime.alerts.waiting.current === null ? "未知" : formatNumber(overview.runtime.alerts.waiting.current)} hint={`告警阈值 ${formatNumber(overview.runtime.alerts.waiting.threshold)} 个`} ok={overview.runtime.alerts.waiting.current !== null && !overview.runtime.alerts.waiting.breached} />
+          <RuntimeHealthItem label="Outbox 最老待发布" value={overview.runtime.alerts.oldestPending.currentSeconds === null ? "未知" : formatDurationSeconds(overview.runtime.alerts.oldestPending.currentSeconds)} hint={`阈值 ${formatDurationSeconds(overview.runtime.alerts.oldestPending.thresholdSeconds)}`} ok={overview.runtime.alerts.oldestPending.currentSeconds !== null && !overview.runtime.alerts.oldestPending.breached} />
         </div>
         <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--admin-border)]">
           <table className="min-w-full text-left text-xs">
@@ -79,6 +86,7 @@ export default async function AdminWorkersPage() {
             <tbody className="divide-y divide-[var(--admin-border)]">
               <RuntimeRow label="Waiting / Active / Delayed / Failed" value={`${overview.runtime.bullmq.counts.waiting ?? 0} / ${overview.runtime.bullmq.counts.active ?? 0} / ${overview.runtime.bullmq.counts.delayed ?? 0} / ${overview.runtime.bullmq.counts.failed ?? 0}`} hint="BullMQ 实时任务状态" />
               <RuntimeRow label="Outbox pending / publishing / dead" value={`${overview.runtime.outbox.pending_count ?? 0} / ${overview.runtime.outbox.publishing_count ?? 0} / ${overview.runtime.outbox.dead_count ?? 0}`} hint="PostgreSQL 事务消息发布状态" />
+              <RuntimeRow label="当前告警" value={overview.runtime.alerts.breached ? String(overview.runtime.alerts.reasons.length) : "0"} hint={overview.runtime.alerts.reasons.join("；") || "当前队列指标均低于已发布阈值"} />
               <RuntimeRow label="Relay 并发" value={String(overview.runtime.actual.relayConcurrency)} hint="每个 Worker 进程的 Outbox 发布并发" />
               <RuntimeRow label="配置版本" value={overview.runtime.configVersion?.id ? shortAdminCode(overview.runtime.configVersion.id, "版本") : "默认值"} hint={overview.runtime.configVersion?.publishedAt ? formatDateTime(overview.runtime.configVersion.publishedAt) : "尚未发布 Worker 配置"} />
             </tbody>
@@ -143,6 +151,12 @@ export default async function AdminWorkersPage() {
 
 function queueSourceLabel(source: "bullmq" | "task_queue_sample") {
   return source === "bullmq" ? "BullMQ 实时计数" : "数据库样本回退";
+}
+
+function formatDurationSeconds(seconds: number) {
+  if (seconds < 60) return `${seconds} 秒`;
+  if (seconds < 3_600) return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+  return `${Math.floor(seconds / 3_600)} 小时 ${Math.floor((seconds % 3_600) / 60)} 分`;
 }
 
 function RuntimeHealthItem({ label, value, hint, ok }: { label: string; value: string; hint?: string; ok: boolean }) {

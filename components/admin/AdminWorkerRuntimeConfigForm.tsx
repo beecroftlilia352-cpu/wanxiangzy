@@ -33,7 +33,7 @@ export function AdminWorkerRuntimeConfigForm({ initialConfig }: { initialConfig:
       if (!response.ok) throw new Error(payload.error || `保存失败 (${response.status})`);
       setConfig(payload.config || config);
       setReason("");
-      setMessage("已发布期望配置；下次部署时由发布控制器应用。 ");
+      setMessage("已发布配置；告警阈值立即生效，容量配置将在下次部署应用。");
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "保存失败");
@@ -49,7 +49,7 @@ export function AdminWorkerRuntimeConfigForm({ initialConfig }: { initialConfig:
         <NumberField label="单进程并发" value={config.workerConcurrency} min={1} max={512} onChange={(value) => update("workerConcurrency", value)} hint="远端 API I/O 上限" />
         <NumberField label="Outbox 并发" value={config.relayConcurrency} min={1} max={128} onChange={(value) => update("relayConcurrency", value)} hint="发布事务消息" />
         <NumberField label="积压告警" value={config.alertWaiting} min={1} max={1_000_000} onChange={(value) => update("alertWaiting", value)} hint="waiting 数量" />
-        <NumberField label="最老任务告警" value={config.alertOldestPendingSeconds} min={30} max={86_400} onChange={(value) => update("alertOldestPendingSeconds", value)} hint="秒" />
+        <NumberField label="Outbox 最老待发布" value={config.alertOldestPendingSeconds} min={30} max={86_400} onChange={(value) => update("alertOldestPendingSeconds", value)} hint="告警秒数" />
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <FormField label="变更原因" labelClassName="text-xs font-black text-[var(--admin-muted)]" className="min-w-0 flex-1 space-y-1.5">

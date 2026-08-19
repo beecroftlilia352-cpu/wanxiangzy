@@ -6,7 +6,10 @@ vi.mock("@/lib/supabase/admin", () => ({
   getAdminClient: () => ({ rpc }),
 }));
 
-import { databaseMediaAssetRegistry } from "@/lib/api/media-asset-registry.server";
+import {
+  databaseMediaAssetRegistry,
+  MediaAssetRegistryError,
+} from "@/lib/api/media-asset-registry.server";
 
 const ASSET_ID = "11111111-1111-4111-8111-111111111111";
 const LEASE_TOKEN = "22222222-2222-4222-8222-222222222222";
@@ -99,5 +102,35 @@ describe("media asset registry adapter", () => {
     expect(rpc).toHaveBeenCalledWith("fail_media_asset_upload", expect.objectContaining({
       p_error: "unsafe_content_with_secret_value",
     }));
+  });
+
+  it("preserves safe RPC diagnostics without exposing secret-bearing text", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "54000",
+        message: "null character not permitted api_key=do-not-log https://private.example/path",
+      },
+    });
+
+    const error = await databaseMediaAssetRegistry.createUpload({
+      ownerUserId: "33333333-3333-4333-8333-333333333333",
+      idempotencyKey: "upload:v1:image:hash",
+      objectKey: "user-uploads/original/key.jpg",
+      purpose: "reference-image",
+      expectedSha256: "a".repeat(64),
+      expectedSizeBytes: 123,
+      expectedMimeType: "image/jpeg",
+      leaseSeconds: 300,
+      bucketName: "private-upload-bucket",
+    }).catch((value: unknown) => value);
+
+    const registryError = error as MediaAssetRegistryError;
+    expect(registryError).toBeInstanceOf(MediaAssetRegistryError);
+    expect(registryError).toMatchObject({ code: "54000", retryable: false });
+    expect(registryError.message).toBe("media asset registry create failed [54000]");
+    expect(registryError.diagnostic).toContain("null character not permitted");
+    expect(registryError.diagnostic).not.toContain("do-not-log");
+    expect(registryError.diagnostic).not.toContain("private.example");
   });
 });

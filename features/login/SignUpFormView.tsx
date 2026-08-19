@@ -43,7 +43,7 @@ export function SignUpFormView({
 }: Props) {
   const t = useTranslations("Login");
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form method="post" onSubmit={onSubmit} className="space-y-4">
       {showInviteBanner && (
         <div className="flex items-start gap-2.5 rounded-2xl border border-[var(--codex-accent-28)] bg-[var(--codex-accent-08)] px-4 py-3 text-sm leading-5 text-codex-ink dark:text-codex-muted">
           <Gift aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--codex-accent)]" />
