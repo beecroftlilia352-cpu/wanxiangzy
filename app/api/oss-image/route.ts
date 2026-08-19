@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_HOST_RE =
-  /^([a-z0-9-]+\.)?aliyuncs\.com$/i;
+  /^(?:[a-z0-9-]+\.)+aliyuncs\.com$/i;
 
 type RouteContext = { params: Promise<Record<string, never>> };
 
