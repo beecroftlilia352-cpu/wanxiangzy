@@ -60,6 +60,25 @@ export function validateWorkerRuntimeConfig(value: unknown) {
   } as const;
 }
 
+export function getWorkerRuntimeDrift(input: {
+  desired: WorkerRuntimeConfig;
+  onlineInstances: number | null;
+  workerConcurrency: number;
+  relayConcurrency: number;
+}) {
+  const reasons: string[] = [];
+  if (input.onlineInstances !== null && input.onlineInstances !== input.desired.desiredInstances) {
+    reasons.push(`实例数期望 ${input.desired.desiredInstances}，在线 ${input.onlineInstances}`);
+  }
+  if (input.workerConcurrency !== input.desired.workerConcurrency) {
+    reasons.push(`Worker 并发期望 ${input.desired.workerConcurrency}，当前 ${input.workerConcurrency}`);
+  }
+  if (input.relayConcurrency !== input.desired.relayConcurrency) {
+    reasons.push(`Relay 并发期望 ${input.desired.relayConcurrency}，当前 ${input.relayConcurrency}`);
+  }
+  return reasons;
+}
+
 function bounded(value: unknown, fallback: number, minimum: number, maximum: number) {
   const number = Number(value);
   return Number.isInteger(number) && number >= minimum && number <= maximum ? number : fallback;

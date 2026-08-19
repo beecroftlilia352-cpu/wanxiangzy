@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_WORKER_RUNTIME_CONFIG,
+  getWorkerRuntimeDrift,
   parseWorkerRuntimeConfig,
   validateWorkerRuntimeConfig,
 } from "@/lib/queue/worker-runtime-config";
@@ -30,5 +31,24 @@ describe("Worker runtime control config", () => {
       alertWaiting: 100,
       alertOldestPendingSeconds: 300,
     }).error).toContain("desiredInstances");
+  });
+
+  it("detects instance and process concurrency drift independently", () => {
+    expect(getWorkerRuntimeDrift({
+      desired: { ...DEFAULT_WORKER_RUNTIME_CONFIG, desiredInstances: 4, workerConcurrency: 32, relayConcurrency: 16 },
+      onlineInstances: 2,
+      workerConcurrency: 16,
+      relayConcurrency: 8,
+    })).toEqual([
+      "实例数期望 4，在线 2",
+      "Worker 并发期望 32，当前 16",
+      "Relay 并发期望 16，当前 8",
+    ]);
+    expect(getWorkerRuntimeDrift({
+      desired: { ...DEFAULT_WORKER_RUNTIME_CONFIG, desiredInstances: 4 },
+      onlineInstances: null,
+      workerConcurrency: DEFAULT_WORKER_RUNTIME_CONFIG.workerConcurrency,
+      relayConcurrency: DEFAULT_WORKER_RUNTIME_CONFIG.relayConcurrency,
+    })).toEqual([]);
   });
 });

@@ -10,6 +10,7 @@ import { getGenerationBullMqHealth } from "@/lib/queue/generation-queue-health.s
 import { getWorkerHeartbeats, type WorkerHeartbeat } from "@/lib/queue/worker-heartbeat.server";
 import {
   DEFAULT_WORKER_RUNTIME_CONFIG,
+  getWorkerRuntimeDrift,
   WORKER_RUNTIME_CONFIG_KEY,
   parseWorkerRuntimeConfig,
   type WorkerRuntimeConfig,
@@ -435,6 +436,7 @@ export type AdminWorkerOverview = {
       activeCapacity: number;
       mode: string;
       drift: boolean;
+      driftReasons: string[];
     };
     bullmq: {
       configured: boolean;
@@ -1568,8 +1570,14 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
     : { ...DEFAULT_WORKER_RUNTIME_CONFIG };
   const runtimeWorkerConcurrency = readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", desired.workerConcurrency, 1, 512);
   const runtimeRelayConcurrency = readIntegerEnv("BULLMQ_RELAY_CONCURRENCY", desired.relayConcurrency, 1, 128);
-  const drift = bullmqHealth.reachable && bullmqHealth.workers !== desired.desiredInstances;
-  if (drift) warnings.push(`Worker 实例配置漂移：期望 ${desired.desiredInstances}，在线 ${bullmqHealth.workers}`);
+  const driftReasons = getWorkerRuntimeDrift({
+    desired,
+    onlineInstances: bullmqHealth.reachable ? bullmqHealth.workers : null,
+    workerConcurrency: runtimeWorkerConcurrency,
+    relayConcurrency: runtimeRelayConcurrency,
+  });
+  const drift = driftReasons.length > 0;
+  if (drift) warnings.push(`Worker 运行配置漂移：${driftReasons.join("；")}`);
   if (!bullmqHealth.reachable && bullmqHealth.configured) warnings.push("BullMQ Redis 当前不可达");
   if (bullmqHealth.workers > 0 && heartbeats.length === 0) warnings.push("BullMQ 检测到 Worker，但应用心跳尚未出现；旧版本 Worker 或心跳连接可能异常");
   const result = await runQuery<Record<string, unknown>[]>(
@@ -1630,6 +1638,7 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
         activeCapacity: bullmqHealth.workers * runtimeWorkerConcurrency,
         mode: process.env.GENERATION_QUEUE_MODE?.trim().toLowerCase() || (process.env.NODE_ENV === "production" ? "bullmq" : "inline"),
         drift,
+        driftReasons,
       },
       bullmq: bullmqHealth,
       outbox: normalizeWorkerOutboxHealth(outboxResult.data),

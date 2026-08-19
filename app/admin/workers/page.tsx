@@ -70,8 +70,8 @@ export default async function AdminWorkersPage() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <RuntimeHealthItem label="运行模式" value={overview.runtime.actual.mode} ok={overview.runtime.actual.mode === "bullmq"} />
           <RuntimeHealthItem label="BullMQ Redis" value={overview.runtime.bullmq.reachable ? `${overview.runtime.bullmq.latencyMs ?? 0} ms` : "不可达"} ok={overview.runtime.bullmq.reachable} />
-          <RuntimeHealthItem label="队列状态" value={overview.runtime.bullmq.paused ? "已暂停" : "运行中"} ok={overview.runtime.bullmq.paused === false} />
-          <RuntimeHealthItem label="配置漂移" value={overview.runtime.actual.drift ? "待发布应用" : "一致"} ok={!overview.runtime.actual.drift} />
+          <RuntimeHealthItem label="队列状态" value={overview.runtime.bullmq.paused === null ? "未知" : overview.runtime.bullmq.paused ? "已暂停" : "运行中"} ok={overview.runtime.bullmq.paused === false} />
+          <RuntimeHealthItem label="配置漂移" value={overview.runtime.actual.drift ? "待发布应用" : "一致"} hint={overview.runtime.actual.driftReasons.join("；")} ok={!overview.runtime.actual.drift} />
         </div>
         <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--admin-border)]">
           <table className="min-w-full text-left text-xs">
@@ -145,8 +145,8 @@ function queueSourceLabel(source: "bullmq" | "task_queue_sample") {
   return source === "bullmq" ? "BullMQ 实时计数" : "数据库样本回退";
 }
 
-function RuntimeHealthItem({ label, value, ok }: { label: string; value: string; ok: boolean }) {
-  return <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-3"><div><p className="text-[11px] font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{label}</p><p className="mt-1 text-sm font-black text-[var(--admin-fg)]">{value}</p></div>{ok ? <CheckCircle2 className="h-4 w-4 text-[var(--admin-success)]" /> : <AlertTriangle className="h-4 w-4 text-[var(--admin-warning)]" />}</div>;
+function RuntimeHealthItem({ label, value, hint, ok }: { label: string; value: string; hint?: string; ok: boolean }) {
+  return <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-3"><div><p className="text-[11px] font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{label}</p><p className="mt-1 text-sm font-black text-[var(--admin-fg)]">{value}</p>{hint ? <p className="mt-1 text-[11px] font-semibold text-[var(--admin-muted)]">{hint}</p> : null}</div>{ok ? <CheckCircle2 className="h-4 w-4 text-[var(--admin-success)]" /> : <AlertTriangle className="h-4 w-4 text-[var(--admin-warning)]" />}</div>;
 }
 
 function RuntimeRow({ label, value, hint }: { label: string; value: string; hint: string }) {
