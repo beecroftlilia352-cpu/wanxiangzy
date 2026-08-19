@@ -77,8 +77,13 @@ export async function POST(request: NextRequest) {
     const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Math.floor(Number(body.gen_count) || 1), 1), 4);
-    const totalCost = await getConfiguredImageCreditCost(model, size) * genCount;
     const moduleKind = normalizeModuleKind(body.module_kind || body.module);
+    const onePerReference = mode === "image-to-image"
+      && moduleKind === "generalImage"
+      && body.one_per_reference === true
+      && referenceUrls.length > 1;
+    const costPerImage = await getConfiguredImageCreditCost(model, size);
+    const totalCost = costPerImage * genCount * (onePerReference ? referenceUrls.length : 1);
     const outfitFusionAssets = moduleKind === "outfitFusion" ? normalizeOutfitFusionAssets(body.input_assets, referenceUrls) : undefined;
     const outfitFusionAspectRatio: OutfitFusionConfig["aspectRatio"] = aspectRatio === "1:1" || aspectRatio === "3:4" ? aspectRatio : "auto";
     const outfitFusionRuntimePlan = moduleKind === "outfitFusion" && outfitFusionAssets
@@ -124,59 +129,11 @@ export async function POST(request: NextRequest) {
           modelFaceUrl: outfitFusionModelFaceUrl,
           referenceUrl: outfitFusionReferenceUrl,
         }
-      : { kind: "generalImage", ...payloadBase };
-
-    const onePerReference = mode === "image-to-image"
-      && moduleKind === "generalImage"
-      && body.one_per_reference === true
-      && referenceUrls.length > 1;
-
-    if (onePerReference) {
-      const batchId = typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `batch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const baseIdempotencyKey = request.headers.get("idempotency-key") || "";
-      const generationIds: string[] = [];
-      let creditsRemaining = 0;
-
-      for (let index = 0; index < referenceUrls.length; index += 1) {
-        const referenceUrl = referenceUrls[index];
-        const singlePayload: GenerationJobPayload = {
+      : {
           kind: "generalImage",
           ...payloadBase,
-          referenceUrls: [referenceUrl],
-          onePerReference: true,
-          batchId,
-          batchIndex: index,
+          ...(onePerReference ? { onePerReference: true } : {}),
         };
-        const debit = await createDebitedGeneration(supabase, {
-          userId: user.id,
-          clothingUrls: [referenceUrl],
-          modelFaceUrl: null,
-          referenceUrl: referenceUrl,
-          creditsCost: totalCost,
-          aiModel: model,
-          imageSize: size,
-          reason: `${moduleLabel}图生图 ${genCount} 张 (${model}, ${size})`,
-          jobPayload: singlePayload,
-          idempotencyKey: `${baseIdempotencyKey || batchId}-${index}`,
-          mediaInputs: [{ url: referenceUrl, kind: "image" }],
-          publicBaseUrl,
-        });
-        generationIds.push(debit.generationId);
-        creditsRemaining = debit.creditsRemaining;
-        startGenerationJob(debit.generationId);
-      }
-
-      return NextResponse.json({
-        generation_id: generationIds[0],
-        generation_ids: generationIds,
-        batch_id: batchId,
-        credits_cost: totalCost * generationIds.length,
-        credits_remaining: creditsRemaining,
-        status: "processing_tryon",
-      });
-    }
 
     const mediaInputs = Array.from(new Set([
       ...payloadBase.referenceUrls,
@@ -194,7 +151,7 @@ export async function POST(request: NextRequest) {
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,
-      reason: `${moduleLabel}${mode === "text-to-image" ? "文生图" : "图生图"} ${genCount} 张 (${model}, ${size})`,
+      reason: `${moduleLabel}${mode === "text-to-image" ? "文生图" : "图生图"} ${onePerReference ? genCount * referenceUrls.length : genCount} 张 (${model}, ${size})`,
       jobPayload,
       idempotencyKey: request.headers.get("idempotency-key") || "",
       mediaInputs,

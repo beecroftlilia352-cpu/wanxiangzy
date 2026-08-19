@@ -142,9 +142,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
-  const [resultGroups, setResultGroups] = useState<string[][] | null>(null);
-  const [isSplitRun, setIsSplitRun] = useState(false);
-  const splitRunReferencesRef = useRef<Array<{ url: string; preview?: string | null; name?: string }>>([]);
+  const [resultGroupReferences, setResultGroupReferences] = useState<ReferenceImage[]>([]);
   const [error, setError] = useState("");
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [referenceLightboxSrc, setReferenceLightboxSrc] = useState<string | null>(null);
@@ -208,7 +206,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     latestTaskResultUrlsRef: { current: string[] };
     setProgress: (p: number) => void;
     setResultUrls: (urls: string[]) => void;
-    syncGroups?: (urls: string[]) => void;
     setIsGenerating: (b: boolean) => void;
     setError: (msg: string) => void;
     setActiveQueueTask: (task: TaskQueueItem) => void;
@@ -247,7 +244,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         );
         if (displayedTaskIdRef.current === ctx.activeTaskId) {
           ctx.setResultUrls(ctx.latestTaskResultUrlsRef.current);
-          ctx.syncGroups?.(ctx.latestTaskResultUrlsRef.current);
         }
       }
 
@@ -298,7 +294,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         if (isDisplayedTask) {
           ctx.setProgress(100);
           ctx.setResultUrls(finalUrls);
-          ctx.syncGroups?.(finalUrls);
           ctx.setActiveQueueTask(completedTask);
           ctx.setIsGenerating(false);
         }
@@ -378,7 +373,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     ? clampTaskExpectedCount(activeQueueTask, 1, MAX_GENERAL_IMAGE_TOTAL_COUNT, effectiveGenCount)
     : isGenerating
       ? effectiveGenCount
-      : Math.max(resultUrls.length, 1);
+      : Math.max(
+          resultUrls.length,
+          resultGroupReferences.length > 1 ? resultGroupReferences.length * genCount : 1,
+        );
   const displayedResultUrls = resultUrls.filter(Boolean);
   const hasCompletedPartialResults = Boolean(
     activeQueueTask?.statusGroup === "completed"
@@ -494,17 +492,20 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setImageSize(restoredImageSize);
     setGenCount(payload.genCount);
     // A split (multi-to-one) history row carries onePerReference=true so the
-    // editor returns to the same mode; the row itself only holds one reference,
-    // and the toggle re-engages once the user adds a second reference.
+    // editor returns to the same mode with all references restored.
     setOnePerReference(payload.onePerReference === true);
-    setIsSplitRun(false);
-    setResultGroups(null);
-    setReferenceImages((payload.referenceUrls ?? []).map((url, index) => ({
+    const restoredReferences = (payload.referenceUrls ?? []).map((url, index) => ({
       id: `history-general-${index}-${url}`,
       name: t("historyReferenceName", { index: index + 1 }),
       url,
       preview: url,
-    })));
+    }));
+    setReferenceImages(restoredReferences);
+    setResultGroupReferences(
+      payload.onePerReference === true && restoredReferences.length > 1
+        ? restoredReferences
+        : [],
+    );
     setImagePromptImage(null);
     setCleanDraftSignature(createDraftSignature(payload.prompt, payload.referenceUrls ?? []));
     selectDisplayedTask(options?.task?.id || options?.taskId || null);
@@ -532,9 +533,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setActiveQueueTask(null);
     setIsGenerating(false);
     setResultUrls([]);
-    setResultGroups(null);
-    setIsSplitRun(false);
-    splitRunReferencesRef.current = [];
+    setResultGroupReferences([]);
     setError("");
     setProgress(0);
   }
@@ -757,74 +756,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     toast.success(t("appliedToDescription"));
   }
 
-  async function pollBatchReferences(taskId: string, generationIds: string[], expectedCount: number) {
-    const remaining = new Set(generationIds);
-    const merged: string[] = [];
-    const groups: string[][] = generationIds.map(() => []);
-    const groupIndexById = new Map(generationIds.map((id, index) => [id, index]));
-    let attempts = 0;
-    while (remaining.size > 0 && attempts < 150) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      attempts += 1;
-      await Promise.all([...remaining].map(async (id) => {
-        try {
-          const res = await fetch(`/api/general-image?generation_id=${encodeURIComponent(id)}`);
-          if (!res.ok) return;
-          const state = await res.json().catch(() => null) as { status?: string; result_urls?: unknown } | null;
-          if (!state || (state.status !== "completed" && state.status !== "failed")) return;
-          remaining.delete(id);
-          if (Array.isArray(state.result_urls)) {
-            const groupIndex = groupIndexById.get(id);
-            for (const url of state.result_urls) {
-              if (typeof url !== "string" || !url) continue;
-              if (!merged.includes(url)) merged.push(url);
-              const group = groupIndex === undefined ? undefined : groups[groupIndex];
-              if (group && !group.includes(url)) group.push(url);
-            }
-          }
-        } catch {
-          // transient network error; keep polling
-        }
-      }));
-      const done = generationIds.length - remaining.size;
-      const percent = remaining.size === 0 ? 100 : Math.min(99, Math.max(12, Math.round((done / generationIds.length) * 100)));
-      setProgress(percent);
-      if (displayedTaskIdRef.current === taskId) {
-        setResultUrls(merged);
-        setResultGroups(groups);
-        const runningTask = taskQueue.markRunning(taskId, {
-          expectedCount,
-          inputThumbnails: taskInputThumbnails,
-          resultThumbnails: merged,
-          resultCount: merged.length,
-          progress: percent,
-        });
-        setActiveQueueTask(runningTask);
-      }
-    }
-    const finalCount = merged.length;
-    setProgress(100);
-    setIsGenerating(false);
-    const completedTask = taskQueue.markCompleted(taskId, {
-      expectedCount,
-      inputThumbnails: taskInputThumbnails,
-      resultThumbnails: merged,
-      resultCount: finalCount,
-      error: finalCount < expectedCount ? t("partialCompleteImageToImage", { done: finalCount, expected: expectedCount }) : "",
-    });
-    if (displayedTaskIdRef.current === taskId) {
-      setResultUrls(merged);
-      setResultGroups(groups);
-      setActiveQueueTask(completedTask);
-    }
-    if (finalCount < expectedCount) {
-      toast.warning(t("partialCompleteImageToImage", { done: finalCount, expected: expectedCount }));
-    } else {
-      toast.success(t("completeImageToImage"));
-    }
-    void refreshCredits();
-  }
-
   async function generate(options: GeneralImageGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error(t("pleaseLogin"));
@@ -841,12 +772,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     // A retry inside a split run targets only the reference that owns the
     // failed slot; the request is sent as a single-reference run so the server
     // does not regenerate the whole batch.
-    const splitRunRefs = splitRunReferencesRef.current;
-    const perGroupCount = Math.max(1, Math.round(activeResultExpectedCount / Math.max(1, splitRunRefs.length)));
-    const retryGroupIndex = retryResultIndex !== null && isSplitRun && splitRunRefs.length > 1
-      ? Math.min(splitRunRefs.length - 1, Math.max(0, Math.floor(retryResultIndex / perGroupCount)))
+    const retryGroupCount = resultGroupReferences.length;
+    const perGroupCount = Math.max(1, Math.round(activeResultExpectedCount / Math.max(1, retryGroupCount)));
+    const retryGroupIndex = retryResultIndex !== null && retryGroupCount > 1
+      ? Math.min(retryGroupCount - 1, Math.max(0, Math.floor(retryResultIndex / perGroupCount)))
       : null;
-    const retryReferenceUrl = retryGroupIndex !== null ? splitRunRefs[retryGroupIndex]?.url : null;
+    const retryReferenceUrl = retryGroupIndex !== null ? resultGroupReferences[retryGroupIndex]?.url : null;
     const requestMultiplier = retryGroupIndex !== null ? 1 : shouldSplit ? referenceImages.length : 1;
     const displayExpectedCount = getRetryDisplayExpectedCount({
       retryIndex: retryResultIndex,
@@ -870,23 +801,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setIsGenerating(true);
     setProgress(8);
     setError("");
-    setIsSplitRun(shouldSplit || retryGroupIndex !== null);
     if (retryResultIndex === null) {
-      splitRunReferencesRef.current = shouldSplit ? referenceImages : [];
-    }
-    if (retryGroupIndex !== null) {
-      const slotInGroup = (retryResultIndex ?? 0) - retryGroupIndex * perGroupCount;
-      const baseGroups = resultGroups && resultGroups.length === splitRunRefs.length
-        ? resultGroups.map((group) => [...group])
-        : Array.from({ length: splitRunRefs.length }, (_, group) =>
-            retryPreviousResultUrls.slice(group * perGroupCount, (group + 1) * perGroupCount),
-          );
-      const retriedGroup = baseGroups[retryGroupIndex];
-      while (retriedGroup.length < perGroupCount) retriedGroup.push("");
-      retriedGroup[slotInGroup] = "";
-      setResultGroups(baseGroups);
-    } else {
-      setResultGroups(null);
+      setResultGroupReferences(shouldSplit ? referenceImages.map((item) => ({ ...item })) : []);
     }
     setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayTotalExpectedCount));
     if (options.toastMessage) toast.info(options.toastMessage);
@@ -935,25 +851,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
 
-      if (Array.isArray(data.generation_ids) && data.generation_ids.length > 1) {
-        const batchId = typeof data.batch_id === "string" && data.batch_id
-          ? data.batch_id
-          : String(data.generation_ids[0]);
-        const batchExpectedCount = displayTotalExpectedCount;
-        const batchTask = taskQueue.replaceWithServerTask(activeTaskId, {
-          id: batchId,
-          expectedCount: batchExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          status: data.status || "processing",
-          progress: 12,
-        });
-        selectDisplayedTask(batchTask.id);
-        setActiveQueueTask(batchTask);
-        setCleanDraftSignature(currentDraftSignature);
-        void pollBatchReferences(batchTask.id, data.generation_ids as string[], batchExpectedCount);
-        return;
-      }
-
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
@@ -973,13 +870,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         activeTaskId,
         generationId: typeof data.generation_id === "string" ? data.generation_id : "",
         displayExpectedCount: displayTotalExpectedCount,
-        syncGroups: retryGroupIndex !== null
-          ? (urls) => {
-              const refs = splitRunReferencesRef.current;
-              const per = Math.max(1, Math.round(displayTotalExpectedCount / Math.max(1, refs.length)));
-              setResultGroups(Array.from({ length: refs.length }, (_, group) => urls.slice(group * per, (group + 1) * per)));
-            }
-          : undefined,
         retryPreviousResultUrls,
         retryResultIndex,
         taskInputThumbnails: taskInputThumbnails,
@@ -1010,15 +900,28 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     }
   }
 
-  function handleRunningTask(item: TaskQueueItem) {
+  async function handleRunningTask(item: TaskQueueItem, session: TaskSelectionSession) {
     selectDisplayedTask(item.id);
     setActiveQueueTask(item);
     setIsGenerating(true);
-    setIsSplitRun(false);
-    setResultGroups(null);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
     setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
+    setResultGroupReferences([]);
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
+      if (!session.isCurrent() || detail.payload.mode !== mode) return;
+      applyGeneralImageHistoryPayload(detail.payload, safeTaskQueueUrls(item.resultThumbnails), {
+        silent: true,
+        task: item,
+      });
+      setIsGenerating(true);
+      setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+    } catch (err) {
+      if (!session.signal.aborted && session.isCurrent()) {
+        console.warn("[general-image] failed to restore running task grouping", err);
+      }
+    }
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
@@ -1270,12 +1173,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         {((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-start justify-start">
-              {isSplitRun && isImageMode && splitRunReferencesRef.current.length > 1 ? (
+              {isImageMode && resultGroupReferences.length > 1 ? (
                 <div className="flex w-full flex-col gap-6">
-                  {splitRunReferencesRef.current.map((reference, groupIndex) => {
-                    const perGroupCount = Math.max(1, Math.round(activeResultExpectedCount / splitRunReferencesRef.current.length));
+                  {resultGroupReferences.map((reference, groupIndex) => {
+                    const perGroupCount = Math.max(1, Math.round(activeResultExpectedCount / resultGroupReferences.length));
                     const start = groupIndex * perGroupCount;
-                    const groupUrls = resultGroups?.[groupIndex] ?? [];
+                    const groupUrls = resultUrls.slice(start, start + perGroupCount);
                     const groupFailedCount = Math.max(0, perGroupCount - groupUrls.filter(Boolean).length);
                     return (
                       <ResultImageGrid

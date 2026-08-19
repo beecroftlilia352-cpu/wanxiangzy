@@ -68,6 +68,29 @@ describe("normalizeGenerationState", () => {
     expect(state.progress).toBe(25);
   });
 
+  it("keeps one-per-reference general image work in one aggregate task", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: ["https://example.com/result-1.png", "https://example.com/result-2.png"],
+      payload: {
+        kind: "generalImage",
+        mode: "image-to-image",
+        onePerReference: true,
+        referenceUrls: [
+          "https://example.com/reference-1.png",
+          "https://example.com/reference-2.png",
+        ],
+        genCount: 2,
+      },
+    });
+
+    expect(state.status).toBe("processing");
+    expect(state.statusGroup).toBe("running");
+    expect(state.resultCount).toBe(2);
+    expect(state.expectedCount).toBe(4);
+    expect(state.progress).toBe(50);
+  });
+
   it("trusts an explicit completed database status", () => {
     const state = normalizeGenerationState({
       status: "completed",

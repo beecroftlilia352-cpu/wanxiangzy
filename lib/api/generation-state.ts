@@ -113,6 +113,12 @@ function readExpectedCount(payload: Record<string, unknown>, resultCount: number
     return clampExpectedCount(perReferenceCount * referenceCount);
   }
 
+  if (payload.kind === "generalImage" && payload.onePerReference === true) {
+    const referenceCount = Math.max(1, uniqueStrings(stringArray(payload.referenceUrls)).length);
+    const perReferenceCount = firstFiniteNumber([payload.genCount, payload.gen_count, payload.outputCount, payload.count]) || 1;
+    return clampExpectedCount(perReferenceCount * referenceCount);
+  }
+
   if (payload.kind === "faceSwap") {
     const sourceCount = Math.max(1, uniqueStrings([...stringArray(payload.sourceUrls), stringValue(payload.sourceUrl)]).length);
     const perSourceCount = firstFiniteNumber([payload.genCount, payload.gen_count, payload.outputCount, payload.count]) || 1;

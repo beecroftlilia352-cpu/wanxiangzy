@@ -1789,6 +1789,10 @@ async function executePayload(
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
+    const isSplitRun = payload.kind === "generalImage"
+      && payload.onePerReference === true
+      && payload.referenceUrls.length > 1;
+    const perReferenceCount = Math.max(1, Number(payload.genCount) || 1);
     const smartAspectImage = payload.kind === "outfitFusion"
       ? resolveOutfitFusionSmartAspectImage({
           assets: payload.assets,
@@ -1797,20 +1801,27 @@ async function executePayload(
         })
       : payload.referenceUrls[0];
 
-    const totalCount = Math.max(1, Number(payload.genCount) || 1);
+    const references = imageInputs.clothingUrls.length ? imageInputs.clothingUrls : payload.referenceUrls;
+    const totalCount = isSplitRun ? references.length * perReferenceCount : perReferenceCount;
     return executeParallelImageBatch({
       count: totalCount,
       concurrency: Math.min(totalCount, 3),
       maxAttemptsPerSlot: 2,
       promptKind: payload.kind === "outfitFusion" ? "outfitFusion" : payload.mode,
-      run: async (_index, onTaskProgress) => {
+      run: async (index, onTaskProgress) => {
+        // Multi-to-one: each reference owns `genCount` slots, so results are
+        // produced reference-major and the client can slice them per group.
+        const slotReferences = isSplitRun
+          ? [references[Math.min(references.length - 1, Math.floor(index / perReferenceCount))]]
+          : imageInputs.clothingUrls;
+        const slotSmartAspectImage = isSplitRun ? slotReferences[0] : smartAspectImage;
         const result = await generateImage({
           model: payload.aiModel,
           prompt: payload.prompt,
           prompt_kind: payload.kind === "outfitFusion" ? "outfitFusion" : undefined,
           aspect_ratio: payload.aspectRatio,
-          image: imageInputs.clothingUrls,
-          smart_aspect_image: smartAspectImage,
+          image: slotReferences,
+          smart_aspect_image: slotSmartAspectImage,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -2589,6 +2600,9 @@ function getExpectedResultCount(payload: GenerationJobPayload) {
   if (payload.kind === "tryon") {
     const referenceCount = getTryOnPayloadReferenceUrls(payload).length || 1;
     return Math.max(1, Number(payload.genCount || 1)) * referenceCount;
+  }
+  if (payload.kind === "generalImage" && payload.onePerReference && payload.referenceUrls.length > 1) {
+    return Math.max(1, Number(payload.genCount || 1)) * payload.referenceUrls.length;
   }
   return Math.max(1, Number((payload as { genCount?: number }).genCount || 1));
 }
