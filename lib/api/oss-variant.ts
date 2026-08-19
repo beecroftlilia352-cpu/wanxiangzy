@@ -72,7 +72,6 @@ function buildPublicHost(config: ReturnType<typeof getAliyunOssConfig>, srcHost:
 export function createSignedOssVariantUrl(srcUrl: URL, variant: keyof typeof OSS_VARIANT_PIPELINES): string {
   const config = getOssConfigOrThrow();
   const { bucket, objectKey, host } = splitBucketAndKey(srcUrl);
-  const isVirtualHosted = host.split(".")[0] === bucket;
   if (!bucket || !objectKey) {
     throw new Error("cannot derive bucket or key from src");
   }
@@ -97,11 +96,9 @@ export function createSignedOssVariantUrl(srcUrl: URL, variant: keyof typeof OSS
   queryParams.sort(([a], [b]) => a.localeCompare(b));
 
   const canonicalQuery = queryParams.map(([k, v]) => `${k}=${v}`).join("&");
-  // Virtual-hosted style URL (${host}/${key}) signs with /${key};
-  // path-style (${host}/${bucket}/${key}) signs with /${bucket}/${key}.
-  const canonicalResource = isVirtualHosted
-    ? `/${objectKey}${canonicalQuery ? `?${canonicalQuery}` : ""}`
-    : `/${bucket}/${objectKey}${canonicalQuery ? `?${canonicalQuery}` : ""}`;
+  // Aliyun OSS always uses path-style canonical resource regardless of
+  // whether the URL is virtual-hosted or path-style.
+  const canonicalResource = `/${bucket}/${objectKey}${canonicalQuery ? `?${canonicalQuery}` : ""}`;
   const stringToSign = ["GET", "", "", expires, canonicalResource].join("\n");
   const signature = createHmac("sha1", config.accessKeySecret)
     .update(stringToSign)
