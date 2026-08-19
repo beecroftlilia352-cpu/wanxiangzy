@@ -9,7 +9,7 @@ describe("download utility", () => {
   describe("generateDownloadFilename", () => {
     it("produces a vwg-prefixed filename with module code, date, time and sequence", () => {
       const filename = generateDownloadFilename("product-retouch", 0);
-      expect(filename).toMatch(/^vwg-ret-\d{4}-\d{4}-01\.png$/);
+      expect(filename).toMatch(/^vwg-ret-\d{4}-\d{6}-01\.png$/);
     });
 
     it("compacts module names to 2-3 letter codes", () => {

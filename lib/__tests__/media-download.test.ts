@@ -4,6 +4,7 @@ import { downloadMediaFile, downloadMediaFiles } from "@/lib/media-download";
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("downloadMediaFile", () => {
@@ -63,6 +64,9 @@ describe("downloadMediaFile", () => {
   });
 
   it("hands every result directly to the browser with distinct filenames", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 19, 19, 30, 5));
+
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const downloads: Array<{ href: string; filename: string }> = [];
@@ -81,8 +85,8 @@ describe("downloadMediaFile", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toEqual({ successCount: 2, failedCount: 0 });
     expect(downloads.map((item) => item.filename)).toEqual([
-      "tryon-results-01.webp",
-      "tryon-results-02.jpg",
+      "tryon-results-0819-193005-01.webp",
+      "tryon-results-0819-193005-02.jpg",
     ]);
     expect(downloads.map((item) => item.href)).toEqual([
       "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp",

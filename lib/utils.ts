@@ -88,7 +88,7 @@ export function generateDownloadFilename(prefix: string, index: number, ext = "p
   const pad = (n: number) => String(n).padStart(2, "0");
   const moduleCode = compactDownloadPrefix(prefix);
   const date = `${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-  const time = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const seq = String(index + 1).padStart(2, "0");
   return `vwg-${moduleCode}-${date}-${time}-${seq}.${normalizeDownloadExtension(ext)}`;
 }

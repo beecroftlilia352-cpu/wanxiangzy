@@ -141,6 +141,9 @@ function isDirectlyDownloadableUrl(url: string) {
 
 function buildIndexedFilename(prefix: string, url: string, index: number) {
   const safePrefix = prefix.replace(/\.(zip|png|jpe?g|webp|gif)$/i, "") || "results";
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stamp = `${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   let extension = "png";
   try {
     const fromPath = new URL(url, window.location.origin).pathname.split(".").pop()?.toLowerCase();
@@ -150,7 +153,7 @@ function buildIndexedFilename(prefix: string, url: string, index: number) {
   } catch {
     // Keep the safe image default when a browser-local URL has no extension.
   }
-  return `${safePrefix}-${String(index + 1).padStart(2, "0")}.${extension}`;
+  return `${safePrefix}-${stamp}-${String(index + 1).padStart(2, "0")}.${extension}`;
 }
 
 function triggerUrlDownload(url: string, filename: string) {
