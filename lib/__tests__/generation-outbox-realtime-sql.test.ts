@@ -59,6 +59,7 @@ describe("generation outbox Realtime SQL contract", () => {
     expect(localDeploy).toContain(
       "generation outbox is missing from the Supabase Realtime publication",
     );
+    expect(localDeploy).toContain('WEB_INSTANCES="${WEB_INSTANCES:-1}"');
   });
 
   it("keeps the legacy AWS workflow manual-only", () => {
