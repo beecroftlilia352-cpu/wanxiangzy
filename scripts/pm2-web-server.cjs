@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
+const { loadEnvConfig } = require("@next/env");
+loadEnvConfig(process.cwd());
+
 const http = require("node:http");
 const next = require("next");
 
