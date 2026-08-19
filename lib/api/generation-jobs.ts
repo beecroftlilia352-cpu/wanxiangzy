@@ -194,6 +194,8 @@ type GenerationJobPayloadBase = {
     resultUrls: string[];
     updatedAt: string;
   };
+  batchId?: string;
+  batchIndex?: number;
 };
 
 export type GenerationJobPayload = GenerationJobPayloadBase & (

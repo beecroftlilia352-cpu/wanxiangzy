@@ -25,6 +25,8 @@ import { ResolutionSelector } from "@/components/studio/ResolutionSelector";
 import { PromptTextarea } from "@/components/studio/PromptTextarea";
 import { AspectRatioSelector } from "@/components/studio/AspectRatioSelector";
 import { GenerationCountField } from "@/components/studio/GenerationCountField";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/shadcn-compat";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -134,6 +136,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(defaultSettings.aspectRatio);
   const [imageSize, setImageSize] = useState<ImageSize>(defaultSettings.imageSize);
   const [genCount, setGenCount] = useState(1);
+  const [onePerReference, setOnePerReference] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -171,6 +174,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const isImageMode = mode === "image-to-image";
+  const displayTotalCost = totalCost * (onePerReference && isImageMode ? referenceImages.length : 1);
   const authIsAnonymous = authChecked && !isAuthenticated;
   const activeFeature = isImageMode ? "imageToImage" : "textToImage";
   const taskInputThumbnails = useMemo(
@@ -734,6 +738,66 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     toast.success(t("appliedToDescription"));
   }
 
+  async function pollBatchReferences(taskId: string, generationIds: string[], expectedCount: number) {
+    const remaining = new Set(generationIds);
+    const merged: string[] = [];
+    let attempts = 0;
+    while (remaining.size > 0 && attempts < 150) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      attempts += 1;
+      await Promise.all([...remaining].map(async (id) => {
+        try {
+          const res = await fetch(`/api/general-image?generation_id=${encodeURIComponent(id)}`);
+          if (!res.ok) return;
+          const state = await res.json().catch(() => null) as { status?: string; result_urls?: unknown } | null;
+          if (!state || (state.status !== "completed" && state.status !== "failed")) return;
+          remaining.delete(id);
+          if (Array.isArray(state.result_urls)) {
+            for (const url of state.result_urls) {
+              if (typeof url === "string" && url && !merged.includes(url)) merged.push(url);
+            }
+          }
+        } catch {
+          // transient network error; keep polling
+        }
+      }));
+      const done = generationIds.length - remaining.size;
+      const percent = remaining.size === 0 ? 100 : Math.min(99, Math.max(12, Math.round((done / generationIds.length) * 100)));
+      setProgress(percent);
+      if (displayedTaskIdRef.current === taskId) {
+        setResultUrls(merged);
+        const runningTask = taskQueue.markRunning(taskId, {
+          expectedCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: merged,
+          resultCount: merged.length,
+          progress: percent,
+        });
+        setActiveQueueTask(runningTask);
+      }
+    }
+    const finalCount = merged.length;
+    setProgress(100);
+    setIsGenerating(false);
+    const completedTask = taskQueue.markCompleted(taskId, {
+      expectedCount,
+      inputThumbnails: taskInputThumbnails,
+      resultThumbnails: merged,
+      resultCount: finalCount,
+      error: finalCount < expectedCount ? t("partialCompleteImageToImage", { done: finalCount, expected: expectedCount }) : "",
+    });
+    if (displayedTaskIdRef.current === taskId) {
+      setResultUrls(merged);
+      setActiveQueueTask(completedTask);
+    }
+    if (finalCount < expectedCount) {
+      toast.warning(t("partialCompleteImageToImage", { done: finalCount, expected: expectedCount }));
+    } else {
+      toast.success(t("completeImageToImage"));
+    }
+    void refreshCredits();
+  }
+
   async function generate(options: GeneralImageGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error(t("pleaseLogin"));
@@ -743,6 +807,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (!prompt.trim()) return toast.error(t("enterPrompt"));
     if (isImageMode && !referenceImages.length) return toast.error(t("needReference"));
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
+    const shouldSplit = onePerReference && isImageMode && referenceImages.length > 1;
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
     const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
     const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
@@ -752,7 +817,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       previousUrls: retryPreviousResultUrls,
       fallbackExpectedCount: runExpectedCount,
     });
-    const runTotalCost = costPerImage * runExpectedCount;
+    const runTotalCost = costPerImage * runExpectedCount * (shouldSplit ? referenceImages.length : 1);
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
@@ -783,6 +848,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
+          one_per_reference: shouldSplit,
           gen_count: runGenCount,
         }),
       });
@@ -802,6 +868,25 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
+      }
+
+      if (Array.isArray(data.generation_ids) && data.generation_ids.length > 1) {
+        const batchId = typeof data.batch_id === "string" && data.batch_id
+          ? data.batch_id
+          : String(data.generation_ids[0]);
+        const batchExpectedCount = displayExpectedCount * data.generation_ids.length;
+        const batchTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: batchId,
+          expectedCount: batchExpectedCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing",
+          progress: 12,
+        });
+        selectDisplayedTask(batchTask.id);
+        setActiveQueueTask(batchTask);
+        setCleanDraftSignature(currentDraftSignature);
+        void pollBatchReferences(batchTask.id, data.generation_ids as string[], batchExpectedCount);
+        return;
       }
 
       if (typeof data.generation_id === "string" && data.generation_id) {
@@ -980,6 +1065,21 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 />
               )}
             </StudioUploadSection>
+          )}
+
+          {isImageMode && referenceImages.length > 1 && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--codex-border)] bg-[var(--codex-surface)] px-3 py-2.5">
+              <div className="flex items-center gap-2 text-sm text-codex-ink">
+                <Label className="cursor-pointer">
+                  {t("onePerReferenceLabel")}
+                </Label>
+                <span className="text-xs text-codex-muted">{t("onePerReferenceHint")}</span>
+              </div>
+              <Switch
+                checked={onePerReference}
+                onChange={setOnePerReference}
+              />
+            </div>
           )}
 
           <div>
