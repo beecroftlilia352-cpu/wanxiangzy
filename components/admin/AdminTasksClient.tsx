@@ -53,6 +53,11 @@ const moduleOptions = [
 ];
 
 const TASK_PAGE_SIZE_OPTIONS = [20, 50] as const;
+const moduleColumnFilters = moduleOptions
+  .filter((item) => item.value)
+  .flatMap((item) => item.value === "generalImage"
+    ? [{ text: "文生图", value: "文生图" }, { text: "图生图", value: "图生图" }]
+    : [{ text: item.label, value: item.label }]);
 
 export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSize, fetchError, canOperate = false }: AdminTasksClientProps) {
   const router = useRouter();
@@ -85,7 +90,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
     },
     { title: "输入", width: 170, render: (_, row) => <TaskThumbnails urls={row.inputThumbnails} label="输入素材" /> },
     { title: "输出", width: 170, render: (_, row) => <TaskThumbnails urls={row.resultThumbnails} label="输出结果" empty="待生成" /> },
-    { title: "模块", dataIndex: "moduleLabel", width: 130, filters: moduleOptions.filter((item) => item.value).map((item) => ({ text: item.label, value: item.label })), onFilter: (value, row) => row.moduleLabel === value },
+    { title: "模块", dataIndex: "moduleLabel", width: 130, filters: moduleColumnFilters, onFilter: (value, row) => row.moduleLabel === value },
     { title: "进度", dataIndex: "progress", width: 150, sorter: (a, b) => a.progress - b.progress, render: (value: number) => <Progress percent={value} size="small" /> },
     { title: "结果", width: 90, render: (_, row) => <span className="tabular-nums">{`${row.resultCount}/${row.expectedCount}`}</span> },
     { title: "模型", dataIndex: "model", width: 150, render: (value) => value || "-" },

@@ -29,6 +29,9 @@ type ResultImageGridProps = {
   onOpen: (url: string, index: number) => void;
   extension?: string;
   expectedCount?: number;
+  downloadUrls?: string[];
+  downloadExpectedCount?: number;
+  showDownloadAction?: boolean;
   isGenerating?: boolean;
   imageAltPrefix?: string;
   inputThumbnails?: string[];
@@ -98,6 +101,9 @@ export function ResultImageGrid({
   onOpen,
   extension = "png",
   expectedCount,
+  downloadUrls,
+  downloadExpectedCount,
+  showDownloadAction = true,
   isGenerating,
   imageAltPrefix,
   inputThumbnails = [],
@@ -127,10 +133,11 @@ export function ResultImageGrid({
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const isSingle = count <= 1;
   const completedUrls = urls.filter(Boolean);
+  const actionUrls = (downloadUrls || completedUrls).filter(Boolean);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
   const completedSlotCount = slots.filter(Boolean).length;
   const allExpectedResultsReady = completedSlotCount >= count;
-  const downloadsReady = allExpectedResultsReady
+  const downloadsReady = actionUrls.length >= Math.max(1, downloadExpectedCount || count)
     && !isGenerating
     && statusGroup !== "running"
     && statusGroup !== "queued"
@@ -214,9 +221,9 @@ export function ResultImageGrid({
         </p>
         <div className="studio-result-download-row">
           <p className="studio-result-time">{timestamp}</p>
-          {downloadsReady && completedUrls.length === 1 && (
+          {showDownloadAction && downloadsReady && actionUrls.length === 1 && (
             <StudioSingleDownloadButton
-              url={completedUrls[0]}
+              url={actionUrls[0]}
               filename={generateDownloadFilename(filenamePrefix, 0, extension)}
               errorFallback={t("downloadFailed")}
               label={t("download")}
@@ -225,12 +232,12 @@ export function ResultImageGrid({
               className="studio-result-primary-download"
             />
           )}
-          {downloadsReady && completedUrls.length > 1 && (
+          {showDownloadAction && downloadsReady && actionUrls.length > 1 && (
             <StudioBatchDownloadButton
-              urls={completedUrls}
+              urls={actionUrls}
               filename={`pixel-diffusion-${filenamePrefix}`}
               resultLabel={t("results")}
-              label={t("downloadAll", { count: completedUrls.length })}
+              label={t("downloadAll", { count: actionUrls.length })}
               variant="outline"
               size="sm"
               className="studio-result-primary-download studio-result-batch-download"
@@ -292,12 +299,12 @@ export function ResultImageGrid({
 
   return (
     <div className="studio-result-card-grid-wrap mx-auto w-full">
-      {downloadsReady && completedUrls.length > 0 && (
+      {showDownloadAction && downloadsReady && actionUrls.length > 0 && (
         <div className="studio-result-download-row studio-result-download-row-cards">
           <span />
-          {completedUrls.length === 1 ? (
+          {actionUrls.length === 1 ? (
             <StudioSingleDownloadButton
-              url={completedUrls[0]}
+              url={actionUrls[0]}
               filename={generateDownloadFilename(filenamePrefix, 0, extension)}
               errorFallback={t("downloadFailed")}
               label={t("download")}
@@ -307,10 +314,10 @@ export function ResultImageGrid({
             />
           ) : (
             <StudioBatchDownloadButton
-              urls={completedUrls}
+              urls={actionUrls}
               filename={`pixel-diffusion-${filenamePrefix}`}
               resultLabel={t("results")}
-              label={t("downloadAll", { count: completedUrls.length })}
+              label={t("downloadAll", { count: actionUrls.length })}
               variant="outline"
               size="sm"
               className="studio-result-primary-download studio-result-batch-download"

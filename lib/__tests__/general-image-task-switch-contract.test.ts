@@ -45,8 +45,8 @@ describe("general image running-task switch contract", () => {
   });
 
   it("renders only a stable restore stage while task details are loading", () => {
-    expect(source).toContain("<TaskRestoreStage");
-    expect(source).toContain('title={t("taskRestoreTitle")}');
+    expect(source).toContain('className="h-4 w-4 animate-spin motion-reduce:animate-none"');
+    expect(source).not.toContain("<TaskRestoreStage");
     expect(source).toContain(
       "!restoringTaskId && !isGenerating && resultUrls.length === 0 && !error && !activeQueueTask",
     );
@@ -56,15 +56,17 @@ describe("general image running-task switch contract", () => {
     expect(source).not.toContain("flex flex-col animate-fade-in");
   });
 
-  it("renders all results in one flat grid with one task-level download action", () => {
+  it("preserves multi-reference result groups with one task-level download action", () => {
     const resultStage = source.slice(
       source.indexOf("<div className=\"studio-result-stage"),
       source.indexOf("<ImagePromptDialog"),
     );
 
-    expect(resultStage.match(/<ResultImageGrid/g)).toHaveLength(1);
-    expect(resultStage).not.toContain("general-image-group-");
-    expect(resultStage).not.toContain("resultGroupReferences.map((reference, groupIndex)");
+    expect(resultStage).toContain("general-image-group-");
+    expect(resultStage).toContain("resultGroupReferences.map((reference, groupIndex)");
+    expect(resultStage).toContain("showDownloadAction={groupIndex === 0}");
+    expect(resultStage).toContain("downloadUrls={groupIndex === 0 ? resultUrls : undefined}");
+    expect(resultStage).toContain("downloadExpectedCount={activeResultExpectedCount}");
     expect(resultStage).toContain("expectedCount={activeResultExpectedCount}");
   });
 

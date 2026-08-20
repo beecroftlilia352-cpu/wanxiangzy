@@ -2782,23 +2782,26 @@ function mapTaskQueueRow(row: Record<string, unknown>): AdminTaskListItem {
   const statusGroup = normalizeTaskStatusGroup(stringValue(row.status_group) || stringValue(row.status), resultCount);
   const createdAt = nullableString(row.created_at);
   const updatedAt = nullableString(row.updated_at);
+  const applyUrl = stringValue(row.apply_url);
+  const generalImageMode = inferAdminGeneralImageMode(module, applyUrl, arrayOfStrings(row.input_thumbnails));
+  const resolvedModuleLabel = generalImageMode === "image-to-image" ? "图生图" : generalImageMode === "text-to-image" ? "文生图" : moduleLabel(module);
   return {
     id: stringValue(row.id) || stringValue(row.source_id),
     sourceId: stringValue(row.source_id),
     sourceType,
     userId: stringValue(row.user_id),
     module,
-    moduleLabel: moduleLabel(module),
-    title: stringValue(row.title) || moduleLabel(module),
+    moduleLabel: resolvedModuleLabel,
+    title: module === "generalImage" ? resolvedModuleLabel : stringValue(row.title) || resolvedModuleLabel,
     status: stringValue(row.status) || stringValue(row.status_group),
     statusGroup,
     progress: clampProgress(row.progress),
     expectedCount: Math.max(1, numberValue(row.expected_count) || 1),
     resultCount,
-    inputThumbnails: arrayOfStrings(row.input_thumbnails),
+    inputThumbnails: generalImageMode === "text-to-image" ? [] : arrayOfStrings(row.input_thumbnails),
     resultThumbnails: arrayOfStrings(row.result_thumbnails),
     errorMessage: nullableString(row.error_message),
-    applyUrl: stringValue(row.apply_url),
+    applyUrl,
     createdAt,
     updatedAt,
     completedAt: nullableString(row.completed_at),
@@ -2865,20 +2868,23 @@ function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
   const statusGroup = normalizeTaskStatusGroup(status, resultUrls.length);
   const createdAt = nullableString(row.created_at);
   const updatedAt = nullableString(row.updated_at) || nullableString(row.processing_started_at);
+  const inputThumbnails = inferInputThumbnails(row, payload);
+  const generalImageMode = inferAdminGeneralImageMode(module, stringValue(payload.mode), inputThumbnails);
+  const resolvedModuleLabel = generalImageMode === "image-to-image" ? "图生图" : generalImageMode === "text-to-image" ? "文生图" : moduleLabel(module);
   return {
     id: stringValue(row.id),
     sourceId: stringValue(row.id),
     sourceType: "generation",
     userId: stringValue(row.user_id),
     module,
-    moduleLabel: moduleLabel(module),
-    title: moduleLabel(module),
+    moduleLabel: resolvedModuleLabel,
+    title: resolvedModuleLabel,
     status,
     statusGroup,
     progress: statusGroup === "completed" ? 100 : statusGroup === "failed" ? 0 : clampProgress(payload.progress || readAsyncTask(payload).progress || 12),
     expectedCount: inferExpectedCount(payload, resultUrls.length),
     resultCount: resultUrls.length,
-    inputThumbnails: inferInputThumbnails(row, payload),
+    inputThumbnails: generalImageMode === "text-to-image" ? [] : inputThumbnails,
     resultThumbnails: resultUrls.slice(0, ADMIN_TASK_PREVIEW_LIMIT),
     errorMessage: nullableString(row.error_message),
     applyUrl: `${moduleRoute(module)}?apply=${encodeURIComponent(stringValue(row.id))}`,
@@ -3442,6 +3448,14 @@ function inferInputThumbnails(row: Record<string, unknown>, payload: Record<stri
     stringValue(row.model_face_url),
     stringValue(row.reference_url),
   ]).slice(0, 6);
+}
+
+function inferAdminGeneralImageMode(module: string, modeOrApplyUrl: string, inputThumbnails: string[]) {
+  if (module !== "generalImage") return null;
+  const value = modeOrApplyUrl.toLowerCase();
+  if (value.includes("image-to-image")) return "image-to-image" as const;
+  if (value.includes("text-to-image")) return "text-to-image" as const;
+  return inputThumbnails.length > 0 ? "image-to-image" as const : "text-to-image" as const;
 }
 
 function readAsyncTask(payload: Record<string, unknown>) {

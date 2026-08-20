@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import { Check, Download, Images, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
   type MediaDownloadActionState,
 } from "@/hooks/use-media-download";
 import { cn } from "@/lib/utils";
+import { prepareMediaDownloads } from "@/lib/media-download";
 
 type SharedButtonProps = Omit<ComponentProps<typeof Button>, "onClick" | "children"> & {
   label: string;
@@ -75,20 +76,33 @@ export function StudioBatchDownloadButton({
   ...buttonProps
 }: BatchDownloadButtonProps) {
   const { batchState, downloadBatch } = useMediaDownload();
+  const [preparedDownloads, setPreparedDownloads] = useState<Array<{ url: string; filename: string }> | null>(null);
+  const urlsKey = JSON.stringify(urls);
+  useEffect(() => {
+    const controller = new AbortController();
+    const urlsForPreparation = JSON.parse(urlsKey) as string[];
+    setPreparedDownloads(null);
+    void prepareMediaDownloads({ urls: urlsForPreparation, filenamePrefix: filename, signal: controller.signal })
+      .then((downloads) => setPreparedDownloads(downloads))
+      .catch(() => {
+        if (!controller.signal.aborted) setPreparedDownloads([]);
+      });
+    return () => controller.abort();
+  }, [filename, urlsKey]);
   const running = batchState.status === "running";
   const visibleLabel = getBatchDownloadStatusLabel(label, batchState);
   return (
     <Button
       {...buttonProps}
       type="button"
-      disabled={disabled || running || urls.length < 2}
+      disabled={disabled || running || urls.length < 2 || preparedDownloads?.length !== urls.length}
       aria-busy={running}
       aria-label={label}
       title={label}
       className={cn("studio-media-download-button studio-media-download-button-batch", className)}
       onClick={(event) => {
         if (stopPropagation) event.stopPropagation();
-        void downloadBatch({ urls, filename, label: resultLabel });
+        void downloadBatch({ urls, filename, label: resultLabel, preparedDownloads: preparedDownloads || undefined });
       }}
     >
       <DownloadStatusIcon state={batchState} batch />

@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { createAliyunOssDownloadUrl } from "@/lib/api/image-storage";
 import { createAliyunOssRegistryReadUrl } from "@/lib/api/media-storage";
-import { getAdminClient } from "@/lib/supabase/admin";
 import { rateLimitResponse } from "@/lib/api/rate-limit";
 import { fetchRemoteImageResponse, RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
+import { resolveVerifiedMediaAssetForViewer } from "@/lib/api/media-asset-viewer.server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const rateLimit = checkDownloadRateLimit(request);
   if (!rateLimit.ok) return downloadRateLimitResponse(rateLimit.retryAfterSeconds);
 
-  const { supabase, user, response: authResponse } = await requireApiUser();
+  const { user, response: authResponse } = await requireApiUser();
   if (authResponse) return authResponse;
 
   const imageUrl = request.nextUrl.searchParams.get("url");
@@ -71,39 +71,21 @@ export async function GET(request: NextRequest) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(assetId)) {
       return NextResponse.json({ error: "Invalid media asset" }, { status: 400 });
     }
-    const { data: record } = await supabase
-      .from("media_asset_records")
-      .select("id,status")
-      .eq("id", assetId)
-      .maybeSingle();
-    if (!record || record.status !== "verified") {
+    const resolved = await resolveVerifiedMediaAssetForViewer(assetId, user.id);
+    if (!resolved) {
       return NextResponse.json({ error: "Media asset is not available" }, { status: 404 });
     }
-    const { data, error } = await getAdminClient().rpc("resolve_verified_media_asset_for_worker", {
-      p_asset_id: assetId,
-      p_expected_owner_user_id: user.id,
-    });
-    const row = Array.isArray(data) && data[0] && typeof data[0] === "object"
-      ? data[0] as { bucket_name?: unknown; object_key?: unknown }
-      : null;
-    if (error || !row || typeof row.bucket_name !== "string" || typeof row.object_key !== "string") {
-      return NextResponse.json({ error: "Media asset is not available" }, { status: 404 });
-    }
-    parsedUrl = new URL(createAliyunOssRegistryReadUrl(row.object_key, row.bucket_name));
+    parsedUrl = new URL(createAliyunOssRegistryReadUrl(resolved.objectKey, resolved.bucketName));
   } else if (parsedUrl.origin === request.nextUrl.origin || !isAllowedHost(parsedUrl.hostname)) {
     return NextResponse.json({ error: "Image host is not allowed" }, { status: 400 });
   }
 
   const aliyunOssDownloadUrl = createAliyunOssDownloadUrl(parsedUrl.toString(), filename);
   if (resolveOnly) {
-    if (!isCanonicalAsset && aliyunOssDownloadUrl) {
+    if (aliyunOssDownloadUrl) {
       return NextResponse.json({ strategy: "direct", url: aliyunOssDownloadUrl });
     }
-    const proxyUrl = new URL("/api/download-image", request.nextUrl.origin);
-    proxyUrl.searchParams.set("url", parsedUrl.toString());
-    proxyUrl.searchParams.set("filename", filename);
-    proxyUrl.searchParams.set("proxy", "1");
-    return NextResponse.json({ strategy: "proxy", url: proxyUrl.pathname + proxyUrl.search });
+    return NextResponse.json({ error: "Direct download is unavailable" }, { status: 422 });
   }
   if (aliyunOssDownloadUrl && !forceProxy && !isCanonicalAsset) {
     const redirect = NextResponse.redirect(aliyunOssDownloadUrl, 302);

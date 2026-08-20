@@ -7,6 +7,9 @@ import zhMessages from "@/messages/zh.json";
 const mediaMocks = vi.hoisted(() => ({
   downloadMediaFile: vi.fn().mockResolvedValue(undefined),
   downloadMediaFiles: vi.fn().mockResolvedValue({ successCount: 3, failedCount: 0 }),
+  prepareMediaDownloads: vi.fn(async (options: { urls: string[] }) => (
+    options.urls.map((url, index) => ({ url, filename: `result-${index + 1}.png` }))
+  )),
 }));
 
 afterEach(() => {
@@ -30,6 +33,7 @@ vi.mock("@/lib/image-variants", () => ({
 vi.mock("@/lib/media-download", () => ({
   downloadMediaFile: mediaMocks.downloadMediaFile,
   downloadMediaFiles: mediaMocks.downloadMediaFiles,
+  prepareMediaDownloads: mediaMocks.prepareMediaDownloads,
 }));
 
 const sampleUrls = [
@@ -120,7 +124,7 @@ describe("ResultImageGrid download button", () => {
     expect(document.querySelector(".studio-result-primary-download")).toBeNull();
   });
 
-  it("hands every completed URL to the one batch action", () => {
+  it("hands every completed URL to the one batch action", async () => {
     renderWithIntl(
       <ResultImageGrid
         urls={sampleUrls}
@@ -132,10 +136,45 @@ describe("ResultImageGrid download button", () => {
       />
     );
 
+    await vi.waitFor(() => {
+      expect((document.querySelector(".studio-result-batch-download") as HTMLButtonElement).disabled).toBe(false);
+    });
     fireEvent.click(document.querySelector(".studio-result-batch-download") as HTMLElement);
     expect(mediaMocks.downloadMediaFiles).toHaveBeenCalledWith(expect.objectContaining({
       urls: sampleUrls,
     }));
+  });
+
+  it("keeps visual result groups while exposing only one task-wide batch action", async () => {
+    renderWithIntl(
+      <>
+        <ResultImageGrid
+          urls={sampleUrls.slice(0, 2)}
+          downloadUrls={[...sampleUrls, "https://example.com/result-4.png"]}
+          downloadExpectedCount={4}
+          expectedCount={2}
+          statusGroup="completed"
+          filenamePrefix="image-to-image"
+          onOpen={() => {}}
+          variant="task"
+        />
+        <ResultImageGrid
+          urls={[sampleUrls[2], "https://example.com/result-4.png"]}
+          expectedCount={2}
+          statusGroup="completed"
+          showDownloadAction={false}
+          filenamePrefix="image-to-image"
+          onOpen={() => {}}
+          variant="task"
+        />
+      </>
+    );
+
+    await vi.waitFor(() => {
+      expect((document.querySelector(".studio-result-batch-download") as HTMLButtonElement).disabled).toBe(false);
+    });
+    expect(document.querySelectorAll(".studio-result-batch-download")).toHaveLength(1);
+    expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 4 张");
   });
 
   it("keeps pending cards static while only completed cards receive hover motion", () => {

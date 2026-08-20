@@ -8,6 +8,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   ImagePlus,
+  Loader2,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -17,7 +18,6 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { LoadingStage } from "@/components/studio/LoadingStage";
-import { TaskRestoreStage } from "@/components/studio/TaskRestoreStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -1161,11 +1161,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
         {restoringTaskId && (
-          <TaskRestoreStage
-            title={t("taskRestoreTitle")}
-            description={t("taskRestoreDescription")}
-            statusLabel={tShared("loadingDots")}
-          />
+          <div
+            className="studio-task-restore-stage flex min-h-[260px] items-center justify-center px-4 sm:min-h-[360px] lg:h-full"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-codex-muted">
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+              <span>{tShared("loadingDots")}</span>
+            </div>
+          </div>
         )}
 
         {!restoringTaskId && !isGenerating && resultUrls.length === 0 && !error && !activeQueueTask && (
@@ -1199,31 +1205,65 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         {!restoringTaskId && ((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col">
             <div className="flex min-h-0 flex-1 items-start justify-start">
-              <ResultImageGrid
-                urls={resultUrls}
-                filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
-                expectedCount={activeResultExpectedCount}
-                isGenerating={isGenerating}
-                inputReferences={isImageMode ? resultGroupReferences.map((reference, index) => ({
-                  url: reference.preview || reference.url,
-                  label: t("referenceImageLabel", { index: index + 1 }),
-                })) : undefined}
-                inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)}
-                createdAt={activeQueueTask?.createdAt}
-                statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
-                variant="task"
-                resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
-                failureLabel={t("failedLabel")}
-                failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
-                markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel={t("missingFailLabel")}
-                missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel={t("retryThis")}
-                onMissingFailureAction={handleRetryFailedResult}
-                missingFailureActionDisabled={retryDisabled}
-                onOpen={(_, index) => setPreviewIndex(index)}
-                tileAspectRatio={aspectRatio}
-              />
+              {isImageMode && resultGroupReferences.length > 1 ? (
+                <div className="flex w-full flex-col gap-6">
+                  {resultGroupReferences.map((reference, groupIndex) => {
+                    const perGroupCount = Math.max(1, Math.round(activeResultExpectedCount / resultGroupReferences.length));
+                    const start = groupIndex * perGroupCount;
+                    const groupUrls = resultUrls.slice(start, start + perGroupCount);
+                    const groupFailedCount = Math.max(0, perGroupCount - groupUrls.filter(Boolean).length);
+                    return (
+                      <ResultImageGrid
+                        key={`general-image-group-${groupIndex}-${reference.url}`}
+                        urls={groupUrls}
+                        filenamePrefix="image-to-image"
+                        expectedCount={perGroupCount}
+                        downloadUrls={groupIndex === 0 ? resultUrls : undefined}
+                        downloadExpectedCount={activeResultExpectedCount}
+                        showDownloadAction={groupIndex === 0}
+                        isGenerating={isGenerating}
+                        inputReferences={[{ url: reference.preview || reference.url, label: t("referenceImageLabel", { index: groupIndex + 1 }) }]}
+                        createdAt={activeQueueTask?.createdAt}
+                        statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
+                        variant="task"
+                        resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image", resultIndexOffset: start }}
+                        failureLabel={t("failedLabel")}
+                        failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
+                        markMissingAsFailed={hasCompletedPartialResults}
+                        missingFailureLabel={t("missingFailLabel")}
+                        missingFailureDetail={groupFailedCount > 0 ? buildPartialFailureDetail({ message: activeQueueTask?.error, failedCount: groupFailedCount }) : undefined}
+                        missingFailureActionLabel={t("retryThis")}
+                        onMissingFailureAction={(index) => handleRetryFailedResult(start + index)}
+                        missingFailureActionDisabled={retryDisabled}
+                        onOpen={(_, index) => setPreviewIndex(start + index)}
+                        tileAspectRatio={aspectRatio}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <ResultImageGrid
+                  urls={resultUrls}
+                  filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
+                  expectedCount={activeResultExpectedCount}
+                  isGenerating={isGenerating}
+                  inputThumbnails={isImageMode ? (safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)) : []}
+                  createdAt={activeQueueTask?.createdAt}
+                  statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
+                  variant="task"
+                  resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
+                  failureLabel={t("failedLabel")}
+                  failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
+                  markMissingAsFailed={hasCompletedPartialResults}
+                  missingFailureLabel={t("missingFailLabel")}
+                  missingFailureDetail={partialFailureMessage}
+                  missingFailureActionLabel={t("retryThis")}
+                  onMissingFailureAction={handleRetryFailedResult}
+                  missingFailureActionDisabled={retryDisabled}
+                  onOpen={(_, index) => setPreviewIndex(index)}
+                  tileAspectRatio={aspectRatio}
+                />
+              )}
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

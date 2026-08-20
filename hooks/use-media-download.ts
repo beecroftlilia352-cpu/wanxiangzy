@@ -87,6 +87,7 @@ export function useMediaDownload() {
     urls: string[];
     filename: string;
     label: string;
+    preparedDownloads?: Array<{ url: string; filename: string }>;
   }) => {
     if (batchControllerRef.current) return false;
     if (batchResetRef.current !== null) {
@@ -104,6 +105,7 @@ export function useMediaDownload() {
       const result = await downloadMediaFiles({
         urls: input.urls,
         filenamePrefix: input.filename,
+        preparedDownloads: input.preparedDownloads,
         signal: controller.signal,
         onProgress: (progress) => {
           if (mountedRef.current) setBatchState({ status: "running", progress });

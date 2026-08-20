@@ -1,5 +1,3 @@
-import { Zip, ZipPassThrough } from "fflate";
-
 export type MediaDownloadPhase =
   | "resolving"
   | "downloading"
@@ -54,12 +52,29 @@ export async function downloadMediaFile(
   options.onProgress?.({ phase: "completed", completed: 1, total: 1, percent: 100 });
 }
 
-/** Builds one client-side ZIP so browsers only need to approve one download.
- * Public media is fetched directly when CORS allows it; the authenticated
- * download route is a per-file fallback and never buffers the whole batch. */
+export async function prepareMediaDownloads(options: {
+  urls: string[];
+  filenamePrefix: string;
+  signal?: AbortSignal;
+}) {
+  const urls = options.urls.filter(Boolean);
+  const stamp = buildDownloadStamp();
+  return Promise.all(urls.map(async (url, index) => {
+    const filename = buildIndexedFilename(options.filenamePrefix, url, index, stamp);
+    return {
+      url: await resolveBrowserDownloadUrl(url, filename, options.signal),
+      filename,
+    };
+  }));
+}
+
+/** Hands every pre-resolved OSS URL to the browser synchronously inside the
+ * original click. The server only authenticates canonical assets and returns
+ * short-lived signed URLs; image bytes never pass through Next.js. */
 export async function downloadMediaFiles(options: {
   urls: string[];
   filenamePrefix: string;
+  preparedDownloads?: Array<{ url: string; filename: string }>;
   onProgress?: (progress: MediaDownloadProgress) => void;
   signal?: AbortSignal;
 }) {
@@ -74,102 +89,52 @@ export async function downloadMediaFiles(options: {
     return { successCount: 1, failedCount: 0 };
   }
 
-  const stamp = buildDownloadStamp();
-  const archiveChunks: ArrayBuffer[] = [];
-  let resolveArchive!: () => void;
-  let rejectArchive!: (error: Error) => void;
-  const archiveCompleted = new Promise<void>((resolve, reject) => {
-    resolveArchive = resolve;
-    rejectArchive = reject;
-  });
-  const archive = new Zip((error, chunk, final) => {
-    if (error) {
-      rejectArchive(error);
-      return;
-    }
-    archiveChunks.push(Uint8Array.from(chunk).buffer);
-    if (final) resolveArchive();
-  });
+  const downloads = options.preparedDownloads?.length === urls.length
+    ? options.preparedDownloads
+    : await prepareMediaDownloads(options);
+  options.signal?.throwIfAborted();
 
-  try {
-    for (let index = 0; index < urls.length; index += 1) {
-      options.signal?.throwIfAborted();
-      const filename = buildIndexedFilename(options.filenamePrefix, urls[index], index, stamp);
-      const response = await fetchBatchDownloadResponse(urls[index], filename, options.signal);
-      if (!response.ok || !response.body) {
-        throw new Error(`第 ${index + 1} 张图片下载失败`);
-      }
-
-      const entry = new ZipPassThrough(filename);
-      archive.add(entry);
-      const reader = response.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        options.signal?.throwIfAborted();
-        entry.push(value, false);
-      }
-      entry.push(new Uint8Array(0), true);
-
-      const completed = index + 1;
-      options.onProgress?.({
-        phase: "downloading",
-        completed,
-        total: urls.length,
-        percent: Math.round((completed / urls.length) * 90),
-      });
-    }
-
+  downloads.forEach((download, index) => {
+    triggerUrlDownload(download.url, download.filename);
+    const completed = index + 1;
     options.onProgress?.({
-      phase: "packing",
-      completed: urls.length,
-      total: urls.length,
-      percent: 95,
+      phase: "saving",
+      completed,
+      total: downloads.length,
+      percent: Math.round((completed / downloads.length) * 100),
     });
-    archive.end();
-    await archiveCompleted;
-    options.signal?.throwIfAborted();
-
-    const archiveName = `${sanitizeFilenamePrefix(options.filenamePrefix)}-${stamp}.zip`;
-    const objectUrl = URL.createObjectURL(new Blob(archiveChunks, { type: "application/zip" }));
-    options.onProgress?.({ phase: "saving", completed: urls.length, total: urls.length, percent: 100 });
-    triggerUrlDownload(objectUrl, archiveName);
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-    options.onProgress?.({ phase: "completed", completed: urls.length, total: urls.length, percent: 100 });
-    return { successCount: urls.length, failedCount: 0 };
-  } catch (error) {
-    archive.terminate();
-    throw error;
-  }
+  });
+  options.onProgress?.({
+    phase: "completed",
+    completed: downloads.length,
+    total: downloads.length,
+    percent: 100,
+  });
+  return { successCount: downloads.length, failedCount: 0 };
 }
 
-async function fetchBatchDownloadResponse(url: string, filename: string, signal?: AbortSignal) {
-  if (isInlineBrowserUrl(url)) return fetch(url, { signal });
-
-  if (isDirectlyDownloadableUrl(url)) {
-    try {
-      const direct = await fetch(url, { credentials: "omit", signal });
-      if (direct.ok && direct.body) return direct;
-      await direct.body?.cancel();
-    } catch (error) {
-      if (signal?.aborted) throw error;
-    }
-  }
+async function resolveBrowserDownloadUrl(url: string, filename: string, signal?: AbortSignal) {
+  if (isInlineBrowserUrl(url) || isDirectlyDownloadableUrl(url)) return url;
 
   const endpoint = new URL("/api/download-image", window.location.origin);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("filename", filename);
-  endpoint.searchParams.set("proxy", "1");
-  return fetch(endpoint, { credentials: "same-origin", signal });
+  endpoint.searchParams.set("resolve", "1");
+  const response = await fetch(endpoint, { credentials: "same-origin", signal });
+  if (!response.ok) throw new Error("下载地址准备失败，请重试");
+  const payload = await response.json() as { strategy?: unknown; url?: unknown };
+  if (payload.strategy !== "direct" || typeof payload.url !== "string" || !/^https?:\/\//i.test(payload.url)) {
+    throw new Error("下载地址准备失败，请重试");
+  }
+  return payload.url;
 }
 
 function buildBrowserDownloadUrl(url: string, filename: string) {
   // Public OSS objects and the few non-OSS hosts we already allow are handed
   // to the browser as-is so Chrome (and other user agents that block
   // cross-origin downloads) can save the file directly. Canonical media
-  // assets are always routed through the server-side proxy because their
-  // ownership and verification status must be checked before the bytes leave
-  // the origin.
+  // assets always use the authenticated route first so ownership and
+  // verification are checked before the browser is redirected to OSS.
   if (isCanonicalMediaAssetUrl(url)) {
     const endpoint = new URL(url, window.location.origin);
     endpoint.searchParams.set("filename", filename);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { createAliyunOssRegistryReadUrl } from "@/lib/api/media-storage";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { resolveVerifiedMediaAssetForViewer } from "@/lib/api/media-asset-viewer.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     .select("id,status")
     .eq("id", assetId)
     .maybeSingle();
-  if (recordError || !record) {
+  if (recordError && recordError.code !== "PGRST116") {
     return NextResponse.json({ error: "媒体资产不存在" }, {
       status: 404,
       headers: { "Cache-Control": "private, no-store" },
@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
 
   const wantsStatus = new URL(request.url).searchParams.get("status") === "1";
-  if (record.status !== "verified") {
+  if (record && record.status !== "verified") {
     const terminal = record.status === "quarantined" || record.status === "deleted";
     return NextResponse.json({
       media_asset_id: assetId,
@@ -43,6 +43,12 @@ export async function GET(request: Request, { params }: RouteContext) {
     });
   }
   if (wantsStatus) {
+    if (!record) {
+      return NextResponse.json({ error: "媒体资产不存在" }, {
+        status: 404,
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
     return NextResponse.json({
       media_asset_id: assetId,
       status: "verified",
@@ -52,22 +58,8 @@ export async function GET(request: Request, { params }: RouteContext) {
     }, { headers: { "Cache-Control": "private, no-store" } });
   }
 
-  const { data, error } = await getAdminClient().rpc(
-    "resolve_verified_media_asset_for_worker",
-    {
-      p_asset_id: assetId,
-      p_expected_owner_user_id: user.id,
-    },
-  );
-  const row = Array.isArray(data) && data[0] && typeof data[0] === "object"
-    ? data[0] as { bucket_name?: unknown; object_key?: unknown }
-    : null;
-  if (
-    error
-    || !row
-    || typeof row.bucket_name !== "string"
-    || typeof row.object_key !== "string"
-  ) {
+  const resolved = await resolveVerifiedMediaAssetForViewer(assetId, user.id);
+  if (!resolved) {
     return NextResponse.json({ error: "媒体资产不存在或尚未完成安全校验" }, {
       status: 404,
       headers: { "Cache-Control": "private, no-store" },
@@ -76,7 +68,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   try {
     return NextResponse.redirect(
-      createAliyunOssRegistryReadUrl(row.object_key, row.bucket_name, filename),
+      createAliyunOssRegistryReadUrl(resolved.objectKey, resolved.bucketName, filename),
       {
       status: 302,
       headers: {

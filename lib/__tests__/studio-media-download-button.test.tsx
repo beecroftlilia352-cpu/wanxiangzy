@@ -8,17 +8,23 @@ import {
 const mediaMocks = vi.hoisted(() => ({
   downloadMediaFile: vi.fn(),
   downloadMediaFiles: vi.fn(),
+  prepareMediaDownloads: vi.fn(),
 }));
 
 vi.mock("@/lib/media-download", () => ({
   downloadMediaFile: mediaMocks.downloadMediaFile,
   downloadMediaFiles: mediaMocks.downloadMediaFiles,
+  prepareMediaDownloads: mediaMocks.prepareMediaDownloads,
 }));
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
+
+mediaMocks.prepareMediaDownloads.mockImplementation(async (options: { urls: string[] }) => (
+  options.urls.map((url, index) => ({ url, filename: `result-${index + 1}.png` }))
+));
 
 describe("StudioMediaDownloadButton", () => {
   it("shows an immediate busy state while a single download resolves", async () => {
@@ -70,6 +76,7 @@ describe("StudioMediaDownloadButton", () => {
       />,
     );
 
+    await waitFor(() => expect(getByRole("button", { name: "打包下载" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(getByRole("button", { name: "打包下载" }));
     expect(getByText("1/2")).toBeTruthy();
 
