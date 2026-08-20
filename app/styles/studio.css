@@ -408,6 +408,29 @@
   background: var(--codex-surface-strong);
 }
 
+.studio-task-switch-loading {
+  min-height: 28px;
+}
+
+.studio-task-switch-dots {
+  display: inline-flex;
+  width: 30px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.studio-task-switch-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 999px;
+  background: var(--codex-accent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--codex-accent) 24%, transparent);
+  transform: translateZ(0);
+}
+
 .studio-task-running-badge {
   background: rgba(55, 64, 86, 0.84);
   box-shadow: 0 1px 4px rgba(24, 29, 42, 0.16);

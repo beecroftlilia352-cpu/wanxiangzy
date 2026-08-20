@@ -8,7 +8,6 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   ImagePlus,
-  Loader2,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -18,6 +17,7 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { TaskSwitchLoading } from "@/components/studio/TaskSwitchLoading";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -1167,10 +1167,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             aria-live="polite"
             aria-busy="true"
           >
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-codex-muted">
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              <span>{tShared("loadingDots")}</span>
-            </div>
+            <TaskSwitchLoading label={tShared("loadingDots")} />
           </div>
         )}
 

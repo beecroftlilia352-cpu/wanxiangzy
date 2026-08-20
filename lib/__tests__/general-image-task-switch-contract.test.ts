@@ -10,6 +10,10 @@ const previewSource = readFileSync(
   resolve(process.cwd(), "components/studio/StudioImagePreviewWorkspace.tsx"),
   "utf8",
 );
+const taskSwitchLoadingSource = readFileSync(
+  resolve(process.cwd(), "components/studio/TaskSwitchLoading.tsx"),
+  "utf8",
+);
 
 describe("general image running-task switch contract", () => {
   it("hides the previous frame until running-task grouping has been restored", () => {
@@ -45,8 +49,13 @@ describe("general image running-task switch contract", () => {
   });
 
   it("renders only a stable restore stage while task details are loading", () => {
-    expect(source).toContain('className="h-4 w-4 animate-spin motion-reduce:animate-none"');
+    expect(source).toContain('<TaskSwitchLoading label={tShared("loadingDots")} />');
+    expect(source).not.toContain("Loader2");
     expect(source).not.toContain("<TaskRestoreStage");
+    expect(taskSwitchLoadingSource).toContain('from "framer-motion"');
+    expect(taskSwitchLoadingSource).toContain("useReducedMotion");
+    expect(taskSwitchLoadingSource).toContain("repeat: Infinity");
+    expect(taskSwitchLoadingSource).toContain("y: [0, -4, 0]");
     expect(source).toContain(
       "!restoringTaskId && !isGenerating && resultUrls.length === 0 && !error && !activeQueueTask",
     );
