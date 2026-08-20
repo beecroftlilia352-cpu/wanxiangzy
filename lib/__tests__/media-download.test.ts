@@ -66,10 +66,7 @@ describe("downloadMediaFile", () => {
   it("hands every prepared OSS result to the browser as an individual download", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const downloads: Array<{ href: string; filename: string; target: string }> = [];
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-      downloads.push({ href: this.href, filename: this.download, target: this.target });
-    });
+    vi.useFakeTimers();
 
     const result = await downloadMediaFiles({
       urls: [
@@ -85,10 +82,13 @@ describe("downloadMediaFile", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toEqual({ successCount: 2, failedCount: 0 });
-    expect(downloads).toEqual([
-      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp?signed=1", filename: "tryon-01.webp", target: "_blank" },
-      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?signed=1", filename: "tryon-02.jpg", target: "_blank" },
+    const frames = Array.from(document.querySelectorAll("iframe[aria-hidden='true']"));
+    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp?signed=1",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?signed=1",
     ]);
+    vi.runAllTimers();
+    expect(document.querySelectorAll("iframe[aria-hidden='true']")).toHaveLength(0);
   });
 
   it("resolves canonical media to signed direct URLs without proxying image bytes", async () => {

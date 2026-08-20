@@ -95,7 +95,7 @@ export async function downloadMediaFiles(options: {
   options.signal?.throwIfAborted();
 
   downloads.forEach((download, index) => {
-    triggerUrlDownload(download.url, download.filename, true);
+    triggerIsolatedUrlDownload(download.url);
     const completed = index + 1;
     options.onProgress?.({
       phase: "saving",
@@ -208,13 +208,21 @@ function sanitizeFilenamePrefix(prefix: string) {
     .slice(0, 80) || "results";
 }
 
-function triggerUrlDownload(url: string, filename: string, openInNewContext = false) {
+function triggerUrlDownload(url: string, filename: string) {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
   anchor.rel = "noopener";
-  if (openInNewContext) anchor.target = "_blank";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
+}
+
+function triggerIsolatedUrlDownload(url: string) {
+  const frame = document.createElement("iframe");
+  frame.hidden = true;
+  frame.src = url;
+  frame.setAttribute("aria-hidden", "true");
+  document.body.appendChild(frame);
+  window.setTimeout(() => frame.remove(), 60_000);
 }
