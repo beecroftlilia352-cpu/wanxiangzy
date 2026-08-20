@@ -8,6 +8,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   ImagePlus,
+  Loader2,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -153,6 +154,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [isImagePromptGenerating, setIsImagePromptGenerating] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
   const [displayedTaskId, setDisplayedTaskId] = useState<string | null>(null);
+  const [restoringTaskId, setRestoringTaskId] = useState<string | null>(null);
   const displayedTaskIdRef = useRef<string | null>(null);
   const [cleanDraftSignature, setCleanDraftSignature] = useState(() => createDraftSignature("", []));
   const currentDraftSignature = useMemo(
@@ -530,6 +532,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   function resetOutput() {
     selectDisplayedTask(null);
+    setRestoringTaskId(null);
     setActiveQueueTask(null);
     setIsGenerating(false);
     setResultUrls([]);
@@ -901,48 +904,51 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function handleRunningTask(item: TaskQueueItem, session: TaskSelectionSession) {
+    // Stop the previous task poll from writing into the selected preview, and
+    // keep all task-specific UI hidden until its grouping metadata is ready.
+    selectDisplayedTask(item.id);
+    setRestoringTaskId(item.id);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
       if (!session.isCurrent()) return true;
-      if (detail.payload.mode !== mode) return false;
+      if (detail.payload.mode !== mode) {
+        setRestoringTaskId((current) => current === item.id ? null : current);
+        return false;
+      }
       applyGeneralImageHistoryPayload(detail.payload, safeTaskQueueUrls(item.resultThumbnails), {
         silent: true,
         task: item,
       });
       setIsGenerating(true);
       setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+      setRestoringTaskId((current) => current === item.id ? null : current);
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
       console.warn("[general-image] failed to restore running task grouping", err);
-      // Only fall back to the queue snapshot after the detailed task state
-      // fails to load. Until then, keep the previous task frame mounted so a
-      // split run never flashes through empty and flat-grid layouts.
-      selectDisplayedTask(item.id);
+      // The queue snapshot cannot recover split grouping. Use it only when the
+      // detailed payload fails, after the previous task has already been hidden.
       setActiveQueueTask(item);
       setIsGenerating(true);
       setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
       setError("");
       setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
       setResultGroupReferences([]);
+      setRestoringTaskId((current) => current === item.id ? null : current);
       return true;
     }
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
-    // Switch the visible task identity before awaiting history. Any older
-    // generation poll may keep updating its queue row, but can no longer
-    // overwrite the newly selected preview.
+    // Completed rows also need their detailed payload before rendering because
+    // the queue snapshot does not include split-group metadata.
     selectDisplayedTask(item.id);
-    setActiveQueueTask(item);
-    setIsGenerating(false);
-    setProgress(item.statusGroup === "completed" ? 100 : Math.min(Math.max(Math.round(Number(item.progress) || 0), 0), 99));
-    setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
-    setError(item.statusGroup === "failed" ? item.error : "");
+    setRestoringTaskId(item.id);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
       if (!session.isCurrent()) return true;
       if (detail.payload.mode !== mode) {
+        setRestoringTaskId((current) => current === item.id ? null : current);
         const href = getApplyPath(detail.payload, item.id);
         return requestStudioNavigation(href, () => router.push(href));
       }
@@ -953,9 +959,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
         setError(getHistoryApplyFailureMessage(detail.row, item.error || t("generateFailed")));
       }
+      setRestoringTaskId((current) => current === item.id ? null : current);
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
+      setActiveQueueTask(item);
+      setIsGenerating(false);
+      setProgress(item.statusGroup === "completed" ? 100 : Math.min(Math.max(Math.round(Number(item.progress) || 0), 0), 99));
+      setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
+      setResultGroupReferences([]);
+      setError(item.statusGroup === "failed" ? item.error : "");
+      setRestoringTaskId((current) => current === item.id ? null : current);
       toast.error(err instanceof Error ? err.message : t("historyLoadFailed"));
       return true;
     }
@@ -1147,7 +1161,21 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       </div>
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
-        {!isGenerating && resultUrls.length === 0 && !error && !activeQueueTask && (
+        {restoringTaskId && (
+          <div
+            className="studio-task-restore-stage flex min-h-[260px] items-center justify-center px-4 sm:min-h-[360px] lg:h-full"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-codex-muted">
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+              <span>{tShared("loadingDots")}</span>
+            </div>
+          </div>
+        )}
+
+        {!restoringTaskId && !isGenerating && resultUrls.length === 0 && !error && !activeQueueTask && (
           <div className="studio-empty-stage min-h-[260px] overflow-y-auto px-4 py-6 sm:min-h-[360px] lg:h-full">
             <div className="studio-general-empty-content">
               <PreviewGuide
@@ -1166,7 +1194,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
         )}
 
-        {isGenerating && resultUrls.length === 0 && !activeQueueTask && (
+        {!restoringTaskId && isGenerating && resultUrls.length === 0 && !activeQueueTask && (
           <LoadingStage
             genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, MAX_GENERAL_IMAGE_TOTAL_COUNT, effectiveGenCount) : effectiveGenCount}
             progress={progress}
@@ -1175,8 +1203,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             metaItems={[aspectRatio, imageSize, isImageMode ? t("summaryImageToImage", { count: referenceImages.length }) : t("summaryTextToImage")]}
           />
         )}
-        {((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
-          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
+        {!restoringTaskId && ((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col">
             <div className="flex min-h-0 flex-1 items-start justify-start">
               {isImageMode && resultGroupReferences.length > 1 ? (
                 <div className="flex w-full flex-col gap-6">
@@ -1263,7 +1291,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
         )}
 
-        {error && !activeQueueTask && (
+        {!restoringTaskId && error && !activeQueueTask && (
           <ErrorStage
             error={summarizeGenerationError(error)}
             onRetry={() => generate()}
