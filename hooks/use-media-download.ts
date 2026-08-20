@@ -104,6 +104,7 @@ export function useMediaDownload() {
       const result = await downloadMediaFiles({
         urls: input.urls,
         filenamePrefix: input.filename,
+        signal: controller.signal,
         onProgress: (progress) => {
           if (mountedRef.current) setBatchState({ status: "running", progress });
         },

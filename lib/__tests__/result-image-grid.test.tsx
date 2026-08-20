@@ -4,6 +4,11 @@ import { NextIntlClientProvider } from "next-intl";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import zhMessages from "@/messages/zh.json";
 
+const mediaMocks = vi.hoisted(() => ({
+  downloadMediaFile: vi.fn().mockResolvedValue(undefined),
+  downloadMediaFiles: vi.fn().mockResolvedValue({ successCount: 3, failedCount: 0 }),
+}));
+
 afterEach(() => {
   cleanup();
 });
@@ -23,8 +28,8 @@ vi.mock("@/lib/image-variants", () => ({
 }));
 
 vi.mock("@/lib/media-download", () => ({
-  downloadMediaFile: vi.fn().mockResolvedValue(undefined),
-  downloadMediaFiles: vi.fn().mockResolvedValue({ successCount: 3, failedCount: 0 }),
+  downloadMediaFile: mediaMocks.downloadMediaFile,
+  downloadMediaFiles: mediaMocks.downloadMediaFiles,
 }));
 
 const sampleUrls = [
@@ -42,7 +47,7 @@ function renderWithIntl(ui: React.ReactElement) {
 }
 
 describe("ResultImageGrid download button", () => {
-  it("renders a download button on each completed card", () => {
+  it("renders one batch action and no card-level download actions for completed multi-image results", () => {
     renderWithIntl(
       <ResultImageGrid
         urls={sampleUrls}
@@ -51,58 +56,86 @@ describe("ResultImageGrid download button", () => {
         variant="task"
       />
     );
-    // The new card-level download button uses .studio-result-card-download
-    const downloadButtons = document.querySelectorAll(".studio-result-card-download");
-    expect(downloadButtons.length).toBe(3);
-    expect(document.querySelector(".studio-result-batch-download")).toBeTruthy();
+    expect(document.querySelectorAll(".studio-result-card-download")).toHaveLength(0);
+    expect(document.querySelectorAll(".studio-result-primary-download")).toHaveLength(1);
+    expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 3 张");
   });
 
-  it("labels each download button with the image alt prefix", () => {
+  it("uses a single-image action when exactly one result is complete", () => {
     renderWithIntl(
       <ResultImageGrid
-        urls={sampleUrls}
-        filenamePrefix="image-translation"
-        onOpen={() => {}}
-        variant="task"
-        imageAltPrefix="翻译结果"
-      />
-    );
-    const downloadButtons = Array.from(
-      document.querySelectorAll<HTMLElement>(".studio-result-card-download[aria-label^=\"下载翻译结果\"]")
-    );
-    expect(downloadButtons.length).toBe(3);
-    expect(downloadButtons[0].getAttribute("aria-label")).toBe("下载翻译结果 1");
-    expect(downloadButtons[1].getAttribute("aria-label")).toBe("下载翻译结果 2");
-    expect(downloadButtons[2].getAttribute("aria-label")).toBe("下载翻译结果 3");
-  });
-
-  it("stops propagation so clicking the button does not open the lightbox", () => {
-    const onOpen = vi.fn();
-    renderWithIntl(
-      <ResultImageGrid
-        urls={sampleUrls}
-        filenamePrefix="image-translation"
-        onOpen={onOpen}
-        variant="task"
-      />
-    );
-    const firstDownload = document.querySelector(".studio-result-card-download");
-    expect(firstDownload).toBeTruthy();
-    fireEvent.click(firstDownload as HTMLElement);
-    expect(onOpen).not.toHaveBeenCalled();
-  });
-
-  it("does not render the download button when the slot is empty", () => {
-    renderWithIntl(
-      <ResultImageGrid
-        urls={["", "", ""]}
+        urls={[sampleUrls[0]]}
+        expectedCount={1}
+        statusGroup="completed"
         filenamePrefix="image-translation"
         onOpen={() => {}}
         variant="task"
       />
     );
-    const downloadButtons = document.querySelectorAll(".studio-result-card-download");
-    expect(downloadButtons.length).toBe(0);
+    expect(document.querySelectorAll(".studio-result-primary-download")).toHaveLength(1);
+    expect(document.querySelector(".studio-result-batch-download")).toBeNull();
+    expect(document.querySelector(".studio-result-primary-download")?.getAttribute("aria-label")).toBe("下载");
+  });
+
+  it("does not expose download-all while generation is still running", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={[sampleUrls[0], "", ""]}
+        expectedCount={3}
+        isGenerating
+        statusGroup="running"
+        filenamePrefix="image-translation"
+        onOpen={() => {}}
+        variant="task"
+      />
+    );
+    expect(document.querySelector(".studio-result-primary-download")).toBeNull();
+  });
+
+  it("does not expose download-all for a completed task with missing results", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={[sampleUrls[0], "", sampleUrls[2]]}
+        expectedCount={3}
+        statusGroup="completed"
+        filenamePrefix="image-translation"
+        onOpen={() => {}}
+        variant="task"
+      />
+    );
+    expect(document.querySelector(".studio-result-primary-download")).toBeNull();
+  });
+
+  it("does not expose downloads for a failed task", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={sampleUrls}
+        expectedCount={3}
+        statusGroup="failed"
+        filenamePrefix="image-translation"
+        onOpen={() => {}}
+        variant="task"
+      />
+    );
+    expect(document.querySelector(".studio-result-primary-download")).toBeNull();
+  });
+
+  it("hands every completed URL to the one batch action", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={sampleUrls}
+        expectedCount={3}
+        statusGroup="completed"
+        filenamePrefix="image-translation"
+        onOpen={() => {}}
+        variant="task"
+      />
+    );
+
+    fireEvent.click(document.querySelector(".studio-result-batch-download") as HTMLElement);
+    expect(mediaMocks.downloadMediaFiles).toHaveBeenCalledWith(expect.objectContaining({
+      urls: sampleUrls,
+    }));
   });
 
   it("keeps pending cards static while only completed cards receive hover motion", () => {

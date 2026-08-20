@@ -6,6 +6,10 @@ const source = readFileSync(
   resolve(process.cwd(), "app/general-image/GeneralImageExperience.tsx"),
   "utf8",
 );
+const previewSource = readFileSync(
+  resolve(process.cwd(), "components/studio/StudioImagePreviewWorkspace.tsx"),
+  "utf8",
+);
 
 describe("general image running-task switch contract", () => {
   it("hides the previous frame until running-task grouping has been restored", () => {
@@ -50,5 +54,29 @@ describe("general image running-task switch contract", () => {
       "!restoringTaskId && ((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask))",
     );
     expect(source).not.toContain("flex flex-col animate-fade-in");
+  });
+
+  it("renders all results in one flat grid with one task-level download action", () => {
+    const resultStage = source.slice(
+      source.indexOf("<div className=\"studio-result-stage"),
+      source.indexOf("<ImagePromptDialog"),
+    );
+
+    expect(resultStage.match(/<ResultImageGrid/g)).toHaveLength(1);
+    expect(resultStage).not.toContain("general-image-group-");
+    expect(resultStage).not.toContain("resultGroupReferences.map((reference, groupIndex)");
+    expect(resultStage).toContain("expectedCount={activeResultExpectedCount}");
+  });
+
+  it("keeps batch download out of the preview workspace", () => {
+    const previewActions = source.slice(
+      source.indexOf("const GENERAL_IMAGE_PREVIEW_ACTIONS"),
+      source.indexOf("export function GeneralImageExperience"),
+    );
+
+    expect(previewActions).not.toContain('kind: "download"');
+    expect(previewSource).not.toContain("StudioBatchDownloadButton");
+    expect(previewSource).not.toContain("studio-image-preview-batch-download");
+    expect(previewSource).not.toContain("studio-image-preview-focus-batch-download");
   });
 });

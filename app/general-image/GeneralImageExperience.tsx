@@ -94,7 +94,6 @@ const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
 const IMAGE_PROMPT_PLACEHOLDER_KEY = "imagePromptPlaceholder";
 
 const GENERAL_IMAGE_PREVIEW_ACTIONS: Array<ImagePreviewAction & { labelKey: string }> = [
-  { kind: "download", label: "下载图片", labelKey: "actionDownload" },
   { kind: "copy", label: "复制链接", labelKey: "actionCopy" },
   { kind: "repair", label: "AI修图", labelKey: "actionRepair" },
   { kind: "aiVideo", label: "AI视频", labelKey: "actionAiVideo" },
@@ -1200,77 +1199,31 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         {!restoringTaskId && ((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col">
             <div className="flex min-h-0 flex-1 items-start justify-start">
-              {isImageMode && resultGroupReferences.length > 1 ? (
-                <div className="flex w-full flex-col gap-6">
-                  {resultGroupReferences.map((reference, groupIndex) => {
-                    const perGroupCount = Math.max(1, Math.round(activeResultExpectedCount / resultGroupReferences.length));
-                    const start = groupIndex * perGroupCount;
-                    const groupUrls = resultUrls.slice(start, start + perGroupCount);
-                    const groupFailedCount = Math.max(0, perGroupCount - groupUrls.filter(Boolean).length);
-                    return (
-                      <ResultImageGrid
-                        key={`general-image-group-${groupIndex}-${reference.url}`}
-                        urls={groupUrls}
-                        filenamePrefix={`image-to-image-r${groupIndex + 1}`}
-                        expectedCount={perGroupCount}
-                        isGenerating={isGenerating}
-                        inputReferences={[{
-                          url: reference.preview || reference.url,
-                          label: t("referenceImageLabel", { index: groupIndex + 1 }),
-                        }]}
-                        createdAt={activeQueueTask?.createdAt}
-                        statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
-                        variant="task"
-                        resourceFavorite={{
-                          generationId: displayedTaskId || undefined,
-                          moduleKey: "generalImage",
-                          mediaType: "image",
-                          resultIndexOffset: start,
-                        }}
-                        failureLabel={t("failedLabel")}
-                        failureDetail={activeQueueTask?.statusGroup === "failed"
-                          ? buildFailedTaskDetail(activeQueueTask.error || error || undefined)
-                          : undefined}
-                        markMissingAsFailed={hasCompletedPartialResults}
-                        missingFailureLabel={t("missingFailLabel")}
-                        missingFailureDetail={groupFailedCount > 0
-                          ? buildPartialFailureDetail({
-                              message: activeQueueTask?.error,
-                              failedCount: groupFailedCount,
-                            })
-                          : undefined}
-                        missingFailureActionLabel={t("retryThis")}
-                        onMissingFailureAction={(index) => handleRetryFailedResult(start + index)}
-                        missingFailureActionDisabled={retryDisabled}
-                        onOpen={(_, index) => setPreviewIndex(start + index)}
-                        tileAspectRatio={aspectRatio}
-                      />
-                    );
-                  })}
-                </div>
-              ) : (
-                <ResultImageGrid
-                  urls={resultUrls}
-                  filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
-                  expectedCount={activeResultExpectedCount}
-                  isGenerating={isGenerating}
-                  inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)}
-                  createdAt={activeQueueTask?.createdAt}
-                  statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
-                  variant="task"
-                  resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
-                  failureLabel={t("failedLabel")}
-                  failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
-                  markMissingAsFailed={hasCompletedPartialResults}
-                  missingFailureLabel={t("missingFailLabel")}
-                  missingFailureDetail={partialFailureMessage}
-                  missingFailureActionLabel={t("retryThis")}
-                  onMissingFailureAction={handleRetryFailedResult}
-                  missingFailureActionDisabled={retryDisabled}
-                  onOpen={(_, index) => setPreviewIndex(index)}
-                  tileAspectRatio={aspectRatio}
-                />
-              )}
+              <ResultImageGrid
+                urls={resultUrls}
+                filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
+                expectedCount={activeResultExpectedCount}
+                isGenerating={isGenerating}
+                inputReferences={isImageMode ? resultGroupReferences.map((reference, index) => ({
+                  url: reference.preview || reference.url,
+                  label: t("referenceImageLabel", { index: index + 1 }),
+                })) : undefined}
+                inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)}
+                createdAt={activeQueueTask?.createdAt}
+                statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
+                variant="task"
+                resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
+                failureLabel={t("failedLabel")}
+                failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
+                markMissingAsFailed={hasCompletedPartialResults}
+                missingFailureLabel={t("missingFailLabel")}
+                missingFailureDetail={partialFailureMessage}
+                missingFailureActionLabel={t("retryThis")}
+                onMissingFailureAction={handleRetryFailedResult}
+                missingFailureActionDisabled={retryDisabled}
+                onOpen={(_, index) => setPreviewIndex(index)}
+                tileAspectRatio={aspectRatio}
+              />
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

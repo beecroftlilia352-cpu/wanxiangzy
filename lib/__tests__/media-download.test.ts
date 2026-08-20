@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { unzipSync } from "fflate";
 import { downloadMediaFile, downloadMediaFiles } from "@/lib/media-download";
 
 afterEach(() => {
@@ -63,12 +64,17 @@ describe("downloadMediaFile", () => {
     expect(downloadUrl.searchParams.get("proxy")).toBeNull();
   });
 
-  it("hands every result directly to the browser with distinct filenames", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 7, 19, 19, 30, 5));
-
-    const fetchMock = vi.fn();
+  it("packages every result into one ZIP download with distinct filenames", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(new Uint8Array([4, 5]), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
+    let archiveBlob: Blob | null = null;
+    vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      if (blob instanceof Blob) archiveBlob = blob;
+      return "blob:result-archive";
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
     const downloads: Array<{ href: string; filename: string }> = [];
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
       downloads.push({ href: this.href, filename: this.download });
@@ -82,15 +88,55 @@ describe("downloadMediaFile", () => {
       filenamePrefix: "tryon-results",
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ successCount: 2, failedCount: 0 });
-    expect(downloads.map((item) => item.filename)).toEqual([
-      "tryon-results-0819-193005-01.webp",
-      "tryon-results-0819-193005-02.jpg",
+    expect(downloads).toHaveLength(1);
+    expect(downloads[0].href).toBe("blob:result-archive");
+    expect(downloads[0].filename).toMatch(/^tryon-results-\d{4}-\d{6}\.zip$/);
+    expect(archiveBlob).not.toBeNull();
+    if (!archiveBlob) throw new Error("ZIP blob was not created");
+    const archiveBytes = await readBlobBytes(archiveBlob);
+    const files = unzipSync(archiveBytes);
+    const stamp = downloads[0].filename.match(/(\d{4}-\d{6})\.zip$/)?.[1];
+    expect(stamp).toBeTruthy();
+    expect(Object.keys(files)).toEqual([
+      `tryon-results-${stamp}-01.webp`,
+      `tryon-results-${stamp}-02.jpg`,
     ]);
-    expect(downloads.map((item) => item.href)).toEqual([
-      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp",
-      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?version=2",
-    ]);
+    expect(Array.from(files[`tryon-results-${stamp}-01.webp`])).toEqual([1, 2, 3]);
+    expect(Array.from(files[`tryon-results-${stamp}-02.jpg`])).toEqual([4, 5]);
+  });
+
+  it("falls back to the authenticated download route when direct CORS fetch is unavailable", async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(new Response(new Uint8Array([1]), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(new Response(new Uint8Array([2]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:result-archive");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    await downloadMediaFiles({
+      urls: [
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.png",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.png",
+      ],
+      filenamePrefix: "results",
+    });
+
+    const fallbackUrls = [fetchMock.mock.calls[1][0], fetchMock.mock.calls[3][0]].map(String);
+    expect(fallbackUrls.every((value) => value.includes("/api/download-image"))).toBe(true);
+    expect(fallbackUrls.every((value) => value.includes("proxy=1"))).toBe(true);
   });
 });
+
+function readBlobBytes(blob: Blob) {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error("Failed to read blob"));
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.readAsArrayBuffer(blob);
+  });
+}

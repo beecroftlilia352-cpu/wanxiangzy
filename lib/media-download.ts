@@ -1,3 +1,5 @@
+import { Zip, ZipPassThrough } from "fflate";
+
 export type MediaDownloadPhase =
   | "resolving"
   | "downloading"
@@ -52,38 +54,113 @@ export async function downloadMediaFile(
   options.onProgress?.({ phase: "completed", completed: 1, total: 1, percent: 100 });
 }
 
-/** Starts separate native downloads while the original click still owns the
- * browser's user activation. No image bytes are read by the application. */
+/** Builds one client-side ZIP so browsers only need to approve one download.
+ * Public media is fetched directly when CORS allows it; the authenticated
+ * download route is a per-file fallback and never buffers the whole batch. */
 export async function downloadMediaFiles(options: {
   urls: string[];
   filenamePrefix: string;
   onProgress?: (progress: MediaDownloadProgress) => void;
+  signal?: AbortSignal;
 }) {
   const urls = options.urls.filter(Boolean);
   if (!urls.length) throw new Error("没有可下载的图片");
+  if (urls.length === 1) {
+    await downloadMediaFile(
+      urls[0],
+      buildIndexedFilename(options.filenamePrefix, urls[0], 0),
+      { signal: options.signal, onProgress: options.onProgress },
+    );
+    return { successCount: 1, failedCount: 0 };
+  }
 
-  urls.forEach((url, index) => {
-    const filename = buildIndexedFilename(options.filenamePrefix, url, index);
-    const downloadUrl = isInlineBrowserUrl(url)
-      ? url
-      : buildBrowserDownloadUrl(url, filename);
-    triggerUrlDownload(downloadUrl, filename);
-    const completed = index + 1;
+  const stamp = buildDownloadStamp();
+  const archiveChunks: ArrayBuffer[] = [];
+  let resolveArchive!: () => void;
+  let rejectArchive!: (error: Error) => void;
+  const archiveCompleted = new Promise<void>((resolve, reject) => {
+    resolveArchive = resolve;
+    rejectArchive = reject;
+  });
+  const archive = new Zip((error, chunk, final) => {
+    if (error) {
+      rejectArchive(error);
+      return;
+    }
+    archiveChunks.push(Uint8Array.from(chunk).buffer);
+    if (final) resolveArchive();
+  });
+
+  try {
+    for (let index = 0; index < urls.length; index += 1) {
+      options.signal?.throwIfAborted();
+      const filename = buildIndexedFilename(options.filenamePrefix, urls[index], index, stamp);
+      const response = await fetchBatchDownloadResponse(urls[index], filename, options.signal);
+      if (!response.ok || !response.body) {
+        throw new Error(`第 ${index + 1} 张图片下载失败`);
+      }
+
+      const entry = new ZipPassThrough(filename);
+      archive.add(entry);
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        options.signal?.throwIfAborted();
+        entry.push(value, false);
+      }
+      entry.push(new Uint8Array(0), true);
+
+      const completed = index + 1;
+      options.onProgress?.({
+        phase: "downloading",
+        completed,
+        total: urls.length,
+        percent: Math.round((completed / urls.length) * 90),
+      });
+    }
+
     options.onProgress?.({
-      phase: "saving",
-      completed,
+      phase: "packing",
+      completed: urls.length,
       total: urls.length,
-      percent: Math.round((completed / urls.length) * 100),
+      percent: 95,
     });
-  });
+    archive.end();
+    await archiveCompleted;
+    options.signal?.throwIfAborted();
 
-  options.onProgress?.({
-    phase: "completed",
-    completed: urls.length,
-    total: urls.length,
-    percent: 100,
-  });
-  return { successCount: urls.length, failedCount: 0 };
+    const archiveName = `${sanitizeFilenamePrefix(options.filenamePrefix)}-${stamp}.zip`;
+    const objectUrl = URL.createObjectURL(new Blob(archiveChunks, { type: "application/zip" }));
+    options.onProgress?.({ phase: "saving", completed: urls.length, total: urls.length, percent: 100 });
+    triggerUrlDownload(objectUrl, archiveName);
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    options.onProgress?.({ phase: "completed", completed: urls.length, total: urls.length, percent: 100 });
+    return { successCount: urls.length, failedCount: 0 };
+  } catch (error) {
+    archive.terminate();
+    throw error;
+  }
+}
+
+async function fetchBatchDownloadResponse(url: string, filename: string, signal?: AbortSignal) {
+  if (isInlineBrowserUrl(url)) return fetch(url, { signal });
+
+  if (isDirectlyDownloadableUrl(url)) {
+    try {
+      const direct = await fetch(url, { credentials: "omit", signal });
+      if (direct.ok && direct.body) return direct;
+      await direct.body?.cancel();
+    } catch (error) {
+      if (signal?.aborted) throw error;
+    }
+  }
+
+  const endpoint = new URL("/api/download-image", window.location.origin);
+  endpoint.searchParams.set("url", url);
+  endpoint.searchParams.set("filename", filename);
+  endpoint.searchParams.set("proxy", "1");
+  return fetch(endpoint, { credentials: "same-origin", signal });
 }
 
 function buildBrowserDownloadUrl(url: string, filename: string) {
@@ -139,11 +216,8 @@ function isDirectlyDownloadableUrl(url: string) {
   }
 }
 
-function buildIndexedFilename(prefix: string, url: string, index: number) {
-  const safePrefix = prefix.replace(/\.(zip|png|jpe?g|webp|gif)$/i, "") || "results";
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const stamp = `${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+function buildIndexedFilename(prefix: string, url: string, index: number, stamp = buildDownloadStamp()) {
+  const safePrefix = sanitizeFilenamePrefix(prefix);
   let extension = "png";
   try {
     const fromPath = new URL(url, window.location.origin).pathname.split(".").pop()?.toLowerCase();
@@ -154,6 +228,19 @@ function buildIndexedFilename(prefix: string, url: string, index: number) {
     // Keep the safe image default when a browser-local URL has no extension.
   }
   return `${safePrefix}-${stamp}-${String(index + 1).padStart(2, "0")}.${extension}`;
+}
+
+function buildDownloadStamp() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function sanitizeFilenamePrefix(prefix: string) {
+  return prefix
+    .replace(/\.(zip|png|jpe?g|webp|gif)$/i, "")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .slice(0, 80) || "results";
 }
 
 function triggerUrlDownload(url: string, filename: string) {

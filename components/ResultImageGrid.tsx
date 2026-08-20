@@ -130,6 +130,11 @@ export function ResultImageGrid({
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
   const completedSlotCount = slots.filter(Boolean).length;
   const allExpectedResultsReady = completedSlotCount >= count;
+  const downloadsReady = allExpectedResultsReady
+    && !isGenerating
+    && statusGroup !== "running"
+    && statusGroup !== "queued"
+    && statusGroup !== "failed";
   const incomingReferenceItems = useMemo(
     () => buildReferenceItems(inputReferences, inputThumbnails, t("referenceGroup")),
     [inputReferences, inputThumbnails, t]
@@ -209,7 +214,18 @@ export function ResultImageGrid({
         </p>
         <div className="studio-result-download-row">
           <p className="studio-result-time">{timestamp}</p>
-          {completedUrls.length > 1 && (
+          {downloadsReady && completedUrls.length === 1 && (
+            <StudioSingleDownloadButton
+              url={completedUrls[0]}
+              filename={generateDownloadFilename(filenamePrefix, 0, extension)}
+              errorFallback={t("downloadFailed")}
+              label={t("download")}
+              variant="outline"
+              size="sm"
+              className="studio-result-primary-download"
+            />
+          )}
+          {downloadsReady && completedUrls.length > 1 && (
             <StudioBatchDownloadButton
               urls={completedUrls}
               filename={`pixel-diffusion-${filenamePrefix}`}
@@ -217,7 +233,7 @@ export function ResultImageGrid({
               label={t("downloadAll", { count: completedUrls.length })}
               variant="outline"
               size="sm"
-              className="studio-result-batch-download"
+              className="studio-result-primary-download studio-result-batch-download"
             />
           )}
         </div>
@@ -251,8 +267,6 @@ export function ResultImageGrid({
                   failed={failed || missingFailed}
                   running={running}
                   calmPendingMotion={calmPendingMotion}
-                  filenamePrefix={filenamePrefix}
-                  extension={extension}
                   imageAltPrefix={resolvedImageAltPrefix}
                   onOpen={onOpen}
                   failureLabel={failed ? failureLabel : missingFailed ? missingFailureLabel : undefined}
@@ -278,18 +292,30 @@ export function ResultImageGrid({
 
   return (
     <div className="studio-result-card-grid-wrap mx-auto w-full">
-      {completedUrls.length > 1 && (
+      {downloadsReady && completedUrls.length > 0 && (
         <div className="studio-result-download-row studio-result-download-row-cards">
           <span />
-          <StudioBatchDownloadButton
-            urls={completedUrls}
-            filename={`pixel-diffusion-${filenamePrefix}`}
-            resultLabel={t("results")}
-            label={t("downloadAll", { count: completedUrls.length })}
-            variant="outline"
-            size="sm"
-            className="studio-result-batch-download"
-          />
+          {completedUrls.length === 1 ? (
+            <StudioSingleDownloadButton
+              url={completedUrls[0]}
+              filename={generateDownloadFilename(filenamePrefix, 0, extension)}
+              errorFallback={t("downloadFailed")}
+              label={t("download")}
+              variant="outline"
+              size="sm"
+              className="studio-result-primary-download"
+            />
+          ) : (
+            <StudioBatchDownloadButton
+              urls={completedUrls}
+              filename={`pixel-diffusion-${filenamePrefix}`}
+              resultLabel={t("results")}
+              label={t("downloadAll", { count: completedUrls.length })}
+              variant="outline"
+              size="sm"
+              className="studio-result-primary-download studio-result-batch-download"
+            />
+          )}
         </div>
       )}
       <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
@@ -306,8 +332,6 @@ export function ResultImageGrid({
               failed={statusGroup === "failed" || missingFailed}
               running={running}
               calmPendingMotion={Boolean(running && (reducePendingMotion || count >= 6))}
-              filenamePrefix={filenamePrefix}
-              extension={extension}
               imageAltPrefix={resolvedImageAltPrefix}
               onOpen={onOpen}
               isSingle={isSingle}
@@ -349,8 +373,6 @@ type ResultCardProps = {
   running: boolean;
   completedMissing?: boolean;
   calmPendingMotion?: boolean;
-  filenamePrefix: string;
-  extension: string;
   imageAltPrefix: string;
   onOpen: (url: string, index: number) => void;
   isSingle?: boolean;
@@ -378,8 +400,6 @@ const ResultCard = memo(function ResultCard({
   running,
   completedMissing = false,
   calmPendingMotion,
-  filenamePrefix,
-  extension,
   imageAltPrefix,
   onOpen,
   isSingle,
@@ -474,18 +494,7 @@ const ResultCard = memo(function ResultCard({
         </div>
 
         {url && (
-          <>
-            <StudioSingleDownloadButton
-              url={url}
-              filename={generateDownloadFilename(filenamePrefix, index, extension)}
-              errorFallback={t("downloadFailed")}
-              label={t("downloadResultLabel", { label: imageAltPrefix, index: index + 1 })}
-              variant="ghost"
-              size="icon-sm"
-              showLabel={false}
-              className="studio-result-card-download"
-            />
-            <div className="studio-result-focus-layer" aria-hidden={false}>
+          <div className="studio-result-focus-layer" aria-hidden={false}>
               <Button
                 type="button"
                 variant="ghost"
@@ -507,18 +516,8 @@ const ResultCard = memo(function ResultCard({
                 />
                 <ResultFocusAction label={t("actionRepair")} onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
                 <ResultFocusAction label={t("actionAiVideo")} onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
-                <StudioSingleDownloadButton
-                  url={url}
-                  filename={generateDownloadFilename(filenamePrefix, index, extension)}
-                  errorFallback={t("downloadFailed")}
-                  label={t("download")}
-                  variant="ghost"
-                  size="sm"
-                  className="studio-result-focus-action"
-                />
               </div>
             </div>
-          </>
         )}
       </div>
     </TooltipProvider>
@@ -533,8 +532,6 @@ function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
     prev.failed === next.failed &&
     prev.running === next.running &&
     prev.calmPendingMotion === next.calmPendingMotion &&
-    prev.filenamePrefix === next.filenamePrefix &&
-    prev.extension === next.extension &&
     prev.imageAltPrefix === next.imageAltPrefix &&
     prev.onOpen === next.onOpen &&
     prev.isSingle === next.isSingle &&
