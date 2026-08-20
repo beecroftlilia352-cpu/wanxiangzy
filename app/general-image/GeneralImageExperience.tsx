@@ -8,7 +8,6 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   ImagePlus,
-  Loader2,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -18,6 +17,7 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { TaskRestoreStage } from "@/components/studio/TaskRestoreStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -1162,17 +1162,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
         {restoringTaskId && (
-          <div
-            className="studio-task-restore-stage flex min-h-[260px] items-center justify-center px-4 sm:min-h-[360px] lg:h-full"
-            role="status"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-codex-muted">
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              <span>{tShared("loadingDots")}</span>
-            </div>
-          </div>
+          <TaskRestoreStage
+            title={t("taskRestoreTitle")}
+            description={t("taskRestoreDescription")}
+            statusLabel={tShared("loadingDots")}
+          />
         )}
 
         {!restoringTaskId && !isGenerating && resultUrls.length === 0 && !error && !activeQueueTask && (

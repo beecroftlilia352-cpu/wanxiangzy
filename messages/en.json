@@ -1624,6 +1624,8 @@
     "broughtPreviewImage": "Preview image imported",
     "historyReferenceName": "History reference {index}",
     "historyAppliedToast": "History settings applied",
+    "taskRestoreTitle": "Restoring task canvas",
+    "taskRestoreDescription": "Syncing references, generation settings, and result layout",
     "continueCreateTitle": "Continue creating",
     "continueCreateContent": "Continuing will clear all current content. Continue?",
     "confirm": "Confirm",

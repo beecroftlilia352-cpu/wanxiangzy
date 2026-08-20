@@ -482,7 +482,7 @@ export function StudioTaskRail({
           onScroll={() => {
             hasScrolledRef.current = true;
           }}
-          className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-1.5 px-1.5 py-1.5")}
+          className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-1.5 px-1 py-1.5")}
         >
           {initialLoading ? (
             <>
@@ -699,7 +699,7 @@ function TaskCard({
         data-state={applying ? "applying" : failed ? "failed" : running ? "running" : completed ? "completed" : "idle"}
         data-selected={selected || undefined}
         className={cn(
-          "studio-task-card studio-task-card--compact group relative flex aspect-square w-full items-center justify-center p-1 text-left",
+          "studio-task-card studio-task-card--compact group relative flex aspect-square w-full items-center justify-center p-0 text-left",
           applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
           selected && "is-selected"
         )}

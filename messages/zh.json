@@ -1624,6 +1624,8 @@
     "broughtPreviewImage": "已带入预览图片",
     "historyReferenceName": "历史参考图{index}",
     "historyAppliedToast": "已套用历史参数",
+    "taskRestoreTitle": "正在恢复任务画布",
+    "taskRestoreDescription": "同步参考图、生成参数和结果布局",
     "continueCreateTitle": "继续创建",
     "continueCreateContent": "继续创建将清空当前所有内容，确定要继续吗？",
     "confirm": "确定",

@@ -41,7 +41,8 @@ describe("general image running-task switch contract", () => {
   });
 
   it("renders only a stable restore stage while task details are loading", () => {
-    expect(source).toContain("{restoringTaskId && (");
+    expect(source).toContain("<TaskRestoreStage");
+    expect(source).toContain('title={t("taskRestoreTitle")}');
     expect(source).toContain(
       "!restoringTaskId && !isGenerating && resultUrls.length === 0 && !error && !activeQueueTask",
     );

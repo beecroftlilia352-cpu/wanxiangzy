@@ -327,6 +327,9 @@
 
 .studio-task-card--compact {
   isolation: isolate;
+  border: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(86, 94, 118, 0.14);
 }
 
 .studio-task-card--continue {
@@ -384,10 +387,186 @@
 }
 
 .studio-task-thumb--compact {
-  border: 1px solid rgba(76, 84, 106, 0.1);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 10px;
   background: #f0f1f4;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.44);
+  box-shadow: none;
+}
+
+.studio-task-card--compact.is-selected::after,
+.studio-task-card--compact[data-selected="true"]::after {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px rgba(113, 126, 190, 0.68);
+  content: "";
+  pointer-events: none;
+}
+
+.studio-task-restore-stage {
+  background: var(--codex-surface-strong);
+}
+
+.studio-task-restore-content {
+  color: var(--codex-ink);
+}
+
+.studio-task-restore-icon {
+  border: 1px solid var(--codex-accent-18);
+  border-radius: 8px;
+  color: var(--codex-accent);
+  background: var(--codex-accent-08);
+  box-shadow: inset 0 1px 0 var(--codex-surface-72);
+}
+
+.studio-task-restore-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--codex-accent);
+  box-shadow: 0 0 0 4px var(--codex-accent-10);
+  animation: studio-task-restore-pulse 1.3s ease-in-out infinite;
+}
+
+.studio-task-restore-canvas {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(96px, 0.34fr) minmax(0, 1fr);
+  min-height: 244px;
+  overflow: hidden;
+  border: 1px solid var(--codex-accent-18);
+  border-radius: 8px;
+  background: var(--codex-surface-strong);
+  box-shadow:
+    inset 0 1px 0 var(--codex-surface-82),
+    0 18px 44px var(--codex-accent-08);
+}
+
+.studio-task-restore-source {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  border-right: 1px solid var(--codex-accent-12);
+  background: var(--codex-surface-04);
+}
+
+.studio-task-restore-source-icon {
+  border-radius: 8px;
+  color: var(--codex-accent-soft);
+  background: var(--codex-accent-10);
+}
+
+.studio-task-restore-line {
+  display: block;
+  width: min(92px, 80%);
+  height: 7px;
+  border-radius: 999px;
+  background: var(--codex-surface-soft);
+}
+
+.studio-task-restore-line--short {
+  width: min(58px, 54%);
+}
+
+.studio-task-restore-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(72px, 0.72fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.studio-task-restore-preview-main,
+.studio-task-restore-preview-side {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--codex-accent-10);
+  border-radius: 7px;
+  background: linear-gradient(140deg, var(--codex-surface-soft), var(--codex-surface-08));
+}
+
+.studio-task-restore-preview-main {
+  grid-row: 1 / 3;
+}
+
+.studio-task-restore-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  background: var(--codex-accent-08);
+}
+
+.studio-task-restore-progress-bar {
+  display: block;
+  width: 38%;
+  height: 100%;
+  background: var(--codex-accent);
+  transform: translateX(-110%);
+  animation: studio-task-restore-progress 1.25s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+@keyframes studio-task-restore-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes studio-task-restore-progress {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(290%); }
+}
+
+@media (max-width: 520px) {
+  .studio-task-restore-canvas {
+    grid-template-columns: 1fr;
+    min-height: 236px;
+  }
+
+  .studio-task-restore-source {
+    min-height: 82px;
+    flex-direction: row;
+    gap: 10px;
+    padding: 14px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--codex-accent-12);
+  }
+
+  .studio-task-restore-line {
+    width: min(78px, 30%);
+  }
+
+  .studio-task-restore-line--short {
+    width: min(48px, 20%);
+  }
+
+  .studio-task-restore-preview {
+    min-height: 152px;
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-task-restore-status-dot,
+  .studio-task-restore-progress-bar {
+    animation: none;
+  }
+
+  .studio-task-restore-status-dot {
+    opacity: 1;
+  }
+
+  .studio-task-restore-progress-bar {
+    width: 100%;
+    opacity: 0.45;
+    transform: none;
+  }
 }
 
 .studio-task-running-badge {
