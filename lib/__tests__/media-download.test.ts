@@ -67,8 +67,12 @@ describe("downloadMediaFile", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     vi.useFakeTimers();
+    const downloads: Array<{ href: string; filename: string }> = [];
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push({ href: this.href, filename: this.download });
+    });
 
-    const result = await downloadMediaFiles({
+    const downloadPromise = downloadMediaFiles({
       urls: [
         "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp",
         "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?version=2",
@@ -80,15 +84,17 @@ describe("downloadMediaFile", () => {
       ],
     });
 
+    expect(downloads).toEqual([
+      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp?signed=1", filename: "tryon-01.webp" },
+    ]);
+    await vi.advanceTimersByTimeAsync(500);
+    const result = await downloadPromise;
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toEqual({ successCount: 2, failedCount: 0 });
-    const frames = Array.from(document.querySelectorAll("iframe[aria-hidden='true']"));
-    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([
-      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp?signed=1",
-      "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?signed=1",
+    expect(downloads).toEqual([
+      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp?signed=1", filename: "tryon-01.webp" },
+      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?signed=1", filename: "tryon-02.jpg" },
     ]);
-    vi.runAllTimers();
-    expect(document.querySelectorAll("iframe[aria-hidden='true']")).toHaveLength(0);
   });
 
   it("resolves canonical media to signed direct URLs without proxying image bytes", async () => {

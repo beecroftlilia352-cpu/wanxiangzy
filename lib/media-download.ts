@@ -94,8 +94,10 @@ export async function downloadMediaFiles(options: {
     : await prepareMediaDownloads(options);
   options.signal?.throwIfAborted();
 
-  downloads.forEach((download, index) => {
-    triggerIsolatedUrlDownload(download.url);
+  for (let index = 0; index < downloads.length; index += 1) {
+    if (index > 0) await waitForNextBrowserDownload(options.signal);
+    const download = downloads[index];
+    triggerUrlDownload(download.url, download.filename);
     const completed = index + 1;
     options.onProgress?.({
       phase: "saving",
@@ -103,7 +105,7 @@ export async function downloadMediaFiles(options: {
       total: downloads.length,
       percent: Math.round((completed / downloads.length) * 100),
     });
-  });
+  }
   options.onProgress?.({
     phase: "completed",
     completed: downloads.length,
@@ -218,11 +220,7 @@ function triggerUrlDownload(url: string, filename: string) {
   anchor.remove();
 }
 
-function triggerIsolatedUrlDownload(url: string) {
-  const frame = document.createElement("iframe");
-  frame.hidden = true;
-  frame.src = url;
-  frame.setAttribute("aria-hidden", "true");
-  document.body.appendChild(frame);
-  window.setTimeout(() => frame.remove(), 60_000);
+async function waitForNextBrowserDownload(signal?: AbortSignal) {
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
+  signal?.throwIfAborted();
 }
