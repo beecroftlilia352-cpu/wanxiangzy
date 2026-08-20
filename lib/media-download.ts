@@ -95,7 +95,7 @@ export async function downloadMediaFiles(options: {
   options.signal?.throwIfAborted();
 
   downloads.forEach((download, index) => {
-    triggerUrlDownload(download.url, download.filename);
+    triggerUrlDownload(download.url, download.filename, true);
     const completed = index + 1;
     options.onProgress?.({
       phase: "saving",
@@ -208,11 +208,12 @@ function sanitizeFilenamePrefix(prefix: string) {
     .slice(0, 80) || "results";
 }
 
-function triggerUrlDownload(url: string, filename: string) {
+function triggerUrlDownload(url: string, filename: string, openInNewContext = false) {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
   anchor.rel = "noopener";
+  if (openInNewContext) anchor.target = "_blank";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();

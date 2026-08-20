@@ -66,9 +66,9 @@ describe("downloadMediaFile", () => {
   it("hands every prepared OSS result to the browser as an individual download", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const downloads: Array<{ href: string; filename: string }> = [];
+    const downloads: Array<{ href: string; filename: string; target: string }> = [];
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-      downloads.push({ href: this.href, filename: this.download });
+      downloads.push({ href: this.href, filename: this.download, target: this.target });
     });
 
     const result = await downloadMediaFiles({
@@ -86,8 +86,8 @@ describe("downloadMediaFile", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toEqual({ successCount: 2, failedCount: 0 });
     expect(downloads).toEqual([
-      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp?signed=1", filename: "tryon-01.webp" },
-      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?signed=1", filename: "tryon-02.jpg" },
+      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/first.webp?signed=1", filename: "tryon-01.webp", target: "_blank" },
+      { href: "https://vasthk.oss-cn-hongkong.aliyuncs.com/results/second.jpg?signed=1", filename: "tryon-02.jpg", target: "_blank" },
     ]);
   });
 
