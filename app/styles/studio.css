@@ -391,14 +391,43 @@
 }
 
 .studio-task-restore-stage {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   background: var(--codex-surface-strong);
 }
 
 .studio-task-switch-loading {
-  text-shadow: 0 1px 12px rgba(26, 33, 76, 0.5);
+  min-height: 28px;
+}
+
+.studio-task-flow-indicator {
+  display: inline-flex;
+  width: 26px;
+  height: 16px;
+  flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--codex-accent);
+}
+
+.studio-task-flow-indicator[data-size="sm"] {
+  width: 20px;
+  height: 12px;
+  flex-basis: 20px;
+  gap: 1.5px;
+}
+
+.studio-task-flow-bar {
+  width: 3px;
+  height: 11px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 2px 6px color-mix(in srgb, currentColor 20%, transparent);
+  transform-origin: center;
+}
+
+.studio-task-flow-indicator[data-size="sm"] .studio-task-flow-bar {
+  width: 2px;
+  height: 9px;
 }
 
 .studio-task-running-badge {

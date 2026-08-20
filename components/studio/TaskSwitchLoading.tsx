@@ -1,14 +1,12 @@
 "use client";
 
-import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
+import { TaskFlowIndicator } from "@/components/studio/TaskFlowIndicator";
 
 export function TaskSwitchLoading({ label }: { label: string }) {
   return (
-    <>
-      <StudioHomeHeroLoadingBackdrop />
-      <span className="studio-task-switch-loading relative z-10 text-sm font-medium text-white">
-        {label}
-      </span>
-    </>
+    <div className="studio-task-switch-loading inline-flex items-center gap-2.5 text-sm font-medium text-codex-muted">
+      <TaskFlowIndicator />
+      <span>{label}</span>
+    </div>
   );
 }

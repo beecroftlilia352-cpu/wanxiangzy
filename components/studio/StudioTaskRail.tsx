@@ -22,6 +22,7 @@ import { isLikelyVideoUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { TaskFlowIndicator } from "@/components/studio/TaskFlowIndicator";
 import type { TaskDisplayMode, TaskQueueItem, TaskQueuePayload, TaskQueueSummary } from "@/lib/task-queue";
 import { isTaskRunning, taskMatchesScope, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
 import {
@@ -738,7 +739,7 @@ function TaskCard({
             </div>
             {applying ? (
               <span className="studio-task-status-pill studio-task-status-pill--applying inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-bold">
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <TaskFlowIndicator size="sm" />
                 {t("applying")}
               </span>
             ) : (
@@ -814,7 +815,7 @@ function TaskThumb({
       )}
       {applying && !running && (
         <span className="studio-task-applying-overlay absolute inset-0 z-[2] flex items-center justify-center gap-1 text-[10px] font-semibold backdrop-blur-[1px]">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <TaskFlowIndicator size="sm" />
           {compact && <span>{t("applying")}</span>}
         </span>
       )}

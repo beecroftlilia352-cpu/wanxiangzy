@@ -14,6 +14,14 @@ const taskSwitchLoadingSource = readFileSync(
   resolve(process.cwd(), "components/studio/TaskSwitchLoading.tsx"),
   "utf8",
 );
+const taskFlowIndicatorSource = readFileSync(
+  resolve(process.cwd(), "components/studio/TaskFlowIndicator.tsx"),
+  "utf8",
+);
+const taskRailSource = readFileSync(
+  resolve(process.cwd(), "components/studio/StudioTaskRail.tsx"),
+  "utf8",
+);
 
 describe("general image running-task switch contract", () => {
   it("hides the previous frame until running-task grouping has been restored", () => {
@@ -52,10 +60,13 @@ describe("general image running-task switch contract", () => {
     expect(source).toContain('<TaskSwitchLoading label={tShared("loadingDots")} />');
     expect(source).not.toContain("Loader2");
     expect(source).not.toContain("<TaskRestoreStage");
-    expect(taskSwitchLoadingSource).toContain('from "framer-motion"');
-    expect(taskSwitchLoadingSource).toContain("useReducedMotion");
-    expect(taskSwitchLoadingSource).toContain("repeat: Infinity");
-    expect(taskSwitchLoadingSource).toContain("y: [0, -4, 0]");
+    expect(taskSwitchLoadingSource).toContain("TaskFlowIndicator");
+    expect(taskSwitchLoadingSource).not.toContain("StudioHomeHeroLoadingBackdrop");
+    expect(taskFlowIndicatorSource).toContain('from "framer-motion"');
+    expect(taskFlowIndicatorSource).toContain("useReducedMotion");
+    expect(taskFlowIndicatorSource).toContain("repeat: Infinity");
+    expect(taskFlowIndicatorSource).toContain("scaleY: [0.45, 1, 0.45]");
+    expect(taskRailSource.match(/<TaskFlowIndicator/g)?.length).toBe(2);
     expect(source).toContain(
       "!restoringTaskId && !isGenerating && resultUrls.length === 0 && !error && !activeQueueTask",
     );
