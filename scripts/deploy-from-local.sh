@@ -60,7 +60,7 @@ fi
 
 echo "==> [2/6] 验证 Supabase 运行时契约与 Realtime 发布配置"
 node --env-file-if-exists=.env.production --env-file-if-exists=.env.local - <<'NODE'
-const { readFileSync } = require("node:fs");
+import { readFileSync } from "node:fs";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
