@@ -292,7 +292,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
         if (isRetryableStatus(res.status)) {
           throw new RetryableGenerationError(`供应商暂时不可用（HTTP ${res.status}）`, `PROVIDER_HTTP_${res.status}`);
         }
-        throw new Error(`供应商拒绝了生成请求（HTTP ${res.status}）`);
+        throw new Error(describeProviderRejection(res.status));
       }
 
       const json = JSON.parse(resText);
@@ -347,6 +347,13 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   }
 
   throw new Error("API 多次重试后失败");
+}
+
+function describeProviderRejection(status: number) {
+  if (status === 451) {
+    return "提示词或输入图片可能包含模型暂不支持的敏感、受限或不符合内容政策的信息，请检查并调整后稍后再试（HTTP 451）";
+  }
+  return `供应商拒绝了生成请求（HTTP ${status}）`;
 }
 
 function imageProviderFromDeployment(deployment: AiResolvedDeployment): ImageProvider {

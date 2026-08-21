@@ -11,6 +11,7 @@ import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import { AdminImagePreview } from "@/components/admin/AdminImagePreview";
 import type { AdminTaskList, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
+import { summarizeGenerationError } from "@/lib/studio-generation-feedback";
 
 type AdminTasksClientProps = {
   tasks: AdminTaskList;
@@ -257,16 +258,9 @@ function renderTaskError(value: string | null | undefined) {
 }
 
 function summarizeTaskError(value: string) {
-  const trimmed = value.trim();
-  const apiPrefix = trimmed.match(/#?\d*:\s*API\s*错误\s*\d+/)?.[0] || trimmed.match(/API\s*错误\s*\d+/)?.[0] || "";
-  const message = extractJsonMessage(trimmed) || trimmed.replace(/^#?\d*:\s*/, "");
-  const summary = apiPrefix ? `${apiPrefix}：${message}` : message;
+  const slotPrefix = value.trim().match(/^#\d+\s*:\s*/)?.[0] || "";
+  const summary = `${slotPrefix}${summarizeGenerationError(value.replace(/^#\d+\s*:\s*/, ""))}`;
   return summary.length > 140 ? `${summary.slice(0, 140)}…` : summary;
-}
-
-function extractJsonMessage(value: string) {
-  const match = value.match(/"message"\s*:\s*"([^"]+)"/);
-  return match?.[1] || "";
 }
 
 function normalizeTaskPageSize(value: number) {

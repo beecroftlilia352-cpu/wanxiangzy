@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     stale: params.get("stale") === "1" || params.get("stale") === "true",
     page: query.page,
     pageSize: query.pageSize,
-    hydratePreviews: false,
+    hydratePreviews: true,
   });
 
   return NextResponse.json({ ...tasks, query }, { headers: { "Cache-Control": "no-store" } });

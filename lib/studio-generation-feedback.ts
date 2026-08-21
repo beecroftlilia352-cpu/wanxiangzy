@@ -5,6 +5,7 @@ export const GENERATION_ERROR_UPSTREAM = "上游生成服务返回异常，本�
 export const GENERATION_ERROR_UPSTREAM_KEY = "LibShared.feedback.upstreamError";
 export const GENERATION_ERROR_RATE_LIMIT = "上游模型繁忙或限流，本张已按失败结算。";
 export const GENERATION_ERROR_RATE_LIMIT_KEY = "LibShared.feedback.rateLimitError";
+export const GENERATION_ERROR_CONTENT_POLICY = "提示词或输入图片可能包含模型暂不支持的敏感、受限或不符合内容政策的信息，请检查并调整后稍后再试。本张已按失败结算。";
 export const FAILED_TASK_DETAIL_SUFFIX = "本次失败已自动退回对应灵点；重新生成会按新任务扣费。";
 export const FAILED_TASK_DETAIL_SUFFIX_KEY = "LibShared.feedback.failedTaskDetailSuffix";
 export const PARTIAL_FAILURE_REFUND_PREFIX = "成功图片可正常使用，失败";
@@ -40,6 +41,17 @@ export function summarizeGenerationError(message?: unknown) {
   // 先剥离 "API 错误 NNN: " 前缀，让后续 JSON 解析和关键词判断更准
   const withoutApiPrefix = raw.replace(/^API 错误\s+\d+\s*[:：]\s*/, "");
   const lower = withoutApiPrefix.toLowerCase();
+
+  if (
+    /(?:HTTP|API\s*错误|status)?\s*[:：]?\s*451\b/i.test(raw) ||
+    lower.includes("content policy") ||
+    lower.includes("sensitive word policy") ||
+    lower.includes("safety policy") ||
+    lower.includes("内容政策") ||
+    lower.includes("提示词违规")
+  ) {
+    return GENERATION_ERROR_CONTENT_POLICY;
+  }
 
   // 限流类特征要精确：绝不能因为响应 JSON 里带 "upstream_error" 类型标签
   // 就把敏感词拦截、内容违规等具体原因误判成限流

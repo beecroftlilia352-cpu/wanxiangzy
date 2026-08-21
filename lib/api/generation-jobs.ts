@@ -25,6 +25,7 @@ import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import { dispatchGenerationJob } from "@/lib/api/generation-job-dispatch";
+import { runWithAiRouteContext } from "@/lib/ai-control-plane/context.server";
 import { isAiCapacityUnavailableError } from "@/lib/ai-control-plane/router.server";
 import {
   isRetryableGenerationError,
@@ -506,7 +507,12 @@ export async function runGenerationJobById(generationId: string, deliveryVersion
 
   let result: Awaited<ReturnType<typeof runClaimedJob>>;
   try {
-    result = await runWithExecutionHeartbeat(supabase, job, () => runClaimedJob(supabase, job));
+    result = await runWithExecutionHeartbeat(supabase, job, () =>
+      runWithAiRouteContext(
+        { generationId: job.id, userId: job.user_id },
+        () => runClaimedJob(supabase, job),
+      ),
+    );
   } catch (error) {
     // Recovery may have advanced the delivery fence while the old provider
     // call was still in flight. The newer delivery owns the job now; do not

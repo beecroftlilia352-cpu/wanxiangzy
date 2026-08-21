@@ -339,6 +339,7 @@ export function classifyAiProviderError(error: unknown): ClassifiedError {
   if (status === 408 || status === 504 || error instanceof Error && error.name === "AbortError") return { category: "timeout", status, code, retryable: true, message };
   if (status === 401 || status === 403) return { category: "auth", status, code, retryable: true, message };
   if (status === 404) return { category: "configuration", status, code, retryable: true, message };
+  if (status === 451) return { category: "content_policy", status, code, retryable: false, message };
   if (status && status >= 500) return { category: "provider", status, code, retryable: true, message };
   if (status && status >= 400) return { category: "validation", status, code, retryable: false, message };
   if (/fetch|network|socket|ECONN|EAI_AGAIN/i.test(message)) return { category: "network", code, retryable: true, message };

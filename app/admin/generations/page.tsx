@@ -43,7 +43,7 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
       stale: staleVal,
       page: query.page,
       pageSize: query.pageSize,
-      hydratePreviews: false,
+      hydratePreviews: true,
       estimatedCount: true,
     });
   } catch (err) {

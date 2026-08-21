@@ -408,6 +408,7 @@ export type AdminTaskDetail = {
   task: AdminTaskListItem | null;
   userEmail: string | null;
   payload: Record<string, unknown>;
+  response: Record<string, unknown>;
   resultUrls: string[];
   errorMessage: string | null;
   queueItem: AdminTaskListItem | null;
@@ -1483,10 +1484,11 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
 
   if (generation.row) {
     const task = mapGenerationRow(generation.row);
-    const [creditLogs, auditLogs, emails] = await Promise.all([
+    const [creditLogs, auditLogs, emails, routeAttempts] = await Promise.all([
       loadCreditLogsByGeneration(id, warnings),
       loadAuditLogsByResource(id, warnings),
       task.userId ? loadProfileEmails([task.userId], warnings) : Promise.resolve(new Map<string, string>()),
+      loadRouteAttemptsByGeneration(id, warnings),
     ]);
     return {
       id,
@@ -1494,6 +1496,7 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
       task,
       userEmail: task.userId ? emails.get(task.userId) || null : null,
       payload: isRecord(generation.row.job_payload) ? generation.row.job_payload : {},
+      response: buildGenerationAdminResponse(generation.row, routeAttempts),
       resultUrls: arrayOfStrings(generation.row.result_urls),
       errorMessage: nullableString(generation.row.error_message),
       queueItem,
@@ -1519,6 +1522,7 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
       task,
       userEmail: task.userId ? emails.get(task.userId) || null : null,
       payload: workflow.row,
+      response: buildWorkflowAdminResponse(workflow.row, steps, events),
       resultUrls: extractUrls(workflow.row.final_outputs),
       errorMessage: nullableString(workflow.row.error_message),
       queueItem,
@@ -1538,6 +1542,7 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
       ? (await loadProfileEmails([queueItem.userId], warnings)).get(queueItem.userId) || null
       : null,
     payload: {},
+    response: buildQueueAdminResponse(queueItem),
     resultUrls: queueItem?.resultThumbnails || [],
     errorMessage: queueItem?.errorMessage || null,
     queueItem,
@@ -1834,6 +1839,44 @@ async function loadGenerationDetail(id: string, warnings: string[]) {
   );
   warnings.push(...localWarnings);
   return { row: result.data?.[0] || null, warnings: localWarnings };
+}
+
+async function loadRouteAttemptsByGeneration(id: string, warnings: string[]) {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("ai_route_attempts")
+      .select([
+        "request_id",
+        "deployment_id",
+        "provider_id",
+        "upstream_model",
+        "routing_mode",
+        "attempt_no",
+        "status",
+        "selection_reason",
+        "queue_latency_ms",
+        "provider_latency_ms",
+        "total_latency_ms",
+        "output_units",
+        "output_width",
+        "output_height",
+        "estimated_cost_usd",
+        "metadata",
+        "error_category",
+        "error_code",
+        "error_message",
+        "http_status",
+        "created_at",
+        "completed_at",
+      ].join(","))
+      .eq("generation_id", id)
+      .order("created_at", { ascending: true })
+      .limit(50),
+    "task detail route attempts",
+    warnings,
+    true,
+  );
+  return result.data || [];
 }
 
 async function loadWorkflowDetail(id: string, warnings: string[]) {
@@ -2810,20 +2853,27 @@ function mapTaskQueueRow(row: Record<string, unknown>): AdminTaskListItem {
 }
 
 async function hydrateTaskPreviewThumbnails(rows: AdminTaskListItem[], warnings: string[]) {
-  const needsHydration = rows.filter(
+  const needsResultHydration = rows.filter(
     (row) => row.resultCount > row.resultThumbnails.length && row.resultThumbnails.length < ADMIN_TASK_PREVIEW_LIMIT,
   );
-  if (!needsHydration.length) return rows;
+  const needsInputHydration = rows.filter(
+    (row) => row.sourceType === "generation" && row.inputThumbnails.length === 0,
+  );
+  if (!needsResultHydration.length && !needsInputHydration.length) return rows;
 
-  const generationIds = needsHydration.filter((row) => row.sourceType === "generation").map((row) => row.sourceId).filter(Boolean);
-  const workflowIds = needsHydration.filter((row) => row.sourceType === "workflow").map((row) => row.sourceId).filter(Boolean);
+  const generationIds = uniqueStrings([
+    ...needsResultHydration.filter((row) => row.sourceType === "generation").map((row) => row.sourceId),
+    ...needsInputHydration.map((row) => row.sourceId),
+  ]);
+  const workflowIds = needsResultHydration.filter((row) => row.sourceType === "workflow").map((row) => row.sourceId).filter(Boolean);
   const resultUrlsById = new Map<string, string[]>();
+  const inputUrlsById = new Map<string, string[]>();
 
   if (generationIds.length) {
     const result = await runQuery<Record<string, unknown>[]>(
       getAdminClient()
         .from("generations")
-        .select("id,result_urls")
+        .select("id,result_urls,job_payload,clothing_urls,model_face_url,reference_url")
         .in("id", generationIds),
       "task preview generation thumbnails",
       warnings,
@@ -2831,6 +2881,8 @@ async function hydrateTaskPreviewThumbnails(rows: AdminTaskListItem[], warnings:
     );
     for (const row of result.data || []) {
       resultUrlsById.set(stringValue(row.id), arrayOfStrings(row.result_urls).slice(0, ADMIN_TASK_PREVIEW_LIMIT));
+      const payload = isRecord(row.job_payload) ? row.job_payload : {};
+      inputUrlsById.set(stringValue(row.id), inferInputThumbnails(row, payload).slice(0, ADMIN_TASK_PREVIEW_LIMIT));
     }
   }
 
@@ -2849,13 +2901,14 @@ async function hydrateTaskPreviewThumbnails(rows: AdminTaskListItem[], warnings:
     }
   }
 
-  if (!resultUrlsById.size) return rows;
+  if (!resultUrlsById.size && !inputUrlsById.size) return rows;
   return rows.map((row) => {
-    const hydrated = resultUrlsById.get(row.sourceId) || [];
-    if (hydrated.length <= row.resultThumbnails.length) return row;
+    const hydratedResults = resultUrlsById.get(row.sourceId) || [];
+    const hydratedInputs = inputUrlsById.get(row.sourceId) || [];
     return {
       ...row,
-      resultThumbnails: uniqueStrings([...row.resultThumbnails, ...hydrated]).slice(0, ADMIN_TASK_PREVIEW_LIMIT),
+      inputThumbnails: uniqueStrings([...row.inputThumbnails, ...hydratedInputs]).slice(0, ADMIN_TASK_PREVIEW_LIMIT),
+      resultThumbnails: uniqueStrings([...row.resultThumbnails, ...hydratedResults]).slice(0, ADMIN_TASK_PREVIEW_LIMIT),
     };
   });
 }
@@ -3426,6 +3479,47 @@ function readGenerationBillingCredits(row: Record<string, unknown>, statusGroup:
   if (statusGroup === "failed") return 0;
   if (statusGroup === "completed") return used || reserved;
   return reserved;
+}
+
+function buildGenerationAdminResponse(row: Record<string, unknown>, routeAttempts: Array<Record<string, unknown>>) {
+  const payload = isRecord(row.job_payload) ? row.job_payload : {};
+  return {
+    status: stringValue(row.status),
+    errorMessage: nullableString(row.error_message),
+    resultUrls: arrayOfStrings(row.result_urls),
+    completedAt: nullableString(row.completed_at),
+    updatedAt: nullableString(row.updated_at),
+    asyncTask: isRecord(payload.asyncTask) ? payload.asyncTask : null,
+    partialFailure: isRecord(payload.partialFailure) ? payload.partialFailure : null,
+    routeAttempts,
+  };
+}
+
+function buildWorkflowAdminResponse(
+  row: Record<string, unknown>,
+  steps: Array<Record<string, unknown>>,
+  events: Array<Record<string, unknown>>,
+) {
+  return {
+    status: stringValue(row.status),
+    errorMessage: nullableString(row.error_message),
+    finalOutputs: row.final_outputs ?? null,
+    completedAt: nullableString(row.completed_at),
+    updatedAt: nullableString(row.updated_at),
+    steps,
+    events,
+  };
+}
+
+function buildQueueAdminResponse(queueItem: AdminTaskListItem | null) {
+  if (!queueItem) return {};
+  return {
+    status: queueItem.status,
+    errorMessage: queueItem.errorMessage,
+    resultUrls: queueItem.resultThumbnails,
+    completedAt: queueItem.completedAt,
+    updatedAt: queueItem.updatedAt,
+  };
 }
 
 function inferInputThumbnails(row: Record<string, unknown>, payload: Record<string, unknown>) {

@@ -173,10 +173,11 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
         </AdminSection>
       )}
 
-      <AdminSection title="技术排查信息" description="运营日常处理通常不需要查看；只有排查参数异常或对接问题时再展开核对。">
-        <pre className="max-h-[520px] overflow-auto p-4 text-xs leading-5 text-[var(--admin-fg)]">
-          {JSON.stringify(detail.payload, null, 2)}
-        </pre>
+      <AdminSection title="开发信息" description="请求值来自任务入参；响应值包含任务状态、结果、结算信息和已脱敏的供应商路由记录。">
+        <div className="grid gap-px bg-[var(--admin-border)] lg:grid-cols-2">
+          <DeveloperValue label="请求值" value={detail.payload} />
+          <DeveloperValue label="响应值" value={detail.response} />
+        </div>
       </AdminSection>
 
       <AdminSection title="灵点流水">
@@ -232,6 +233,17 @@ function JsonRows({ title, rows, empty }: { title: string; rows: Array<Record<st
         <p className="p-4 text-sm font-bold text-[var(--admin-muted)]">{empty}</p>
       )}
     </AdminSection>
+  );
+}
+
+function DeveloperValue({ label, value }: { label: string; value: Record<string, unknown> }) {
+  return (
+    <div className="min-w-0 bg-[var(--admin-surface)]">
+      <div className="border-b border-[var(--admin-border)] px-4 py-2 text-xs font-black text-[var(--admin-fg)]">{label}</div>
+      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words p-4 text-xs leading-5 text-[var(--admin-fg)]">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    </div>
   );
 }
 

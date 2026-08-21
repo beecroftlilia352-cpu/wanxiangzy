@@ -33,6 +33,11 @@ describe("AI router error policy", () => {
       .toMatchObject({ category: "validation", retryable: false });
   });
 
+  it("classifies HTTP 451 as a non-retryable content policy rejection", () => {
+    expect(classifyAiProviderError(new AiProviderHttpError("blocked", { status: 451 })))
+      .toMatchObject({ category: "content_policy", status: 451, retryable: false });
+  });
+
   it("fails over on network and upstream 5xx failures", () => {
     expect(classifyAiProviderError(new Error("fetch ECONNRESET"))).toMatchObject({ category: "network", retryable: true });
     expect(classifyAiProviderError(new AiProviderHttpError("upstream", { status: 503 })))
