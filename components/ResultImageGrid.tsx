@@ -650,7 +650,6 @@ function StableResultImage({ src, alt }: { src: string; alt: string }) {
       height={1600}
       loading="lazy"
       decoding="async"
-      disableFade
       className="h-full w-full object-cover"
       onError={() => {
         setDisplaySrc(FALLBACK_IMAGE);

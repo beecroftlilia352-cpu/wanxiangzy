@@ -78,9 +78,11 @@ export function RawPreviewImage({ eager = false, disableFade = false, ...props }
       } : props.onClick}
       title={failed ? t("reloadImage") : props.title}
       className={cn(
-        // 加载中：透明 + 浅灰底；完成后 300ms 淡入并移除灰底
+        // Keep the image itself hidden until decode completes so progressive
+        // JPEG/WebP painting cannot reveal a harsh top-to-bottom scan.
         disableFade ? "opacity-100 transition-none" : "transition-opacity duration-300",
         !disableFade && (loaded ? "opacity-100" : "opacity-0 bg-[var(--codex-surface-soft)]/70"),
+        !loaded && !failed && "studio-skeleton-shimmer",
         failed && "cursor-pointer",
         props.className,
       )}
