@@ -511,7 +511,9 @@ const ResultCard = memo(function ResultCard({
         <div className="flex items-center justify-center" style={getTileStyle(tileAspectRatio)}>
           {url ? (
             <StableResultImage
-              src={getImageVariantUrl(url, count <= 1 ? "detail" : "card")}
+              // The result grid is rendered in a ~420px tile at most. Keep
+              // detail (2560px) for the zoom/focus surface, not the grid.
+              src={getImageVariantUrl(url, "card")}
               alt={`${imageAltPrefix} ${index + 1}`}
             />
           ) : completedMissing ? (

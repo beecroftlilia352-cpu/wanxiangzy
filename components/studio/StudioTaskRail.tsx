@@ -794,11 +794,10 @@ function TaskThumb({
           />
         ) : (
           <RawPreviewImage
+            eager={compact}
             src={displayUrl}
             alt=""
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
+            fetchPriority={compact ? "auto" : "low"}
             className="relative z-[1] h-full w-full object-cover"
           />
         )
