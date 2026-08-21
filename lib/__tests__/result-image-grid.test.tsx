@@ -60,7 +60,7 @@ describe("ResultImageGrid download button", () => {
         variant="task"
       />
     );
-    expect(document.querySelectorAll(".studio-result-card-download")).toHaveLength(0);
+    expect(document.querySelectorAll(".studio-result-card-download")).toHaveLength(sampleUrls.length);
     expect(document.querySelectorAll(".studio-result-primary-download")).toHaveLength(1);
     expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 3 张");
   });

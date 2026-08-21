@@ -74,8 +74,8 @@ export type ResultInputReference = {
 };
 
 function getGridClass(count: number) {
-  // 单图结果以「大片」呈现（旧 340px 上限在大画布上显得局促）
-  if (count <= 1) return "max-w-[min(600px,100%)] grid-cols-1";
+  // 单图结果略大于 2 图单元，但避免挤满右侧预览区（旧 600px 显得过大）
+  if (count <= 1) return "max-w-[min(420px,100%)] grid-cols-1";
   if (count === 2) return "max-w-[min(760px,100%)] grid-cols-1 sm:grid-cols-2";
   if (count === 3) return "max-w-[min(1048px,100%)] grid-cols-1 sm:grid-cols-3";
   return "max-w-[min(1396px,100%)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
@@ -264,6 +264,7 @@ export function ResultImageGrid({
               // Keep each visual slot mounted while switching recent tasks so
               // StableResultImage can preserve the decoded image until the
               // replacement is ready.
+              const perCardDownloadUrl = showDownloadAction && downloadsReady ? actionUrls[index] ?? null : null;
               return (
                 <ResultCard
                   key={`task-result-slot-${index}`}
@@ -286,6 +287,9 @@ export function ResultImageGrid({
                   isNew={newResultIndexes.has(index)}
                   isBestPick={bestPickIndex === index}
                   favoriteDescriptor={createResourceFavoriteDescriptor(resourceFavorite, url, index)}
+                  downloadUrl={perCardDownloadUrl}
+                  filenamePrefix={filenamePrefix}
+                  extension={extension}
                 />
               );
             })}
@@ -329,6 +333,7 @@ export function ResultImageGrid({
         {slots.map((url, index) => {
           const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
           const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
+          const perCardDownloadUrl = showDownloadAction && downloadsReady ? actionUrls[index] ?? null : null;
           return (
             <ResultCard
               key={`result-slot-${index}`}
@@ -351,6 +356,9 @@ export function ResultImageGrid({
               isNew={newResultIndexes.has(index)}
               isBestPick={bestPickIndex === index}
               favoriteDescriptor={createResourceFavoriteDescriptor(resourceFavorite, url, index)}
+              downloadUrl={perCardDownloadUrl}
+              filenamePrefix={filenamePrefix}
+              extension={extension}
             />
           );
         })}
@@ -397,6 +405,15 @@ type ResultCardProps = {
    *  and an accent ring. */
   isBestPick?: boolean;
   favoriteDescriptor?: ResourceFavoriteDescriptor | null;
+  /** When provided, the card renders a top-right single-image download button.
+   *  Pass `null` (or omit) to hide the per-card download — the parent gates
+   *  this on `showDownloadAction` + `downloadsReady` + an available URL. */
+  downloadUrl?: string | null;
+  /** Filename stem for per-card downloads. Falls back to "result" when the
+   *  parent didn't supply a contextual prefix (e.g. legacy callers). */
+  filenamePrefix?: string;
+  /** Optional file extension override (e.g. "png" vs "webp"). */
+  extension?: string;
 };
 
 const ResultCard = memo(function ResultCard({
@@ -420,6 +437,9 @@ const ResultCard = memo(function ResultCard({
   isNew = false,
   isBestPick = false,
   favoriteDescriptor,
+  downloadUrl,
+  filenamePrefix,
+  extension,
 }: ResultCardProps) {
   const t = useTranslations("Shared");
   const router = useRouter();
@@ -439,6 +459,7 @@ const ResultCard = memo(function ResultCard({
     : completedMissing
       ? "studio-result-card-static"
       : "studio-result-card-pending-shell";
+  const hasPerCardDownload = Boolean(url && downloadUrl);
 
   return (
     <TooltipProvider>
@@ -449,11 +470,24 @@ const ResultCard = memo(function ResultCard({
           <span
             aria-label={t("bestPick")}
             title={t("bestPick")}
-            className="studio-result-best-pick-badge pointer-events-none absolute right-1.5 top-1.5 z-[3] inline-flex items-center gap-1 rounded-full bg-[var(--codex-accent)] px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm"
+            className={`studio-result-best-pick-badge pointer-events-none absolute top-1.5 z-[3] inline-flex items-center gap-1 rounded-full bg-[var(--codex-accent)] px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm ${hasPerCardDownload ? "right-12" : "right-1.5"}`}
           >
             <Sparkles className="h-3 w-3" aria-hidden="true" />
             {t("bestPick")}
           </span>
+        )}
+        {hasPerCardDownload && (
+          <StudioSingleDownloadButton
+            url={downloadUrl as string}
+            filename={generateDownloadFilename(filenamePrefix ?? "result", index, extension)}
+            errorFallback={t("downloadFailed")}
+            label={t("download")}
+            variant="ghost"
+            size="sm"
+            stopPropagation
+            showLabel={false}
+            className="studio-result-card-download"
+          />
         )}
         {url ? (
           <button
@@ -553,7 +587,10 @@ function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
     prev.isBestPick === next.isBestPick &&
     prev.favoriteDescriptor?.generationId === next.favoriteDescriptor?.generationId &&
     prev.favoriteDescriptor?.resultIndex === next.favoriteDescriptor?.resultIndex &&
-    prev.favoriteDescriptor?.url === next.favoriteDescriptor?.url
+    prev.favoriteDescriptor?.url === next.favoriteDescriptor?.url &&
+    prev.downloadUrl === next.downloadUrl &&
+    prev.filenamePrefix === next.filenamePrefix &&
+    prev.extension === next.extension
   );
 }
 
