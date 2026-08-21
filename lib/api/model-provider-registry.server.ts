@@ -84,7 +84,7 @@ export async function getAdminModelProviderSnapshot(): Promise<{
   const raw = row?.value;
   const parsed = raw ? parseModelProviderOverrides(raw) : {};
 
-  const models = (["gpt-image-2", "nano-banana-2", "nano-banana-pro"] as const).map((model) => {
+  const models = (["gpt-image-2", "nano-banana-2", "nano-banana-2-lite", "nano-banana-pro"] as const).map((model) => {
     const env = getEnvModelProviderOverride(model);
     const admin = parsed[model];
     const active = admin || env;

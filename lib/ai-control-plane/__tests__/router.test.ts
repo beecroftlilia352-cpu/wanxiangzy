@@ -32,6 +32,9 @@ describe("AI router error policy", () => {
       attemptedDeployments: 1,
       candidateDeployments: 2,
     })).toBe(true);
+
+    const terminal = new AiProviderPoolExhaustedError("gpt-image-2", 1, 1, new Error("HTTP 403"), false);
+    expect(terminal.retryable).toBe(false);
   });
 
   it("fails over on rate limit and preserves retry-after", () => {
@@ -45,6 +48,13 @@ describe("AI router error policy", () => {
   it("does not retry customer validation errors", () => {
     expect(classifyAiProviderError(new AiProviderHttpError("bad request", { status: 400 })))
       .toMatchObject({ category: "validation", retryable: false });
+  });
+
+  it("fails over without queue-retrying provider auth or configuration errors", () => {
+    expect(classifyAiProviderError(new AiProviderHttpError("forbidden", { status: 403 })))
+      .toMatchObject({ category: "auth", retryable: false, failoverable: true });
+    expect(classifyAiProviderError(new AiProviderHttpError("missing endpoint", { status: 404 })))
+      .toMatchObject({ category: "configuration", retryable: false, failoverable: true });
   });
 
   it("classifies HTTP 451 as a non-retryable content policy rejection", () => {

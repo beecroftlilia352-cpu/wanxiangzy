@@ -15,6 +15,8 @@ const ROW = {
   available_at: "2026-08-18T00:00:00.000Z",
   lease_token: "30000000-0000-4000-8000-000000000003",
   attempts: 1,
+  service_tier: "vip" as const,
+  queue_priority: 2 as const,
 };
 
 function database(responses: Array<{ data: unknown; error: { message: string } | null }>) {
@@ -40,12 +42,42 @@ describe("generation outbox relay", () => {
       generationId: ROW.generation_id,
       deliveryVersion: 1,
       deliveryKey: ROW.delivery_key,
+      serviceTier: "vip",
+      queuePriority: 2,
     }));
     expect(db.rpc).toHaveBeenNthCalledWith(2, "confirm_generation_outbox", {
       p_outbox_id: ROW.outbox_id,
       p_lease_token: ROW.lease_token,
       p_bullmq_job_id: ROW.delivery_key,
     });
+  });
+
+  it("passes the bounded execution recovery budget", async () => {
+    const db = database([
+      { data: [], error: null },
+      { data: { recovered_leases: 0 }, error: null },
+      { data: 0, error: null },
+    ]);
+    let stopping = false;
+    await runGenerationOutboxRelay({
+      database: db,
+      publisher: { enqueue: vi.fn() },
+      config: {
+        batchSize: 10,
+        concurrency: 2,
+        pollIntervalMs: 500,
+        maxPollIntervalMs: 60_000,
+        recoveryIntervalMs: 0,
+        claimTtlMs: 60_000,
+      },
+      control: { isStopping: () => stopping },
+      sleep: async () => { stopping = true; },
+    });
+    expect(db.rpc).toHaveBeenNthCalledWith(2, "recover_generation_outbox", {
+      p_limit: 500,
+      p_max_execution_attempts: 2,
+    });
+    expect(db.rpc).toHaveBeenNthCalledWith(3, "recover_stale_generation_capacity_waits", { p_limit: 100 });
   });
 
   it("nacks publish failures with bounded deterministic backoff", async () => {

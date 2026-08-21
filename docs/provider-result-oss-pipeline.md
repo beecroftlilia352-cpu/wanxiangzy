@@ -45,8 +45,9 @@ monotonic fence version.
 
 On SIGTERM/SIGINT, the shared stop fence prevents new relay/DB claims, BullMQ
 drains active generation processors, leased media batches settle, and the
-producer closes last. PM2 allows 45 seconds; application shutdown is limited to
-30 seconds.
+producer closes last. PM2 allows 65 seconds; the worker wrapper force-kills at
+55 seconds and the application shutdown is limited to 40 seconds, leaving
+buffer for process teardown.
 
 Cleanup uses `claim → authorize → OSS DELETE → confirm`; failures call `nack`
 with a bounded delay. OSS DELETE treats 404 as idempotent success. Legal holds

@@ -3,6 +3,7 @@ import { __lingyaTaskResponseTestUtils } from "../lingya";
 
 const {
   buildImageEditRequest,
+  buildImageGenerationRequest,
   buildLaozhangNativeImageRequest,
   buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,
@@ -21,6 +22,16 @@ const {
 } = __lingyaTaskResponseTestUtils;
 
 describe("lingya async task response parsing", () => {
+  it("forwards a stable idempotency key on image submissions", () => {
+    const request = buildImageGenerationRequest({
+      apiBase: "https://api.example.com/v1",
+      apiKey: "test-key",
+      provider: { name: "plato" },
+      body: { model: "gpt-image-2", prompt: "test" },
+      idempotencyKey: "gen-image:test:abc123",
+    });
+    expect(request.init.headers).toMatchObject({ "Idempotency-Key": "gen-image:test:abc123" });
+  });
   it("extracts generated image URLs from nested provider result fields", () => {
     const state = normalizeImageTaskResponse({
       data: {

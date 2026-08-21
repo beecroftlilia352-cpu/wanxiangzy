@@ -2,13 +2,24 @@ import { randomUUID } from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import {
+  acquireAiScopedCapacity,
+  rollbackAiScopedCapacity,
   acquireAiProviderCapacityDetailed,
   getAiProviderInFlight,
+  releaseAiScopedCapacity,
   releaseAiProviderCapacity,
+  renewAiScopedCapacity,
   renewAiProviderCapacity,
   type AiCapacityDecision,
+  type AiScopedCapacityLease,
 } from "@/lib/ai-control-plane/capacity.server";
 import { getAiRouteContext } from "@/lib/ai-control-plane/context.server";
+import {
+  getAiTenantConcurrencyPolicy,
+  providerAccountScope,
+  tenantDeploymentScope,
+  tenantGlobalScope,
+} from "@/lib/ai-control-plane/fairness.server";
 import {
   getAiControlPlaneConfig,
   loadAiProviderHealth,
@@ -46,13 +57,37 @@ export class AiCapacityUnavailableError extends Error {
   }
 }
 
+/** Capacity is owned by the tenant, not by an upstream provider. */
+export class AiTenantCapacityUnavailableError extends AiCapacityUnavailableError {
+  constructor(message: string, retryAfterSeconds = 15) {
+    super(message, retryAfterSeconds);
+    this.name = "AiTenantCapacityUnavailableError";
+  }
+}
+
+export function isAiTenantCapacityUnavailableError(error: unknown): error is AiTenantCapacityUnavailableError {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { name?: unknown; retryAfterSeconds?: unknown };
+  return candidate.name === "AiTenantCapacityUnavailableError"
+    && typeof candidate.retryAfterSeconds === "number"
+    && Number.isFinite(candidate.retryAfterSeconds)
+    && candidate.retryAfterSeconds >= 1
+    && candidate.retryAfterSeconds <= 300;
+}
+
 export class AiProviderPoolExhaustedError extends Error {
-  readonly retryable = true;
+  readonly retryable: boolean;
   readonly modelId: string;
   readonly attemptedDeployments: number;
   readonly candidateDeployments: number;
 
-  constructor(modelId: string, attemptedDeployments: number, candidateDeployments: number, cause?: unknown) {
+  constructor(
+    modelId: string,
+    attemptedDeployments: number,
+    candidateDeployments: number,
+    cause?: unknown,
+    retryable = true,
+  ) {
     super(
       candidateDeployments > 1
         ? `模型 ${modelId} 本次路由的 ${attemptedDeployments} 次供应商调用均失败`
@@ -63,6 +98,7 @@ export class AiProviderPoolExhaustedError extends Error {
     this.modelId = modelId;
     this.attemptedDeployments = attemptedDeployments;
     this.candidateDeployments = candidateDeployments;
+    this.retryable = retryable;
   }
 }
 
@@ -110,6 +146,28 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
   if (!config) throw new Error("统一模型配置尚未发布，请先到后台模型控制台完成发布");
   const ambient = getAiRouteContext();
   const context = { ...ambient, ...input.context };
+  const tenantPolicy = getAiTenantConcurrencyPolicy(context);
+  const tenantDecision = context.userId
+    ? await acquireAiScopedCapacity({
+      scopeKey: tenantGlobalScope(context.userId),
+      maxConcurrency: tenantPolicy.userGlobalConcurrency,
+      ttlSeconds: config.policy.leaseTtlSeconds,
+    })
+    : null;
+  if (tenantDecision && !tenantDecision.lease) {
+    throw new AiTenantCapacityUnavailableError(
+      tenantDecision.reason === "backend_unavailable"
+        ? "分布式并发服务暂不可用，将在队列中稍后重试"
+        : `当前账户并行生成数已达 ${tenantDecision.maxConcurrency}，任务将在队列中公平等待`,
+      tenantDecision.retryAfterSeconds,
+    );
+  }
+  const tenantLease = tenantDecision?.lease || null;
+  const tenantController = new AbortController();
+  const tenantHeartbeat = tenantLease
+    ? startScopedCapacityHeartbeat(tenantLease, config.policy.leaseTtlSeconds, tenantController)
+    : null;
+  try {
   const requestId = validUuid(context.requestId) ? context.requestId! : randomUUID();
   const model = config.models.find((item) => item.id === input.modelId && item.enabled);
   if (!model) throw new Error(`模型 ${input.modelId} 未启用或不存在`);
@@ -143,7 +201,10 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
   const attempted = new Set<string>();
   const capacitySkipped = new Set<string>();
   const capacityDecisions: AiCapacityDecision[] = [];
+  let tenantCapacitySkipped = false;
+  let providerAccountCapacitySkipped = false;
   let lastError: unknown = null;
+  let sawRetryableFailure = false;
   let providerAttempt = 0;
 
   for (let selectionIndex = 0; selectionIndex < resolved.length && providerAttempt < maxAttempts; selectionIndex += 1) {
@@ -151,17 +212,51 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
     if (attempted.has(deployment.id)) continue;
     attempted.add(deployment.id);
     const leaseStartedAt = Date.now();
-    const capacityDecision = await acquireAiProviderCapacityDetailed({
-      deploymentId: deployment.id,
-      maxConcurrency: deployment.health.circuitState === "half_open"
-        ? Math.min(deployment.maxConcurrency, config.policy.halfOpenMaxRequests)
-        : deployment.maxConcurrency,
-      requestsPerMinute: deployment.requestsPerMinute,
-      burst: deployment.burst,
-      ttlSeconds: config.policy.leaseTtlSeconds,
-    });
+    const tenantDeploymentDecision = context.userId
+      ? await acquireAiScopedCapacity({
+        scopeKey: tenantDeploymentScope(context.userId, deployment.id),
+        maxConcurrency: tenantPolicy.userDeploymentConcurrency,
+        ttlSeconds: config.policy.leaseTtlSeconds,
+      })
+      : null;
+    const tenantDeploymentLease = tenantDeploymentDecision?.lease || null;
+    if (tenantDeploymentDecision && !tenantDeploymentLease) {
+      tenantCapacitySkipped = true;
+      continue;
+    }
+      const providerAccountDecision = await acquireAiScopedCapacity({
+        scopeKey: providerAccountScope(deployment.providerId, deployment.provider.capacityGroup),
+        maxConcurrency: deployment.provider.capacityMaxConcurrency || deployment.maxConcurrency,
+        requestsPerMinute: deployment.provider.capacityRequestsPerMinute || deployment.requestsPerMinute,
+        burst: deployment.provider.capacityBurst ?? deployment.burst,
+        ttlSeconds: config.policy.leaseTtlSeconds,
+      });
+    const providerAccountLease = providerAccountDecision.lease;
+    if (!providerAccountLease) {
+      providerAccountCapacitySkipped = true;
+      if (tenantDeploymentLease) await releaseAiScopedCapacity(tenantDeploymentLease);
+      continue;
+    }
+    let capacityDecision: AiCapacityDecision;
+    try {
+      capacityDecision = await acquireAiProviderCapacityDetailed({
+        deploymentId: deployment.id,
+        maxConcurrency: deployment.health.circuitState === "half_open"
+          ? Math.min(deployment.maxConcurrency, config.policy.halfOpenMaxRequests)
+          : deployment.maxConcurrency,
+        requestsPerMinute: deployment.requestsPerMinute,
+        burst: deployment.burst,
+        ttlSeconds: config.policy.leaseTtlSeconds,
+      });
+    } catch (error) {
+      await rollbackAiScopedCapacity(providerAccountLease);
+      if (tenantDeploymentLease) await releaseAiScopedCapacity(tenantDeploymentLease);
+      throw error;
+    }
     const lease = capacityDecision.lease;
     if (!lease) {
+      await rollbackAiScopedCapacity(providerAccountLease);
+      if (tenantDeploymentLease) await releaseAiScopedCapacity(tenantDeploymentLease);
       capacitySkipped.add(deployment.id);
       capacityDecisions.push(capacityDecision);
       continue;
@@ -169,19 +264,37 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
 
     providerAttempt += 1;
     const startedAt = Date.now();
-    const attemptId = await startAttempt({
-      requestId,
-      context,
-      modelId: input.modelId,
-      modality: input.modality,
-      deployment,
-      routingMode,
-      attemptNo: providerAttempt,
-      queueLatencyMs: startedAt - leaseStartedAt,
-    });
+    let attemptId: string | null;
+    try {
+      attemptId = await startAttempt({
+        requestId,
+        context,
+        modelId: input.modelId,
+        modality: input.modality,
+        deployment,
+        routingMode,
+        attemptNo: providerAttempt,
+        queueLatencyMs: startedAt - leaseStartedAt,
+      });
+    } catch (error) {
+      await releaseAiProviderCapacity(lease);
+      await rollbackAiScopedCapacity(providerAccountLease);
+      if (tenantDeploymentLease) await releaseAiScopedCapacity(tenantDeploymentLease);
+      throw error;
+    }
     const controller = new AbortController();
+    const abortFromTenantLease = () => controller.abort(tenantController.signal.reason);
+    if (tenantController.signal.aborted) abortFromTenantLease();
+    else tenantController.signal.addEventListener("abort", abortFromTenantLease, { once: true });
+    const abortFromExecutionLease = () => controller.abort(context.executionSignal?.reason);
+    if (context.executionSignal?.aborted) abortFromExecutionLease();
+    else context.executionSignal?.addEventListener("abort", abortFromExecutionLease, { once: true });
     const timeout = setTimeout(() => controller.abort(), deployment.provider.timeoutMs);
     const heartbeat = startCapacityHeartbeat(lease, config.policy.leaseTtlSeconds, controller);
+    const tenantDeploymentHeartbeat = tenantDeploymentLease
+      ? startScopedCapacityHeartbeat(tenantDeploymentLease, config.policy.leaseTtlSeconds, controller)
+      : null;
+    const providerAccountHeartbeat = startScopedCapacityHeartbeat(providerAccountLease, config.policy.leaseTtlSeconds, controller);
     try {
       const result = await input.execute({ ...deployment, abortSignal: controller.signal, selectionReason: { ...deployment.selectionReason, inFlightAfterLease: lease.inFlight } }, providerAttempt);
       const latency = Date.now() - startedAt;
@@ -196,32 +309,57 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
       if (details.estimatedCostUsd === undefined) {
         details.estimatedCostUsd = deployment.cost?.perImageUsd ?? deployment.cost?.perRequestUsd;
       }
-      await Promise.all([
+      await withTelemetryTimeout(Promise.all([
         finishAttempt(attemptId, { status: "succeeded", latency, details }),
         recordOutcome(config, deployment, true, latency),
-      ]);
+      ]));
       return result;
     } catch (error) {
       lastError = error;
       const latency = Date.now() - startedAt;
       const classified = classifyAiProviderError(error);
-      await Promise.all([
+      sawRetryableFailure ||= classified.retryable;
+      await withTelemetryTimeout(Promise.all([
         finishAttempt(attemptId, { status: "failed", latency, error: classified }),
         recordOutcome(config, deployment, false, latency, classified),
-      ]);
+      ]));
       logger.warn(`[ai-router] ${input.modelId} via ${deployment.providerId}/${deployment.id} failed: ${classified.category} ${classified.status || ""}`);
-      if (!classified.retryable) throw error;
+      if (!classified.retryable && !classified.failoverable) throw error;
       if (input.canFailover?.(error, deployment, providerAttempt) === false) {
-        throw new AiProviderPoolExhaustedError(input.modelId, providerAttempt, resolved.length, error);
+        throw new AiProviderPoolExhaustedError(
+          input.modelId,
+          providerAttempt,
+          resolved.length,
+          error,
+          classified.retryable,
+        );
       }
       if (providerAttempt < maxAttempts) await delay(backoffMs(config, providerAttempt, requestId));
     } finally {
       clearTimeout(timeout);
       clearInterval(heartbeat);
+      if (tenantDeploymentHeartbeat) clearInterval(tenantDeploymentHeartbeat);
+      clearInterval(providerAccountHeartbeat);
+      tenantController.signal.removeEventListener("abort", abortFromTenantLease);
+      context.executionSignal?.removeEventListener("abort", abortFromExecutionLease);
       await releaseAiProviderCapacity(lease);
+      await releaseAiScopedCapacity(providerAccountLease);
+      if (tenantDeploymentLease) await releaseAiScopedCapacity(tenantDeploymentLease);
     }
   }
 
+  if (tenantCapacitySkipped && providerAttempt < maxAttempts) {
+    throw new AiTenantCapacityUnavailableError(
+      `当前账户在同一供应商上的并行生成数已达 ${tenantPolicy.userDeploymentConcurrency}，任务将在队列中公平等待`,
+      5,
+    );
+  }
+  if (providerAccountCapacitySkipped && providerAttempt < maxAttempts) {
+    throw new AiCapacityUnavailableError(
+      `模型 ${input.modelId} 的供应商账户容量或 RPM 已达上限，将在队列中稍后重试`,
+      5,
+    );
+  }
   if (capacitySkipped.size > 0 && providerAttempt < maxAttempts) {
     const backendUnavailable = capacityDecisions.some((item) => item.reason === "backend_unavailable");
     const rateLimited = capacityDecisions.length > 0 && capacityDecisions.every((item) => item.reason === "rate_limit");
@@ -238,9 +376,19 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
     );
   }
   if (lastError) {
-    throw new AiProviderPoolExhaustedError(input.modelId, providerAttempt, resolved.length, lastError);
+    throw new AiProviderPoolExhaustedError(
+      input.modelId,
+      providerAttempt,
+      resolved.length,
+      lastError,
+      sawRetryableFailure,
+    );
   }
   throw new AiCapacityUnavailableError(`模型 ${input.modelId} 的供应商池当前已满，将在队列中稍后重试`);
+  } finally {
+    if (tenantHeartbeat) clearInterval(tenantHeartbeat);
+    if (tenantLease) await releaseAiScopedCapacity(tenantLease);
+  }
 }
 
 function startCapacityHeartbeat(
@@ -252,7 +400,12 @@ function startCapacityHeartbeat(
   let renewing = false;
   let consecutiveFailures = 0;
   return setInterval(() => {
-    if (renewing) return;
+    if (renewing) {
+      if (Date.now() + intervalMs >= (lease.expiresAt || 0)) {
+        controller.abort(new Error("provider capacity lease renewal timed out"));
+      }
+      return;
+    }
     renewing = true;
     void renewAiProviderCapacity(lease, ttlSeconds)
       .then((renewed) => {
@@ -264,6 +417,40 @@ function startCapacityHeartbeat(
         const expiresAt = lease.expiresAt || 0;
         if (consecutiveFailures >= 2 || Date.now() + intervalMs >= expiresAt) {
           controller.abort(new Error("provider capacity lease lost"));
+        }
+      })
+      .finally(() => {
+        renewing = false;
+      });
+  }, intervalMs);
+}
+
+function startScopedCapacityHeartbeat(
+  lease: AiScopedCapacityLease,
+  ttlSeconds: number,
+  controller: AbortController,
+) {
+  const intervalMs = Math.max(10_000, Math.floor(Math.max(30, ttlSeconds) * 1000 / 3));
+  let renewing = false;
+  let consecutiveFailures = 0;
+  return setInterval(() => {
+    if (renewing) {
+      if (Date.now() + intervalMs >= (lease.expiresAt || 0)) {
+        controller.abort(new Error("tenant capacity lease renewal timed out"));
+      }
+      return;
+    }
+    renewing = true;
+    void renewAiScopedCapacity(lease, ttlSeconds)
+      .then((renewed) => {
+        if (renewed) {
+          consecutiveFailures = 0;
+          return;
+        }
+        consecutiveFailures += 1;
+        const expiresAt = lease.expiresAt || 0;
+        if (consecutiveFailures >= 2 || Date.now() + intervalMs >= expiresAt) {
+          controller.abort(new Error("tenant capacity lease lost"));
         }
       })
       .finally(() => {
@@ -364,7 +551,15 @@ function normalizeWeights(weights: Record<string, number>) {
   };
 }
 
-type ClassifiedError = { category: string; status?: number; code?: string; retryable: boolean; retryAfterSeconds?: number; message: string };
+type ClassifiedError = {
+  category: string;
+  status?: number;
+  code?: string;
+  retryable: boolean;
+  failoverable?: boolean;
+  retryAfterSeconds?: number;
+  message: string;
+};
 
 export function classifyAiProviderError(error: unknown): ClassifiedError {
   const message = error instanceof Error ? error.message : String(error);
@@ -373,8 +568,8 @@ export function classifyAiProviderError(error: unknown): ClassifiedError {
   const code = error instanceof AiProviderHttpError ? error.code : undefined;
   if (status === 429) return { category: "rate_limit", status, code, retryable: true, retryAfterSeconds: error instanceof AiProviderHttpError ? error.retryAfterSeconds : 60, message };
   if (status === 408 || status === 504 || error instanceof Error && error.name === "AbortError") return { category: "timeout", status, code, retryable: true, message };
-  if (status === 401 || status === 403) return { category: "auth", status, code, retryable: true, message };
-  if (status === 404) return { category: "configuration", status, code, retryable: true, message };
+  if (status === 401 || status === 403) return { category: "auth", status, code, retryable: false, failoverable: true, message };
+  if (status === 404) return { category: "configuration", status, code, retryable: false, failoverable: true, message };
   if (status === 451) return { category: "content_policy", status, code, retryable: false, message };
   if (status && status >= 500) return { category: "provider", status, code, retryable: true, message };
   if (status && status >= 400) return { category: "validation", status, code, retryable: false, message };
@@ -394,23 +589,29 @@ async function startAttempt(input: {
   queueLatencyMs: number;
 }) {
   if (!hasDatabase()) return null;
-  const { data, error } = await getAdminClient().from("ai_route_attempts").insert({
-    request_id: input.requestId,
-    generation_id: validUuid(input.context.generationId) ? input.context.generationId : null,
-    user_id: validUuid(input.context.userId) ? input.context.userId : null,
-    model_id: input.modelId,
-    modality: input.modality,
-    deployment_id: input.deployment.id,
-    provider_id: input.deployment.providerId,
-    upstream_model: input.deployment.upstreamModel,
-    routing_mode: input.routingMode,
-    attempt_no: input.attemptNo,
-    priority: input.deployment.priority,
-    status: "running",
-    selection_reason: input.deployment.selectionReason,
-    queue_latency_ms: input.queueLatencyMs,
-  }).select("id").maybeSingle();
-  return error ? null : data?.id || null;
+  try {
+    const { data, error } = await getAdminClient().from("ai_route_attempts").insert({
+      request_id: input.requestId,
+      generation_id: validUuid(input.context.generationId) ? input.context.generationId : null,
+      user_id: validUuid(input.context.userId) ? input.context.userId : null,
+      model_id: input.modelId,
+      modality: input.modality,
+      deployment_id: input.deployment.id,
+      provider_id: input.deployment.providerId,
+      upstream_model: input.deployment.upstreamModel,
+      routing_mode: input.routingMode,
+      attempt_no: input.attemptNo,
+      priority: input.deployment.priority,
+      status: "running",
+      selection_reason: input.deployment.selectionReason,
+      queue_latency_ms: input.queueLatencyMs,
+    }).select("id").maybeSingle();
+    if (error) logger.warn(`[ai-router] attempt telemetry insert failed: ${error.message || "database error"}`);
+    return error ? null : data?.id || null;
+  } catch (error) {
+    logger.warn(`[ai-router] attempt telemetry insert unavailable: ${safeOperationalError(error)}`);
+    return null;
+  }
 }
 
 async function finishAttempt(
@@ -437,24 +638,56 @@ async function finishAttempt(
     error_message: `${input.error.category}${input.error.status ? ` (HTTP ${input.error.status})` : ""}`,
     http_status: input.error.status,
   };
-  await getAdminClient().from("ai_route_attempts").update(payload).eq("id", attemptId);
+  try {
+    const { error } = await getAdminClient().from("ai_route_attempts").update(payload).eq("id", attemptId);
+    if (error) logger.warn(`[ai-router] attempt telemetry update failed: ${error.message || "database error"}`);
+  } catch (error) {
+    logger.warn(`[ai-router] attempt telemetry update unavailable: ${safeOperationalError(error)}`);
+  }
 }
 
 async function recordOutcome(config: AiControlPlaneConfig, deployment: AiResolvedDeployment, succeeded: boolean, latency: number, error?: ClassifiedError) {
   if (!hasDatabase()) return;
-  await getAdminClient().rpc("record_ai_provider_outcome", {
-    p_deployment_id: deployment.id,
-    p_model_id: deployment.modelId,
-    p_provider_id: deployment.providerId,
-    p_succeeded: succeeded,
-    p_latency_ms: latency,
-    p_error_category: error?.category || null,
-    p_http_status: error?.status || null,
-    p_failure_threshold: config.policy.circuitFailureThreshold,
-    p_minimum_samples: config.policy.circuitMinimumSamples,
-    p_open_seconds: config.policy.circuitOpenSeconds,
-    p_rate_limit_seconds: error?.retryAfterSeconds || 60,
-  });
+  try {
+    const result = await getAdminClient().rpc("record_ai_provider_outcome", {
+      p_deployment_id: deployment.id,
+      p_model_id: deployment.modelId,
+      p_provider_id: deployment.providerId,
+      p_succeeded: succeeded,
+      p_latency_ms: latency,
+      p_error_category: error?.category || null,
+      p_http_status: error?.status || null,
+      p_failure_threshold: config.policy.circuitFailureThreshold,
+      p_minimum_samples: config.policy.circuitMinimumSamples,
+      p_open_seconds: config.policy.circuitOpenSeconds,
+      p_rate_limit_seconds: error?.retryAfterSeconds || 60,
+    });
+    if (result.error) logger.warn(`[ai-router] provider outcome telemetry failed: ${result.error.message || "database error"}`);
+  } catch (telemetryError) {
+    logger.warn(`[ai-router] provider outcome telemetry unavailable: ${safeOperationalError(telemetryError)}`);
+  }
+}
+
+function safeOperationalError(error: unknown) {
+  if (!(error instanceof Error)) return "unknown error";
+  return `${error.name}: ${error.message}`.slice(0, 300);
+}
+
+async function withTelemetryTimeout<T>(promise: Promise<T>, timeoutMs = 2_000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("route telemetry timeout")), timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    logger.warn(`[ai-router] route telemetry skipped: ${safeOperationalError(error)}`);
+    return undefined as T;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function hasDatabase() { return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY); }

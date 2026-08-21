@@ -21,7 +21,9 @@ import { parseBullMqConfig } from "@/lib/queue/bullmq-config.server";
 import { runGenerationOutboxRelay } from "@/lib/queue/generation-outbox-relay.server";
 import { createConfiguredGenerationQueueRuntime } from "@/lib/queue/generation-queue.server";
 import { createConfiguredGenerationWorkerRuntime } from "@/lib/queue/generation-worker.server";
+import { runGenerationPriorityAgingLoop } from "@/lib/queue/generation-priority-aging.server";
 import { createWorkerHeartbeat } from "@/lib/queue/worker-heartbeat.server";
+import { requestWorkerShutdown } from "@/lib/queue/worker-shutdown.server";
 import { runOssMirrorRecoveryLoop } from "@/lib/queue/oss-mirror-recovery.server";
 import { createWakeNotifier, subscribeOutboxWake } from "@/lib/queue/outbox-wake.server";
 import {
@@ -36,7 +38,9 @@ import {
 const isMainModule = Boolean(process.argv[1])
   && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
 
-const SHUTDOWN_BUDGET_MS = 30_000;
+// Keep a five-second margin below PM2_KILL_TIMEOUT_MS=65s so BullMQ has time
+// to release locks without allowing deployment cutover to hang indefinitely.
+const SHUTDOWN_BUDGET_MS = 40_000;
 
 export type WorkerSupervisorControl = {
   isStopping: () => boolean;
@@ -55,6 +59,7 @@ export function createWorkerSupervisorControl(): WorkerSupervisorControl {
     requestStop(reason, error) {
       if (stopping) return;
       stopping = true;
+      requestWorkerShutdown(reason);
       emit(error ? "shutdown.fatal" : "shutdown.requested", { reason, error: error ? safeMessage(error) : undefined });
       resolveStop({ reason, error });
     },
@@ -100,6 +105,12 @@ export async function runWorkerSupervisor() {
     sleep,
     onMetric: (metric) => emit("generation.outbox", metric),
   }));
+  const priorityAging = supervise("generation.priority-aging", control, () => runGenerationPriorityAgingLoop({
+    queue: producer.queue,
+    control,
+    sleep,
+    onMetric: (metric) => emit("generation.priority", metric),
+  }));
   const mirror = supervise("oss.mirror", control, () => runOssMirrorRecoveryLoop({
     database,
     config: {
@@ -131,7 +142,7 @@ export async function runWorkerSupervisor() {
   const shutdown = () => {
     shutdownPromise ??= shutdownInOrder({
       workerClose: () => worker.close(),
-      loops: [relay, mirror, validation, cleanup],
+      loops: [relay, priorityAging, mirror, validation, cleanup],
       wakeClose: () => wake.close(),
       producerClose: async () => {
         await heartbeat.close();
@@ -154,12 +165,12 @@ export async function runWorkerSupervisor() {
     });
 
     const stop = await control.waitForStop();
-    await withTimeout(shutdown(), SHUTDOWN_BUDGET_MS, "worker graceful shutdown exceeded 30 seconds");
+    await withTimeout(shutdown(), SHUTDOWN_BUDGET_MS, "worker graceful shutdown exceeded 40 seconds");
     emit("supervisor.stopped", { reason: stop.reason });
     if (stop.error) throw stop.error;
   } catch (error) {
     control.requestStop("supervisor.fatal", error);
-    await withTimeout(shutdown(), SHUTDOWN_BUDGET_MS, "worker graceful shutdown exceeded 30 seconds")
+    await withTimeout(shutdown(), SHUTDOWN_BUDGET_MS, "worker graceful shutdown exceeded 40 seconds")
       .catch((shutdownError) => emit("shutdown.error", { error: safeMessage(shutdownError) }));
     throw error;
   } finally {

@@ -133,6 +133,7 @@ export function getSupportedImageSizes(model: LingyaModel, aspectRatio?: AspectR
 }
 
 export function normalizeImageSize(model: LingyaModel, size: ImageSize = "1K", aspectRatio?: AspectRatio): ImageSize {
+  if (model === "nano-banana-2-lite") return "1K";
   const supported = getSupportedImageSizes(model, aspectRatio);
   return supported.includes(size) ? size : supported[0] || "1K";
 }
@@ -147,6 +148,8 @@ export interface GenerateInput {
   image_size?: ImageSize;
   search?: boolean;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
+  /** Stable provider submission key used across retries and failover fences. */
+  idempotencyKey?: string;
   routingDeployment?: AiResolvedDeployment;
 }
 
@@ -215,7 +218,7 @@ type TryOnRequestPromptOptions = {
   unassignedGarmentDetailImageNumbers?: number[];
 };
 
-export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
+export async function generateImage(input: GenerateInput, retries = 1): Promise<GenerateResult> {
   const requestInput = await resolveGenerateInputAspectRatio(input);
   const provider = requestInput.routingDeployment
     ? imageProviderFromDeployment(requestInput.routingDeployment)
@@ -269,10 +272,11 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
               imageUrls: requestInput.image || [],
               aspectRatio: requestInput.aspect_ratio,
               imageSize: requestInput.image_size,
+              idempotencyKey: requestInput.idempotencyKey,
             })
           : useImageEditEndpoint
-            ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: requestInput.image || [] })
-            : buildImageGenerationRequest({ apiBase, apiKey, provider, body });
+            ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: requestInput.image || [], idempotencyKey: requestInput.idempotencyKey })
+            : buildImageGenerationRequest({ apiBase, apiKey, provider, body, idempotencyKey: requestInput.idempotencyKey });
         res = await fetch(request.url, { ...request.init, signal: requestInput.routingDeployment?.abortSignal });
 
         resText = await res.text();
@@ -627,10 +631,10 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
     body.size = normalizeImageSize(input.model, input.image_size, input.aspect_ratio);
     body.watermark = false;
   }
-  if (input.image_size && (input.model === "nano-banana-pro" || input.model === "nano-banana-2")) {
+  if (input.image_size && isNanoBananaModel(input.model)) {
     body.image_size = input.image_size;
   }
-  if (input.search && (input.model === "nano-banana-pro" || input.model === "nano-banana-2")) {
+  if (input.search && isNanoBananaModel(input.model)) {
     body.search = input.search;
   }
 
@@ -654,12 +658,13 @@ function buildImageGenerationRequest(params: {
   apiKey: string;
   provider: Pick<ImageProvider, "name">;
   body: Record<string, any>;
+  idempotencyKey?: string;
 }): { url: string; init: RequestInit } {
   return {
     url: getImageGenerationUrl(params.apiBase, params.provider),
     init: {
       method: "POST",
-      headers: { Authorization: `Bearer ${params.apiKey}`, "Content-Type": "application/json" },
+      headers: imageHeaders(params.apiKey, params.idempotencyKey),
       body: JSON.stringify(params.body),
     },
   };
@@ -673,6 +678,7 @@ async function buildLaozhangNativeImageRequest(params: {
   imageUrls: string[];
   aspectRatio?: AspectRatio;
   imageSize?: ImageSize;
+  idempotencyKey?: string;
 }): Promise<{ url: string; init: RequestInit }> {
   const imageParts = await Promise.all(params.imageUrls.map(fetchImageInlineDataPart));
   const parts = [
@@ -684,7 +690,7 @@ async function buildLaozhangNativeImageRequest(params: {
     url: getLaozhangGenerateContentUrl(params.apiBase, params.model),
     init: {
       method: "POST",
-      headers: { "x-goog-api-key": params.apiKey, "Content-Type": "application/json" },
+      headers: { "x-goog-api-key": params.apiKey, "Content-Type": "application/json", ...(params.idempotencyKey ? { "Idempotency-Key": params.idempotencyKey } : {}) },
       body: JSON.stringify({
         contents: [{ role: "user", parts }],
         generationConfig: {
@@ -716,6 +722,7 @@ async function buildImageEditRequest(params: {
   body: Record<string, any>;
   imageUrls: string[];
   maskUrl?: string;
+  idempotencyKey?: string;
 }): Promise<{ url: string; init: RequestInit }> {
   if (!params.imageUrls.length) {
     throw new Error("gpt-image-2 image edit requires at least one reference image");
@@ -746,9 +753,17 @@ async function buildImageEditRequest(params: {
     url: getImageEditUrl(params.apiBase),
     init: {
       method: "POST",
-      headers: { Authorization: `Bearer ${params.apiKey}`, Accept: "application/json" },
+      headers: { ...imageHeaders(params.apiKey, params.idempotencyKey), Accept: "application/json" },
       body: form,
     },
+  };
+}
+
+function imageHeaders(apiKey: string, idempotencyKey?: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
   };
 }
 
@@ -1336,7 +1351,7 @@ function resolveProviderImageModel(model: LingyaModel, provider: Pick<ImageProvi
   if (provider.name === "catrouter" && model === "gpt-image-2") {
     return process.env.CATROUTER_GPT_IMAGE_MODEL?.trim() || DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
   }
-  if (provider.name === "catrouter" && model === "nano-banana-2") {
+  if (provider.name === "catrouter" && (model === "nano-banana-2" || model === "nano-banana-2-lite")) {
     return process.env.CATROUTER_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
   }
   if (provider.name === "catrouter" && model === "nano-banana-pro") {
@@ -1345,13 +1360,13 @@ function resolveProviderImageModel(model: LingyaModel, provider: Pick<ImageProvi
   if (provider.name === "plato" && model === "gpt-image-2") {
     return DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
   }
-  if (provider.name === "yunwu-native" && model === "nano-banana-2") {
+  if (provider.name === "yunwu-native" && (model === "nano-banana-2" || model === "nano-banana-2-lite")) {
     return process.env.YUNWU_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
   }
   if (provider.name === "yunwu-native" && model === "nano-banana-pro") {
     return process.env.YUNWU_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL;
   }
-  if (provider.name === "laozhang" && model === "nano-banana-2") {
+  if (provider.name === "laozhang" && (model === "nano-banana-2" || model === "nano-banana-2-lite")) {
     return process.env.LAOZHANG_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
   }
   if (provider.name === "laozhang" && model === "nano-banana-pro") {
@@ -1435,7 +1450,7 @@ function normalizeLaozhangAspectRatio(value?: AspectRatio): string {
 }
 
 export function isNanoBananaModel(model: LingyaModel): boolean {
-  return model === "nano-banana-2" || model === "nano-banana-pro";
+  return model === "nano-banana-2" || model === "nano-banana-2-lite" || model === "nano-banana-pro";
 }
 
 type GptTryOnPromptTemplate = "banana" | "legacy";
@@ -2914,6 +2929,7 @@ function buildGarmentDetailPromptGroups(params: {
 
 export const __lingyaTaskResponseTestUtils = {
   buildImageEditRequest,
+  buildImageGenerationRequest,
   buildLaozhangNativeImageRequest,
   buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,

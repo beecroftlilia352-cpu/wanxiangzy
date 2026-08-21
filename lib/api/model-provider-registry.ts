@@ -77,6 +77,7 @@ export function getEnvModelProviderOverride(model: PricedImageModel): ModelProvi
 
   const provider = normalizeNanoBananaProvider(process.env.NANO_BANANA_PROVIDER);
   const pro = model === "nano-banana-pro";
+  const lite = model === "nano-banana-2-lite";
 
   if (provider === "catrouter") {
     return {
@@ -85,6 +86,7 @@ export function getEnvModelProviderOverride(model: PricedImageModel): ModelProvi
       apiKey: process.env.CATROUTER_API_KEY?.trim(),
       upstreamModel: pro
         ? process.env.CATROUTER_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_MODEL
+        : lite ? process.env.CATROUTER_NANO_BANANA_LITE_MODEL?.trim() || "gemini-3.1-flash-lite-image"
         : process.env.CATROUTER_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_MODEL,
       responseType: "gemini-native",
     };
@@ -97,6 +99,7 @@ export function getEnvModelProviderOverride(model: PricedImageModel): ModelProvi
       apiKey: process.env.LAOZHANG_API_KEY?.trim(),
       upstreamModel: pro
         ? process.env.LAOZHANG_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_MODEL
+        : lite ? process.env.LAOZHANG_NANO_BANANA_LITE_MODEL?.trim() || "gemini-3.1-flash-lite-image"
         : process.env.LAOZHANG_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_MODEL,
       responseType: "gemini-native",
     };
@@ -112,6 +115,7 @@ export function getEnvModelProviderOverride(model: PricedImageModel): ModelProvi
     apiKey: process.env.YUNWU_NATIVE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim(),
     upstreamModel: pro
       ? process.env.YUNWU_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_MODEL
+      : lite ? process.env.YUNWU_NANO_BANANA_LITE_MODEL?.trim() || "gemini-3.1-flash-lite-image"
       : process.env.YUNWU_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_MODEL,
     responseType: "gemini-native",
   };
@@ -124,7 +128,7 @@ export function parseModelProviderOverrides(
   const container = isRecord(value.models) ? value.models : value;
 
   const out: Partial<Record<PricedImageModel, ModelProviderOverride>> = {};
-  for (const model of ["gpt-image-2", "nano-banana-2", "nano-banana-pro"] as const) {
+  for (const model of ["gpt-image-2", "nano-banana-2", "nano-banana-2-lite", "nano-banana-pro"] as const) {
     const raw = container[model];
     if (!isRecord(raw)) continue;
 

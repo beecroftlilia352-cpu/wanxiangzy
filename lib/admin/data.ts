@@ -1587,7 +1587,7 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
     ? parseWorkerRuntimeConfig(workerConfigResult.data.value)
     : { ...DEFAULT_WORKER_RUNTIME_CONFIG };
   const runtimeWorkerConcurrency = readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", desired.workerConcurrency, 1, 64);
-  const runtimeImageBatchConcurrency = readIntegerEnv("GENERATION_IMAGE_BATCH_CONCURRENCY", desired.imageBatchConcurrency, 1, 24);
+  const runtimeImageBatchConcurrency = readIntegerEnv("GENERATION_IMAGE_BATCH_CONCURRENCY", desired.imageBatchConcurrency, 1, 8);
   const runtimeRelayConcurrency = readIntegerEnv("BULLMQ_RELAY_CONCURRENCY", desired.relayConcurrency, 1, 128);
   const driftReasons = getWorkerRuntimeDrift({
     desired,
@@ -1706,6 +1706,7 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
 
   const MODEL_NOTES: Record<LingyaModel, string> = {
     "nano-banana-2": "默认主力模型，适合批量生产和姿势裂变。",
+    "nano-banana-2-lite": "更快的 1K 模型，适合低延迟批量任务。",
     "gpt-image-2": "适合稳定编辑类任务。",
     "nano-banana-pro": "高质量模型，建议用于品牌大片和复杂参考图。",
   };
@@ -1717,7 +1718,7 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
       model: Boolean(modelRaw),
       video: Boolean(videoRaw),
     },
-    modelProviders: (modelSnapshot?.models || (["nano-banana-2", "gpt-image-2", "nano-banana-pro"] as const).map((model) => ({
+  modelProviders: (modelSnapshot?.models || (["nano-banana-2", "nano-banana-2-lite", "gpt-image-2", "nano-banana-pro"] as const).map((model) => ({
       model,
       enabled: false,
       baseUrl: "",

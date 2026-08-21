@@ -299,7 +299,7 @@ function normalizeGenerationIdempotencyKey(value: string | undefined) {
 
 function readMaxActiveJobs() {
   const raw = process.env.GENERATION_MAX_ACTIVE_PER_USER;
-  if (!raw) return 20;
+  if (!raw) return 30;
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1_000) {
     throw new CreditError("GENERATION_MAX_ACTIVE_PER_USER 必须是 1-1000 的整数", 500);

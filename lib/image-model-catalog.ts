@@ -29,8 +29,8 @@ const runtimeCatalog = new Map<string, ImageModelCatalogItem>();
 export const LEGACY_IMAGE_MODEL_CATALOG: ImageModelCatalogItem[] = IMAGE_MODEL_DISPLAY_ORDER.map((id) => ({
   id,
   displayName: legacyDisplayName(id),
-  creditPrices: { ...IMAGE_CREDIT_COSTS[id] },
-  supportedSizes: Object.keys(IMAGE_CREDIT_COSTS[id]) as PricedImageSize[],
+  creditPrices: id === "nano-banana-2-lite" ? { "1K": IMAGE_CREDIT_COSTS[id]["1K"] } : { ...IMAGE_CREDIT_COSTS[id] },
+  supportedSizes: id === "nano-banana-2-lite" ? ["1K"] : Object.keys(IMAGE_CREDIT_COSTS[id]) as PricedImageSize[],
   capabilities: ["generation", "edit"],
 }));
 
@@ -58,6 +58,7 @@ export function isPricedImageModel(value: string): value is PricedImageModel {
 
 function legacyDisplayName(id: PricedImageModel) {
   if (id === "nano-banana-2") return "Nano Banana 2";
+  if (id === "nano-banana-2-lite") return "Nano Banana 2 Lite";
   if (id === "nano-banana-pro") return "Nano Banana Pro";
   return "GPT Image 2";
 }

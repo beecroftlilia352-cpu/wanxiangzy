@@ -17,6 +17,7 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
     expect(ecosystem).toContain("instances: workerInstances");
     expect(ecosystem).toContain("wait_ready: true");
     expect(ecosystem).toContain("kill_timeout: killTimeoutMs");
+    expect(ecosystem).toContain('boundedInteger("PM2_KILL_TIMEOUT_MS", 65_000, 56_000, 120_000)');
     expect(ecosystem).toContain('NODE_ENV: "production"');
   });
 
@@ -33,7 +34,7 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
     expect(worker).toContain('event?.event === "supervisor.ready"');
     expect(worker).toMatch(/if \(!ready && isSupervisorReady\(line\)\) \{[\s\S]*process\.send\("ready"\)/);
     expect(worker).toContain('child.kill(signal)');
-    expect(worker).toContain("35_000");
+    expect(worker).toContain("55_000");
   });
 
   it("uses rolling startOrReload and validates the complete new process set", () => {
@@ -100,8 +101,8 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
 
     expect(manifest).toEqual({
       schemaVersion: 1,
-      contractVersion: "2026-08-21.2",
-      contractHash: "c15cb3e0cf66c8f3333bde1e2c98051aa9534a018e196ab2fa87e011ff5da285",
+      contractVersion: "2026-08-22.6",
+      contractHash: "f6989e953f92e638603f8369bf5d10cbfb651dfc8145417ccb096ef1a40aeedf",
     });
     expect(deploy).toContain("release_matches_runtime_contract()");
     expect(deploy).toContain('if ! release_matches_runtime_contract "$PREVIOUS_TARGET"; then');

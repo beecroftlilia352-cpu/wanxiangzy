@@ -15,6 +15,8 @@ const PAYLOAD: GenerationQueuePayload = {
   deliveryVersion: 3,
   deliveryKey: "generation-generation-1-v3",
   availableAt: "2026-08-18T00:00:00.000Z",
+  serviceTier: "standard",
+  queuePriority: 20,
 };
 
 function createJob(data: GenerationQueuePayload = PAYLOAD) {
@@ -66,12 +68,31 @@ describe("generation BullMQ processor", () => {
     await expect(processor(createJob())).resolves.toMatchObject({ outcome: "deferred" });
   });
 
+  it("accepts pre-upgrade schema-v1 deliveries as standard traffic", async () => {
+    const execute = vi.fn().mockResolvedValue({ processed: 1 });
+    const processor = createGenerationProcessor(execute);
+    const legacy = { ...PAYLOAD } as Partial<typeof PAYLOAD>;
+    delete legacy.serviceTier;
+    delete legacy.queuePriority;
+
+    await expect(processor(createJob(legacy as typeof PAYLOAD))).resolves.toMatchObject({ outcome: "completed" });
+    expect(execute).toHaveBeenCalledWith(PAYLOAD.generationId, PAYLOAD.deliveryVersion);
+  });
+
+  it("accepts the shared VIP priority contract", async () => {
+    const execute = vi.fn().mockResolvedValue({ processed: 1 });
+    const processor = createGenerationProcessor(execute);
+    await expect(processor(createJob({ ...PAYLOAD, serviceTier: "vip", queuePriority: 2 })))
+      .resolves.toMatchObject({ outcome: "completed" });
+  });
+
   it("propagates real execution failures and rejects invalid payloads", async () => {
     const failure = new Error("database unavailable");
     const processor = createGenerationProcessor(vi.fn().mockRejectedValue(failure));
 
     await expect(processor(createJob())).rejects.toBe(failure);
     await expect(processor(createJob({ ...PAYLOAD, schemaVersion: 2 as 1 }))).rejects.toThrow(/schema/);
+    await expect(processor(createJob({ ...PAYLOAD, serviceTier: "vip", queuePriority: 20 }))).rejects.toThrow(/conflict/);
   });
 });
 

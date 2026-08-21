@@ -167,8 +167,8 @@ INSERT INTO public.billing_products
 VALUES
   ('prod_starter', 'starter', '入门版', '适合轻量试用和小批量出图。', NULL, 250, 0, 5, ARRAY['250 积分', '适合体验核心生成能力', '支持所有基础模块'], 1),
   ('prod_pro', 'pro', '专业版', '适合稳定日常生产。', '热门', 1000, 200, 5, ARRAY['1,000 积分 + 赠送 200', '适合多模块连续生成', '更高性价比'], 2),
-  ('prod_business', 'business', '企业版', '适合团队批量生成和电商素材生产。', '推荐', 5000, 2000, 5, ARRAY['5,000 积分 + 赠送 2,000', '适合批量商品套图', '团队运营更稳'], 3),
-  ('prod_premium', 'premium', '豪华版', '适合高频生产和大规模素材工作流。', NULL, 25000, 13000, 5, ARRAY['25,000 积分 + 赠送 13,000', '适合高频生成', '最佳单积分成本'], 4)
+  ('prod_business', 'business', '企业版', '适合团队批量生成和电商素材生产。', '推荐', 5000, 2000, 5, ARRAY['5,000 积分 + 赠送 2,000', 'VIP 公平队列通道', '最多 30 个并行任务', '团队运营更稳'], 3),
+  ('prod_premium', 'premium', '豪华版', '适合高频生产和大规模素材工作流。', NULL, 25000, 13000, 5, ARRAY['25,000 积分 + 赠送 13,000', 'VIP 公平队列通道', '最多 30 个并行任务', '最佳单积分成本'], 4)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,

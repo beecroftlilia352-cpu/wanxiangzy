@@ -30,6 +30,7 @@ type Snapshot = {
 
 const MODEL_LABELS: Record<PricedImageModel, string> = {
   "nano-banana-2": "Nano Banana 2",
+  "nano-banana-2-lite": "Nano Banana 2 Lite",
   "nano-banana-pro": "Nano Banana Pro",
   "gpt-image-2": "GPT-Image-2",
 };

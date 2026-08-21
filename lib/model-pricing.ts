@@ -1,8 +1,9 @@
-export type PricedImageModel = "gpt-image-2" | "nano-banana-pro" | "nano-banana-2";
+export type PricedImageModel = "gpt-image-2" | "nano-banana-pro" | "nano-banana-2" | "nano-banana-2-lite";
 export type PricedImageSize = "1K" | "2K" | "4K";
 
 export const IMAGE_MODEL_DISPLAY_ORDER: readonly PricedImageModel[] = [
   "nano-banana-2",
+  "nano-banana-2-lite",
   "gpt-image-2",
   "nano-banana-pro",
 ];
@@ -15,6 +16,10 @@ export const IMAGE_MODEL_DISPLAY_ORDER: readonly PricedImageModel[] = [
  */
 export const IMAGE_CREDIT_COSTS = {
   "nano-banana-2": { "1K": 4, "2K": 6, "4K": 8 },
+  // Lite is intentionally exposed as 1K-only in the runtime catalog. The
+  // repeated values keep the legacy static pricing shape type-safe; size
+  // normalization prevents 2K/4K requests from reaching the provider.
+  "nano-banana-2-lite": { "1K": 3, "2K": 3, "4K": 3 },
   "gpt-image-2": { "1K": 3, "2K": 4, "4K": 5 },
   "nano-banana-pro": { "1K": 8, "2K": 10, "4K": 12 },
 } as const satisfies Record<PricedImageModel, Record<PricedImageSize, number>>;

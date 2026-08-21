@@ -6,6 +6,7 @@ import type {
 import { sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
 import { emptyQueueDelayMs } from "@/lib/queue/queue-backoff";
 import type { WakeNotifier } from "@/lib/queue/outbox-wake.server";
+import { isGenerationQueuePriority, type GenerationQueuePriority } from "@/lib/queue/generation-priorities";
 
 export type GenerationOutboxRow = {
   outbox_id: string;
@@ -15,6 +16,8 @@ export type GenerationOutboxRow = {
   available_at: string;
   lease_token: string;
   attempts: number;
+  service_tier: "standard" | "vip";
+  queue_priority: GenerationQueuePriority;
 };
 
 export type GenerationOutboxRelayMetric = {
@@ -92,6 +95,8 @@ export async function runGenerationOutboxRelayBatch(options: {
         deliveryVersion: row.delivery_version,
         deliveryKey: row.delivery_key,
         availableAt: row.available_at,
+        serviceTier: row.service_tier,
+        queuePriority: row.queue_priority,
       });
       if (delivery.jobId !== row.delivery_key) {
         throw new Error("publisher returned a job id that does not match the outbox delivery fence");
@@ -169,17 +174,32 @@ export async function runGenerationOutboxRelay(options: {
   const now = options.now ?? (() => new Date());
   let lastRecoveryAt = 0;
   let consecutiveEmpty = 0;
+  let consecutiveClaimFailures = 0;
 
   while (!options.control.isStopping()) {
-    const batch = await runGenerationOutboxRelayBatch({
-      database: options.database,
-      publisher: options.publisher,
-      batchSize: options.config.batchSize,
-      concurrency: options.config.concurrency,
-      claimTtlMs: options.config.claimTtlMs,
-      onMetric: options.onMetric,
-      now,
-    });
+    let batch: GenerationOutboxRelayBatchResult;
+    try {
+      batch = await runGenerationOutboxRelayBatch({
+        database: options.database,
+        publisher: options.publisher,
+        batchSize: options.config.batchSize,
+        concurrency: options.config.concurrency,
+        claimTtlMs: options.config.claimTtlMs,
+        onMetric: options.onMetric,
+        now,
+      });
+      consecutiveClaimFailures = 0;
+    } catch (error) {
+      consecutiveClaimFailures += 1;
+      emit(options, {
+        event: "relay.recovery.error",
+        reason: `outbox claim unavailable (${consecutiveClaimFailures}): ${safeErrorMessage(error)}`,
+      });
+      // PostgreSQL is the durable source of truth. A transient DB outage must
+      // not stop unrelated workers; retry with bounded exponential backoff.
+      await sleep(emptyQueueDelayMs(consecutiveClaimFailures, options.config.pollIntervalMs, options.config.maxPollIntervalMs));
+      continue;
+    }
 
     const currentTime = now().getTime();
     if (currentTime - lastRecoveryAt >= options.config.recoveryIntervalMs) {
@@ -187,9 +207,15 @@ export async function runGenerationOutboxRelay(options: {
       try {
         const recovery = await options.database.rpc("recover_generation_outbox", {
           p_limit: Math.max(options.config.batchSize, 500),
+          p_max_execution_attempts: 2,
         });
         if (recovery.error) throw new Error(recovery.error.message || "outbox recovery failed");
         emit(options, { event: "relay.recovery", recovered: recovery.data });
+        const staleCapacity = await options.database.rpc("recover_stale_generation_capacity_waits", {
+          p_limit: Math.max(options.config.batchSize, 100),
+        });
+        if (staleCapacity.error) throw new Error(staleCapacity.error.message || "stale capacity recovery failed");
+        emit(options, { event: "relay.recovery", recovered: { outbox: recovery.data, staleCapacity: staleCapacity.data } });
       } catch (error) {
         emit(options, { event: "relay.recovery.error", reason: safeErrorMessage(error) });
       }
@@ -238,7 +264,9 @@ function parseOutboxRows(value: unknown): GenerationOutboxRow[] {
       || typeof row.available_at !== "string"
       || !Number.isFinite(Date.parse(row.available_at))
       || typeof row.lease_token !== "string"
-      || !Number.isInteger(row.attempts)) {
+      || !Number.isInteger(row.attempts)
+      || (row.service_tier !== "standard" && row.service_tier !== "vip")
+      || !isGenerationQueuePriority(row.queue_priority)) {
       throw new Error("outbox claim returned a malformed row");
     }
     return row as GenerationOutboxRow;

@@ -37,9 +37,9 @@ SAFE_TAG="$(printf '%s' "$TAG" | tr -c 'A-Za-z0-9._-' '-')"
 RELEASE_DIR="$BASE_DIR/releases/$SAFE_TAG"
 SHARED_DIR="$BASE_DIR/shared"
 PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
-# Application shutdown waits up to 30 seconds. PM2 must allow a larger drain
+# Application shutdown waits up to 40 seconds. PM2 must allow a larger drain
 # window before SIGKILL so BullMQ can release locks and close QueueEvents.
-PM2_KILL_TIMEOUT_MS=45000
+PM2_KILL_TIMEOUT_MS=65000
 PM2_READY_TIMEOUT_MS="${PM2_READY_TIMEOUT_MS:-60000}"
 PM2_WEB_INSTANCES="${PM2_WEB_INSTANCES:-2}"
 PM2_WORKER_INSTANCES=""
@@ -611,6 +611,8 @@ const required = [
   "get_runtime_contract_version",
   "is_generation_outbox_realtime_ready",
   "create_generation_with_credit_debit_v2",
+  "get_generation_service_entitlement",
+  "settle_generation_for_tenant_capacity",
   "claim_generation_outbox",
   "confirm_generation_outbox",
   "nack_generation_outbox",

@@ -3,18 +3,20 @@ import { describe, expect, it } from "vitest";
 import { STUDIO_IMAGE_MODEL_META } from "@/lib/studio-models";
 
 describe("studio image model catalog", () => {
-  it("exposes exactly the three user-facing models in display order", () => {
+  it("exposes the user-facing models in display order", () => {
     expect(Object.entries(STUDIO_IMAGE_MODEL_META).map(([value, model]) => ({
       value,
       label: model.label,
     }))).toEqual([
       { value: "gpt-image-2", label: "GPT Image 2" },
       { value: "nano-banana-2", label: "香蕉2" },
+      { value: "nano-banana-2-lite", label: "香蕉2 Lite" },
       { value: "nano-banana-pro", label: "香蕉Pro" },
     ]);
     expect(Object.values(STUDIO_IMAGE_MODEL_META).map((model) => model.englishLabel)).toEqual([
       "GPT Image 2",
       "Nano Banana 2",
+      "Nano Banana 2 Lite",
       "Nano Banana Pro",
     ]);
   });

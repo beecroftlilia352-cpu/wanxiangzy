@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   __generationJobTestUtils,
   getImageBatchConcurrency,
+  resolveImageBatchConcurrency,
   runCapacityAwareBatchWorkers,
   type GenerationJobPayload,
 } from "@/lib/api/generation-jobs";
@@ -20,9 +21,14 @@ const basePayload: GenerationJobPayload = {
 
 describe("generation batch capacity resume", () => {
   it("uses a strict independently configurable per-generation image limit", () => {
-    expect(getImageBatchConcurrency({})).toBe(16);
-    expect(getImageBatchConcurrency({ GENERATION_IMAGE_BATCH_CONCURRENCY: "24" })).toBe(24);
-    expect(() => getImageBatchConcurrency({ GENERATION_IMAGE_BATCH_CONCURRENCY: "25" })).toThrow(/between 1 and 24/);
+    expect(getImageBatchConcurrency({})).toBe(8);
+    expect(getImageBatchConcurrency({ GENERATION_IMAGE_BATCH_CONCURRENCY: "8" })).toBe(8);
+    expect(() => getImageBatchConcurrency({ GENERATION_IMAGE_BATCH_CONCURRENCY: "9" })).toThrow(/between 1 and 8/);
+  });
+
+  it("caps a nine-slot batch by the configured limit and provider pool", async () => {
+    expect(await resolveImageBatchConcurrency("nano-banana-2", 9)).toBe(8);
+    expect(await resolveImageBatchConcurrency("nano-banana-2", 0)).toBe(0);
   });
 
   it("stops assigning new slots after capacity rejection but awaits in-flight slots", async () => {

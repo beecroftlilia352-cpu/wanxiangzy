@@ -60,7 +60,7 @@ function forwardSignal(signal) {
   const forceExit = setTimeout(() => {
     child.kill("SIGKILL");
     process.exit(1);
-  }, 35_000);
+  }, 55_000);
   forceExit.unref();
 }
 

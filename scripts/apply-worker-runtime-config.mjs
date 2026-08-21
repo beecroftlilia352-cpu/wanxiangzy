@@ -39,12 +39,15 @@ const workerConcurrency = integer(firstDefined(
   process.env.BULLMQ_WORKER_CONCURRENCY,
   64,
 ), 1, 64, "workerConcurrency");
-const imageBatchConcurrency = integer(firstDefined(
+const requestedImageBatchConcurrency = integer(firstDefined(
   process.env.DEPLOY_IMAGE_BATCH_CONCURRENCY,
   value?.imageBatchConcurrency,
   process.env.GENERATION_IMAGE_BATCH_CONCURRENCY,
-  16,
+  8,
 ), 1, 24, "imageBatchConcurrency");
+// Published v1 configs historically allowed 24. Roll them forward safely
+// while all new Admin writes are validated against the commercial cap of 8.
+const imageBatchConcurrency = Math.min(requestedImageBatchConcurrency, 8);
 const relayConcurrency = integer(firstDefined(
   value?.relayConcurrency,
   process.env.BULLMQ_RELAY_CONCURRENCY,

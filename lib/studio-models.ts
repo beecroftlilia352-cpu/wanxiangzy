@@ -38,6 +38,13 @@ export const STUDIO_IMAGE_MODEL_META: Record<
     badgeKey: "Shared.modelBadge.recommended",
     icon: `${STUDIO_MODEL_ASSET_BASE}/banana-2.png`,
   },
+  "nano-banana-2-lite": {
+    label: "香蕉2 Lite",
+    englishLabel: "Nano Banana 2 Lite",
+    descKey: "Shared.modelDesc.fastGeneral",
+    badgeKey: "Shared.modelBadge.recommended",
+    icon: `${STUDIO_MODEL_ASSET_BASE}/banana-2-lite-v2.png`,
+  },
   "nano-banana-pro": {
     label: "香蕉Pro",
     englishLabel: "Nano Banana Pro",

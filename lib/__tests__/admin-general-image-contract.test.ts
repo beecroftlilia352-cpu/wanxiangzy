@@ -29,7 +29,9 @@ describe("admin general image contract", () => {
     expect(adminDetailPage).toContain('label="响应值" value={detail.response}');
     expect(adminData).toContain('response: buildGenerationAdminResponse(generation.row, routeAttempts)');
     expect(generationJobs).toContain("runWithAiRouteContext(");
-    expect(generationJobs).toContain("{ generationId: job.id, userId: job.user_id }");
+    expect(generationJobs).toContain("generationId: job.id");
+    expect(generationJobs).toContain("userId: job.user_id");
+    expect(generationJobs).toContain('serviceTier: job.service_tier === "vip" ? "vip" : "standard"');
   });
 
   it("keeps owner checks and allows read-only admin fallback for verified media", () => {

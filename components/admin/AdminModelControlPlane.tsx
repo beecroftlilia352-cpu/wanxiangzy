@@ -724,6 +724,14 @@ function ProvidersEditor({ config, onChange, testingProvider, onTest }: { config
               <Field label="区域"><input className={inputClass} value={provider.region || ""} onChange={(event) => update(index, { region: event.target.value })} placeholder="hk / global" /></Field>
               <Field label="超时（毫秒）"><input className={inputClass} type="number" min={3000} max={2700000} value={provider.timeoutMs} onChange={(event) => update(index, { timeoutMs: Number(event.target.value) })} /></Field>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="供应商账户容量组"><input className={inputClass} value={provider.capacityGroup || ""} onChange={(event) => update(index, { capacityGroup: event.target.value.trim() || undefined })} placeholder="默认使用供应商 ID" /></Field>
+              <Field label="账户最大并发"><input className={inputClass} type="number" min={1} max={10000} value={provider.capacityMaxConcurrency || ""} onChange={(event) => update(index, { capacityMaxConcurrency: Number(event.target.value) || undefined })} placeholder="默认 24" /></Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="账户 RPM + burst"><div className="flex gap-2"><input className={inputClass} type="number" min={1} max={1000000} value={provider.capacityRequestsPerMinute || ""} onChange={(event) => update(index, { capacityRequestsPerMinute: Number(event.target.value) || undefined })} placeholder="跟随部署" /><input className={inputClass} type="number" min={0} max={100000} value={provider.capacityBurst ?? ""} onChange={(event) => update(index, { capacityBurst: Number(event.target.value) || undefined })} placeholder="burst" /></div></Field>
+              <div className="flex items-end text-[11px] font-bold leading-5 text-[var(--admin-muted)]">同一账户的多个模型共享此容量组；留空时按各部署额度运行。</div>
+            </div>
             <Field label="API Key"><input type="password" autoComplete="new-password" className={inputClass} value={provider.apiKey || ""} onChange={(event) => update(index, { apiKey: event.target.value })} placeholder={provider.apiKeyConfigured ? `${provider.apiKeyMasked}（留空保持不变）` : "输入 API Key 或 env:ENV_NAME"} /></Field>
           </article>
         ))}
@@ -854,7 +862,7 @@ function AdapterStaticParametersEditor({ value, onChange }: { value: Record<stri
 
 function PolicyEditor({ policy, onChange }: { policy: AiRoutingPolicy; onChange: (value: AiRoutingPolicy) => void }) {
   const fields: Array<[keyof Omit<AiRoutingPolicy, "smartWeights">, string, number, number]> = [
-    ["maxAttempts", "最大供应商尝试", 1, 10], ["leaseTtlSeconds", "容量租约（秒）", 30, 120], ["retryBaseDelayMs", "基础退避（ms）", 0, 30000], ["retryMaxDelayMs", "最大退避（ms）", 0, 120000], ["circuitFailureThreshold", "连续失败阈值", 1, 100], ["circuitMinimumSamples", "最小熔断样本", 1, 10000], ["circuitOpenSeconds", "熔断时长（秒）", 5, 86400], ["halfOpenMaxRequests", "半开探测并发", 1, 100],
+    ["maxAttempts", "最大供应商尝试", 1, 2], ["leaseTtlSeconds", "容量租约（秒）", 30, 120], ["retryBaseDelayMs", "基础退避（ms）", 0, 30000], ["retryMaxDelayMs", "最大退避（ms）", 0, 120000], ["circuitFailureThreshold", "连续失败阈值", 1, 100], ["circuitMinimumSamples", "最小熔断样本", 1, 10000], ["circuitOpenSeconds", "熔断时长（秒）", 5, 86400], ["halfOpenMaxRequests", "半开探测并发", 1, 100],
   ];
   return (
     <AdminSection title="全局可靠性策略" description="这些值是系统保护上限；单个模型仍由部署优先级和容量决定实际路由。">

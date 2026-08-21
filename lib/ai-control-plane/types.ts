@@ -61,6 +61,12 @@ export type AiProviderEndpoint = {
   enabled: boolean;
   region?: string;
   timeoutMs: number;
+  /** Shared upstream account bulkhead. Defaults to provider id when omitted. */
+  capacityGroup?: string;
+  capacityMaxConcurrency?: number;
+  /** Optional aggregate account RPM window; omitted means deployment limits apply. */
+  capacityRequestsPerMinute?: number;
+  capacityBurst?: number;
   notes?: string;
 };
 
@@ -139,7 +145,12 @@ export type AiProviderHealth = {
 export type AiRouteContext = {
   requestId?: string;
   generationId?: string;
+  /** Stable logical slot within one multi-output generation. */
+  slotIndex?: number;
   userId?: string;
+  serviceTier?: "standard" | "vip";
+  /** Aborts upstream work when the durable generation execution lease is lost. */
+  executionSignal?: AbortSignal;
   routingMode?: AiRoutingMode;
   allowCrossModelFallback?: boolean;
   requiredCapabilities?: string[];

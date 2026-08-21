@@ -47,7 +47,7 @@
 - `requestsPerMinute + burst`：60 秒滚动窗口准入上限。
 - `maxConcurrency` 必须按供应商账户的真实并发配额配置，建议从配额的 70%-80% 起步并预留人工请求、重试和抖动空间；增加 Worker 或单任务生图并发不会提高这个硬上限。
 - Redis 有序集合原子完成租约、过期清理和 RPM 记账；进程崩溃后租约会按 TTL 自动释放。
-- 所有候选部署暂时满载或处于冷却时，路由器抛出专用容量背压信号；生成任务通过 `settle_generation_for_ai_capacity()` 原子回到队列，写入 `queue_reason` 并按 `available_at` 指数退避，不会把正常等待显示成失败。容量等待达到 12 次或 30 分钟后，任务原子失败并退还灵点。
+- 所有候选部署暂时满载或处于冷却时，路由器抛出专用容量背压信号；生成任务通过 `settle_generation_for_ai_capacity()` 原子回到队列，写入 `queue_reason` 并按 `available_at` 指数退避，不会把正常等待显示成失败。真实等待满 10 分钟后，任务原子失败并退还灵点；容量检查不消耗生成重试次数。
 - 429 会进入限流冷却；连续失败达到阈值后打开熔断器；冷却结束仅允许 `halfOpenMaxRequests` 个探测请求。
 - 多实例生产环境必须配置标准 Redis 的 `REDIS_URL`（支持 `redis://` 或 `rediss://`），并使用 `AI_ROUTER_CAPACITY_MODE=redis`。该 Redis 与 BullMQ 共用连接端点但使用独立 key 命名空间；`local` 仅用于开发或单进程故障演练。
 

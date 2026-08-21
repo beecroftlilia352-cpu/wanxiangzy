@@ -2,12 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   __aiCapacityTestUtils,
+  acquireAiScopedCapacity,
   acquireAiProviderCapacity,
   acquireAiProviderCapacityDetailed,
   getAiCapacityBackendStatus,
   getAiProviderInFlight,
   renewAiProviderCapacity,
   releaseAiProviderCapacity,
+  releaseAiScopedCapacity,
+  rollbackAiScopedCapacity,
 } from "@/lib/ai-control-plane/capacity.server";
 
 describe("AI provider capacity pool", () => {
@@ -94,6 +97,27 @@ describe("AI provider capacity pool", () => {
     expect(await getAiProviderInFlight(input.deploymentId)).toBe(0);
   });
 
+  it("enforces and releases tenant-scoped concurrency without consuming provider RPM", async () => {
+    const scopeKey = "tenant:user-a:global";
+    const first = await acquireAiScopedCapacity({ scopeKey, maxConcurrency: 2, ttlSeconds: 60 });
+    const second = await acquireAiScopedCapacity({ scopeKey, maxConcurrency: 2, ttlSeconds: 60 });
+    const blocked = await acquireAiScopedCapacity({ scopeKey, maxConcurrency: 2, ttlSeconds: 60 });
+
+    expect(first.lease).toBeTruthy();
+    expect(second.lease).toBeTruthy();
+    expect(blocked).toMatchObject({ lease: null, reason: "concurrency", inFlight: 2 });
+    await releaseAiScopedCapacity(first.lease!);
+    expect((await acquireAiScopedCapacity({ scopeKey, maxConcurrency: 2, ttlSeconds: 60 })).lease).toBeTruthy();
+  });
+
+  it("isolates per-tenant and per-deployment scoped leases", async () => {
+    const acquire = (scopeKey: string) => acquireAiScopedCapacity({ scopeKey, maxConcurrency: 1, ttlSeconds: 60 });
+    expect((await acquire("tenant:user-a:deployment:provider-a")).lease).toBeTruthy();
+    expect((await acquire("tenant:user-a:deployment:provider-a")).lease).toBeNull();
+    expect((await acquire("tenant:user-a:deployment:provider-b")).lease).toBeTruthy();
+    expect((await acquire("tenant:user-b:deployment:provider-a")).lease).toBeTruthy();
+  });
+
   it("fails closed when production Redis is missing or errors", async () => {
     vi.stubEnv("NODE_ENV", "production");
     process.env.AI_ROUTER_CAPACITY_MODE = "local";
@@ -122,5 +146,46 @@ describe("AI provider capacity pool", () => {
       "ai:route:{provider-_a_}:rpm",
     ]);
     expect(evalMock.mock.calls[0][0]).toContain("redis.call('TIME')");
+  });
+
+  it("uses a lease-only Redis script for tenant fairness", async () => {
+    process.env.AI_ROUTER_CAPACITY_MODE = "redis";
+    process.env.REDIS_URL = "rediss://redis.example.com:6380";
+    const evalMock = vi.fn().mockResolvedValue([1, 1, 0]);
+    __aiCapacityTestUtils.setRedisClient({ eval: evalMock } as never);
+
+    await acquireAiScopedCapacity({ scopeKey: "tenant:{user}:global", maxConcurrency: 4, ttlSeconds: 60 });
+
+    expect(evalMock.mock.calls[0][2]).toBe("ai:fair:{tenant:_user_:global}:leases");
+    expect(evalMock.mock.calls[0][0]).toContain("redis.call('TIME')");
+    expect(evalMock.mock.calls[0][0]).not.toContain("rateKey");
+  });
+
+  it("applies an account-level RPM window atomically with the shared lease", async () => {
+    const input = {
+      scopeKey: "provider-account:shared",
+      maxConcurrency: 10,
+      requestsPerMinute: 1,
+      burst: 0,
+      ttlSeconds: 60,
+    };
+    const first = await acquireAiScopedCapacity(input);
+    const second = await acquireAiScopedCapacity(input);
+    expect(first.lease).toBeTruthy();
+    expect(second).toMatchObject({ lease: null, reason: "rate_limit" });
+  });
+
+  it("rolls back an account RPM reservation when deployment admission never starts", async () => {
+    const input = {
+      scopeKey: "provider-account:rollback",
+      maxConcurrency: 2,
+      requestsPerMinute: 1,
+      burst: 0,
+      ttlSeconds: 60,
+    };
+    const first = await acquireAiScopedCapacity(input);
+    expect(first.lease?.rateTracked).toBe(true);
+    await rollbackAiScopedCapacity(first.lease!);
+    expect((await acquireAiScopedCapacity(input)).lease).toBeTruthy();
   });
 });

@@ -19,7 +19,9 @@ const PROTOCOLS: readonly AiProviderProtocol[] = [
 ];
 
 export const DEFAULT_AI_ROUTING_POLICY: AiRoutingPolicy = {
-  maxAttempts: 3,
+  // One request per deployment, across at most two deployments. Durable job
+  // retry resumes completed slots and supplies the outer transient-failure budget.
+  maxAttempts: 2,
   // Leases are heartbeated throughout long jobs. A short TTL makes a crashed
   // Worker release scarce provider capacity within about a minute instead of
   // leaving ghost slots occupied for half an hour.
@@ -54,6 +56,7 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
     schemaVersion: AI_CONTROL_PLANE_SCHEMA_VERSION,
     models: [
       imageModel("nano-banana-2", "Nano Banana 2", { "1K": 4, "2K": 6, "4K": 8 }),
+      imageModel("nano-banana-2-lite", "Nano Banana 2 Lite", { "1K": 3 }),
       imageModel("gpt-image-2", "GPT Image 2", { "1K": 3, "2K": 4, "4K": 5 }),
       imageModel("nano-banana-pro", "Nano Banana Pro", { "1K": 8, "2K": 10, "4K": 12 }),
       baseModel("text-default", "默认文本模型", "text", false, false),
@@ -69,6 +72,7 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
     ],
     deployments: [
       deployment("banana2-yunwu", "nano-banana-2", "yunwu-native", "gemini-3.1-flash-image-preview", "gemini-native", 10),
+      deployment("banana2-lite-yunwu", "nano-banana-2-lite", "yunwu-native", "gemini-3.1-flash-lite-image", "gemini-native", 20),
       deployment("gpt2-yunwu", "gpt-image-2", "yunwu-openai", "gpt-image-2", "openai-image", 10),
       deployment("banana-pro-yunwu", "nano-banana-pro", "yunwu-native", "gemini-3-pro-image-preview", "gemini-native", 10),
       deployment("text-minimax", "text-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
@@ -191,6 +195,10 @@ function parseProvider(value: unknown, index: number, issues: AiControlPlaneIssu
     enabled: item.enabled !== false,
     region: text(item.region) || undefined,
     timeoutMs: integer(item.timeoutMs, 120_000, 3_000, 45 * 60_000),
+    capacityGroup: identifier(item.capacityGroup) || undefined,
+    capacityMaxConcurrency: integer(item.capacityMaxConcurrency, DEFAULT_DEPLOYMENT_MAX_CONCURRENCY, 1, 10_000),
+    capacityRequestsPerMinute: integer(item.capacityRequestsPerMinute, 0, 0, 1_000_000) || undefined,
+    capacityBurst: integer(item.capacityBurst, 0, 0, 100_000) || undefined,
     notes: text(item.notes) || undefined,
   };
 }
@@ -282,7 +290,7 @@ function parsePolicy(value: unknown, issues: AiControlPlaneIssue[]): AiRoutingPo
   const item = record(value);
   const weights = record(item.smartWeights);
   const policy: AiRoutingPolicy = {
-    maxAttempts: integer(item.maxAttempts, DEFAULT_AI_ROUTING_POLICY.maxAttempts, 1, 10),
+    maxAttempts: integer(item.maxAttempts, DEFAULT_AI_ROUTING_POLICY.maxAttempts, 1, 2),
     // Clamp legacy published values as well as new drafts. Long-running jobs
     // rely on renewal, not on an oversized crash-recovery window.
     leaseTtlSeconds: integer(item.leaseTtlSeconds, DEFAULT_AI_ROUTING_POLICY.leaseTtlSeconds, 30, 120),
@@ -312,6 +320,8 @@ function imageModel(id: string, displayName: string, creditPrices: Record<string
   const assetBase = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-covers";
   const presentation = id === "nano-banana-2"
     ? { shortTitle: "香蕉2", badge: "推荐", iconUrl: `${assetBase}/banana-2.png`, sortOrder: 10, featured: true }
+    : id === "nano-banana-2-lite"
+      ? { shortTitle: "香蕉2 Lite", badge: "快速", iconUrl: `${assetBase}/banana-2-lite-v2.png`, sortOrder: 15, featured: false }
     : id === "gpt-image-2"
       ? { shortTitle: "GPT Image 2", badge: "NEW", iconUrl: `${assetBase}/gpt-image-2.png`, sortOrder: 20, featured: false }
       : { shortTitle: "香蕉Pro", badge: "PRO", iconUrl: `${assetBase}/banana-pro.png`, sortOrder: 30, featured: false };
@@ -323,7 +333,19 @@ function baseModel(id: string, displayName: string, modality: AiModality, userVi
 }
 
 function provider(id: string, name: string, baseUrl: string, apiKey: string): AiProviderEndpoint {
-  return { id, name, baseUrl, apiKey, enabled: true, region: "global", timeoutMs: 120_000 };
+  return {
+    id,
+    name,
+    baseUrl,
+    apiKey,
+    enabled: true,
+    region: "global",
+    timeoutMs: 120_000,
+    capacityGroup: id,
+    capacityMaxConcurrency: DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
+    capacityRequestsPerMinute: DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
+    capacityBurst: DEFAULT_DEPLOYMENT_BURST,
+  };
 }
 
 function deployment(id: string, modelId: string, providerId: string, upstreamModel: string, protocol: AiProviderProtocol, priority: number, enabled = true): AiModelDeployment {

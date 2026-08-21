@@ -25,9 +25,12 @@ import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import { dispatchGenerationJob } from "@/lib/api/generation-job-dispatch";
-import { runWithAiRouteContext } from "@/lib/ai-control-plane/context.server";
+import { getAiRouteContext, runWithAiRouteContext } from "@/lib/ai-control-plane/context.server";
+import { getAiTenantConcurrencyPolicy } from "@/lib/ai-control-plane/fairness.server";
+import { getWorkerShutdownSignal } from "@/lib/queue/worker-shutdown.server";
 import {
   isAiCapacityUnavailableError,
+  isAiTenantCapacityUnavailableError,
 } from "@/lib/ai-control-plane/router.server";
 import { getAiControlPlaneConfig } from "@/lib/ai-control-plane/server";
 import {
@@ -447,12 +450,13 @@ interface ClaimedJob {
   job_attempts: number;
   delivery_version: number;
   execution_token: string;
+  service_tier?: "standard" | "vip";
   result_urls?: string[] | null;
 }
 
-const DEFAULT_IMAGE_BATCH_CONCURRENCY = 16;
-const IMAGE_BATCH_MAX_CONCURRENCY = 24;
-const GENERATION_MAX_EXECUTION_ATTEMPTS = 10;
+const DEFAULT_IMAGE_BATCH_CONCURRENCY = 8;
+const IMAGE_BATCH_MAX_CONCURRENCY = 8;
+const GENERATION_MAX_EXECUTION_ATTEMPTS = 2;
 
 type PromptTraceItem = {
   index: number;
@@ -515,9 +519,14 @@ export async function runGenerationJobById(generationId: string, deliveryVersion
 
   let result: Awaited<ReturnType<typeof runClaimedJob>>;
   try {
-    result = await runWithExecutionHeartbeat(supabase, job, () =>
+    result = await runWithExecutionHeartbeat(supabase, job, (executionSignal) =>
       runWithAiRouteContext(
-        { generationId: job.id, userId: job.user_id },
+        {
+          generationId: job.id,
+          userId: job.user_id,
+          serviceTier: job.service_tier === "vip" ? "vip" : "standard",
+          executionSignal,
+        },
         () => runClaimedJob(supabase, job),
       ),
     );
@@ -541,28 +550,54 @@ export async function runGenerationJobById(generationId: string, deliveryVersion
 async function runWithExecutionHeartbeat<T>(
   supabase: ReturnType<typeof createAdminClient>,
   job: ClaimedJob,
-  execute: () => Promise<T>,
+  execute: (executionSignal: AbortSignal) => Promise<T>,
 ) {
   let heartbeatInFlight = false;
   let heartbeatError: Error | null = null;
+  let consecutiveTransientFailures = 0;
+  let leaseDeadline = Date.now() + 45_000;
+  const executionAbort = new AbortController();
+  const shutdownSignal = getWorkerShutdownSignal();
+  const abortForShutdown = () => executionAbort.abort(shutdownSignal.reason);
+  if (shutdownSignal.aborted) abortForShutdown();
+  else shutdownSignal.addEventListener("abort", abortForShutdown, { once: true });
+  const loseExecutionLease = (error: Error) => {
+    if (heartbeatError) return;
+    heartbeatError = error;
+    executionAbort.abort(error);
+  };
   const timer = setInterval(() => {
     if (heartbeatInFlight || heartbeatError) return;
     heartbeatInFlight = true;
-    void Promise.resolve(supabase.rpc("heartbeat_generation_job", {
+    const heartbeatRpc = Promise.resolve(supabase.rpc("heartbeat_generation_job", {
       p_generation_id: job.id,
       p_delivery_version: job.delivery_version,
       p_execution_token: job.execution_token,
       p_lease_seconds: 45,
-    })).then(({ data, error }) => {
+    }));
+    void withHeartbeatTimeout(heartbeatRpc, 10_000).then(({ data, error }) => {
       if (error || data !== true) {
-        heartbeatError = isStaleExecutionFenceError(error) || (!error && data !== true)
-          ? new StaleExecutionFenceError("任务执行租约已丢失", { cause: error || undefined })
-          : new Error(`任务执行心跳失败: ${error?.message || "heartbeat rejected"}`);
+        if (isStaleExecutionFenceError(error) || (!error && data !== true)) {
+          loseExecutionLease(new StaleExecutionFenceError("任务执行租约已丢失", { cause: error || undefined }));
+          return;
+        }
+        consecutiveTransientFailures += 1;
+        if (consecutiveTransientFailures >= 2 || Date.now() + 15_000 >= leaseDeadline) {
+          loseExecutionLease(new Error(`任务执行心跳失败: ${error?.message || "heartbeat rejected"}`));
+        }
+        return;
       }
+      consecutiveTransientFailures = 0;
+      leaseDeadline = Date.now() + 45_000;
     }).catch((error: unknown) => {
-      heartbeatError = isStaleExecutionFenceError(error)
-        ? new StaleExecutionFenceError("任务执行租约已丢失", { cause: error })
-        : new Error(`任务执行心跳失败: ${error instanceof Error ? error.message : String(error)}`);
+      if (isStaleExecutionFenceError(error)) {
+        loseExecutionLease(new StaleExecutionFenceError("任务执行租约已丢失", { cause: error }));
+        return;
+      }
+      consecutiveTransientFailures += 1;
+      if (consecutiveTransientFailures >= 2 || Date.now() + 15_000 >= leaseDeadline) {
+        loseExecutionLease(new Error(`任务执行心跳失败: ${error instanceof Error ? error.message : String(error)}`));
+      }
     }).finally(() => {
       heartbeatInFlight = false;
     });
@@ -570,12 +605,20 @@ async function runWithExecutionHeartbeat<T>(
   timer.unref?.();
 
   try {
-    const result = await execute();
+    const result = await execute(executionAbort.signal);
     if (heartbeatError) throw heartbeatError;
     return result;
   } finally {
     clearInterval(timer);
+    shutdownSignal.removeEventListener("abort", abortForShutdown);
   }
+}
+
+function withHeartbeatTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("任务执行心跳超时")), timeoutMs);
+    Promise.resolve(promise).then(resolve, reject).finally(() => clearTimeout(timeout));
+  });
 }
 
 async function runClaimedJob(
@@ -790,6 +833,10 @@ async function runClaimedJob(
       return { businessFailed: false, deferred: false, stale: true };
     }
     const message = sanitizeGenerationErrorMessage(err, "生成失败");
+    if (isAiTenantCapacityUnavailableError(err)) {
+      const outcome = await deferGenerationForTenantCapacity(supabase, job, err.retryAfterSeconds, message);
+      return { businessFailed: outcome === "failed", deferred: outcome === "deferred" };
+    }
     if (isAiCapacityUnavailableError(err)) {
       const outcome = await deferGenerationForAiCapacity(supabase, job, err.retryAfterSeconds, message);
       return { businessFailed: outcome === "failed", deferred: outcome === "deferred" };
@@ -820,6 +867,33 @@ async function runClaimedJob(
     }
     return { businessFailed: true, deferred: false };
   }
+}
+
+async function deferGenerationForTenantCapacity(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  retryAfterSeconds: number,
+  reason: string,
+): Promise<"deferred" | "failed"> {
+  const { data, error } = await supabase.rpc("settle_generation_for_tenant_capacity", {
+    p_generation_id: job.id,
+    p_user_id: job.user_id,
+    p_delivery_version: job.delivery_version,
+    p_execution_token: job.execution_token,
+    p_delay_seconds: Math.min(Math.max(Math.ceil(retryAfterSeconds), 5), 60),
+    p_reason: reason.slice(0, 500),
+  });
+  if (error) {
+    if (isStaleExecutionFenceError(error)) {
+      throw new StaleExecutionFenceError("任务执行租约已丢失", { cause: error });
+    }
+    throw new Error(`用户并发排队失败: ${error.message}`);
+  }
+  if (data !== "deferred" && data !== "failed") {
+    throw new Error("用户并发排队失败: execution fence 已变化");
+  }
+  await syncGenerationQueueIndex(job.id, "tenant-capacity-defer");
+  return data;
 }
 
 async function deferGenerationForAiCapacity(
@@ -1311,7 +1385,9 @@ async function executePayload(
   ownerUserId: string,
   generationId?: string,
 ): Promise<GenerationExecutionResult> {
-  const promptTrace: PromptTraceItem[] = [];
+  const promptTrace: PromptTraceItem[] = Array.isArray((payload as GenerationJobPayload & { promptTrace?: unknown }).promptTrace)
+    ? ((payload as GenerationJobPayload & { promptTrace?: unknown }).promptTrace as PromptTraceItem[]).slice(-8)
+    : [];
   const resolvePayloadImageInputs = (input: Parameters<typeof resolveImageInputs>[0]) =>
     resolveImageInputs(input, { publicBaseUrl: payload.publicBaseUrl, ownerUserId });
   const resolvePayloadMediaInput = (src: string, expectedKind: "audio" | "image" | "video") =>
@@ -1336,6 +1412,13 @@ async function executePayload(
     if (lower.includes("bad gateway") || lower.includes("service unavailable") || lower.includes("gateway timeout")) return true;
     if (lower.includes("upstream") || lower.includes("connection reset") || lower.includes("econnreset") || lower.includes("enotfound") || lower.includes("eai_again")) return true;
     return false;
+  }
+
+  function isAbortLikeError(error: unknown): boolean {
+    if (!error || typeof error !== "object") return false;
+    const candidate = error as { name?: unknown; message?: unknown };
+    return candidate.name === "AbortError"
+      || (typeof candidate.message === "string" && candidate.message.toLowerCase().includes("aborted"));
   }
 
   const executeParallelImageBatch = async (params: {
@@ -1369,7 +1452,8 @@ async function executePayload(
       let lastRetryable = false;
       for (let attempt = 1; attempt <= maxAttemptsPerSlot; attempt++) {
         try {
-          const result = await params.run(index, (progress) => {
+          const slotContext = { ...getAiRouteContext(), slotIndex: index };
+          const result = await runWithAiRouteContext(slotContext, () => params.run(index, (progress) => {
             taskProgress[index] = Math.max(taskProgress[index] || 0, clampProgress(progress.progress));
             const aggregateProgress = Math.min(
               99,
@@ -1382,7 +1466,7 @@ async function executePayload(
               externalTaskId: progress.taskId,
               externalStatus: progress.providerStatus || progress.status,
             });
-          });
+          }));
           const nextUrls = (result.resultUrls?.length ? result.resultUrls : result.resultUrl ? [result.resultUrl] : [])
             .filter((url): url is string => Boolean(url));
           if (!nextUrls.length) throw new Error("image task returned no image");
@@ -1408,7 +1492,7 @@ async function executePayload(
         } catch (error) {
           const rawMessage = error instanceof Error ? error.message : "image task failed";
           lastMessage = rawMessage;
-          if (isAiCapacityUnavailableError(error)) throw error;
+          if (isAiTenantCapacityUnavailableError(error) || isAiCapacityUnavailableError(error)) throw error;
           const retryable = isRetryableGenerationError(error) || isRetryableSlotError(rawMessage);
           lastRetryable = retryable;
           if (attempt < maxAttemptsPerSlot && retryable) {
@@ -1441,9 +1525,14 @@ async function executePayload(
 
     let poolError: unknown;
     try {
+      const modelPoolConcurrency = await resolveImageBatchConcurrency(payload.aiModel, expectedCount);
       await runCapacityAwareBatchWorkers({
         count: expectedCount,
-        concurrency: params.concurrency || expectedCount,
+        concurrency: Math.min(
+          params.concurrency || expectedCount,
+          modelPoolConcurrency || getImageBatchConcurrency(),
+          getAiTenantConcurrencyPolicy(getAiRouteContext()).taskImageConcurrency,
+        ),
         shouldSkip: (index) => Boolean(resultUrlSlots[index]?.length),
         run: runOne,
       });
@@ -1663,7 +1752,7 @@ async function executePayload(
     return executeParallelImageBatch({
       count: perReferenceCount * referenceBatchSize,
       concurrency: 4,
-      maxAttemptsPerSlot: 3,
+      maxAttemptsPerSlot: 1,
       promptKind: (index) => resolvedReferenceUrls.length
         ? `tryon:reference-${Math.floor(index / perReferenceCount) + 1}`
         : "tryon",
@@ -1829,7 +1918,7 @@ async function executePayload(
     return executeParallelImageBatch({
       count: totalCount,
       concurrency: await resolveImageBatchConcurrency(payload.aiModel, totalCount),
-      maxAttemptsPerSlot: 2,
+      maxAttemptsPerSlot: 1,
       promptKind: (index) => {
         const sourceIndex = Math.min(Math.floor(index / perSourceCount), sourceInputs.clothingUrls.length - 1);
         const languageIndex = Math.max(0, Math.floor((index % perSourceCount) / perLanguageCount));
@@ -1977,7 +2066,7 @@ async function executePayload(
     return executeParallelImageBatch({
       count: totalCount,
       concurrency: await resolveImageBatchConcurrency(payload.aiModel, totalCount),
-      maxAttemptsPerSlot: 2,
+      maxAttemptsPerSlot: 1,
       promptKind: payload.kind === "outfitFusion" ? "outfitFusion" : payload.mode,
       run: async (index, onTaskProgress) => {
         // One-per-reference: each reference owns `genCount` slots, so results are
@@ -2060,7 +2149,7 @@ async function executePayload(
       return executeParallelImageBatch({
         count: generationCount,
         concurrency: 2,
-        maxAttemptsPerSlot: 3,
+        maxAttemptsPerSlot: 1,
         promptKind: "pose",
         run: async (index, onTaskProgress) => {
           // Separate mode is already split into one API call per pose slot.
@@ -2251,10 +2340,17 @@ async function executePayload(
     const targetEntries = fallbackTemplates
       .map((template, index) => ({ template, index }))
       .filter((entry) => regenerateIndex === null || entry.index === regenerateIndex);
-    const moduleResults = targetEntries.map(({ template, index }) => createProductSetModuleResult(template, index, {
+    const persistedModuleResults = normalizeProductSetModuleResults(payload.moduleResults);
+    const persistedByKey = new Map(persistedModuleResults.map((item) => [item.moduleKey, item]));
+    const moduleResults = targetEntries.map(({ template, index }) => persistedByKey.get(getProductSetModuleKey(template, index)) || createProductSetModuleResult(template, index, {
       promptVariant: settings.stylePackId || "auto",
       updatedAt: new Date().toISOString(),
     }));
+    const pendingEntries = targetEntries.filter(({ template, index }) => {
+      if (regenerateIndex === index) return true;
+      const existing = persistedByKey.get(getProductSetModuleKey(template, index));
+      return !existing || existing.status !== "completed" || !existing.resultUrl;
+    });
     const moduleStartedAt = new Map<string, number>();
     const updateModule = (moduleKey: string, patch: Partial<ProductSetModuleResult>) => {
       const index = moduleResults.findIndex((item) => item.moduleKey === moduleKey);
@@ -2284,7 +2380,7 @@ async function executePayload(
 
     await emitModuleProgress();
 
-    await runWithConcurrency(targetEntries, Math.min(3, Math.max(1, targetEntries.length)), async ({ template, index }) => {
+    await runWithConcurrency(pendingEntries, Math.min(3, Math.max(1, pendingEntries.length)), async ({ template, index }) => {
       const moduleKey = getProductSetModuleKey(template, index);
       const outputAspectRatio = template.aspectRatio || payload.aspectRatio;
       const styleReferenceUrls = getProductSetReferenceUrls(template).slice(0, 3);
@@ -2317,6 +2413,7 @@ async function executePayload(
           });
           const result = await generateImage({
             model: payload.aiModel,
+            idempotencyKey: generationId ? `gen-image:${generationId}:module-${moduleKey}` : undefined,
             prompt,
             prompt_kind: "productSet",
             aspect_ratio: outputAspectRatio,
@@ -2359,7 +2456,13 @@ async function executePayload(
           return;
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : "模块生成失败";
-          if (attempt < 2) {
+          if (isAiTenantCapacityUnavailableError(err) || isAiCapacityUnavailableError(err) || isRetryableGenerationError(err) || isAbortLikeError(err)) {
+            throw err;
+          }
+          // Permanent policy/validation/client failures must not be replayed.
+          // Only explicitly transient network/provider errors get the bounded
+          // module retry; unknown application errors fail closed as well.
+          if (attempt < 2 && isRetryableSlotError(message)) {
             updateModule(moduleKey, {
               status: "running",
               progress: 5,

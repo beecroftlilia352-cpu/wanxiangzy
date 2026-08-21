@@ -13,6 +13,12 @@ import {
   type GenerationQueuePayload,
 } from "@/lib/queue/generation-queue.server";
 import type { BullMqRuntimeConfig } from "@/lib/queue/bullmq-config.server";
+import {
+  AGED_STANDARD_GENERATION_PRIORITY,
+  isGenerationQueuePriority,
+  STANDARD_GENERATION_PRIORITY,
+  VIP_GENERATION_PRIORITY,
+} from "@/lib/queue/generation-priorities";
 
 export type GenerationExecutionSummary = {
   processed?: number;
@@ -211,11 +217,11 @@ export function createGenerationProcessor(
 ): GenerationProcessor {
   return async (job) => {
     try {
-      assertGenerationQueuePayload(job.data);
+      const payload = normalizeGenerationQueuePayload(job.data);
       if (job.name !== GENERATION_QUEUE_JOB_NAME) {
         throw new Error(`[generation-worker] unsupported job name: ${job.name}`);
       }
-      if (job.id !== job.data.deliveryKey) {
+      if (job.id !== payload.deliveryKey) {
         throw new Error("[generation-worker] BullMQ job id does not match the delivery fence");
       }
     } catch (error) {
@@ -224,7 +230,8 @@ export function createGenerationProcessor(
       throw new UnrecoverableError(error instanceof Error ? error.message : String(error));
     }
 
-    const summary = await execute(job.data.generationId, job.data.deliveryVersion);
+    const payload = normalizeGenerationQueuePayload(job.data);
+    const summary = await execute(payload.generationId, payload.deliveryVersion);
     const outcome: GenerationWorkerOutcome = Number(summary.deferred || 0) > 0
       ? "deferred"
       : Number(summary.failed || 0) > 0
@@ -238,14 +245,14 @@ export function createGenerationProcessor(
     // not a BullMQ failure/retry attempt.
     return {
       outcome,
-      generationId: job.data.generationId,
-      deliveryVersion: job.data.deliveryVersion,
-      deliveryKey: job.data.deliveryKey,
+      generationId: payload.generationId,
+      deliveryVersion: payload.deliveryVersion,
+      deliveryKey: payload.deliveryKey,
     };
   };
 }
 
-function assertGenerationQueuePayload(payload: GenerationQueuePayload): void {
+function normalizeGenerationQueuePayload(payload: GenerationQueuePayload): GenerationQueuePayload {
   if (!payload || payload.schemaVersion !== 1) {
     throw new Error("[generation-worker] unsupported generation payload schema");
   }
@@ -264,6 +271,21 @@ function assertGenerationQueuePayload(payload: GenerationQueuePayload): void {
   if (typeof payload.availableAt !== "string" || !Number.isFinite(Date.parse(payload.availableAt))) {
     throw new Error("[generation-worker] availableAt must be a valid date");
   }
+  const serviceTier = payload.serviceTier === undefined ? "standard" : payload.serviceTier;
+  const queuePriority = payload.queuePriority === undefined ? 20 : payload.queuePriority;
+  if (serviceTier !== "standard" && serviceTier !== "vip") {
+    throw new Error("[generation-worker] serviceTier must be standard or vip");
+  }
+  if (!isGenerationQueuePriority(queuePriority)) {
+    throw new Error("[generation-worker] queuePriority must be 2, 5 or 20");
+  }
+  if ((serviceTier === "vip" && queuePriority !== VIP_GENERATION_PRIORITY)
+    || (serviceTier === "standard"
+      && queuePriority !== STANDARD_GENERATION_PRIORITY
+      && queuePriority !== AGED_STANDARD_GENERATION_PRIORITY)) {
+    throw new Error("[generation-worker] service tier and queue priority conflict");
+  }
+  return { ...payload, serviceTier, queuePriority };
 }
 
 function bindQueueEvents(

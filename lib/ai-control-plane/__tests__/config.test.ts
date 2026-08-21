@@ -16,6 +16,16 @@ describe("AI control-plane configuration", () => {
     expect(imageDeployments.every((deployment) => deployment.requestsPerMinute === 60)).toBe(true);
     expect(imageDeployments.every((deployment) => deployment.burst === 24)).toBe(true);
     expect(config.policy.leaseTtlSeconds).toBe(60);
+    expect(config.policy.maxAttempts).toBe(2);
+    expect(config.providers.every((provider) => provider.capacityMaxConcurrency === 24)).toBe(true);
+    expect(config.providers.every((provider) => provider.capacityRequestsPerMinute === 60)).toBe(true);
+    expect(config.providers.every((provider) => provider.capacityBurst === 24)).toBe(true);
+  });
+
+  it("caps legacy routing policies at two supplier deployments", () => {
+    const config = createDefaultAiControlPlaneConfig();
+    config.policy.maxAttempts = 10;
+    expect(validateAiControlPlaneConfig(config).config.policy.maxAttempts).toBe(2);
   });
 
   it("clamps legacy long provider leases so crashed workers release capacity quickly", () => {

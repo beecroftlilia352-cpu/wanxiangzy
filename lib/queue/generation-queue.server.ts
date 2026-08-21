@@ -6,6 +6,7 @@ import {
 } from "bullmq";
 
 import type { BullMqRuntimeConfig } from "@/lib/queue/bullmq-config.server";
+import type { GenerationQueuePriority } from "@/lib/queue/generation-priorities";
 
 export const GENERATION_QUEUE_JOB_NAME = "generation.execute" as const;
 
@@ -15,12 +16,21 @@ export type GenerationQueuePayload = {
   deliveryVersion: number;
   deliveryKey: string;
   availableAt: string;
+  serviceTier: "standard" | "vip";
+  queuePriority: GenerationQueuePriority;
 };
 
 export type GenerationQueueAddOptions = Pick<
   JobsOptions,
-  "jobId" | "delay" | "attempts" | "backoff" | "removeOnComplete" | "removeOnFail"
+  "jobId" | "delay" | "attempts" | "backoff" | "priority" | "removeOnComplete" | "removeOnFail"
 >;
+
+export type PrioritizedGenerationJob = {
+  data: GenerationQueuePayload;
+  timestamp: number;
+  opts: { priority?: number };
+  changePriority(options: { priority: number }): Promise<void>;
+};
 
 export interface GenerationQueueLike {
   add(
@@ -32,6 +42,8 @@ export interface GenerationQueueLike {
     getState(): Promise<string>;
     remove(): Promise<void>;
   } | undefined>;
+  getPrioritized?(start?: number, end?: number): Promise<PrioritizedGenerationJob[]>;
+  getCountsPerPriority?(priorities: number[]): Promise<Record<string, number>>;
   close(): Promise<void>;
 }
 
@@ -45,6 +57,8 @@ export type EnqueueGenerationDeliveryInput = {
   deliveryVersion: number;
   deliveryKey: string;
   availableAt: string | number | Date;
+  serviceTier: "standard" | "vip";
+  queuePriority: GenerationQueuePriority;
 };
 
 export type EnqueueGenerationDeliveryResult = {
@@ -66,7 +80,7 @@ type GenerationQueueRetry = {
   backoffMs: number;
 };
 
-const DEFAULT_RETRY = Object.freeze({ attempts: 10, backoffMs: 5_000 });
+const DEFAULT_RETRY = Object.freeze({ attempts: 3, backoffMs: 5_000 });
 
 /**
  * A small producer runtime. The Postgres generation row remains the durable
@@ -120,6 +134,7 @@ export function createGenerationQueueRuntime(options: {
         delay: delayMs,
         attempts: retry.attempts,
         backoff: { type: "exponential", delay: retry.backoffMs, jitter: 0.5 },
+        priority: payload.queuePriority,
         removeOnComplete: retention.completed,
         removeOnFail: retention.failed,
       });
@@ -176,6 +191,12 @@ export function createGenerationQueuePayload(
   if (!Number.isInteger(input.deliveryVersion) || input.deliveryVersion < 1) {
     throw new Error("[generation-queue] deliveryVersion must be a positive integer");
   }
+  if (input.serviceTier !== "standard" && input.serviceTier !== "vip") {
+    throw new Error("[generation-queue] serviceTier must be standard or vip");
+  }
+  if (input.queuePriority !== 2 && input.queuePriority !== 5 && input.queuePriority !== 20) {
+    throw new Error("[generation-queue] queuePriority must be 2, 5 or 20");
+  }
 
   const availableAtDate = input.availableAt instanceof Date
     ? input.availableAt
@@ -192,6 +213,8 @@ export function createGenerationQueuePayload(
     deliveryVersion: input.deliveryVersion,
     deliveryKey,
     availableAt: availableAtDate.toISOString(),
+    serviceTier: input.serviceTier,
+    queuePriority: input.queuePriority,
   };
 }
 

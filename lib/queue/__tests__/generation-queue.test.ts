@@ -29,6 +29,8 @@ describe("generation queue runtime", () => {
       deliveryVersion: 1,
       deliveryKey: "generation-7b3f8058-3ea2-47ad-8a4c-5f86a3bdcd8a-v1",
       availableAt: "2026-08-18T00:01:00.000Z",
+      serviceTier: "vip" as const,
+      queuePriority: 2 as const,
     };
 
     const first = await runtime.enqueue(input);
@@ -43,7 +45,9 @@ describe("generation queue runtime", () => {
       "deliveryKey",
       "deliveryVersion",
       "generationId",
+      "queuePriority",
       "schemaVersion",
+      "serviceTier",
     ]);
     expect(queue.add).toHaveBeenNthCalledWith(
       1,
@@ -52,8 +56,9 @@ describe("generation queue runtime", () => {
       expect.objectContaining({
         jobId: first.jobId,
         delay: 60_000,
-        attempts: 10,
+        attempts: 3,
         backoff: { type: "exponential", delay: 5_000, jitter: 0.5 },
+        priority: 2,
       }),
     );
     expect(queue.add).toHaveBeenNthCalledWith(
@@ -87,6 +92,8 @@ describe("generation queue runtime", () => {
       deliveryVersion: 1,
       deliveryKey: "generation-generation-1-v1",
       availableAt: new Date(),
+      serviceTier: "standard",
+      queuePriority: 20,
     });
 
     expect(remove).toHaveBeenCalledOnce();
@@ -111,6 +118,8 @@ describe("generation queue runtime", () => {
       deliveryVersion: 1,
       deliveryKey: "generation-generation-1-v1",
       availableAt: "2026-08-18T00:01:00.000Z",
+      serviceTier: "standard",
+      queuePriority: 20,
     });
     expect(result.delayMs).toBe(0);
     await expect(runtime.enqueue({
@@ -118,6 +127,8 @@ describe("generation queue runtime", () => {
       deliveryVersion: 2,
       deliveryKey: "generation-generation-1-v2",
       availableAt: "not-a-date",
+      serviceTier: "standard",
+      queuePriority: 20,
     })).rejects.toThrow(/availableAt/);
   });
 

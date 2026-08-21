@@ -92,7 +92,7 @@ export const BILLING_TIERS: BillingTierSeed[] = [
     unitAmount: 70_000,
     creditAmount: 5_000,
     bonusCredits: 2_000,
-    features: ["5,000 灵点 + 赠送 2,000", "适合批量商品套图", "团队运营更稳"],
+    features: ["5,000 灵点 + 赠送 2,000", "VIP 公平队列通道", "最多 30 个并行任务", "团队运营更稳"],
   },
   {
     tierKey: "premium",
@@ -101,7 +101,7 @@ export const BILLING_TIERS: BillingTierSeed[] = [
     unitAmount: 350_000,
     creditAmount: 25_000,
     bonusCredits: 13_000,
-    features: ["25,000 灵点 + 赠送 13,000", "适合高频生成", "最佳单灵点成本"],
+    features: ["25,000 灵点 + 赠送 13,000", "VIP 公平队列通道", "最多 30 个并行任务", "最佳单灵点成本"],
   },
 ];
 

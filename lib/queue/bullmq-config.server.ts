@@ -112,7 +112,7 @@ const DEFAULTS = Object.freeze({
   failedRetentionAgeSeconds: 7 * 24 * 60 * 60,
   // Business failures settle normally; thrown processor errors are therefore
   // infrastructure failures and receive a bounded exponential retry budget.
-  jobAttempts: 10,
+  jobAttempts: 3,
   jobBackoffMs: 5_000,
   relayBatchSize: 100,
   relayConcurrency: 8,
@@ -144,7 +144,7 @@ export function parseBullMqConfig(env: BullMqEnvironment = process.env): BullMqR
     failedAgeSeconds: integerEnv(env, "BULLMQ_FAILED_RETENTION_AGE_SECONDS", DEFAULTS.failedRetentionAgeSeconds, 3_600, 90 * 24 * 60 * 60),
   };
   const jobs = {
-    attempts: integerEnv(env, "BULLMQ_JOB_ATTEMPTS", DEFAULTS.jobAttempts, 1, 10),
+    attempts: integerEnv(env, "BULLMQ_JOB_ATTEMPTS", DEFAULTS.jobAttempts, 1, 5),
     backoffMs: integerEnv(env, "BULLMQ_JOB_BACKOFF_MS", DEFAULTS.jobBackoffMs, 1_000, 5 * 60_000),
   };
   const relay = {
