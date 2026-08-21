@@ -613,6 +613,7 @@ const required = [
   "create_generation_with_credit_debit_v2",
   "get_generation_service_entitlement",
   "settle_generation_for_tenant_capacity",
+  "recover_stale_generation_capacity_waits",
   "claim_generation_outbox",
   "confirm_generation_outbox",
   "nack_generation_outbox",

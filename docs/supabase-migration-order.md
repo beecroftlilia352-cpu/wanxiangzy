@@ -166,6 +166,7 @@ WHERE pronamespace = 'public'::regnamespace
     'claim_generation_job',
     'get_generation_service_entitlement',
     'settle_generation_for_tenant_capacity',
+    'recover_stale_generation_capacity_waits',
     'task_queue_upsert_generation',
     'admin_adjust_user_credits',
     'grant_billing_order_credits',
