@@ -7,7 +7,7 @@ set -euo pipefail
 # 示例: ./scripts/deploy-from-local.sh v2026.08.19-oss-download-2workers.1 2
 
 TAG="${1:?用法: $0 <tag> [worker_instances]}"
-WORKER_INSTANCES="${2:-2}"
+WORKER_INSTANCES="${2:-1}"
 
 SSH_KEY="${SSH_KEY:-$HOME/Downloads/hk01.pem}"
 SSH_HOST="${SSH_HOST:-3.25.242.85}"

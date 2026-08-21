@@ -101,7 +101,7 @@ const DEFAULTS = Object.freeze({
   prefix: "{wanxiangzy:generation}",
   queueName: "generation-jobs",
   connectTimeoutMs: 5_000,
-  workerConcurrency: 16,
+  workerConcurrency: 64,
   lockDurationMs: 60_000,
   lockRenewTimeMs: 20_000,
   stalledIntervalMs: 30_000,

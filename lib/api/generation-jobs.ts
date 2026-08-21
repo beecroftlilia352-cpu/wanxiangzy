@@ -1244,6 +1244,7 @@ async function executePayload(
         } catch (error) {
           const rawMessage = error instanceof Error ? error.message : "image task failed";
           lastMessage = rawMessage;
+          if (isAiCapacityUnavailableError(error)) throw error;
           const retryable = isRetryableSlotError(rawMessage);
           if (attempt < maxAttemptsPerSlot && retryable) {
             const backoffMs = Math.min(2000 * attempt, 5000);
@@ -1663,7 +1664,7 @@ async function executePayload(
 
     return executeParallelImageBatch({
       count: totalCount,
-      concurrency: Math.min(totalCount, 3),
+      concurrency: Math.min(totalCount, 32),
       maxAttemptsPerSlot: 2,
       promptKind: (index) => {
         const sourceIndex = Math.min(Math.floor(index / perSourceCount), sourceInputs.clothingUrls.length - 1);
@@ -1811,7 +1812,7 @@ async function executePayload(
     const totalCount = isSplitRun ? references.length * perReferenceCount : perReferenceCount;
     return executeParallelImageBatch({
       count: totalCount,
-      concurrency: Math.min(totalCount, 3),
+      concurrency: Math.min(totalCount, 32),
       maxAttemptsPerSlot: 2,
       promptKind: payload.kind === "outfitFusion" ? "outfitFusion" : payload.mode,
       run: async (index, onTaskProgress) => {
