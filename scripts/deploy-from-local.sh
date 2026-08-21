@@ -214,7 +214,7 @@ tar -xzf "$REMOTE_TAR" -C "$RELEASE"
 ln -sfn "$RELEASE" "$HOME/$APP_DIR/current"
 cd "$RELEASE"
 pm2 delete wanxiangzy wanxiangzy-worker >/dev/null 2>&1 || true
-PM2_APP_NAME=wanxiangzy PM2_RELEASE_DIR="$RELEASE" PM2_NODE_BIN="$NODE_BIN" PM2_WEB_INSTANCES="$WEB_INSTANCES" PM2_KILL_TIMEOUT_MS=45000 PM2_READY_TIMEOUT_MS=60000 "$NODE_BIN" --env-file="$RELEASE/.env.production" -e 'process.stdout.write(JSON.stringify(require("./ecosystem.production.cjs"), null, 2))' > /tmp/ecosystem.json
+PM2_APP_NAME=wanxiangzy PM2_RELEASE_DIR="$RELEASE" PM2_NODE_BIN="$NODE_BIN" PM2_WEB_INSTANCES="$WEB_INSTANCES" PM2_KILL_TIMEOUT_MS=65000 PM2_READY_TIMEOUT_MS=60000 "$NODE_BIN" --env-file="$RELEASE/.env.production" -e 'process.stdout.write(JSON.stringify(require("./ecosystem.production.cjs"), null, 2))' > /tmp/ecosystem.json
 NODE_ENV=production pm2 startOrReload /tmp/ecosystem.json --update-env
 pm2 save
 pm2 status
