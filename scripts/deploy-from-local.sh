@@ -10,7 +10,7 @@ TAG="${1:?用法: $0 <tag> [worker_instances]}"
 WORKER_INSTANCES="${2:-1}"
 
 SSH_KEY="${SSH_KEY:-$HOME/Downloads/hk01.pem}"
-SSH_HOST="${SSH_HOST:-3.25.242.85}"
+SSH_HOST="${SSH_HOST:-13.237.73.135}"
 SSH_USER="${SSH_USER:-ec2-user}"
 WEB_INSTANCES="${WEB_INSTANCES:-1}"
 APP_DIR="apps/wanxiangzy"
@@ -19,8 +19,30 @@ REPO="https://github.com/ganjmeng/wanxiangzy.git"
 RELEASE_NAME="manual-$TAG"
 LOCAL_TAR="/tmp/wanxiangzy-next-$TAG.tar.gz"
 REMOTE_TAR="/tmp/wanxiangzy-next-$TAG.tar.gz"
+# 部署钩子里的清理阈值 — 通过同名环境变量可覆盖。
+KEEP_LOCAL_TARBALLS="${KEEP_LOCAL_TARBALLS:-5}"
+KEEP_REMOTE_RELEASES="${KEEP_REMOTE_RELEASES:-3}"
+KEEP_REMOTE_TARBALLS="${KEEP_REMOTE_TARBALLS:-2}"
+LOG_TRUNCATE_KB="${LOG_TRUNCATE_KB:-5120}"
 
-echo "==> [1/5] 验证 Supabase Realtime 发布配置"
+echo "==> [1/6] 清理本地 /tmp 历史 tarball (保留最近 ${KEEP_LOCAL_TARBALLS} 个)"
+if compgen -G "/tmp/wanxiangzy-next-*.tar.gz" > /dev/null; then
+  total=$(ls -1t /tmp/wanxiangzy-next-*.tar.gz 2>/dev/null | wc -l | tr -d ' ')
+  to_remove=$(ls -1t /tmp/wanxiangzy-next-*.tar.gz 2>/dev/null \
+    | grep -v "/${TAG}.tar.gz\$" \
+    | tail -n +$((KEEP_LOCAL_TARBALLS + 1)) || true)
+  if [ -n "${to_remove:-}" ]; then
+    echo "    移除:"
+    echo "$to_remove" | sed 's/^/      /'
+    echo "$to_remove" | xargs -I{} rm -f {} 2>/dev/null || true
+  fi
+  remaining=$(ls -1 /tmp/wanxiangzy-next-*.tar.gz 2>/dev/null | wc -l | tr -d ' ')
+  echo "    本地 tarball: $total -> $remaining 个"
+else
+  echo "    没有旧 tarball"
+fi
+
+echo "==> [2/6] 验证 Supabase Realtime 发布配置"
 node --env-file-if-exists=.env.production --env-file-if-exists=.env.local - <<'NODE'
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -62,20 +84,71 @@ if (!ready) {
 console.log("Migration gate: generation outbox Realtime publication is ready.");
 NODE
 
-echo "==> [2/5] 本地构建 .next"
+echo "==> [3/6] 本地构建 .next"
 npm run build
 
-echo "==> [3/5] 打包 .next"
+echo "==> [4/6] 打包 .next"
 tar -czf "$LOCAL_TAR" .next
 
-echo "==> [4/5] 上传 .next 到 EC2"
+echo "==> [5/6] 上传 .next 到 EC2"
 scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$LOCAL_TAR" "$SSH_USER@$SSH_HOST:$REMOTE_TAR"
 
-echo "==> [5/5] 远端准备 + 启动"
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" "TAG=$TAG WORKER_INSTANCES=$WORKER_INSTANCES WEB_INSTANCES=$WEB_INSTANCES NODE_BIN=$NODE_BIN APP_DIR=$APP_DIR REPO=$REPO REMOTE_TAR=$REMOTE_TAR bash -s" <<'REMOTE'
+echo "==> [6/6] 远端清理旧 release / PM2 日志 / tarball + 准备 + 启动"
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" \
+  "KEEP_REMOTE_RELEASES=$KEEP_REMOTE_RELEASES KEEP_REMOTE_TARBALLS=$KEEP_REMOTE_TARBALLS LOG_TRUNCATE_KB=$LOG_TRUNCATE_KB TAG=$TAG WORKER_INSTANCES=$WORKER_INSTANCES WEB_INSTANCES=$WEB_INSTANCES NODE_BIN=$NODE_BIN APP_DIR=$APP_DIR REPO=$REPO REMOTE_TAR=$REMOTE_TAR bash -s" <<'REMOTE'
 set -euo pipefail
 RELEASE="$HOME/$APP_DIR/releases/manual-$TAG"
 CURRENT="$(readlink -f "$HOME/$APP_DIR/current" 2>/dev/null || true)"
+
+echo "---- [remote cleanup]"
+RELEASES_DIR="$HOME/$APP_DIR/releases"
+if compgen -G "$RELEASES_DIR/manual-*" > /dev/null; then
+  keep_n="$KEEP_REMOTE_RELEASES"
+  total=$(ls -1dt "$RELEASES_DIR"/manual-* 2>/dev/null | wc -l | tr -d ' ')
+  to_remove=$(ls -1dt "$RELEASES_DIR"/manual-* 2>/dev/null | tail -n +$((keep_n + 1)) || true)
+  if [ -n "${to_remove:-}" ]; then
+    echo "    当前 release (保留最近 ${keep_n} 个 + current):"
+    ls -1dt "$RELEASES_DIR"/manual-* 2>/dev/null | head -"$keep_n" | sed 's/^/      /'
+    echo "    待清理:"
+    echo "$to_remove" | while read -r d; do
+      abs="$(cd "$d" 2>/dev/null && pwd || echo "$d")"
+      if [ "$abs" = "$CURRENT" ]; then
+        echo "      SKIP ${d#$RELEASES_DIR/} (current symlink target)"
+      else
+        echo "      rm -rf ${d#$RELEASES_DIR/}"
+        rm -rf "$d"
+      fi
+    done
+  fi
+  remaining=$(ls -1dt "$RELEASES_DIR"/manual-* 2>/dev/null | wc -l | tr -d ' ')
+  echo "    release 计数: $total -> $remaining"
+else
+  echo "    releases 目录为空，跳过 release 清理"
+fi
+
+big_logs=$(find "$HOME/.pm2/logs" -type f -name "*.log" -size +${LOG_TRUNCATE_KB}k 2>/dev/null || true)
+if [ -n "${big_logs:-}" ]; then
+  echo "    截断 PM2 日志 (>${LOG_TRUNCATE_KB}KB):"
+  echo "$big_logs" | while read -r f; do
+    size=$(stat -c %s "$f" 2>/dev/null || echo "?")
+    : > "$f"
+    echo "      truncated ${f#$HOME/} (was ${size} bytes)"
+  done
+else
+  echo "    PM2 日志无需截断"
+fi
+
+old_tars=$(ls -1t /tmp/wanxiangzy-next-*.tar.gz 2>/dev/null | tail -n +$((KEEP_REMOTE_TARBALLS + 1)) | grep -v "/${TAG}.tar.gz\$" || true)
+if [ -n "${old_tars:-}" ]; then
+  echo "    清理 EC2 /tmp 上历史 tarball (保留当前 + 上一个):"
+  echo "$old_tars" | while read -r f; do
+    echo "      rm $(basename "$f")"
+    rm -f "$f"
+  done
+fi
+echo "    EC2 /tmp tarball 剩余 $(ls -1 /tmp/wanxiangzy-next-*.tar.gz 2>/dev/null | wc -l | tr -d ' ') 个"
+echo "---- [remote cleanup done]"
+
 if [ ! -d "$RELEASE/.git" ]; then
   TOKEN="$(tr -d '[:space:]' < "$HOME/.wanxiangzy-gh-token")"
   git clone --depth 1 --branch "$TAG" "https://${TOKEN}@github.com/ganjmeng/wanxiangzy.git" "$RELEASE"
