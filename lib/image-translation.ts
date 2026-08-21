@@ -1,4 +1,5 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
+import { STANDARD_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
 
 /**
  * 商品图图片翻译模块（Image Translation）
@@ -11,7 +12,7 @@ import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
  * - 多语言输出时一次性合并生成多语言版本，不丢失图1原有非文字元素。
  */
 
-export const MAX_IMAGE_TRANSLATION_IMAGES = 8;
+export const MAX_IMAGE_TRANSLATION_IMAGES = STANDARD_MULTI_IMAGE_UPLOAD_LIMIT;
 export const MAX_IMAGE_TRANSLATION_LANGUAGES = 20;
 
 export type ImageTranslationLanguageEntry = {

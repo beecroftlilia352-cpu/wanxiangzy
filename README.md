@@ -364,4 +364,4 @@ sudo systemctl cat pm2-ec2-user | grep -E "ExecStart|Environment|PATH"
 
 生成 Worker 不再轮询 `claim_next_generation_jobs`。PostgreSQL Outbox relay 使用有界、租户公平的 `SKIP LOCKED` claim，把 delivery 发布到 BullMQ；Worker 通过 `delivery_version + execution_token` 认领业务执行。Redis 故障时任务留在 Outbox，恢复后重投；Worker 崩溃由 Bull stalled recovery 与数据库 execution lease 共同恢复。
 
-主要参数见 `.env.local.example`：`BULLMQ_WORKER_CONCURRENCY`、`BULLMQ_RELAY_BATCH_SIZE`、`BULLMQ_RELAY_CONCURRENCY`、`GENERATION_MAX_ACTIVE_PER_USER`。完整架构、压测与故障恢复手册见 `docs/production-generation-queue.md`。
+主要参数见 `.env.local.example`：`BULLMQ_WORKER_CONCURRENCY`、`GENERATION_IMAGE_BATCH_CONCURRENCY`、`BULLMQ_RELAY_BATCH_SIZE`、`BULLMQ_RELAY_CONCURRENCY`、`GENERATION_MAX_ACTIVE_PER_USER`。完整架构、压测与故障恢复手册见 `docs/production-generation-queue.md`。

@@ -12,6 +12,7 @@ import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { applyModelShootStylePrompt, normalizeModelShootStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { MAX_MODEL_REFERENCE_IMAGES } from "@/lib/model-upload-rules";
 
 export const maxDuration = 60;
 
@@ -29,8 +30,8 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const { reference_urls, hair_reference_url, hair_color_reference_url, gender, hair_style, hair_color, model_style, ai_model, aspect_ratio, image_size, prompt, gen_count } = body;
-    if (!Array.isArray(reference_urls) || !reference_urls.length) return NextResponse.json({ error: "请上传 1-3 张参考图" }, { status: 400 });
-    if (reference_urls.length > 3) return NextResponse.json({ error: "参考图最多 3 张" }, { status: 400 });
+    if (!Array.isArray(reference_urls) || !reference_urls.length) return NextResponse.json({ error: `请上传 1-${MAX_MODEL_REFERENCE_IMAGES} 张参考图` }, { status: 400 });
+    if (reference_urls.length > MAX_MODEL_REFERENCE_IMAGES) return NextResponse.json({ error: `参考图最多 ${MAX_MODEL_REFERENCE_IMAGES} 张` }, { status: 400 });
     if (reference_urls.some((url) => typeof url !== "string")) return NextResponse.json({ error: "参考图无效" }, { status: 400 });
     if (
       (hair_reference_url && typeof hair_reference_url !== "string") ||

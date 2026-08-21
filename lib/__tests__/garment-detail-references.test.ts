@@ -9,7 +9,7 @@ import {
 } from "@/lib/garment-detail-references";
 
 describe("garment detail references", () => {
-  it("normalizes garment detail urls with dedupe and a five-image cap", () => {
+  it("normalizes garment detail urls with dedupe and a four-image cap", () => {
     const urls = normalizeGarmentDetailUrls([
       " fabric.png ",
       "",
@@ -22,7 +22,7 @@ describe("garment detail references", () => {
       42,
     ]);
 
-    expect(urls).toEqual(["fabric.png", "pocket.png", "back.png", "side.png", "collar.png"]);
+    expect(urls).toEqual(["fabric.png", "pocket.png", "back.png", "side.png"]);
     expect(urls).toHaveLength(MAX_GARMENT_DETAIL_IMAGES);
   });
 

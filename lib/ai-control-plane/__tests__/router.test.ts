@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   AiCapacityUnavailableError,
+  AiProviderPoolExhaustedError,
   AiProviderHttpError,
   classifyAiProviderError,
   getAiRoutingCandidateScore,
   isAiCapacityUnavailableError,
+  isAiProviderPoolExhaustedError,
 } from "@/lib/ai-control-plane/router.server";
 
 describe("AI router error policy", () => {
@@ -18,6 +20,18 @@ describe("AI router error policy", () => {
     expect(isAiCapacityUnavailableError({ name: "AiCapacityUnavailableError", retryAfterSeconds: 30 })).toBe(true);
     expect(isAiCapacityUnavailableError({ name: "AiCapacityUnavailableError", retryAfterSeconds: 301 })).toBe(false);
     expect(isAiCapacityUnavailableError(new Error("busy"))).toBe(false);
+  });
+
+  it("marks exhausted provider attempts as retryable without calling it capacity saturation", () => {
+    const error = new AiProviderPoolExhaustedError("gpt-image-2", 2, 2, new Error("HTTP 503"));
+    expect(error.message).toContain("2 次供应商调用均失败");
+    expect(error.retryable).toBe(true);
+    expect(isAiProviderPoolExhaustedError(error)).toBe(true);
+    expect(isAiProviderPoolExhaustedError({
+      name: "AiProviderPoolExhaustedError",
+      attemptedDeployments: 1,
+      candidateDeployments: 2,
+    })).toBe(true);
   });
 
   it("fails over on rate limit and preserves retry-after", () => {

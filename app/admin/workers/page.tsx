@@ -88,6 +88,7 @@ export default async function AdminWorkersPage() {
               <RuntimeRow label="Outbox pending / publishing / dead" value={`${overview.runtime.outbox.pending_count ?? 0} / ${overview.runtime.outbox.publishing_count ?? 0} / ${overview.runtime.outbox.dead_count ?? 0}`} hint="PostgreSQL 事务消息发布状态" />
               <RuntimeRow label="当前告警" value={overview.runtime.alerts.breached ? String(overview.runtime.alerts.reasons.length) : "0"} hint={overview.runtime.alerts.reasons.join("；") || "当前队列指标均低于已发布阈值"} />
               <RuntimeRow label="Relay 并发" value={String(overview.runtime.actual.relayConcurrency)} hint="每个 Worker 进程的 Outbox 发布并发" />
+              <RuntimeRow label="单任务生图并发" value={String(overview.runtime.actual.imageBatchConcurrency)} hint="每个 generation 内同时发起的图片请求上限" />
               <RuntimeRow label="配置版本" value={overview.runtime.configVersion?.id ? shortAdminCode(overview.runtime.configVersion.id, "版本") : "默认值"} hint={overview.runtime.configVersion?.publishedAt ? formatDateTime(overview.runtime.configVersion.publishedAt) : "尚未发布 Worker 配置"} />
             </tbody>
           </table>

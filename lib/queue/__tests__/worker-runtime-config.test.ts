@@ -16,18 +16,20 @@ describe("Worker runtime control config", () => {
     const result = validateWorkerRuntimeConfig({
       desiredInstances: 4,
       workerConcurrency: 16,
+      imageBatchConcurrency: 16,
       relayConcurrency: 8,
       alertWaiting: 500,
       alertOldestPendingSeconds: 300,
     });
     expect(result.error).toBeNull();
-    expect(result.config).toMatchObject({ desiredInstances: 4, workerConcurrency: 16, relayConcurrency: 8 });
+    expect(result.config).toMatchObject({ desiredInstances: 4, workerConcurrency: 16, imageBatchConcurrency: 16, relayConcurrency: 8 });
   });
 
   it("rejects unsafe or ambiguous values instead of silently clamping Admin writes", () => {
     expect(validateWorkerRuntimeConfig({
       desiredInstances: 0,
       workerConcurrency: 16,
+      imageBatchConcurrency: 16,
       relayConcurrency: 8,
       alertWaiting: 100,
       alertOldestPendingSeconds: 300,
@@ -36,19 +38,22 @@ describe("Worker runtime control config", () => {
 
   it("detects instance and process concurrency drift independently", () => {
     expect(getWorkerRuntimeDrift({
-      desired: { ...DEFAULT_WORKER_RUNTIME_CONFIG, desiredInstances: 4, workerConcurrency: 32, relayConcurrency: 16 },
+      desired: { ...DEFAULT_WORKER_RUNTIME_CONFIG, desiredInstances: 4, workerConcurrency: 32, imageBatchConcurrency: 16, relayConcurrency: 16 },
       onlineInstances: 2,
       workerConcurrency: 16,
+      imageBatchConcurrency: 8,
       relayConcurrency: 8,
     })).toEqual([
       "实例数期望 4，在线 2",
       "Worker 并发期望 32，当前 16",
+      "单任务生图并发期望 16，当前 8",
       "Relay 并发期望 16，当前 8",
     ]);
     expect(getWorkerRuntimeDrift({
       desired: { ...DEFAULT_WORKER_RUNTIME_CONFIG, desiredInstances: 4 },
       onlineInstances: null,
       workerConcurrency: DEFAULT_WORKER_RUNTIME_CONFIG.workerConcurrency,
+      imageBatchConcurrency: DEFAULT_WORKER_RUNTIME_CONFIG.imageBatchConcurrency,
       relayConcurrency: DEFAULT_WORKER_RUNTIME_CONFIG.relayConcurrency,
     })).toEqual([]);
   });

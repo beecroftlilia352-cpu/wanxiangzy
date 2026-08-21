@@ -37,6 +37,7 @@ import { buildPartialFailureDetail, coerceErrorMessage, summarizeGenerationError
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
   PRODUCT_SET_EXAMPLE_GROUPS,
+  MAX_PRODUCT_SET_SOURCE_IMAGES,
   PRODUCT_SET_PRESET_PLANS,
   PRODUCT_SET_PROMPT_VERSION,
   PRODUCT_SET_STYLE_PACKS,
@@ -573,7 +574,7 @@ export default function ProductSetPage() {
     if (cancelled || !applyPayload) return;
 
     const appliedImageType = applyPayload.imageType === "details" ? "details" : "main";
-    setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: t("historyProductImage", { index: index + 1 }) })));
+    setProductImages(applyPayload.productImageUrls.slice(0, MAX_PRODUCT_SET_SOURCE_IMAGES).map((url, index) => ({ url, name: t("historyProductImage", { index: index + 1 }) })));
     setProductInfo(applyPayload.productInfo || "");
     setProductProfile(normalizeProductSetProductProfile(applyPayload.productProfile, applyPayload.productInfo || ""));
     setAnalysisDetail(null);
@@ -698,7 +699,7 @@ export default function ProductSetPage() {
       appliedImageType === "details" ? 8 : 6
     );
 
-    setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: t("historyProductImage", { index: index + 1 }) })));
+    setProductImages(applyPayload.productImageUrls.slice(0, MAX_PRODUCT_SET_SOURCE_IMAGES).map((url, index) => ({ url, name: t("historyProductImage", { index: index + 1 }) })));
     setProductInfo(applyPayload.productInfo || "");
     setProductProfile(normalizeProductSetProductProfile(applyPayload.productProfile, applyPayload.productInfo || ""));
     setAnalysisDetail(null);
@@ -756,7 +757,7 @@ export default function ProductSetPage() {
   async function processFiles(files: FileList | File[]) {
     const incoming = Array.from(files).filter((file) => file.type.startsWith("image/"));
     if (!incoming.length) return toast.error(t("upload.pleaseUploadImage"));
-    const freeSlots = Math.max(0, 3 - productImages.length);
+    const freeSlots = Math.max(0, MAX_PRODUCT_SET_SOURCE_IMAGES - productImages.length);
     if (!freeSlots) return toast.error(t("upload.maxThreeImages"));
     const filesToUpload = incoming.slice(0, freeSlots);
     if (incoming.length > filesToUpload.length) toast.info(t("upload.extraIgnored"));
@@ -786,7 +787,7 @@ export default function ProductSetPage() {
         }
       });
       if (next.length) {
-        setProductImages((prev) => [...prev, ...next].slice(0, 3));
+        setProductImages((prev) => [...prev, ...next].slice(0, MAX_PRODUCT_SET_SOURCE_IMAGES));
         toast.success(t("upload.donePleaseAnalyze"));
       }
     } finally {
@@ -919,7 +920,7 @@ export default function ProductSetPage() {
           moduleRole: prev.moduleRole || (imageType === "details" ? t("custom.detailsRole") : t("custom.mainRole")),
         };
         if (kind === "model") return { ...prev, ...defaults, modelReferenceImageUrls: [result.url], modelConsistency: true };
-        if (kind === "other") return { ...prev, ...defaults, otherReferenceImageUrls: [...prev.otherReferenceImageUrls, result.url].slice(0, 3) };
+        if (kind === "other") return { ...prev, ...defaults, otherReferenceImageUrls: [...prev.otherReferenceImageUrls, result.url].slice(0, MAX_PRODUCT_SET_SOURCE_IMAGES) };
         return { ...prev, ...defaults, referenceImageUrls: [result.url] };
       });
       toast.success(t("custom.referenceUploaded"));
@@ -948,7 +949,7 @@ export default function ProductSetPage() {
           : t("create.quickStart.extraRef", { count: existingUrls.length }),
       role: `custom-${kind}`,
       selectionMode: kind === "other" ? "multiple" : "single",
-      maxCount: kind === "other" ? 3 : 1,
+      maxCount: kind === "other" ? MAX_PRODUCT_SET_SOURCE_IMAGES : 1,
       existingCount: kind === "other" ? existingUrls.length : 0,
       excludedUrls: [
         ...customDraft.referenceImageUrls,
@@ -972,7 +973,7 @@ export default function ProductSetPage() {
         moduleRole: current.moduleRole || (imageType === "details" ? t("custom.detailsRole") : t("custom.mainRole")),
       };
       if (kind === "model") return { ...current, ...defaults, modelReferenceImageUrls: [urls[0]], modelConsistency: true };
-      if (kind === "other") return { ...current, ...defaults, otherReferenceImageUrls: [...current.otherReferenceImageUrls, ...urls].slice(0, 3) };
+      if (kind === "other") return { ...current, ...defaults, otherReferenceImageUrls: [...current.otherReferenceImageUrls, ...urls].slice(0, MAX_PRODUCT_SET_SOURCE_IMAGES) };
       return { ...current, ...defaults, referenceImageUrls: [urls[0]] };
     });
     resetOutput();
@@ -1687,7 +1688,7 @@ export default function ProductSetPage() {
             />
             <MultiImageUploadV2
               urls={productImages.map((item) => item.url)}
-              maxCount={3}
+              maxCount={MAX_PRODUCT_SET_SOURCE_IMAGES}
               title={t("productImages.title")}
               emptyHint={t("productImages.supportBadge")}
               description={t("productImages.help")}
@@ -1702,7 +1703,7 @@ export default function ProductSetPage() {
                   title: t("productImages.title"),
                   role: "product",
                   selectionMode: "multiple",
-                  maxCount: 3,
+                  maxCount: MAX_PRODUCT_SET_SOURCE_IMAGES,
                   existingCount: productImages.length,
                   excludedUrls: productImages.map((item) => item.url),
                   mediaTypes: ["image"],
@@ -1714,7 +1715,7 @@ export default function ProductSetPage() {
                   const added = assets
                     .filter((asset) => !existing.has(asset.url))
                     .map((asset, index) => ({ url: asset.url, name: asset.title || t("upload.productImageName", { index: current.length + index + 1 }) }));
-                  return [...current, ...added].slice(0, 3);
+                  return [...current, ...added].slice(0, MAX_PRODUCT_SET_SOURCE_IMAGES);
                 });
                 setProductInfo("");
                 resetAnalysisPlan("idle");

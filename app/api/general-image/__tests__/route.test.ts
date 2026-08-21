@@ -117,4 +117,33 @@ describe("POST /api/general-image", () => {
     expect(body).not.toHaveProperty("generation_ids");
     expect(body).not.toHaveProperty("batch_id");
   });
+
+  it("rejects more than six inputs for one-per-reference mode", async () => {
+    const references = Array.from({ length: 7 }, (_, index) => `https://example.com/reference-${index + 1}.png`);
+    mocks.resolveGeneralImageReferences.mockResolvedValue({ urls: references, disallowed: [] });
+    const request = new NextRequest("http://localhost/api/general-image", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": "aggregate-run-over-limit",
+      },
+      body: JSON.stringify({
+        mode: "image-to-image",
+        prompt: "每张参考图分别应用当前提示词",
+        reference_urls: references,
+        ai_model: "nano-banana-2",
+        image_size: "1K",
+        aspect_ratio: "1:1",
+        gen_count: 4,
+        one_per_reference: true,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain("最多支持 6 张输入图");
+    expect(mocks.createDebitedGeneration).not.toHaveBeenCalled();
+  });
 });

@@ -70,7 +70,13 @@ export async function PATCH(request: Request, context: RouteContext) {
   });
 
   return NextResponse.json(
-    { ok: true, sourceType: result.sourceType, action, metadata: result.metadata },
+    {
+      ok: true,
+      sourceType: result.sourceType,
+      action,
+      metadata: result.metadata,
+      message: typeof result.metadata.message === "string" ? result.metadata.message : "操作已受理",
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -92,6 +98,8 @@ type GenerationOperationRow = {
   credits_cost: number | null;
   credits_used: number | null;
   result_urls: string[] | null;
+  delivery_version: number | null;
+  execution_lease_expires_at: string | null;
 };
 
 type WorkflowOperationRow = {
@@ -117,7 +125,7 @@ async function operateGenerationTask(
   const admin = getAdminClient();
   const { data, error } = await admin
     .from("generations")
-    .select("id,user_id,status,credits_cost,credits_used,result_urls")
+    .select("id,user_id,status,credits_cost,credits_used,result_urls,delivery_version,execution_lease_expires_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -130,78 +138,51 @@ async function operateGenerationTask(
     if (isCompletedStatus(status)) {
       return { ok: false, status: 409, error: "已完成任务不能直接重新入队" };
     }
-    const update = await admin
-      .from("generations")
-      .update({
-        status: "queued",
-        error_message: null,
-        processing_started_at: null,
-        completed_at: null,
-        job_attempts: 0,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select("id,status")
-      .maybeSingle();
-    if (update.error) return { ok: false, status: 400, error: update.error.message };
+    if (status !== "queued" && !status.startsWith("processing") && status !== "running" && status !== "generating") {
+      return { ok: false, status: 409, error: `当前状态 ${row.status || "unknown"} 不支持重新处理` };
+    }
+    const retry = await admin.rpc("admin_retry_generation", {
+      p_generation_id: id,
+      p_reason: reason,
+    });
+    if (retry.error) {
+      const message = `${retry.error.code || ""} ${retry.error.message || ""}`.toLowerCase();
+      const statusCode = message.includes("admin_retry_generation") || message.includes("could not find") ? 501 : 400;
+      return { ok: false, status: statusCode, error: retry.error.message || "任务重新投递失败" };
+    }
+    const retried = Array.isArray(retry.data) ? retry.data[0] : retry.data;
     await syncGenerationTaskQueueById(id);
-    return { ok: true, sourceType: "generation", metadata: { previousStatus: row.status, nextStatus: "queued" } };
-  }
-
-  if (action === "mark_failed_no_refund") {
-    if (isCompletedStatus(status)) return { ok: false, status: 409, error: "已完成任务不能标记失败" };
-    const update = await admin
-      .from("generations")
-      .update({
-        status: "failed",
-        error_message: reason,
-        processing_started_at: null,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select("id,status")
-      .maybeSingle();
-    if (update.error) return { ok: false, status: 400, error: update.error.message };
-    await syncGenerationTaskQueueById(id);
-    return { ok: true, sourceType: "generation", metadata: { previousStatus: row.status, nextStatus: "failed", refunded: 0 } };
+    const alreadyRunning = retried?.outcome === "already_running";
+    return {
+      ok: true,
+      sourceType: "generation",
+      metadata: {
+        previousStatus: row.status,
+        nextStatus: alreadyRunning ? row.status : "queued",
+        accepted: true,
+        deduplicated: alreadyRunning,
+        deliveryVersion: retried?.delivery_version ?? row.delivery_version,
+        message: alreadyRunning ? "任务仍在有效执行中，未重复投递" : "任务已生成新的投递版本并重新入队",
+      },
+    };
   }
 
   if (isCompletedStatus(status) || status === "failed") {
     return { ok: false, status: 409, error: "任务已结束，不能重复退款" };
   }
 
-  const amount = Math.max(0, Math.floor(Number(row.credits_used ?? row.credits_cost ?? 0)));
-  if (amount <= 0) {
-    const update = await admin
-      .from("generations")
-      .update({
-        status: "failed",
-        error_message: reason,
-        processing_started_at: null,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select("id,status")
-      .maybeSingle();
-    if (update.error) return { ok: false, status: 400, error: update.error.message };
-    await syncGenerationTaskQueueById(id);
-    return { ok: true, sourceType: "generation", metadata: { previousStatus: row.status, nextStatus: "failed", refunded: 0 } };
-  }
-
-  const refund = await admin.rpc("fail_generation_with_credit_refund", {
-    p_user_id: row.user_id,
+  const shouldRefund = action === "mark_failed_refund" || action === "cancel_refund";
+  const settlement = await admin.rpc("admin_settle_generation", {
     p_generation_id: id,
-    p_amount: amount,
-    p_reason: action === "cancel_refund" ? `管理员取消退款：${reason}` : `管理员失败退款：${reason}`,
-    p_error_message: reason,
+    p_refund: shouldRefund,
+    p_reason: reason,
   });
-  if (refund.error) {
-    const message = `${refund.error.code || ""} ${refund.error.message || ""}`.toLowerCase();
-    const statusCode = message.includes("fail_generation_with_credit_refund") || message.includes("could not find") ? 501 : 400;
-    return { ok: false, status: statusCode, error: refund.error.message || "退款失败" };
+  if (settlement.error) {
+    const message = `${settlement.error.code || ""} ${settlement.error.message || ""}`.toLowerCase();
+    const statusCode = message.includes("admin_settle_generation") || message.includes("could not find") ? 501 : 400;
+    return { ok: false, status: statusCode, error: settlement.error.message || "任务结算失败" };
   }
+  const settled = Array.isArray(settlement.data) ? settlement.data[0] : settlement.data;
   await syncGenerationTaskQueueById(id);
   return {
     ok: true,
@@ -210,9 +191,10 @@ async function operateGenerationTask(
       previousStatus: row.status,
       nextStatus: "failed",
       operation: action,
-      refundRequested: amount,
-      balance: refund.data,
+      refunded: Number(settled?.refund_amount || 0),
+      balance: settled?.balance,
       resultCount: Array.isArray(row.result_urls) ? row.result_urls.length : 0,
+      message: shouldRefund ? "任务已结束，退款已原子结算" : "任务已结束，未执行退款",
     },
   };
 }

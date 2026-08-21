@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { runGenerationJobById } from "@/lib/api/generation-jobs";
+import { getImageBatchConcurrency, runGenerationJobById } from "@/lib/api/generation-jobs";
 import {
   getAliyunOssRemoteTransferMode,
   validateOssMirrorRuntimeConfig,
@@ -66,6 +66,9 @@ export async function runWorkerSupervisor() {
   loadDotEnvIfPresent();
   validateWorkerRuntimeEnv();
   const bull = parseBullMqConfig(process.env);
+  const imageBatchConcurrency = getImageBatchConcurrency({
+    GENERATION_IMAGE_BATCH_CONCURRENCY: process.env.GENERATION_IMAGE_BATCH_CONCURRENCY,
+  });
   if (!bull.enabled) throw new Error("[worker] production supervisor requires GENERATION_QUEUE_MODE=bullmq");
   if (getAliyunOssRemoteTransferMode() === "disabled") {
     throw new Error("[worker] generated result persistence requires ALIYUN_OSS_REMOTE_TRANSFER_MODE=stream|mirror");
@@ -144,6 +147,7 @@ export async function runWorkerSupervisor() {
     emit("supervisor.ready", {
       queue: bull.queueName,
       generationConcurrency: bull.worker.concurrency,
+      imageBatchConcurrency,
       mirrorMode: getAliyunOssRemoteTransferMode(),
       validationConcurrency: parseMediaValidationConfig(process.env).concurrency,
       cleanupConcurrency: parseMediaCleanupConfig(process.env).concurrency,

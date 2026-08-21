@@ -47,6 +47,17 @@ describe("AI toolbox UI catalog", () => {
     expect(AI_TOOL_UI_CONFIG.resize.requiresMask).not.toBe(true);
   });
 
+  it("uses eight-image batches only for independent per-image workflows", () => {
+    expect(AI_TOOL_UI_CONFIG.matting.maxImages).toBe(8);
+    expect(AI_TOOL_UI_CONFIG.upscale.maxImages).toBe(8);
+    expect(AI_TOOL_UI_CONFIG.resize.maxImages).toBe(8);
+    expect(AI_TOOL_UI_CONFIG.outpaint.maxImages).toBe(8);
+    expect(AI_TOOL_UI_CONFIG.erase.maxImages).toBe(8);
+    expect(AI_TOOL_UI_CONFIG["hand-foot-repair"].maxImages).toBe(1);
+    expect(AI_TOOL_UI_CONFIG["clothing-repair"].maxImages).toBe(1);
+    expect(AI_TOOL_UI_CONFIG["shoe-repair"].maxImages).toBe(1);
+  });
+
   it("rejects unsupported route slugs", () => {
     expect(isAiToolSlug("matting")).toBe(true);
     expect(isAiToolSlug("api-test")).toBe(false);

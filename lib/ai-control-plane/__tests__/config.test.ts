@@ -12,8 +12,9 @@ describe("AI control-plane configuration", () => {
       config.models.find((model) => model.id === deployment.modelId)?.modality === "image"
     );
     expect(imageDeployments.length).toBeGreaterThan(0);
-    expect(imageDeployments.every((deployment) => deployment.maxConcurrency >= 16)).toBe(true);
-    expect(imageDeployments.every((deployment) => deployment.requestsPerMinute >= 240)).toBe(true);
+    expect(imageDeployments.every((deployment) => deployment.maxConcurrency === 24)).toBe(true);
+    expect(imageDeployments.every((deployment) => deployment.requestsPerMinute === 60)).toBe(true);
+    expect(imageDeployments.every((deployment) => deployment.burst === 24)).toBe(true);
     expect(config.policy.leaseTtlSeconds).toBe(60);
   });
 

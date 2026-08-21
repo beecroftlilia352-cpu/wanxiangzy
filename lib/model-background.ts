@@ -1,4 +1,5 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
+import { STANDARD_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
 
 const SITE_ASSET_BASE = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original";
 
@@ -34,7 +35,7 @@ export type BackgroundPreset = {
   prompt: string;
 };
 
-export const MAX_MODEL_BACKGROUND_SOURCE_IMAGES = 8;
+export const MAX_MODEL_BACKGROUND_SOURCE_IMAGES = STANDARD_MULTI_IMAGE_UPLOAD_LIMIT;
 
 export const MODEL_BACKGROUND_MODE_LABELS: Record<ModelBackgroundMode, string> = {
   model_background: "换模特换背景",

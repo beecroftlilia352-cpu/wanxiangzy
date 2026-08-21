@@ -1,4 +1,6 @@
-export const MAX_GARMENT_ANGLE_IMAGES = 5;
+import { CURATED_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
+
+export const MAX_GARMENT_ANGLE_IMAGES = CURATED_MULTI_IMAGE_UPLOAD_LIMIT;
 
 export type GarmentAngleTarget = "outfit" | "upper" | "lower" | "extra";
 export type GarmentAngleView = "front" | "back" | "side" | "flat" | "other";

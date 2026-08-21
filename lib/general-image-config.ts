@@ -1,6 +1,9 @@
 export const MAX_GENERAL_IMAGE_REFERENCE_IMAGES = 14;
-/** Absolute ceiling for a single multi-to-one run: 14 references × 4 images each. */
-export const MAX_GENERAL_IMAGE_TOTAL_COUNT = MAX_GENERAL_IMAGE_REFERENCE_IMAGES * 4;
+export const MAX_GENERAL_IMAGE_SPLIT_REFERENCES = 6;
+export const MAX_GENERAL_IMAGE_OUTPUT_COUNT = 4;
+/** Absolute ceiling for a one-per-reference run: 6 references × 4 images each. */
+export const MAX_GENERAL_IMAGE_TOTAL_COUNT = MAX_GENERAL_IMAGE_SPLIT_REFERENCES
+  * MAX_GENERAL_IMAGE_OUTPUT_COUNT;
 
 export type GeneralImageMode = "text-to-image" | "image-to-image";
 

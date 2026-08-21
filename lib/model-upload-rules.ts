@@ -1,3 +1,7 @@
+import { CURATED_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
+
+export const MAX_MODEL_REFERENCE_IMAGES = CURATED_MULTI_IMAGE_UPLOAD_LIMIT;
+
 export type ModelRuleDemo = {
   title: string;
   description: string;
@@ -26,7 +30,7 @@ const MODEL_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/objec
 export const MODEL_UPLOAD_RULE: ModelUploadRule = {
   title: "请按规则上传人物参考图，以获得更稳定的融合模特",
   shortTitle: "专属模特参考图",
-  uploadSpecText: "上传 1-3 张清晰正脸/半身人物图，单张 20KB-15MB，分辨率大于 400x400，支持 jpg/jpeg/png/webp",
+  uploadSpecText: "上传 1-4 张清晰正脸/半身人物图，单张 20KB-15MB，分辨率大于 400x400，支持 jpg/jpeg/png/webp",
   demos: [
     {
       title: "单图参考",

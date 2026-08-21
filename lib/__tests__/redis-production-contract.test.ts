@@ -78,6 +78,10 @@ describe("standard Redis production contract", () => {
       "get_runtime_contract_version",
       "redrive_generation_outbox",
       "claim_generation_job",
+      "settle_generation_for_ai_capacity",
+      "settle_generation_for_retryable_error",
+      "admin_retry_generation",
+      "admin_settle_generation",
       "complete_generation_with_credit_adjustment",
       "complete_oss_mirror_transfer",
       "create_media_asset_upload",
@@ -89,8 +93,8 @@ describe("standard Redis production contract", () => {
     expect(deploy.indexOf('"redrive_generation_outbox"')).toBeLessThan(
       deploy.indexOf("const missing = required.filter"),
     );
-    expect(manifest.contractVersion).toBe("2026-08-18.6");
-    expect(manifest.contractHash).toBe("1dad0e31ba0f5b808009706a29595186274d92cb48a3f1395bc7028c8f2a3977");
+    expect(manifest.contractVersion).toBe("2026-08-21.2");
+    expect(manifest.contractHash).toBe("c15cb3e0cf66c8f3333bde1e2c98051aa9534a018e196ab2fa87e011ff5da285");
     expect(deploy).toContain('JSON.parse(readFileSync("runtime-contract.json", "utf8"))');
     expect(deploy).toContain("/rest/v1/rpc/get_runtime_contract_version");
     expect(deploy).toContain("contract?.contract_version !== expectedContractVersion");

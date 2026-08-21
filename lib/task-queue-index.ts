@@ -213,14 +213,17 @@ export function isRunningTaskStale(item: Pick<TaskQueueItem, "statusGroup" | "cr
 }
 
 export function applyStaleRunningFallback(item: TaskQueueItem): TaskQueueItem {
+  const presentationSafeItem = item.statusGroup === "failed" || !item.error
+    ? item
+    : { ...item, error: "" };
   if (!isRunningTaskStale(item)) {
-    return item;
+    return presentationSafeItem;
   }
   return {
-    ...item,
+    ...presentationSafeItem,
     status: "processing_delayed",
     statusGroup: "running",
-    error: item.error || "",
+    error: "",
     progress: Math.max(item.progress, 99),
   };
 }
@@ -350,7 +353,7 @@ export function normalizeGenerationTaskQueueItem(row: TaskQueueGenerationSourceR
     createdAt,
     updatedAt,
     completedAt: row.completed_at || (statusGroup === "completed" || statusGroup === "failed" ? row.updated_at || null : null),
-    error: row.error_message || "",
+    error: statusGroup === "failed" ? row.error_message || "" : "",
     progress: statusGroup === "completed" ? 100 : statusGroup === "failed" ? 0 : inferProgress(row.status, row.job_payload),
     expectedCount: inferExpectedCount(row.job_payload, resultUrls.length),
     resultCount: resultUrls.length,
@@ -445,17 +448,18 @@ export function indexRowToTaskQueueItem(row: TaskQueueIndexRow): TaskQueueItem {
   const inputThumbnails = arrayOfStrings(row.input_thumbnails);
   const resultThumbnails = arrayOfStrings(row.result_thumbnails);
   const createdAt = row.created_at || new Date().toISOString();
+  const statusGroup = row.status_group || taskQueueStatusGroup(row.status, row.result_count);
   const item: TaskQueueItem = {
     id: row.source_id,
     module: row.module,
     title: row.title || moduleTitle(row.module),
     status: row.status || row.status_group || "queued",
-    statusGroup: row.status_group || taskQueueStatusGroup(row.status, row.result_count),
+    statusGroup,
     time: formatElapsed(createdAt, row.completed_at),
     createdAt,
     updatedAt: row.updated_at || row.completed_at || createdAt,
     completedAt: row.completed_at || null,
-    error: row.error_message || "",
+    error: statusGroup === "failed" ? row.error_message || "" : "",
     progress: clampProgress(row.progress),
     expectedCount: Math.max(1, Number(row.expected_count) || 1),
     resultCount: Math.max(0, Number(row.result_count) || 0),

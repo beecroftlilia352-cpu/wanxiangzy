@@ -9,7 +9,7 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
   it("runs Web as a readiness-gated cluster and parameterized Worker replicas", () => {
     const ecosystem = read("ecosystem.production.cjs");
 
-    expect(ecosystem).toContain('const webInstances = boundedInteger("PM2_WEB_INSTANCES", 2, 2, 32)');
+    expect(ecosystem).toContain('const webInstances = boundedInteger("PM2_WEB_INSTANCES", 2, 1, 32)');
     expect(ecosystem).toContain('const workerInstances = boundedInteger("PM2_WORKER_INSTANCES", 1, 1, 32)');
     expect(ecosystem).toContain('exec_mode: "cluster"');
     expect(ecosystem).toContain("instances: webInstances");
@@ -100,8 +100,8 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
 
     expect(manifest).toEqual({
       schemaVersion: 1,
-      contractVersion: "2026-08-18.6",
-      contractHash: "1dad0e31ba0f5b808009706a29595186274d92cb48a3f1395bc7028c8f2a3977",
+      contractVersion: "2026-08-21.2",
+      contractHash: "c15cb3e0cf66c8f3333bde1e2c98051aa9534a018e196ab2fa87e011ff5da285",
     });
     expect(deploy).toContain("release_matches_runtime_contract()");
     expect(deploy).toContain('if ! release_matches_runtime_contract "$PREVIOUS_TARGET"; then');

@@ -1,6 +1,8 @@
 import type { AspectRatio } from "@/lib/api/lingya";
+import { CURATED_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
 
 export const PRODUCT_SET_PROMPT_VERSION = "product-set-v5";
+export const MAX_PRODUCT_SET_SOURCE_IMAGES = CURATED_MULTI_IMAGE_UPLOAD_LIMIT;
 
 export type ProductSetImageType = "main" | "details";
 export type ProductSetCreationMode = "smart" | "custom";

@@ -123,7 +123,7 @@ describe("product retouch contract", () => {
     })).toBeNull();
     expect(parseProductRetouchSkillDefinition({
       ...BUILTIN_PRODUCT_RETOUCH_SKILL,
-      limits: { maxSources: 31, maxVariantsPerSource: 4 },
+      limits: { maxSources: PRODUCT_RETOUCH_MAX_SOURCES + 1, maxVariantsPerSource: 4 },
     })).toBeNull();
     expect(parseProductRetouchSkillDefinition({
       ...BUILTIN_PRODUCT_RETOUCH_SKILL,

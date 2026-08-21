@@ -11,8 +11,8 @@
 
 ## Invariants
 
-- Accept 1–30 unique PNG, JPEG, or WebP source images.
-- Generate 1–4 output slots per source, with at most 120 child jobs.
+- Accept 1–8 unique PNG, JPEG, or WebP source images.
+- Generate 1–4 output slots per source, with at most 32 child jobs.
 - Use one user-visible parent generation and hide internal child generations.
 - Snapshot the Skill version, content hash, and definition on every batch.
 - Debit the initial batch once under a request idempotency key.
@@ -30,7 +30,7 @@ Use config key `skills.product-retouch`. Require:
 - an `auto` category profile
 - at least one invariant
 - an allowed model list containing its default
-- limits no greater than 30 sources and 4 variants
+- limits no greater than 8 sources and 4 variants
 - JPEG, PNG, or WebP hard-validation formats
 
 Fall back to the built-in definition when the published row is missing, unavailable, or invalid. Log the fallback without exposing prompts or user data.
@@ -39,7 +39,7 @@ Set `PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=false` to force the built-in runtime 
 ## Release verification
 
 1. Verify navigation order: 商品精修, 商品套图, 全品类商品图.
-2. Verify 1 source × 1 output and 30 sources × 4 outputs.
+2. Verify 1 source × 1 output and 8 sources × 4 outputs.
 3. Verify idempotent submission with the same `requestId`.
 4. Verify partial failure refunds only failed initial slots.
 5. Verify manual retry charges once and is hidden from task history.

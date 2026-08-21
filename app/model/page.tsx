@@ -53,7 +53,7 @@ import {
   normalizeModelShootStyle,
   type ModelShootStyle,
 } from "@/lib/module-style-presets";
-import { MODEL_UPLOAD_RULE, type ModelRuleDemo } from "@/lib/model-upload-rules";
+import { MAX_MODEL_REFERENCE_IMAGES, MODEL_UPLOAD_RULE, type ModelRuleDemo } from "@/lib/model-upload-rules";
 import {
   MODEL_ASPECTS,
   MODEL_HAIR_COLORS,
@@ -394,7 +394,7 @@ export default function ModelPage() {
 
   async function addFiles(files?: FileList | File[]) {
     if (!files) return;
-    const incoming = Array.from(files).slice(0, 3 - referenceUrls.length);
+    const incoming = Array.from(files).slice(0, MAX_MODEL_REFERENCE_IMAGES - referenceUrls.length);
     if (!incoming.length) {
       toast.error(t("maxThreeImages"));
       return;
@@ -445,7 +445,7 @@ export default function ModelPage() {
         else toast.error(t("uploadFailedRetry", { name: r.name }));
       }
       if (next.length) {
-        setReferenceUrls((prev) => [...prev, ...next].slice(0, 3));
+        setReferenceUrls((prev) => [...prev, ...next].slice(0, MAX_MODEL_REFERENCE_IMAGES));
         toast.success(t("addedCount", { count: next.length }));
       }
     } finally {
@@ -651,7 +651,7 @@ export default function ModelPage() {
   }
 
   function applyRuleDemo(demo: ModelRuleDemo) {
-    setReferenceUrls(demo.imageUrls.slice(0, 3));
+    setReferenceUrls(demo.imageUrls.slice(0, MAX_MODEL_REFERENCE_IMAGES));
     setPromptTouched(false);
     closeRulesPopover();
     toast.success(t("demoApplied", { title: demo.title }));
@@ -752,7 +752,7 @@ export default function ModelPage() {
             {(openFileDialog) => (
               <MultiImageUploadV2
                 urls={referenceUrls}
-                maxCount={3}
+                maxCount={MAX_MODEL_REFERENCE_IMAGES}
                 title={t("uploadedReferenceTitle")}
                 emptyHint={t("uploadEmptyTitle")}
                 itemLabelPrefix={t("itemPrefix")}
@@ -767,7 +767,7 @@ export default function ModelPage() {
                     title: t("uploadReference"),
                     role: "model-reference",
                     selectionMode: "multiple",
-                    maxCount: 3,
+                    maxCount: MAX_MODEL_REFERENCE_IMAGES,
                     existingCount: referenceUrls.length,
                     excludedUrls: referenceUrls,
                     mediaTypes: ["image"],
@@ -775,7 +775,7 @@ export default function ModelPage() {
                   });
                   const urls = assetUrls(assets);
                   if (!urls.length) return;
-                  setReferenceUrls((current) => Array.from(new Set([...current, ...urls])).slice(0, 3));
+                  setReferenceUrls((current) => Array.from(new Set([...current, ...urls])).slice(0, MAX_MODEL_REFERENCE_IMAGES));
                 }}
                 onPreview={(_, index) => setReferencePreviewIndex(index)}
                 onRemove={(_, index) => {

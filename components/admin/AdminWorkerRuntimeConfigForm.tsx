@@ -44,9 +44,10 @@ export function AdminWorkerRuntimeConfigForm({ initialConfig }: { initialConfig:
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <NumberField label="Worker 实例" value={config.desiredInstances} min={1} max={32} onChange={(value) => update("desiredInstances", value)} hint="PM2 进程数" />
-        <NumberField label="单进程并发" value={config.workerConcurrency} min={1} max={512} onChange={(value) => update("workerConcurrency", value)} hint="远端 API I/O 上限" />
+        <NumberField label="单进程任务并发" value={config.workerConcurrency} min={1} max={64} onChange={(value) => update("workerConcurrency", value)} hint="BullMQ active 上限" />
+        <NumberField label="单任务生图并发" value={config.imageBatchConcurrency} min={1} max={24} onChange={(value) => update("imageBatchConcurrency", value)} hint="一个批次同时请求数" />
         <NumberField label="Outbox 并发" value={config.relayConcurrency} min={1} max={128} onChange={(value) => update("relayConcurrency", value)} hint="发布事务消息" />
         <NumberField label="积压告警" value={config.alertWaiting} min={1} max={1_000_000} onChange={(value) => update("alertWaiting", value)} hint="waiting 数量" />
         <NumberField label="Outbox 最老待发布" value={config.alertOldestPendingSeconds} min={30} max={86_400} onChange={(value) => update("alertOldestPendingSeconds", value)} hint="告警秒数" />

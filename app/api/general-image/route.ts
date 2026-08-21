@@ -13,6 +13,10 @@ import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generat
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import {
+  MAX_GENERAL_IMAGE_OUTPUT_COUNT,
+  MAX_GENERAL_IMAGE_SPLIT_REFERENCES,
+} from "@/lib/general-image-config";
 import { buildOutfitFusionRuntimePlan, type OutfitFusionAsset, type OutfitFusionConfig } from "@/lib/outfit-fusion";
 import {
   containsInlineImageUrl,
@@ -76,11 +80,17 @@ export async function POST(request: NextRequest) {
     const model: LingyaModel = normalizeLingyaModel(body.ai_model || "nano-banana-2");
     const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
-    const genCount = Math.min(Math.max(Math.floor(Number(body.gen_count) || 1), 1), 4);
+    const genCount = Math.min(Math.max(Math.floor(Number(body.gen_count) || 1), 1), MAX_GENERAL_IMAGE_OUTPUT_COUNT);
     const moduleKind = normalizeModuleKind(body.module_kind || body.module);
-    const onePerReference = mode === "image-to-image"
+    const wantsOnePerReference = mode === "image-to-image"
       && moduleKind === "generalImage"
-      && body.one_per_reference === true
+      && body.one_per_reference === true;
+    if (wantsOnePerReference && referenceUrls.length > MAX_GENERAL_IMAGE_SPLIT_REFERENCES) {
+      return NextResponse.json({
+        error: `每张参考图单独生成最多支持 ${MAX_GENERAL_IMAGE_SPLIT_REFERENCES} 张输入图`,
+      }, { status: 400 });
+    }
+    const onePerReference = wantsOnePerReference
       && referenceUrls.length > 1;
     const costPerImage = await getConfiguredImageCreditCost(model, size);
     const totalCost = costPerImage * genCount * (onePerReference ? referenceUrls.length : 1);

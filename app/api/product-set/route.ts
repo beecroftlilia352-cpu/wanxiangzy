@@ -9,6 +9,7 @@ import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   createProductSetModuleResult,
+  MAX_PRODUCT_SET_SOURCE_IMAGES,
   normalizeProductSetCreationMode,
   normalizeProductSetImageType,
   normalizeProductSetModuleOverrides,
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
       ? body.product_image_urls.filter((url: unknown): url is string => typeof url === "string" && url.trim().length > 0)
       : [];
     if (!productImageUrls.length) return NextResponse.json({ error: "请先上传商品图" }, { status: 400 });
-    if (productImageUrls.length > 3) return NextResponse.json({ error: "商品图最多上传 3 张" }, { status: 400 });
+    if (productImageUrls.length > MAX_PRODUCT_SET_SOURCE_IMAGES) return NextResponse.json({ error: `商品图最多上传 ${MAX_PRODUCT_SET_SOURCE_IMAGES} 张` }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(body.ai_model);
     const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");

@@ -57,6 +57,8 @@ import { ImagePromptDialog, type ImagePromptSource } from "@/features/general-im
 import {
   getGeneralImageDefaultSettings,
   MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+  MAX_GENERAL_IMAGE_OUTPUT_COUNT,
+  MAX_GENERAL_IMAGE_SPLIT_REFERENCES,
   MAX_GENERAL_IMAGE_TOTAL_COUNT,
   type GeneralImageMode,
 } from "@/lib/general-image-config";
@@ -174,6 +176,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const supportedSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const isImageMode = mode === "image-to-image";
+  const referenceUploadLimit = onePerReference
+    ? MAX_GENERAL_IMAGE_SPLIT_REFERENCES
+    : MAX_GENERAL_IMAGE_REFERENCE_IMAGES;
+  const splitReferenceLimitExceeded = onePerReference
+    && referenceImages.length > MAX_GENERAL_IMAGE_SPLIT_REFERENCES;
   const splitMultiplier = isImageMode && onePerReference && referenceImages.length > 1
     ? referenceImages.length
     : 1;
@@ -422,11 +429,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     resultTitlePrefix: isImageMode ? t("resultPrefixImageToImage") : t("resultPrefixTextToImage"),
     aspectRatio,
   });
-  const canGenerate = !isGenerating && !isUploading && prompt.trim().length > 0 && (!isImageMode || referenceImages.length > 0);
+  const canGenerate = !isGenerating
+    && !isUploading
+    && !splitReferenceLimitExceeded
+    && prompt.trim().length > 0
+    && (!isImageMode || referenceImages.length > 0);
   const runDisabledReason = !prompt.trim()
     ? t("needPrompt")
     : isImageMode && referenceImages.length === 0
       ? t("needReference")
+      : splitReferenceLimitExceeded
+        ? `${t("onePerReferenceLabel")}：${tShared("maxCountBadge", { maxCount: MAX_GENERAL_IMAGE_SPLIT_REFERENCES })}`
       : "";
 
   useEffect(() => {
@@ -614,18 +627,18 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     const oversized = selected.find((file) => file.size > MAX_FILE_SIZE);
     if (oversized) return toast.error(t("exceedsSize", { name: oversized.name, max: MAX_FILE_SIZE_MB }));
 
-    const remain = Math.max(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES - referenceImages.length);
+    const remain = Math.max(0, referenceUploadLimit - referenceImages.length);
     if (!remain) {
       return toast.error(tShared("multiImageCount", {
-        count: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
-        max: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+        count: referenceUploadLimit,
+        max: referenceUploadLimit,
       }));
     }
     const limited = selected.slice(0, remain);
     if (selected.length > limited.length) {
       toast.info(tShared("multiImageCount", {
-        count: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
-        max: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+        count: referenceUploadLimit,
+        max: referenceUploadLimit,
       }));
     }
 
@@ -647,7 +660,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         }
       });
       if (nextImages.length) {
-        setReferenceImages((prev) => [...prev, ...nextImages].slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES));
+        setReferenceImages((prev) => [...prev, ...nextImages].slice(0, referenceUploadLimit));
         toast.success(t("referenceUploaded"));
       }
     } finally {
@@ -766,7 +779,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     }
     if (!prompt.trim()) return toast.error(t("enterPrompt"));
     if (isImageMode && !referenceImages.length) return toast.error(t("needReference"));
-    const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
+    const runGenCount = Math.min(
+      Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1),
+      MAX_GENERAL_IMAGE_OUTPUT_COUNT,
+    );
     const shouldSplit = onePerReference && isImageMode && referenceImages.length > 1;
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
     const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
@@ -1000,7 +1016,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               {(openFileDialog) => (
                 <MultiImageUploadV2
                   urls={referenceImages.map((item) => item.preview || item.url)}
-                  maxCount={MAX_GENERAL_IMAGE_REFERENCE_IMAGES}
+                  maxCount={referenceUploadLimit}
                   title={t("referenceSectionTitle")}
                   showExamples={false}
                   descriptionSlot={(
@@ -1032,7 +1048,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                       title: t("referenceSectionTitle"),
                       role: "reference",
                       selectionMode: "multiple",
-                      maxCount: MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
+                      maxCount: referenceUploadLimit,
                       existingCount: referenceImages.length,
                       excludedUrls: referenceImages.map((item) => item.url),
                       mediaTypes: ["image"],
@@ -1049,7 +1065,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                           url: asset.url,
                           preview: asset.previewUrl || asset.thumbnailUrl || asset.url,
                         }));
-                      return [...current, ...added].slice(0, MAX_GENERAL_IMAGE_REFERENCE_IMAGES);
+                      return [...current, ...added].slice(0, referenceUploadLimit);
                     });
                   }}
                   onPreview={(url) => setReferenceLightboxSrc(url)}
@@ -1067,7 +1083,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               title={t("onePerReferenceLabel")}
               description={t("onePerReferenceHint")}
               checked={onePerReference}
-              onChange={setOnePerReference}
+              onChange={(checked) => {
+                if (checked && referenceImages.length > MAX_GENERAL_IMAGE_SPLIT_REFERENCES) {
+                  toast.error(`${t("onePerReferenceLabel")}：${tShared("maxCountBadge", { maxCount: MAX_GENERAL_IMAGE_SPLIT_REFERENCES })}`);
+                  return;
+                }
+                setOnePerReference(checked);
+              }}
               disabled={referenceImages.length < 2}
               ariaLabel={t("onePerReferenceLabel")}
             />

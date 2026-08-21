@@ -5,6 +5,7 @@ export type WorkerRuntimeConfig = {
   schemaVersion: typeof WORKER_RUNTIME_SCHEMA_VERSION;
   desiredInstances: number;
   workerConcurrency: number;
+  imageBatchConcurrency: number;
   relayConcurrency: number;
   alertWaiting: number;
   alertOldestPendingSeconds: number;
@@ -29,7 +30,8 @@ export type WorkerRuntimeAlertStatus = {
 export const DEFAULT_WORKER_RUNTIME_CONFIG: WorkerRuntimeConfig = {
   schemaVersion: WORKER_RUNTIME_SCHEMA_VERSION,
   desiredInstances: 1,
-  workerConcurrency: 16,
+  workerConcurrency: 64,
+  imageBatchConcurrency: 16,
   relayConcurrency: 8,
   alertWaiting: 100,
   alertOldestPendingSeconds: 300,
@@ -43,7 +45,8 @@ export function parseWorkerRuntimeConfig(value: unknown): WorkerRuntimeConfig {
   return {
     schemaVersion: WORKER_RUNTIME_SCHEMA_VERSION,
     desiredInstances: bounded(raw.desiredInstances, DEFAULT_WORKER_RUNTIME_CONFIG.desiredInstances, 1, 32),
-    workerConcurrency: bounded(raw.workerConcurrency, DEFAULT_WORKER_RUNTIME_CONFIG.workerConcurrency, 1, 512),
+    workerConcurrency: bounded(raw.workerConcurrency, DEFAULT_WORKER_RUNTIME_CONFIG.workerConcurrency, 1, 64),
+    imageBatchConcurrency: bounded(raw.imageBatchConcurrency, DEFAULT_WORKER_RUNTIME_CONFIG.imageBatchConcurrency, 1, 24),
     relayConcurrency: bounded(raw.relayConcurrency, DEFAULT_WORKER_RUNTIME_CONFIG.relayConcurrency, 1, 128),
     alertWaiting: bounded(raw.alertWaiting, DEFAULT_WORKER_RUNTIME_CONFIG.alertWaiting, 1, 1_000_000),
     alertOldestPendingSeconds: bounded(raw.alertOldestPendingSeconds, DEFAULT_WORKER_RUNTIME_CONFIG.alertOldestPendingSeconds, 30, 86_400),
@@ -58,7 +61,8 @@ export function validateWorkerRuntimeConfig(value: unknown) {
   const raw = value as Record<string, unknown>;
   const fields: Array<[keyof WorkerRuntimeConfig, number, number]> = [
     ["desiredInstances", 1, 32],
-    ["workerConcurrency", 1, 512],
+    ["workerConcurrency", 1, 64],
+    ["imageBatchConcurrency", 1, 24],
     ["relayConcurrency", 1, 128],
     ["alertWaiting", 1, 1_000_000],
     ["alertOldestPendingSeconds", 30, 86_400],
@@ -79,6 +83,7 @@ export function getWorkerRuntimeDrift(input: {
   desired: WorkerRuntimeConfig;
   onlineInstances: number | null;
   workerConcurrency: number;
+  imageBatchConcurrency: number;
   relayConcurrency: number;
 }) {
   const reasons: string[] = [];
@@ -87,6 +92,9 @@ export function getWorkerRuntimeDrift(input: {
   }
   if (input.workerConcurrency !== input.desired.workerConcurrency) {
     reasons.push(`Worker 并发期望 ${input.desired.workerConcurrency}，当前 ${input.workerConcurrency}`);
+  }
+  if (input.imageBatchConcurrency !== input.desired.imageBatchConcurrency) {
+    reasons.push(`单任务生图并发期望 ${input.desired.imageBatchConcurrency}，当前 ${input.imageBatchConcurrency}`);
   }
   if (input.relayConcurrency !== input.desired.relayConcurrency) {
     reasons.push(`Relay 并发期望 ${input.desired.relayConcurrency}，当前 ${input.relayConcurrency}`);

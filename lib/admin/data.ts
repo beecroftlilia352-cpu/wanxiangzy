@@ -198,6 +198,10 @@ export type AdminTaskListItem = {
   model?: string | null;
   imageSize?: string | null;
   credits?: number | null;
+  queueReason?: string | null;
+  nextAttemptAt?: string | null;
+  capacityDeferCount?: number;
+  deliveryVersion?: number;
   isStale: boolean;
   staleMinutes: number;
 };
@@ -435,6 +439,7 @@ export type AdminWorkerOverview = {
     actual: {
       onlineInstances: number;
       workerConcurrency: number;
+      imageBatchConcurrency: number;
       relayConcurrency: number;
       activeCapacity: number;
       mode: string;
@@ -529,6 +534,10 @@ const GENERATION_COLUMNS = [
   "credits_cost",
   "ai_model",
   "image_size",
+  "queue_reason",
+  "available_at",
+  "capacity_defer_count",
+  "delivery_version",
 ].join(",");
 const WORKFLOW_COLUMNS = [
   "id",
@@ -1577,12 +1586,14 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   const desired = workerConfigResult.data?.value
     ? parseWorkerRuntimeConfig(workerConfigResult.data.value)
     : { ...DEFAULT_WORKER_RUNTIME_CONFIG };
-  const runtimeWorkerConcurrency = readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", desired.workerConcurrency, 1, 512);
+  const runtimeWorkerConcurrency = readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", desired.workerConcurrency, 1, 64);
+  const runtimeImageBatchConcurrency = readIntegerEnv("GENERATION_IMAGE_BATCH_CONCURRENCY", desired.imageBatchConcurrency, 1, 24);
   const runtimeRelayConcurrency = readIntegerEnv("BULLMQ_RELAY_CONCURRENCY", desired.relayConcurrency, 1, 128);
   const driftReasons = getWorkerRuntimeDrift({
     desired,
     onlineInstances: bullmqHealth.reachable ? bullmqHealth.workers : null,
     workerConcurrency: runtimeWorkerConcurrency,
+    imageBatchConcurrency: runtimeImageBatchConcurrency,
     relayConcurrency: runtimeRelayConcurrency,
   });
   const drift = driftReasons.length > 0;
@@ -1649,6 +1660,7 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
       actual: {
         onlineInstances: bullmqHealth.workers,
         workerConcurrency: runtimeWorkerConcurrency,
+        imageBatchConcurrency: runtimeImageBatchConcurrency,
         relayConcurrency: runtimeRelayConcurrency,
         activeCapacity: bullmqHealth.workers * runtimeWorkerConcurrency,
         mode: process.env.GENERATION_QUEUE_MODE?.trim().toLowerCase() || (process.env.NODE_ENV === "production" ? "bullmq" : "inline"),
@@ -2331,7 +2343,7 @@ function getWorkerProcessors(): AdminWorkerProcessor[] {
       key: "generations",
       label: "BullMQ 生成 Worker",
       endpoint: process.env.BULLMQ_QUEUE_NAME || "generation-jobs",
-      batchSize: readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", 16, 1, 512),
+      batchSize: readIntegerEnv("BULLMQ_WORKER_CONCURRENCY", 16, 1, 64),
       configured: process.env.GENERATION_QUEUE_MODE === "bullmq" && Boolean(process.env.REDIS_URL),
       secretNames: ["REDIS_URL"],
       statusHint: "由 PM2 Worker 自动消费；恢复操作只处理事务 Outbox，不直接执行业务任务。",
@@ -2947,6 +2959,10 @@ function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
     model: nullableString(row.ai_model) || nullableString(payload.aiModel),
     imageSize: nullableString(row.image_size) || nullableString(payload.imageSize),
     credits: readGenerationBillingCredits(row, statusGroup),
+    queueReason: nullableString(row.queue_reason),
+    nextAttemptAt: nullableString(row.available_at),
+    capacityDeferCount: Math.max(0, numberValue(row.capacity_defer_count)),
+    deliveryVersion: Math.max(0, numberValue(row.delivery_version)),
     ...staleTaskMeta(statusGroup, createdAt, updatedAt, resultUrls.length),
   };
 }
@@ -3489,6 +3505,10 @@ function buildGenerationAdminResponse(row: Record<string, unknown>, routeAttempt
     resultUrls: arrayOfStrings(row.result_urls),
     completedAt: nullableString(row.completed_at),
     updatedAt: nullableString(row.updated_at),
+    queueReason: nullableString(row.queue_reason),
+    nextAttemptAt: nullableString(row.available_at),
+    capacityDeferCount: Math.max(0, numberValue(row.capacity_defer_count)),
+    deliveryVersion: Math.max(0, numberValue(row.delivery_version)),
     asyncTask: isRecord(payload.asyncTask) ? payload.asyncTask : null,
     partialFailure: isRecord(payload.partialFailure) ? payload.partialFailure : null,
     routeAttempts,

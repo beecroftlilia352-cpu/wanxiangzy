@@ -49,6 +49,7 @@ import type {
   ProductSetSettings,
 } from "@/lib/product-set";
 import { getProductSetModuleQualityLabel } from "@/lib/product-set";
+import { MAX_PRODUCT_SET_SOURCE_IMAGES } from "@/lib/product-set";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import { cn } from "@/lib/utils";
@@ -131,7 +132,7 @@ type GenerationResponse = {
   error?: string;
 };
 
-const API_PRODUCT_IMAGE_LIMIT = 3;
+const API_PRODUCT_IMAGE_LIMIT = MAX_PRODUCT_SET_SOURCE_IMAGES;
 const MAX_PRODUCT_UPLOADS = API_PRODUCT_IMAGE_LIMIT;
 
 const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [

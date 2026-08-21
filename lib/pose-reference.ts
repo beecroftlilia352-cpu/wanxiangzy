@@ -1,6 +1,7 @@
 import { normalizePosePlanCount } from "@/lib/pose-plan";
+import { CURATED_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
 
-export const MAX_POSE_REFERENCE_IMAGES = 8;
+export const MAX_POSE_REFERENCE_IMAGES = CURATED_MULTI_IMAGE_UPLOAD_LIMIT;
 
 export function normalizePoseReferenceUrls(value: unknown, maxCount = MAX_POSE_REFERENCE_IMAGES) {
   const urls = Array.isArray(value)

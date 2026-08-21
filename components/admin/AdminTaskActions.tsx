@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { App, Button, Input, Space, Typography } from "@/components/ui/shadcn-compat";
 import { CloseCircleOutlined, DollarCircleOutlined, RollbackOutlined, StopOutlined } from "@/components/ui/ant-icons-compat";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
 type AdminTaskAction = "retry" | "mark_failed_refund" | "mark_failed_no_refund" | "cancel_refund";
@@ -46,6 +47,8 @@ const actionConfig: Record<AdminTaskAction, { label: string; icon: ReactNode; de
 export function AdminTaskActions({ id, sourceType, statusGroup, isStale = false, compact = false, canOperate = false }: AdminTaskActionsProps) {
   const router = useRouter();
   const { message, modal } = App.useApp();
+  const [loadingAction, setLoadingAction] = useState<AdminTaskAction | null>(null);
+  const [lastOutcome, setLastOutcome] = useState("");
   const finished = statusGroup === "completed" || statusGroup === "failed";
   if (!canOperate) return <Typography.Text type="secondary" className="text-xs">只读</Typography.Text>;
   const availableActions: AdminTaskAction[] = finished
@@ -56,19 +59,33 @@ export function AdminTaskActions({ id, sourceType, statusGroup, isStale = false,
 
   async function submitAction(action: AdminTaskAction, reason: string) {
     const config = actionConfig[action];
-    const res = await fetch(`/api/admin/generations/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action,
-        sourceType,
-        reason: reason.trim() || config.defaultReason,
-      }),
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(payload.error || `操作失败 (${res.status})`);
-    message.success(`${config.label}已提交`);
-    router.refresh();
+    if (loadingAction) return;
+    setLoadingAction(action);
+    setLastOutcome("");
+    try {
+      const res = await fetch(`/api/admin/generations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          sourceType,
+          reason: reason.trim() || config.defaultReason,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || `操作失败 (${res.status})`);
+      const outcome = typeof payload.message === "string" ? payload.message : `${config.label}已提交`;
+      setLastOutcome(outcome);
+      message.success(outcome);
+      router.refresh();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "操作失败";
+      setLastOutcome(reason);
+      message.error(reason);
+      throw error;
+    } finally {
+      setLoadingAction(null);
+    }
   }
 
   function confirmAction(action: AdminTaskAction) {
@@ -106,21 +123,26 @@ export function AdminTaskActions({ id, sourceType, statusGroup, isStale = false,
   }
 
   return (
-    <Space wrap size={compact ? 4 : 8}>
-      {availableActions.map((action) => {
-        const config = actionConfig[action];
-        return (
-          <Button
-            key={action}
-            size="small"
-            danger={config.danger}
-            icon={config.icon}
-            onClick={() => confirmAction(action)}
-          >
-            {config.label}
-          </Button>
-        );
-      })}
+    <Space orientation="vertical" size={4}>
+      <Space wrap size={compact ? 4 : 8}>
+        {availableActions.map((action) => {
+          const config = actionConfig[action];
+          return (
+            <Button
+              key={action}
+              size="small"
+              danger={config.danger}
+              icon={config.icon}
+              loading={loadingAction === action}
+              disabled={Boolean(loadingAction)}
+              onClick={() => confirmAction(action)}
+            >
+              {config.label}
+            </Button>
+          );
+        })}
+      </Space>
+      {lastOutcome ? <Typography.Text type="secondary" className="text-xs">{lastOutcome}</Typography.Text> : null}
     </Space>
   );
 }

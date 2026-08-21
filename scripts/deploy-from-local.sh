@@ -3,11 +3,27 @@ set -euo pipefail
 
 # Wanxiangzy 手动部署脚本（Mac 本地运行）
 # 原因：EC2 1.9G 内存 next build 会 OOM，所以本地构建，只传 .next 上去。
-# 用法: ./scripts/deploy-from-local.sh <tag> [worker_instances]
-# 示例: ./scripts/deploy-from-local.sh v2026.08.19-oss-download-2workers.1 2
+# 用法: ./scripts/deploy-from-local.sh <tag> [worker_instances] [worker_concurrency] [image_batch_concurrency]
+# 后三项省略时，优先使用后台已发布 Worker 配置，其次使用生产环境文件。
+# 示例: ./scripts/deploy-from-local.sh v2026.08.21-generation-queue.1 1 64 16
 
-TAG="${1:?用法: $0 <tag> [worker_instances]}"
-WORKER_INSTANCES="${2:-1}"
+TAG="${1:?用法: $0 <tag> [worker_instances] [worker_concurrency] [image_batch_concurrency]}"
+WORKER_INSTANCES="${2:-}"
+WORKER_CONCURRENCY="${3:-}"
+IMAGE_BATCH_CONCURRENCY="${4:-}"
+
+validate_optional_integer() {
+  local name="$1" value="$2" minimum="$3" maximum="$4"
+  if [ -z "$value" ]; then return; fi
+  if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt "$minimum" ] || [ "$value" -gt "$maximum" ]; then
+    echo "$name 必须是 $minimum-$maximum 的整数" >&2
+    exit 1
+  fi
+}
+
+validate_optional_integer "worker_instances" "$WORKER_INSTANCES" 1 32
+validate_optional_integer "worker_concurrency" "$WORKER_CONCURRENCY" 1 64
+validate_optional_integer "image_batch_concurrency" "$IMAGE_BATCH_CONCURRENCY" 1 24
 
 SSH_KEY="${SSH_KEY:-$HOME/Downloads/hk01.pem}"
 SSH_HOST="${SSH_HOST:-13.237.73.135}"
@@ -42,8 +58,9 @@ else
   echo "    没有旧 tarball"
 fi
 
-echo "==> [2/6] 验证 Supabase Realtime 发布配置"
+echo "==> [2/6] 验证 Supabase 运行时契约与 Realtime 发布配置"
 node --env-file-if-exists=.env.production --env-file-if-exists=.env.local - <<'NODE'
+const { readFileSync } = require("node:fs");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -82,6 +99,34 @@ if (!ready) {
   process.exit(1);
 }
 console.log("Migration gate: generation outbox Realtime publication is ready.");
+
+const expected = JSON.parse(readFileSync("runtime-contract.json", "utf8"));
+let contractResponse;
+try {
+  contractResponse = await fetch(`${url}/rest/v1/rpc/get_runtime_contract_version`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      authorization: `Bearer ${serviceKey}`,
+      "content-type": "application/json",
+    },
+    body: "{}",
+    signal: AbortSignal.timeout(10_000),
+  });
+} catch {
+  console.error("Migration gate: runtime contract is unreachable.");
+  process.exit(1);
+}
+const rows = contractResponse.ok ? await contractResponse.json().catch(() => []) : [];
+const actual = Array.isArray(rows) ? rows[0] : rows;
+if (
+  actual?.contract_version !== expected.contractVersion
+  || actual?.contract_hash !== expected.contractHash
+) {
+  console.error(`Migration gate: expected ${expected.contractVersion}/${expected.contractHash}, got ${actual?.contract_version || "missing"}/${actual?.contract_hash || "missing"}.`);
+  process.exit(1);
+}
+console.log(`Migration gate: runtime contract ${expected.contractVersion} is ready.`);
 NODE
 
 echo "==> [3/6] 本地构建 .next"
@@ -95,7 +140,7 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$LOCAL_TAR" "$SSH_USER@$S
 
 echo "==> [6/6] 远端清理旧 release / PM2 日志 / tarball + 准备 + 启动"
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" \
-  "KEEP_REMOTE_RELEASES=$KEEP_REMOTE_RELEASES KEEP_REMOTE_TARBALLS=$KEEP_REMOTE_TARBALLS LOG_TRUNCATE_KB=$LOG_TRUNCATE_KB TAG=$TAG WORKER_INSTANCES=$WORKER_INSTANCES WEB_INSTANCES=$WEB_INSTANCES NODE_BIN=$NODE_BIN APP_DIR=$APP_DIR REPO=$REPO REMOTE_TAR=$REMOTE_TAR bash -s" <<'REMOTE'
+  "KEEP_REMOTE_RELEASES=$KEEP_REMOTE_RELEASES KEEP_REMOTE_TARBALLS=$KEEP_REMOTE_TARBALLS LOG_TRUNCATE_KB=$LOG_TRUNCATE_KB TAG=$TAG WORKER_INSTANCES=$WORKER_INSTANCES WORKER_CONCURRENCY=$WORKER_CONCURRENCY IMAGE_BATCH_CONCURRENCY=$IMAGE_BATCH_CONCURRENCY WEB_INSTANCES=$WEB_INSTANCES NODE_BIN=$NODE_BIN APP_DIR=$APP_DIR REPO=$REPO REMOTE_TAR=$REMOTE_TAR bash -s" <<'REMOTE'
 set -euo pipefail
 RELEASE="$HOME/$APP_DIR/releases/manual-$TAG"
 CURRENT="$(readlink -f "$HOME/$APP_DIR/current" 2>/dev/null || true)"
@@ -160,12 +205,16 @@ elif [ ! -d "$RELEASE/node_modules" ]; then
   (cd "$RELEASE" && npm ci)
 fi
 cp "$HOME/$APP_DIR/shared/.env.production" "$RELEASE/.env.production"
+DEPLOY_WORKER_INSTANCES="$WORKER_INSTANCES" \
+DEPLOY_WORKER_CONCURRENCY="$WORKER_CONCURRENCY" \
+DEPLOY_IMAGE_BATCH_CONCURRENCY="$IMAGE_BATCH_CONCURRENCY" \
+  "$NODE_BIN" --env-file="$RELEASE/.env.production" "$RELEASE/scripts/apply-worker-runtime-config.mjs" "$RELEASE/.env.production"
 rm -rf "$RELEASE/.next"
 tar -xzf "$REMOTE_TAR" -C "$RELEASE"
 ln -sfn "$RELEASE" "$HOME/$APP_DIR/current"
 cd "$RELEASE"
 pm2 delete wanxiangzy wanxiangzy-worker >/dev/null 2>&1 || true
-PM2_APP_NAME=wanxiangzy PM2_RELEASE_DIR="$RELEASE" PM2_NODE_BIN="$NODE_BIN" PM2_WEB_INSTANCES="$WEB_INSTANCES" PM2_WORKER_INSTANCES="$WORKER_INSTANCES" PM2_KILL_TIMEOUT_MS=45000 PM2_READY_TIMEOUT_MS=60000 node -e 'process.stdout.write(JSON.stringify(require("./ecosystem.production.cjs"), null, 2))' > /tmp/ecosystem.json
+PM2_APP_NAME=wanxiangzy PM2_RELEASE_DIR="$RELEASE" PM2_NODE_BIN="$NODE_BIN" PM2_WEB_INSTANCES="$WEB_INSTANCES" PM2_KILL_TIMEOUT_MS=45000 PM2_READY_TIMEOUT_MS=60000 "$NODE_BIN" --env-file="$RELEASE/.env.production" -e 'process.stdout.write(JSON.stringify(require("./ecosystem.production.cjs"), null, 2))' > /tmp/ecosystem.json
 NODE_ENV=production pm2 startOrReload /tmp/ecosystem.json --update-env
 pm2 save
 pm2 status

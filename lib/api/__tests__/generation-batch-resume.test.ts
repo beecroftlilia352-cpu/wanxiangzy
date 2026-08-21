@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   __generationJobTestUtils,
+  getImageBatchConcurrency,
+  runCapacityAwareBatchWorkers,
   type GenerationJobPayload,
 } from "@/lib/api/generation-jobs";
 
@@ -17,6 +19,41 @@ const basePayload: GenerationJobPayload = {
 };
 
 describe("generation batch capacity resume", () => {
+  it("uses a strict independently configurable per-generation image limit", () => {
+    expect(getImageBatchConcurrency({})).toBe(16);
+    expect(getImageBatchConcurrency({ GENERATION_IMAGE_BATCH_CONCURRENCY: "24" })).toBe(24);
+    expect(() => getImageBatchConcurrency({ GENERATION_IMAGE_BATCH_CONCURRENCY: "25" })).toThrow(/between 1 and 24/);
+  });
+
+  it("stops assigning new slots after capacity rejection but awaits in-flight slots", async () => {
+    const events: string[] = [];
+    let releaseSlow!: () => void;
+    const slow = new Promise<void>((resolve) => { releaseSlow = resolve; });
+
+    const execution = runCapacityAwareBatchWorkers({
+      count: 6,
+      concurrency: 2,
+      run: async (index) => {
+        events.push(`start:${index}`);
+        if (index === 0) {
+          await slow;
+          events.push("finish:0");
+          return;
+        }
+        throw Object.assign(new Error("busy"), {
+          name: "AiCapacityUnavailableError",
+          retryAfterSeconds: 5,
+        });
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(events).toEqual(["start:0", "start:1"]);
+    releaseSlow();
+    await expect(execution).rejects.toMatchObject({ name: "AiCapacityUnavailableError" });
+    expect(events).toEqual(["start:0", "start:1", "finish:0"]);
+  });
+
   it("persists stable result slots and restores only the completed slots", () => {
     const first = "/api/media-assets/6ba7b810-9dad-41d1-80b4-00c04fd430c8";
     const third = "/api/media-assets/6ba7b811-9dad-41d1-80b4-00c04fd430c8";

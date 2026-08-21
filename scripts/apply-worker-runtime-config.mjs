@@ -26,25 +26,41 @@ try {
 }
 if (!response.ok) fail(`Worker runtime config request failed (${response.status})`);
 const rows = await response.json();
-if (!Array.isArray(rows) || rows.length === 0) {
-  console.log("Worker runtime config: no published version; keeping EC2 environment values.");
-  process.exit(0);
-}
-
-const value = rows[0]?.value;
-const desiredInstances = integer(value?.desiredInstances, 1, 32, "desiredInstances");
-const workerConcurrency = integer(value?.workerConcurrency, 1, 512, "workerConcurrency");
-const relayConcurrency = integer(value?.relayConcurrency, 1, 128, "relayConcurrency");
+const value = Array.isArray(rows) && rows.length > 0 ? rows[0]?.value || {} : {};
+const desiredInstances = integer(firstDefined(
+  process.env.DEPLOY_WORKER_INSTANCES,
+  value?.desiredInstances,
+  process.env.PM2_WORKER_INSTANCES,
+  1,
+), 1, 32, "desiredInstances");
+const workerConcurrency = integer(firstDefined(
+  process.env.DEPLOY_WORKER_CONCURRENCY,
+  value?.workerConcurrency,
+  process.env.BULLMQ_WORKER_CONCURRENCY,
+  64,
+), 1, 64, "workerConcurrency");
+const imageBatchConcurrency = integer(firstDefined(
+  process.env.DEPLOY_IMAGE_BATCH_CONCURRENCY,
+  value?.imageBatchConcurrency,
+  process.env.GENERATION_IMAGE_BATCH_CONCURRENCY,
+  16,
+), 1, 24, "imageBatchConcurrency");
+const relayConcurrency = integer(firstDefined(
+  value?.relayConcurrency,
+  process.env.BULLMQ_RELAY_CONCURRENCY,
+  8,
+), 1, 128, "relayConcurrency");
 const original = await readFile(envPath, "utf8");
-const updated = setEnv(setEnv(setEnv(original,
+const updated = setEnv(setEnv(setEnv(setEnv(original,
   "PM2_WORKER_INSTANCES", String(desiredInstances)),
 "BULLMQ_WORKER_CONCURRENCY", String(workerConcurrency)),
+"GENERATION_IMAGE_BATCH_CONCURRENCY", String(imageBatchConcurrency)),
 "BULLMQ_RELAY_CONCURRENCY", String(relayConcurrency));
 const temporary = `${envPath}.worker-runtime.${process.pid}.tmp`;
 await writeFile(temporary, updated, { encoding: "utf8", mode: 0o600 });
 await chmod(temporary, 0o600);
 await rename(temporary, envPath);
-console.log(`Worker runtime config applied (instances=${desiredInstances}, concurrency=${workerConcurrency}, relay=${relayConcurrency}).`);
+console.log(`Worker runtime config applied (instances=${desiredInstances}, worker=${workerConcurrency}, imageBatch=${imageBatchConcurrency}, relay=${relayConcurrency}).`);
 
 function integer(input, minimum, maximum, name) {
   const parsed = Number(input);
@@ -52,6 +68,10 @@ function integer(input, minimum, maximum, name) {
     fail(`${name} must be an integer between ${minimum} and ${maximum}`);
   }
   return parsed;
+}
+
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
 }
 
 function setEnv(content, key, value) {

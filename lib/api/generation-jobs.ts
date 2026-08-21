@@ -26,7 +26,10 @@ import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } fro
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import { dispatchGenerationJob } from "@/lib/api/generation-job-dispatch";
 import { runWithAiRouteContext } from "@/lib/ai-control-plane/context.server";
-import { isAiCapacityUnavailableError } from "@/lib/ai-control-plane/router.server";
+import {
+  isAiCapacityUnavailableError,
+} from "@/lib/ai-control-plane/router.server";
+import { getAiControlPlaneConfig } from "@/lib/ai-control-plane/server";
 import {
   isRetryableGenerationError,
   isStaleExecutionFenceError,
@@ -444,7 +447,12 @@ interface ClaimedJob {
   job_attempts: number;
   delivery_version: number;
   execution_token: string;
+  result_urls?: string[] | null;
 }
+
+const DEFAULT_IMAGE_BATCH_CONCURRENCY = 16;
+const IMAGE_BATCH_MAX_CONCURRENCY = 24;
+const GENERATION_MAX_EXECUTION_ATTEMPTS = 10;
 
 type PromptTraceItem = {
   index: number;
@@ -579,7 +587,16 @@ async function runClaimedJob(
   let partialModuleResults: ProductSetModuleResult[] = [];
   try {
     await syncGenerationQueueIndex(job.id, "claim");
-    const payload = parseJobPayload(job.job_payload);
+    const checkpoint = await loadClaimedGenerationCheckpoint(supabase, job);
+    job = {
+      ...job,
+      job_payload: checkpoint.jobPayload,
+      result_urls: checkpoint.resultUrls,
+    };
+    const payload = recoverCompletedBatchCheckpoint(
+      parseJobPayload(job.job_payload),
+      checkpoint.resultUrls,
+    );
     parsedPayload = payload;
     await attachGenerationMediaAssetReferences({
       client: supabase,
@@ -773,17 +790,16 @@ async function runClaimedJob(
       return { businessFailed: false, deferred: false, stale: true };
     }
     const message = sanitizeGenerationErrorMessage(err, "生成失败");
-    const hasPartialOutput = partialResultUrls.some(Boolean)
-      || partialModuleResults.some((item) => Boolean(item.resultUrl));
-    if (isAiCapacityUnavailableError(err) && !hasPartialOutput) {
-      await deferGenerationForAiCapacity(supabase, job, err.retryAfterSeconds, message);
-      return { businessFailed: false, deferred: true };
+    if (isAiCapacityUnavailableError(err)) {
+      const outcome = await deferGenerationForAiCapacity(supabase, job, err.retryAfterSeconds, message);
+      return { businessFailed: outcome === "failed", deferred: outcome === "deferred" };
     }
     // Transient provider/DB/Redis/OSS faults must remain retryable. Settling
     // and refunding here would turn a short outage into a user-visible terminal
     // failure and make BullMQ's durable retry policy ineffective.
     if (isRetryableGenerationError(err)) {
-      throw new RetryableGenerationError(message, "GENERATION_EXECUTION_RETRYABLE", { cause: err });
+      const outcome = await deferGenerationForRetryableError(supabase, job, message);
+      return { businessFailed: outcome === "failed", deferred: outcome === "deferred" };
     }
     if (parsedPayload?.kind === "productRetouch" && Number(job.credits_cost || 0) === 0) {
       await failZeroCostProductRetouchChild(supabase, job, parsedPayload, message);
@@ -811,8 +827,8 @@ async function deferGenerationForAiCapacity(
   job: ClaimedJob,
   retryAfterSeconds: number,
   reason: string,
-) {
-  const { data, error } = await supabase.rpc("defer_generation_for_ai_capacity", {
+): Promise<"deferred" | "failed"> {
+  const { data, error } = await supabase.rpc("settle_generation_for_ai_capacity", {
     p_generation_id: job.id,
     p_user_id: job.user_id,
     p_delivery_version: job.delivery_version,
@@ -820,9 +836,44 @@ async function deferGenerationForAiCapacity(
     p_delay_seconds: Math.min(Math.max(Math.ceil(retryAfterSeconds), 5), 300),
     p_reason: reason.slice(0, 500),
   });
-  if (error) throw new Error(`模型容量排队失败: ${error.message}`);
-  if (data !== true) throw new Error("模型容量排队失败: execution fence 已变化");
+  if (error) {
+    if (isStaleExecutionFenceError(error)) {
+      throw new StaleExecutionFenceError("任务执行租约已丢失", { cause: error });
+    }
+    throw new Error(`模型容量排队失败: ${error.message}`);
+  }
+  if (data !== "deferred" && data !== "failed") {
+    throw new Error("模型容量排队失败: execution fence 已变化");
+  }
   await syncGenerationQueueIndex(job.id, "capacity-defer");
+  return data;
+}
+
+async function deferGenerationForRetryableError(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  reason: string,
+): Promise<"deferred" | "failed"> {
+  const { data, error } = await supabase.rpc("settle_generation_for_retryable_error", {
+    p_generation_id: job.id,
+    p_user_id: job.user_id,
+    p_delivery_version: job.delivery_version,
+    p_execution_token: job.execution_token,
+    p_delay_seconds: 15,
+    p_max_attempts: GENERATION_MAX_EXECUTION_ATTEMPTS,
+    p_reason: reason.slice(0, 500),
+  });
+  if (error) {
+    if (isStaleExecutionFenceError(error)) {
+      throw new StaleExecutionFenceError("任务执行租约已丢失", { cause: error });
+    }
+    throw new RetryableGenerationError(`生成任务重试排队失败: ${error.message}`, "GENERATION_RETRY_SETTLEMENT_FAILED", { cause: error });
+  }
+  if (data !== "deferred" && data !== "failed") {
+    throw new RetryableGenerationError("生成任务重试排队失败: execution fence 已变化", "GENERATION_RETRY_SETTLEMENT_FAILED");
+  }
+  await syncGenerationQueueIndex(job.id, "retryable-defer");
+  return data;
 }
 
 async function failZeroCostProductRetouchChild(
@@ -902,6 +953,41 @@ async function assertProductRetouchResultUnique(
     .limit(1);
   if (error) throw new Error(`商品精修重复结果校验失败: ${error.message}`);
   if (data?.length) throw new Error("结果与批次内已有图片重复");
+}
+
+async function loadClaimedGenerationCheckpoint(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+) {
+  const { data, error } = await supabase
+    .from("generations")
+    .select("job_payload,result_urls")
+    .eq("id", job.id)
+    .eq("user_id", job.user_id)
+    .eq("status", "processing_tryon")
+    .eq("delivery_version", job.delivery_version)
+    .eq("execution_token", job.execution_token)
+    .maybeSingle();
+
+  if (error) throw new Error(`读取任务恢复点失败: ${error.message}`);
+  if (!data) throw new StaleExecutionFenceError("任务执行租约已丢失");
+  return {
+    jobPayload: data.job_payload,
+    resultUrls: Array.isArray(data.result_urls) ? compactResultUrls(data.result_urls) : [],
+  };
+}
+
+function recoverCompletedBatchCheckpoint(payload: GenerationJobPayload, durableResultUrls: string[]) {
+  if (payload.kind === "productRetouch" || payload.kind === "productSet" || isVideoPayload(payload)) return payload;
+  const expectedCount = getExpectedResultCount(payload);
+  if (durableResultUrls.length !== expectedCount || !durableResultUrls.every(isCanonicalMediaAssetUrl)) return payload;
+  const existing = readResumableBatchResultUrls(payload, expectedCount);
+  if (existing.every(Boolean)) return payload;
+  return appendResumableBatchProgress(payload, {
+    resultUrls: durableResultUrls,
+    promptTrace: [],
+    progress: 99,
+  });
 }
 
 async function settleFailedGenerationFromProgress(
@@ -1142,6 +1228,83 @@ async function evaluateProductSetModuleResults(params: {
   return normalizeProductSetModuleResults(evaluated);
 }
 
+/**
+ * Resolve the inner `executeParallelImageBatch` parallelism for a given model.
+ *
+ * The router rejects attempts beyond a deployment's `maxConcurrency` with
+ * an `AiCapacityUnavailableError` ("供应商池当前已满"), and the router treats
+ * these as fail-fast. So this helper caps a single job's parallel slots at
+ * the summed capacity across the model's enabled deployments, while retaining
+ * the application-wide 32-image ceiling. This uses fallback deployments as
+ * one pool without allowing one generation to monopolize an unbounded number
+ * of provider requests.
+ *
+ * Returns `0` when totalCount is 0, otherwise a positive integer ≤ totalCount
+ * and ≤ the enabled deployment pool capacity for `modelId`.
+ */
+export async function resolveImageBatchConcurrency(modelId: string, totalCount: number): Promise<number> {
+  const safeTotal = Math.max(0, Math.floor(Number.isFinite(totalCount) ? totalCount : 0));
+  if (safeTotal === 0) return 0;
+  const configuredLimit = getImageBatchConcurrency();
+  try {
+    const config = await getAiControlPlaneConfig({ decryptSecrets: false, allowLegacy: true });
+    if (!config || !Array.isArray(config.deployments) || config.deployments.length === 0) {
+      return Math.min(safeTotal, configuredLimit);
+    }
+    const enabledProviders = new Set(config.providers.filter((provider) => provider.enabled).map((provider) => provider.id));
+    const caps = config.deployments
+      .filter((deployment) => deployment.enabled
+        && deployment.modelId === modelId
+        && deployment.maxConcurrency > 0
+        && enabledProviders.has(deployment.providerId))
+      .map((d) => d.maxConcurrency);
+    if (!caps.length) return Math.min(safeTotal, configuredLimit);
+    const poolCapacity = caps.reduce((sum, value) => sum + value, 0);
+    return Math.max(1, Math.min(safeTotal, configuredLimit, poolCapacity));
+  } catch {
+    return Math.min(safeTotal, configuredLimit);
+  }
+}
+
+export function getImageBatchConcurrency(
+  env?: { GENERATION_IMAGE_BATCH_CONCURRENCY?: string },
+) {
+  const raw = env?.GENERATION_IMAGE_BATCH_CONCURRENCY ?? process.env.GENERATION_IMAGE_BATCH_CONCURRENCY;
+  if (raw === undefined || raw.trim() === "") return DEFAULT_IMAGE_BATCH_CONCURRENCY;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > IMAGE_BATCH_MAX_CONCURRENCY) {
+    throw new Error(`[worker] GENERATION_IMAGE_BATCH_CONCURRENCY must be an integer between 1 and ${IMAGE_BATCH_MAX_CONCURRENCY}`);
+  }
+  return parsed;
+}
+
+export async function runCapacityAwareBatchWorkers(options: {
+  count: number;
+  concurrency: number;
+  shouldSkip?: (index: number) => boolean;
+  run: (index: number) => Promise<void>;
+}) {
+  const count = Math.max(0, Math.floor(options.count));
+  const workerCount = Math.min(count, Math.max(1, Math.floor(options.concurrency)));
+  let nextIndex = 0;
+  let firstError: unknown;
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (firstError === undefined && nextIndex < count) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (options.shouldSkip?.(index)) continue;
+      try {
+        await options.run(index);
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+  }));
+
+  if (firstError !== undefined) throw firstError;
+}
+
 async function executePayload(
   payload: GenerationJobPayload,
   onProgress: GenerationProgressCallback | undefined,
@@ -1203,6 +1366,7 @@ async function executePayload(
 
     const runOne = async (index: number) => {
       let lastMessage = "image task failed";
+      let lastRetryable = false;
       for (let attempt = 1; attempt <= maxAttemptsPerSlot; attempt++) {
         try {
           const result = await params.run(index, (progress) => {
@@ -1245,7 +1409,8 @@ async function executePayload(
           const rawMessage = error instanceof Error ? error.message : "image task failed";
           lastMessage = rawMessage;
           if (isAiCapacityUnavailableError(error)) throw error;
-          const retryable = isRetryableSlotError(rawMessage);
+          const retryable = isRetryableGenerationError(error) || isRetryableSlotError(rawMessage);
+          lastRetryable = retryable;
           if (attempt < maxAttemptsPerSlot && retryable) {
             const backoffMs = Math.min(2000 * attempt, 5000);
             await new Promise((resolve) => setTimeout(resolve, backoffMs));
@@ -1264,7 +1429,7 @@ async function executePayload(
         }
       }
 
-      failures.push({ index, message: lastMessage, retryable: isRetryableSlotError(lastMessage) });
+      failures.push({ index, message: lastMessage, retryable: lastRetryable });
       taskProgress[index] = 100;
       await emitProgress({
         resultUrls: getSlottedResultUrls(),
@@ -1274,21 +1439,20 @@ async function executePayload(
       });
     };
 
-    const workerCount = Math.min(
-      expectedCount,
-      Math.max(1, Math.floor(params.concurrency || expectedCount))
-    );
-    let nextIndex = 0;
-    await Promise.all(Array.from({ length: workerCount }, async () => {
-      while (nextIndex < expectedCount) {
-        const index = nextIndex;
-        nextIndex += 1;
-        if (resultUrlSlots[index]?.length) continue;
-        await runOne(index);
-      }
-    }));
+    let poolError: unknown;
+    try {
+      await runCapacityAwareBatchWorkers({
+        count: expectedCount,
+        concurrency: params.concurrency || expectedCount,
+        shouldSkip: (index) => Boolean(resultUrlSlots[index]?.length),
+        run: runOne,
+      });
+    } catch (error) {
+      poolError = error;
+    }
 
     await progressQueue;
+    if (poolError !== undefined) throw poolError;
     const resultUrls = getCompletedResultUrls();
     const traces = getCompletedPromptTrace();
     const retryableFailures = failures.filter((item) => item.retryable);
@@ -1664,7 +1828,7 @@ async function executePayload(
 
     return executeParallelImageBatch({
       count: totalCount,
-      concurrency: Math.min(totalCount, 32),
+      concurrency: await resolveImageBatchConcurrency(payload.aiModel, totalCount),
       maxAttemptsPerSlot: 2,
       promptKind: (index) => {
         const sourceIndex = Math.min(Math.floor(index / perSourceCount), sourceInputs.clothingUrls.length - 1);
@@ -1812,11 +1976,11 @@ async function executePayload(
     const totalCount = isSplitRun ? references.length * perReferenceCount : perReferenceCount;
     return executeParallelImageBatch({
       count: totalCount,
-      concurrency: Math.min(totalCount, 32),
+      concurrency: await resolveImageBatchConcurrency(payload.aiModel, totalCount),
       maxAttemptsPerSlot: 2,
       promptKind: payload.kind === "outfitFusion" ? "outfitFusion" : payload.mode,
       run: async (index, onTaskProgress) => {
-        // Multi-to-one: each reference owns `genCount` slots, so results are
+        // One-per-reference: each reference owns `genCount` slots, so results are
         // produced reference-major and the client can slice them per group.
         const slotReferences = isSplitRun
           ? [references[Math.min(references.length - 1, Math.floor(index / perReferenceCount))]]
@@ -2890,7 +3054,7 @@ async function writeGenerationProgress(
   payload: GenerationJobPayload,
   update: GenerationProgressUpdate
 ) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("generations")
     .update({
       result_urls: update.resultUrls,
@@ -2903,9 +3067,12 @@ async function writeGenerationProgress(
     .eq("user_id", job.user_id)
     .eq("status", "processing_tryon")
     .eq("delivery_version", job.delivery_version)
-    .eq("execution_token", job.execution_token);
+    .eq("execution_token", job.execution_token)
+    .select("id")
+    .maybeSingle();
 
   if (error) throw new Error(`更新任务进度失败: ${error.message}`);
+  if (!data) throw new StaleExecutionFenceError("任务执行租约已丢失");
   await syncGenerationQueueIndex(job.id, "progress");
 }
 

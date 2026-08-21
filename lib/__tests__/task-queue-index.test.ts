@@ -10,6 +10,30 @@ import {
 import type { TaskQueueItem } from "../task-queue";
 
 describe("task queue index", () => {
+  it("never exposes diagnostic errors while a task is queued or running", () => {
+    const queued = {
+      id: "queued-task",
+      module: "generalImage",
+      title: "任务",
+      status: "queued",
+      statusGroup: "queued" as const,
+      time: "刚刚",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      completedAt: null,
+      error: "供应商池当前已满，将在队列中稍后重试",
+      progress: 0,
+      expectedCount: 1,
+      resultCount: 0,
+      inputThumbnails: [],
+      resultThumbnails: [],
+      thumbnails: [],
+      applyUrl: "",
+    };
+
+    expect(applyStaleRunningFallback(queued).error).toBe("");
+  });
+
   it("normalizes a generation into the lightweight queue shape", () => {
     const item = normalizeGenerationTaskQueueItem({
       id: "gen_1",

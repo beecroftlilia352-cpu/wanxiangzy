@@ -1,8 +1,9 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 import { isRecord } from "@/lib/utils";
+import { STANDARD_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
 
 export const PRODUCT_RETOUCH_CONFIG_KEY = "skills.product-retouch";
-export const PRODUCT_RETOUCH_MAX_SOURCES = 30;
+export const PRODUCT_RETOUCH_MAX_SOURCES = STANDARD_MULTI_IMAGE_UPLOAD_LIMIT;
 export const PRODUCT_RETOUCH_MAX_VARIANTS = 4;
 export const PRODUCT_RETOUCH_USER_INSTRUCTION_LIMIT = 1_200;
 

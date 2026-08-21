@@ -1,5 +1,6 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 import faceSwapAssets from "@/lib/face-swap-assets.generated.json";
+import { STANDARD_MULTI_IMAGE_UPLOAD_LIMIT } from "@/lib/multi-image-upload-limits";
 
 export type FaceSwapSampleImage = {
   id: number;
@@ -37,7 +38,7 @@ function isLegacyOssAssetUrl(url: string) {
 }
 
 export const DEFAULT_FACE_SWAP_TEXTURE_ENHANCE = false;
-export const MAX_FACE_SWAP_SOURCE_IMAGES = 8;
+export const MAX_FACE_SWAP_SOURCE_IMAGES = STANDARD_MULTI_IMAGE_UPLOAD_LIMIT;
 export const MAX_FACE_SWAP_RESULT_IMAGES = MAX_FACE_SWAP_SOURCE_IMAGES * 4;
 
 export type FaceSwapMode = "features" | "featuresHairSkin";

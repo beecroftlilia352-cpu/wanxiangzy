@@ -45,6 +45,11 @@ import type {
   AiRoutingPolicy,
 } from "@/lib/ai-control-plane/types";
 import { AI_PROTOCOL_ADAPTERS } from "@/lib/ai-control-plane/adapters";
+import {
+  DEFAULT_DEPLOYMENT_BURST,
+  DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
+  DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
+} from "@/lib/ai-control-plane/config";
 
 type DraftProvider = AiControlPlanePublicConfig["providers"][number] & { apiKey?: string };
 type DraftConfig = Omit<AiControlPlanePublicConfig, "providers"> & { providers: DraftProvider[] };
@@ -730,7 +735,8 @@ function ProvidersEditor({ config, onChange, testingProvider, onTest }: { config
 function RoutingEditor({ config, onChange, health, inFlight }: { config: DraftConfig; onChange: (value: DraftConfig) => void; health: Record<string, Health>; inFlight: Record<string, number> }) {
   function add() {
     const modelId = config.models[0]?.id || ""; const providerId = config.providers[0]?.id || "";
-    const item: AiModelDeployment = { id: nextId("deployment", config.deployments.map((entry) => entry.id)), modelId, providerId, upstreamModel: modelId, protocol: config.models[0]?.modality === "image" ? "openai-image" : "openai-chat", enabled: false, priority: 100, weight: 100, maxConcurrency: 4, requestsPerMinute: 60, burst: 4, qualityScore: 0.8 };
+    const imageDeployment = config.models.find((model) => model.id === modelId)?.modality === "image";
+    const item: AiModelDeployment = { id: nextId("deployment", config.deployments.map((entry) => entry.id)), modelId, providerId, upstreamModel: modelId, protocol: imageDeployment ? "openai-image" : "openai-chat", enabled: false, priority: 100, weight: 100, maxConcurrency: imageDeployment ? DEFAULT_DEPLOYMENT_MAX_CONCURRENCY : 8, requestsPerMinute: imageDeployment ? DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE : 120, burst: imageDeployment ? DEFAULT_DEPLOYMENT_BURST : 8, qualityScore: 0.8 };
     onChange({ ...config, deployments: [...config.deployments, item] });
   }
   function update(index: number, patch: Partial<AiModelDeployment>) { onChange({ ...config, deployments: config.deployments.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }); }

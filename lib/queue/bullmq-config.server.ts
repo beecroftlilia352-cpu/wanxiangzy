@@ -131,7 +131,7 @@ export function parseBullMqConfig(env: BullMqEnvironment = process.env): BullMqR
   const queueName = parseQueueName(env.BULLMQ_QUEUE_NAME);
   const connectTimeoutMs = integerEnv(env, "BULLMQ_CONNECT_TIMEOUT_MS", DEFAULTS.connectTimeoutMs, 1_000, 30_000);
   const worker = {
-    concurrency: integerEnv(env, "BULLMQ_WORKER_CONCURRENCY", DEFAULTS.workerConcurrency, 1, 512),
+    concurrency: integerEnv(env, "BULLMQ_WORKER_CONCURRENCY", DEFAULTS.workerConcurrency, 1, 64),
     lockDurationMs: integerEnv(env, "BULLMQ_LOCK_DURATION_MS", DEFAULTS.lockDurationMs, 10_000, 30 * 60_000),
     lockRenewTimeMs: integerEnv(env, "BULLMQ_LOCK_RENEW_TIME_MS", DEFAULTS.lockRenewTimeMs, 1_000, 15 * 60_000),
     stalledIntervalMs: integerEnv(env, "BULLMQ_STALLED_INTERVAL_MS", DEFAULTS.stalledIntervalMs, 5_000, 5 * 60_000),

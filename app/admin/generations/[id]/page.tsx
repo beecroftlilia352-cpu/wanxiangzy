@@ -137,6 +137,10 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
               <dd className="mt-1"><AdminStatusBadge status={task.status} group={task.statusGroup} /></dd>
             </div>
             <DetailItem label="时间" value={formatDateTime(task.createdAt)} />
+            {task.queueReason ? <DetailItem label="等待原因" value={formatQueueReason(task.queueReason)} /> : null}
+            {task.nextAttemptAt ? <DetailItem label="下次尝试" value={formatDateTime(task.nextAttemptAt)} /> : null}
+            {task.capacityDeferCount ? <DetailItem label="容量退避次数" value={formatNumber(task.capacityDeferCount)} /> : null}
+            {task.deliveryVersion ? <DetailItem label="投递版本" value={formatNumber(task.deliveryVersion)} /> : null}
           </div>
         </AdminSection>
       )}
@@ -216,6 +220,13 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
       </AdminSection>
     </div>
   );
+}
+
+function formatQueueReason(reason: string) {
+  if (reason === "provider_capacity") return "等待模型供应商容量";
+  if (reason === "retryable_error") return "等待生成服务恢复";
+  if (reason === "admin_retry") return "管理员已重新投递";
+  return reason;
 }
 
 function JsonRows({ title, rows, empty }: { title: string; rows: Array<Record<string, unknown>>; empty: string }) {

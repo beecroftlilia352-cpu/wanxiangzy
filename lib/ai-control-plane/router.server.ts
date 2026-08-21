@@ -46,6 +46,26 @@ export class AiCapacityUnavailableError extends Error {
   }
 }
 
+export class AiProviderPoolExhaustedError extends Error {
+  readonly retryable = true;
+  readonly modelId: string;
+  readonly attemptedDeployments: number;
+  readonly candidateDeployments: number;
+
+  constructor(modelId: string, attemptedDeployments: number, candidateDeployments: number, cause?: unknown) {
+    super(
+      candidateDeployments > 1
+        ? `模型 ${modelId} 本次路由的 ${attemptedDeployments} 次供应商调用均失败`
+        : `模型 ${modelId} 本次供应商调用失败`,
+      { cause },
+    );
+    this.name = "AiProviderPoolExhaustedError";
+    this.modelId = modelId;
+    this.attemptedDeployments = attemptedDeployments;
+    this.candidateDeployments = candidateDeployments;
+  }
+}
+
 /** Cross-bundle guard used by durable job dispatchers; never rely on instanceof. */
 export function isAiCapacityUnavailableError(error: unknown): error is AiCapacityUnavailableError {
   if (!error || typeof error !== "object") return false;
@@ -55,6 +75,17 @@ export function isAiCapacityUnavailableError(error: unknown): error is AiCapacit
     && Number.isFinite(candidate.retryAfterSeconds)
     && candidate.retryAfterSeconds >= 1
     && candidate.retryAfterSeconds <= 300;
+}
+
+/** A retryable execution outcome after this route exhausted its attempt budget. */
+export function isAiProviderPoolExhaustedError(error: unknown): error is AiProviderPoolExhaustedError {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { name?: unknown; attemptedDeployments?: unknown; candidateDeployments?: unknown };
+  return candidate.name === "AiProviderPoolExhaustedError"
+    && Number.isInteger(candidate.attemptedDeployments)
+    && Number(candidate.attemptedDeployments) >= 1
+    && Number.isInteger(candidate.candidateDeployments)
+    && Number(candidate.candidateDeployments) >= Number(candidate.attemptedDeployments);
 }
 
 export type AiRouteExecutionInput<T> = {
@@ -179,7 +210,10 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
         recordOutcome(config, deployment, false, latency, classified),
       ]);
       logger.warn(`[ai-router] ${input.modelId} via ${deployment.providerId}/${deployment.id} failed: ${classified.category} ${classified.status || ""}`);
-      if (!classified.retryable || input.canFailover?.(error, deployment, providerAttempt) === false) throw error;
+      if (!classified.retryable) throw error;
+      if (input.canFailover?.(error, deployment, providerAttempt) === false) {
+        throw new AiProviderPoolExhaustedError(input.modelId, providerAttempt, resolved.length, error);
+      }
       if (providerAttempt < maxAttempts) await delay(backoffMs(config, providerAttempt, requestId));
     } finally {
       clearTimeout(timeout);
@@ -203,7 +237,9 @@ export async function executeAiRouted<T>(input: AiRouteExecutionInput<T>): Promi
       retryAfter,
     );
   }
-  if (lastError) throw lastError;
+  if (lastError) {
+    throw new AiProviderPoolExhaustedError(input.modelId, providerAttempt, resolved.length, lastError);
+  }
   throw new AiCapacityUnavailableError(`模型 ${input.modelId} 的供应商池当前已满，将在队列中稍后重试`);
 }
 

@@ -67,6 +67,7 @@ GENERATION_QUEUE_MODE=bullmq
 AI_ROUTER_CAPACITY_MODE=redis
 PM2_WORKER_INSTANCES=1
 BULLMQ_WORKER_CONCURRENCY=64
+GENERATION_IMAGE_BATCH_CONCURRENCY=16
 BULLMQ_RELAY_BATCH_SIZE=100
 BULLMQ_RELAY_CONCURRENCY=8
 GENERATION_MAX_ACTIVE_PER_USER=20
@@ -81,26 +82,31 @@ GENERATION_EXECUTION_HEARTBEAT_MS=15000
 - API 实例只做短事务，可独立横向扩容。
 - 多个 Relay 使用 PostgreSQL `FOR UPDATE SKIP LOCKED` 和 lease token 并行发布，不会重复确认他人的租约。
 - 每个 Worker 进程并发为 `BULLMQ_WORKER_CONCURRENCY`；总 Worker 执行上限约为 `实例数 × 进程并发`。
+- 每个 generation 内部同时发起的图片请求由 `GENERATION_IMAGE_BATCH_CONCURRENCY` 控制，并自动受目标模型所有启用 deployment 的容量总和约束。它不是 Worker 任务并发，不能用它替代 BullMQ 扩容。
 - Provider 实际并发由 deployment 级 Redis bulkhead 再次限制。增加 Worker 不会绕过供应商并发/RPM。
 - 吞吐应通过“增加健康 Provider deployment + 增加 Worker”扩展，而不是无上限提高单 Provider 并发。
 - 租户准入限制保护 Redis 和数据库不被 noisy neighbor 灌满；后续有套餐差异时，可把 `p_max_active_jobs` 按套餐传入。
 
-推荐从 1 个 Worker、并发 16 起步，压测后按 CPU、RSS、数据库连接、Provider 容量和 P95 队列等待共同调整。长图像/视频任务主要是 I/O，不要在 Worker event loop 执行长时间同步 CPU 工作。
+当前单机基线为 1 个 Worker、任务并发 64、单任务生图并发 16；压测后按 CPU、RSS、数据库连接、Provider 容量和 P95 队列等待共同调整。长图像/视频任务主要是 I/O，不要在 Worker event loop 执行长时间同步 CPU 工作。
 
 ### 1000 用户容量基线
 
 “1000 用户”不是并发值。初始容量规划按 5% 用户在峰值同时提交、每人 1 个任务估算，即 50 个并发生成。建议基线：
 
 ```text
-PM2 Worker 实例             4
-单 Worker 并发              16
+PM2 Worker 实例             1
+单 Worker 并发              64
+单任务生图并发              16（可配置上限 24）
 理论 Worker active 上限     64
-建议 EC2                    4 vCPU / 8 GiB 或更高
+当前 EC2                    2 vCPU / 2 GiB，I/O 型任务基线
 Redis                       托管 Redis/Tair/ElastiCache，noeviction
-Provider 可用并发总和       至少 64（否则实际吞吐以 Provider 上限为准）
+单图片 Provider deployment 24 并发 / 60 RPM / 24 burst
+Provider 可用并发总和       同模型所有启用 deployment 容量之和
 ```
 
-在 `/admin/workers` 发布 `4 / 16 / 8` 后，下次 tag 部署会由发布控制器读取 `worker.runtime.v1`，先在新 release 生成候选 `.env.production`，所有 Redis、数据库契约和 OSS 门禁通过后，再原子切换共享环境并启动 4 个 PM2 Worker；任何门禁或健康检查失败都会恢复旧环境和旧 PM2 配置。当前 2 vCPU / 2 GiB EC2 不应直接套用 4×16；它适合 1×16 验证环境。生产扩容前必须把 Redis 移出单机 loopback，并完成 10k 任务、Provider 429、Worker kill -9 和 Redis 故障转移演练。
+在 `/admin/workers` 发布 `1 / 64 / 16 / 8`（实例 / 任务并发 / 单任务生图 / Relay）后，下次 tag 部署会由发布控制器读取 `worker.runtime.v1`，先在新 release 生成候选 `.env.production`，所有 Redis、数据库契约和 OSS 门禁通过后，再原子切换共享环境并启动 PM2 Worker；任何门禁或健康检查失败都会恢复旧环境和旧 PM2 配置。生产扩容前必须把 Redis 移出单机 loopback，并完成 10k 任务、Provider 429、Worker kill -9 和 Redis 故障转移演练。
+
+手动部署参数优先级固定为：命令行显式参数 > 后台已发布 `worker.runtime.v1` > EC2 共享 `.env.production` > 代码默认值。使用 `scripts/deploy-from-local.sh <tag> 1 64 16` 可在本次发布显式覆盖实例、Worker 任务并发和单任务生图并发；省略参数则应用后台期望配置，不会出现两套配置互相覆盖却无法观测的情况。
 
 Admin 只保存版本化期望配置，不能执行 shell 或直接调用 PM2。页面同时显示期望实例、BullMQ 实际在线实例、总 active 容量和配置漂移；部署控制器是唯一基础设施写入者。
 
@@ -113,11 +119,12 @@ Admin 只保存版本化期望配置，不能执行 shell 或直接调用 PM2。
 | Redis 不可用 | Relay nack + 指数退避；Outbox 保持 pending | 任务不丢，API 已提交任务等待恢复 |
 | Relay add 后、confirm 前崩溃 | lease 到期重领；相同 jobId 去重后补 confirm | 至少一次投递，无重复业务结算 |
 | Worker 崩溃 | BullMQ stalled recovery；DB execution lease 到期后新 token 重领 | 陈旧 Worker 被 fence 拒绝 |
-| Provider 满载/429 | 容量等待预算耗尽后持久 defer，新 delivery 延迟投递 | 不退款、不计业务失败 |
+| Provider 满载/RPM | 持久 defer，新 delivery 延迟投递，用户只看到排队；12 次或 30 分钟仍无容量则失败 | 原子退款 |
+| Provider 5xx/网络临时失败 | 每次执行生成新 delivery 并指数退避，不把等待写入 `error_message` | 10 次耗尽后原子退款 |
 | Redis 数据丢失 | Outbox recovery 对仍 queued 的 published delivery 做安全 redrive | Redis 可从 PostgreSQL 重建 |
 | 失败/完成重复结算 | settlement RPC 校验 version/token | 第二次结算报 stale fence |
 
-Provider 业务失败在 PostgreSQL 原子结算/退款后让当前 Bull job 正常结束；Provider fallback 和容量延迟由状态机生成新的 fenced delivery。只有数据库、Redis、租约或结算这类基础设施异常才抛给 BullMQ，使用有界指数退避；耗尽后保留 failed 记录，Outbox recovery 在 generation 仍为 queued 时可安全移除同一 failed job 并确定性重投。非法 payload/name/fence 属于 poison message，使用 unrecoverable error 立即进入 failed，避免无意义重试。
+Provider 非重试业务失败在 PostgreSQL 原子结算/退款后让当前 Bull job 正常结束；Provider fallback、容量等待与临时故障都由状态机生成新的 fenced delivery。只有数据库、Redis、租约或结算本身失败才抛给 BullMQ，并由 execution lease recovery 接管。非法 payload/name/fence 属于 poison message，使用 unrecoverable error 立即进入 failed，避免无意义重试。
 
 ## 监控与告警
 

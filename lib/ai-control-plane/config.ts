@@ -39,6 +39,16 @@ export const DEFAULT_AI_ROUTING_POLICY: AiRoutingPolicy = {
   },
 };
 
+/**
+ * Default per-deployment in-flight ceiling used by the `deployment()`
+ * factory. Centralised so that consumers (e.g. the offline / unconfigured
+ * fallback in `resolveImageBatchConcurrency`) can stay aligned with the
+ * exact value the factory writes into published configs.
+ */
+export const DEFAULT_DEPLOYMENT_MAX_CONCURRENCY = 24;
+export const DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE = 60;
+export const DEFAULT_DEPLOYMENT_BURST = 24;
+
 export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
   return {
     schemaVersion: AI_CONTROL_PLANE_SCHEMA_VERSION,
@@ -208,7 +218,7 @@ function parseDeployment(value: unknown, index: number, issues: AiControlPlaneIs
     enabled: item.enabled !== false,
     priority: integer(item.priority, 100, 0, 10_000),
     weight: integer(item.weight, 100, 1, 10_000),
-    maxConcurrency: integer(item.maxConcurrency, 16, 1, 10_000),
+    maxConcurrency: integer(item.maxConcurrency, DEFAULT_DEPLOYMENT_MAX_CONCURRENCY, 1, 10_000),
     requestsPerMinute: integer(item.requestsPerMinute, 240, 1, 1_000_000),
     burst: integer(item.burst, 16, 1, 10_000),
     asyncMode: item.asyncMode === true,
@@ -318,7 +328,21 @@ function provider(id: string, name: string, baseUrl: string, apiKey: string): Ai
 
 function deployment(id: string, modelId: string, providerId: string, upstreamModel: string, protocol: AiProviderProtocol, priority: number, enabled = true): AiModelDeployment {
   const capabilities = protocol === "openai-image" || protocol === "gemini-native" ? ["generation", "edit"] : [];
-  return { id, modelId, providerId, upstreamModel, protocol, enabled, priority, weight: 100, maxConcurrency: 16, requestsPerMinute: 240, burst: 16, capabilities, qualityScore: 0.8 };
+  return {
+    id,
+    modelId,
+    providerId,
+    upstreamModel,
+    protocol,
+    enabled,
+    priority,
+    weight: 100,
+    maxConcurrency: DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
+    requestsPerMinute: DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
+    burst: DEFAULT_DEPLOYMENT_BURST,
+    capabilities,
+    qualityScore: 0.8,
+  };
 }
 
 function checkUnique(items: Array<{ id: string }>, path: string, issues: AiControlPlaneIssue[]) {
