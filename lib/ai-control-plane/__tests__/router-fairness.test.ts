@@ -110,11 +110,11 @@ describe("AI router tenant fairness integration", () => {
 
     expect(mocks.acquireScoped).toHaveBeenNthCalledWith(1, expect.objectContaining({
       scopeKey: "tenant:10000000-0000-4000-8000-000000000001:global",
-      maxConcurrency: 8,
+      maxConcurrency: 24,
     }));
     expect(mocks.acquireScoped).toHaveBeenNthCalledWith(2, expect.objectContaining({
       scopeKey: expect.stringContaining(":deployment:deployment-a"),
-      maxConcurrency: 4,
+      maxConcurrency: 12,
     }));
     expect(mocks.releaseScoped).toHaveBeenCalledTimes(3);
     expect(mocks.releaseProvider).toHaveBeenCalledOnce();
@@ -124,8 +124,8 @@ describe("AI router tenant fairness integration", () => {
     mocks.acquireScoped.mockResolvedValueOnce({
       lease: null,
       reason: "concurrency",
-      inFlight: 4,
-      maxConcurrency: 4,
+      inFlight: 12,
+      maxConcurrency: 12,
       retryAfterSeconds: 5,
       backend: "local",
     });

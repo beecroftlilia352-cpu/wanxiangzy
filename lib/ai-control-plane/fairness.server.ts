@@ -10,8 +10,10 @@ export type AiTenantConcurrencyPolicy = {
 };
 
 const DEFAULTS = Object.freeze({
-  standard: { userGlobal: 4, userDeployment: 2, taskImage: 2 },
-  vip: { userGlobal: 8, userDeployment: 4, taskImage: 4 },
+  // Image generation is primarily upstream I/O. Keep a meaningful tenant
+  // guard, but do not serialize normal multi-image work behind a 4/2 gate.
+  standard: { userGlobal: 12, userDeployment: 6, taskImage: 6 },
+  vip: { userGlobal: 24, userDeployment: 12, taskImage: 8 },
 });
 
 export function getAiTenantConcurrencyPolicy(

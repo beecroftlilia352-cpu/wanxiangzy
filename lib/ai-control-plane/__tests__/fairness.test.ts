@@ -10,15 +10,15 @@ describe("AI multi-tenant fairness policy", () => {
   it("uses bounded commercial defaults for standard and VIP traffic", () => {
     expect(getAiTenantConcurrencyPolicy({ serviceTier: "standard" }, {})).toEqual({
       serviceTier: "standard",
-      userGlobalConcurrency: 4,
-      userDeploymentConcurrency: 2,
-      taskImageConcurrency: 2,
+      userGlobalConcurrency: 12,
+      userDeploymentConcurrency: 6,
+      taskImageConcurrency: 6,
     });
     expect(getAiTenantConcurrencyPolicy({ serviceTier: "vip" }, {})).toEqual({
       serviceTier: "vip",
-      userGlobalConcurrency: 8,
-      userDeploymentConcurrency: 4,
-      taskImageConcurrency: 4,
+      userGlobalConcurrency: 24,
+      userDeploymentConcurrency: 12,
+      taskImageConcurrency: 8,
     });
   });
 
