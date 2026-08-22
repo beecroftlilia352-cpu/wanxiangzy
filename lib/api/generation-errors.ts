@@ -79,11 +79,14 @@ export function isRetryableGenerationError(error: unknown) {
     status?: unknown;
     message?: unknown;
   };
-  if (candidate.retryable === true) return true;
-  if (candidate.name === "AbortError" || candidate.name === "TimeoutError") return true;
   const status = Number(candidate.status);
+  // An explicit retryable flag must never override a terminal HTTP decision.
+  // This protects policy/validation responses such as 451 from being retried
+  // by a provider adapter that copied an overly broad retryable flag.
   if (status >= 400 && status < 500 && status !== 408 && status !== 425 && status !== 429) return false;
   if (status === 408 || status === 425 || status === 429 || (status >= 500 && status <= 599)) return true;
+  if (candidate.retryable === true) return true;
+  if (candidate.name === "AbortError" || candidate.name === "TimeoutError") return true;
 
   const code = typeof candidate.code === "string" ? candidate.code.toUpperCase() : "";
   if (/^(ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|UND_ERR_|REDIS_|SUPABASE_)/.test(code)) return true;

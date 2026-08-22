@@ -299,7 +299,18 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
         throw new Error(describeProviderRejection(res.status));
       }
 
-      const json = JSON.parse(resText);
+      let json: unknown;
+      try {
+        json = JSON.parse(resText);
+      } catch {
+        // A 2xx response with an unreadable body is ambiguous: the upstream
+        // may already have accepted the request. Never re-POST it through a
+        // durable retry/failover path without an explicit reconciliation API.
+        throw new NonRetryableGenerationError(
+          "图片生成接口返回了无效响应",
+          "PROVIDER_INVALID_RESPONSE",
+        );
+      }
       const taskId = extractTaskId(json);
       const immediateResult = extractGeneratedImages(json);
       logger.info(`[api:${provider.name}] 生成响应: ok=${res.ok}, async=${shouldRequestAsyncImageTask(provider)}, hasTask=${Boolean(taskId)}, imageCount=${immediateResult.urls.length + (immediateResult.b64Json ? 1 : 0)}`);
@@ -859,9 +870,22 @@ async function pollImageTask(params: {
       }
       throw new Error(message);
     }
+    let json: unknown;
+    try {
+      json = JSON.parse(resText);
+    } catch {
+      const message = "任务查询返回了无效响应";
+      if (transientQueryErrors < transientQueryErrorLimit) {
+        transientQueryErrors += 1;
+        lastTransientQueryError = message;
+        continue;
+      }
+      // The task ID is already known. Do not surface this as a durable
+      // execution retry, which would submit the same image again.
+      throw new NonRetryableGenerationError(message, "IMAGE_TASK_POLL_INVALID_RESPONSE");
+    }
     transientQueryErrors = 0;
     lastTransientQueryError = "";
-    const json = JSON.parse(resText);
     const task = normalizeImageTaskResponse(json, params.taskId);
     const progress = Math.max(lastProgress, task.progress);
     lastProgress = progress;

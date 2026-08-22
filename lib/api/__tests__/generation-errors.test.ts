@@ -32,6 +32,7 @@ describe("generation error policy", () => {
     expect(isRetryableGenerationError(new Error("供应商拒绝了生成请求（HTTP 400）"))).toBe(false);
     expect(isRetryableGenerationError(new NonRetryableGenerationError("内容审核未通过", "CONTENT_POLICY", 451))).toBe(false);
     expect(isRetryableGenerationError({ status: 451, message: "HTTP 451 content policy" })).toBe(false);
+    expect(isRetryableGenerationError({ status: 451, retryable: true, message: "HTTP 451 content policy" })).toBe(false);
   });
 
   it("does not retry a stale execution fence after recovery takes ownership", () => {
