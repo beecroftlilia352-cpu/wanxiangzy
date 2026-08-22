@@ -61,7 +61,7 @@ import {
   type PricedImageSize,
 } from "@/lib/model-pricing";
 import { getRegisteredImageCreditCost, getRegisteredImageSizes } from "@/lib/image-model-catalog";
-import { RetryableGenerationError, sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
+import { NonRetryableGenerationError, RetryableGenerationError, sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
 import type { AiResolvedDeployment } from "@/lib/ai-control-plane/types";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
@@ -319,8 +319,10 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
             compiledPrompt,
           };
         }
-        if (attempt < retries) { await new Promise(r => setTimeout(r, attempt * 5000)); continue; }
-        throw new Error(`图片生成接口未返回任务 ID 或图片结果，响应字段: ${describeResponseKeys(json)}`);
+        throw new NonRetryableGenerationError(
+          `图片生成接口未返回任务 ID 或图片结果，响应字段: ${describeResponseKeys(json)}`,
+          "PROVIDER_AMBIGUOUS_RESPONSE",
+        );
       }
 
       await requestInput.onProgress?.({ taskId, status: "queued", providerStatus: "SUBMITTED", progress: 1 });
@@ -342,7 +344,7 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (attempt < retries && (msg.includes("fetch") || msg.includes("Internal Error"))) {
+      if (attempt < retries && isRetryableGenerationErrorForAdapter(err)) {
         await new Promise(r => setTimeout(r, attempt * 5000));
         continue;
       }
@@ -1241,8 +1243,8 @@ function getImageTaskResultGraceMs() {
 }
 
 function getImageTaskPollErrorRetryLimit() {
-  const value = Number(process.env.IMAGE_TASK_POLL_ERROR_RETRY_LIMIT || 12);
-  return Number.isFinite(value) ? Math.min(Math.max(Math.floor(value), 0), 60) : 12;
+  const value = Number(process.env.IMAGE_TASK_POLL_ERROR_RETRY_LIMIT || 3);
+  return Number.isFinite(value) ? Math.min(Math.max(Math.floor(value), 0), 10) : 3;
 }
 
 function getImageApiBaseUrl(): string {
@@ -1472,7 +1474,14 @@ function isSeedreamModel(model: LingyaModel): boolean {
 }
 
 function isRetryableStatus(status: number): boolean {
-  return status === 500 || status === 502 || status === 503 || status === 504;
+  return status === 408 || status === 425 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+function isRetryableGenerationErrorForAdapter(error: unknown): boolean {
+  if (error instanceof NonRetryableGenerationError) return false;
+  if (error instanceof RetryableGenerationError) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /fetch failed|network error|econnreset|econnrefused|enotfound|eai_again|etimedout|internal error/i.test(message);
 }
 
 function buildStructuredTryOnUserInstruction(value?: string, options: {

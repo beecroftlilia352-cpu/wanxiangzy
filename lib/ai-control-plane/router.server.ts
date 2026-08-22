@@ -563,6 +563,18 @@ type ClassifiedError = {
 
 export function classifyAiProviderError(error: unknown): ClassifiedError {
   const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof Error && error.name === "NonRetryableGenerationError") {
+    const terminal = error as Error & { status?: unknown; code?: unknown };
+    const status = Number(terminal.status);
+    return {
+      category: status === 451 ? "content_policy" : "terminal",
+      status: Number.isFinite(status) && status > 0 ? status : undefined,
+      code: typeof terminal.code === "string" ? terminal.code : undefined,
+      retryable: false,
+      failoverable: false,
+      message,
+    };
+  }
   const explicitStatus = error instanceof AiProviderHttpError ? error.status : undefined;
   const status = explicitStatus || parseStatus(message);
   const code = error instanceof AiProviderHttpError ? error.code : undefined;

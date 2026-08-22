@@ -62,6 +62,13 @@ describe("AI router error policy", () => {
       .toMatchObject({ category: "content_policy", status: 451, retryable: false });
   });
 
+  it("does not turn an ambiguous terminal adapter response into failover", () => {
+    expect(classifyAiProviderError(Object.assign(new Error("provider response had no task id"), {
+      name: "NonRetryableGenerationError",
+      code: "PROVIDER_AMBIGUOUS_RESPONSE",
+    }))).toMatchObject({ category: "terminal", retryable: false, failoverable: false });
+  });
+
   it("fails over on network and upstream 5xx failures", () => {
     expect(classifyAiProviderError(new Error("fetch ECONNRESET"))).toMatchObject({ category: "network", retryable: true });
     expect(classifyAiProviderError(new AiProviderHttpError("upstream", { status: 503 })))

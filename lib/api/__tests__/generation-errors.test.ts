@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isRetryableGenerationError,
   isStaleExecutionFenceError,
+  NonRetryableGenerationError,
   RetryableGenerationError,
   sanitizeGenerationErrorMessage,
 } from "../generation-errors";
@@ -29,6 +30,8 @@ describe("generation error policy", () => {
   it("keeps deterministic validation and authorization failures terminal", () => {
     expect(isRetryableGenerationError(new Error("图片尺寸超过安全上限"))).toBe(false);
     expect(isRetryableGenerationError(new Error("供应商拒绝了生成请求（HTTP 400）"))).toBe(false);
+    expect(isRetryableGenerationError(new NonRetryableGenerationError("内容审核未通过", "CONTENT_POLICY", 451))).toBe(false);
+    expect(isRetryableGenerationError({ status: 451, message: "HTTP 451 content policy" })).toBe(false);
   });
 
   it("does not retry a stale execution fence after recovery takes ownership", () => {

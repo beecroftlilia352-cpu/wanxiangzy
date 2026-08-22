@@ -13,6 +13,19 @@ export class RetryableGenerationError extends Error {
   }
 }
 
+/** A provider/customer decision that must never enter a retry budget. */
+export class NonRetryableGenerationError extends Error {
+  readonly code: string;
+  readonly status?: number;
+
+  constructor(message: string, code = "GENERATION_TERMINAL", status?: number) {
+    super(sanitizeGenerationErrorMessage(message));
+    this.name = "NonRetryableGenerationError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
 /**
  * The database has already moved this execution to a newer delivery fence.
  * This is an expected race between a stale worker and recovery, not a job
@@ -55,6 +68,7 @@ export function sanitizeGenerationErrorMessage(value: unknown, fallback = "ç”Ÿæˆ
 
 export function isRetryableGenerationError(error: unknown) {
   if (isStaleExecutionFenceError(error)) return false;
+  if (error instanceof NonRetryableGenerationError) return false;
   if (error instanceof RetryableGenerationError) return true;
   if (!error || typeof error !== "object") return false;
 
@@ -68,6 +82,7 @@ export function isRetryableGenerationError(error: unknown) {
   if (candidate.retryable === true) return true;
   if (candidate.name === "AbortError" || candidate.name === "TimeoutError") return true;
   const status = Number(candidate.status);
+  if (status >= 400 && status < 500 && status !== 408 && status !== 425 && status !== 429) return false;
   if (status === 408 || status === 425 || status === 429 || (status >= 500 && status <= 599)) return true;
 
   const code = typeof candidate.code === "string" ? candidate.code.toUpperCase() : "";
