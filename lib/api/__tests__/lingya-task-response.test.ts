@@ -186,6 +186,7 @@ describe("lingya async task response parsing", () => {
       Authorization: "Bearer test-key",
       Accept: "application/json",
     });
+    expect(request.init.headers).not.toHaveProperty("Content-Type");
     expect(request.init.body).toBeInstanceOf(FormData);
     const form = request.init.body as FormData;
     expect(form.getAll("image")).toHaveLength(1);

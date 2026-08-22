@@ -5,13 +5,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const minimaxKey = process.env.MINIMAX_API_KEY ?? "";
 const minimaxVideoKey = process.env.MINIMAX_VIDEO_API_KEY ?? "";
-const newBiKey = process.env.PLATO_API_KEY || process.env.YUNWU_NATIVE_API_KEY || "";
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
 }
-if (!minimaxKey.trim() || !newBiKey.trim()) {
-  throw new Error("MINIMAX_API_KEY and a new.bi key are required");
+if (!minimaxKey.trim()) {
+  throw new Error("MINIMAX_API_KEY is required");
 }
 if (!minimaxVideoKey.trim()) {
   throw new Error("MINIMAX_VIDEO_API_KEY is required for video.providers seeding");
@@ -34,34 +33,6 @@ async function publishConfig(configKey: string, value: Record<string, unknown>) 
 }
 
 async function main() {
-  await publishConfig("model.providers", {
-    models: {
-      "gpt-image-2": {
-        enabled: true,
-        baseUrl: "https://api.new.bi/v1",
-        apiKey: encryptProviderSecret(newBiKey),
-        upstreamModel: "gpt-image-2",
-        responseType: "openai-image",
-      },
-      "nano-banana-2": {
-        enabled: true,
-        baseUrl: "https://api.new.bi",
-        apiKey: encryptProviderSecret(newBiKey),
-        upstreamModel: "gemini-3.1-flash-image",
-        responseType: "gemini-native",
-      },
-      "nano-banana-pro": {
-        enabled: true,
-        baseUrl: "https://api.new.bi",
-        apiKey: encryptProviderSecret(newBiKey),
-        upstreamModel: "gemini-3-pro-image",
-        responseType: "gemini-native",
-      },
-    },
-    updatedFrom: "scripts.seed-provider-configs",
-    updatedAt: new Date().toISOString(),
-  });
-
   await publishConfig("llm.providers", {
     models: {
       vision: {

@@ -766,7 +766,9 @@ async function buildImageEditRequest(params: {
     url: getImageEditUrl(params.apiBase),
     init: {
       method: "POST",
-      headers: { ...imageHeaders(params.apiKey, params.idempotencyKey), Accept: "application/json" },
+      // Let fetch add the multipart boundary. Reusing the JSON headers here
+      // makes the upstream parse FormData as application/json and return 400.
+      headers: imageAuthHeaders(params.apiKey, params.idempotencyKey),
       body: form,
     },
   };
@@ -774,8 +776,15 @@ async function buildImageEditRequest(params: {
 
 function imageHeaders(apiKey: string, idempotencyKey?: string): Record<string, string> {
   return {
-    Authorization: `Bearer ${apiKey}`,
+    ...imageAuthHeaders(apiKey, idempotencyKey),
     "Content-Type": "application/json",
+  };
+}
+
+function imageAuthHeaders(apiKey: string, idempotencyKey?: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    Accept: "application/json",
     ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
   };
 }
