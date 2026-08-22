@@ -17,6 +17,7 @@
 8. supabase/migrations/20260819112000_admin_billing_summary.sql
 9. supabase/migrations/20260821123000_generation_capacity_backpressure.sql
 10. supabase/migrations/20260822100000_generation_service_entitlements.sql
+11. supabase/migrations/20260822190000_generation_parent_state_consistency.sql
 ```
 
 Worker runtime 迁移提供 `get_runtime_contract_version()`；发布脚本会精确校验 version/hash，并同时检查后台经营指标 RPC，而不只检查同名 RPC。迁移完成前不得启动新 API/Worker，完成后不得回滚到旧轮询代码；故障恢复采用数据库备份或向前修复。
@@ -32,6 +33,7 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260819101500
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260819112000_admin_billing_summary.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260821123000_generation_capacity_backpressure.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260822100000_generation_service_entitlements.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260822190000_generation_parent_state_consistency.sql
 ```
 
 ## 推荐基础顺序
@@ -61,6 +63,7 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260822100000
 22. supabase/migrations/20260819112000_admin_billing_summary.sql
 23. supabase/migrations/20260821123000_generation_capacity_backpressure.sql
 24. supabase/migrations/20260822100000_generation_service_entitlements.sql
+25. supabase/migrations/20260822190000_generation_parent_state_consistency.sql
 ```
 
 关键依赖：

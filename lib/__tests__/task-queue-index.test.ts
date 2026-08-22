@@ -87,6 +87,34 @@ describe("task queue index", () => {
     expect(indexRowToTaskQueueItem(row).resultCount).toBe(3);
   });
 
+  it("uses the completed parent over a stale failed child diagnostic", () => {
+    const item = normalizeGenerationTaskQueueItem({
+      id: "gen_completed_with_stale_child",
+      user_id: "user_1",
+      status: "completed",
+      error_message: null,
+      result_urls: ["https://example.com/one.png", "https://example.com/two.png"],
+      created_at: "2026-08-22T10:35:00.000Z",
+      completed_at: "2026-08-22T10:39:57.000Z",
+      job_payload: {
+        kind: "generalImage",
+        genCount: 2,
+        asyncTask: { status: "FAILED", progress: 50 },
+      },
+      clothing_urls: [],
+      model_face_url: null,
+      reference_url: null,
+    });
+
+    expect(item).toMatchObject({
+      status: "completed",
+      statusGroup: "completed",
+      progress: 100,
+      resultCount: 2,
+      error: "",
+    });
+  });
+
   it("multiplies try-on expected count by selected reference count", () => {
     const item = normalizeGenerationTaskQueueItem({
       id: "gen_3",

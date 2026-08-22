@@ -51,12 +51,16 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   const providerStatus = asyncTask?.status || null;
   const providerDone = isProviderDone(providerStatus);
   const providerFailed = isProviderFailed(providerStatus);
+  // Provider progress is a child-task diagnostic. Until the durable parent
+  // generation reaches a terminal database status, a failed slot must not
+  // terminate a multi-image batch or a task that is waiting for capacity.
+  const parentIsRunning = isRunningStatus(canonicalStatus);
   const hasEnoughResults = resultCount > 0 && resultCount >= expectedCount;
   const explicitCompleted = isCompletedStatus(status);
   const explicitFailed = isFailedStatus(status);
   const providerCompleted = providerDone && hasEnoughResults;
   const completedWithoutResults = explicitCompleted && resultCount <= 0 && expectedCount > 0;
-  const failed = explicitFailed || providerFailed || completedWithoutResults;
+  const failed = explicitFailed || (!explicitCompleted && !parentIsRunning && providerFailed) || completedWithoutResults;
   const completed = !failed && (explicitCompleted || hasEnoughResults || providerCompleted);
   const normalizedStatus = failed ? "failed" : completed ? "completed" : canonicalStatus;
   const progress = completed ? 100 : failed ? readFailedProgress({

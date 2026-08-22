@@ -253,13 +253,13 @@ function toNumber(value: unknown): number {
 }
 
 function itemKey(userId: string, taskId: string) {
-  return `taskq:item:${userId}:${taskId}`;
+  return `taskq:v2:item:${userId}:${taskId}`;
 }
 
 function moduleZsetKey(userId: string, module: string) {
-  return `taskq:z:${userId}:module:${module}`;
+  return `taskq:v2:z:${userId}:module:${module}`;
 }
 
 function summaryKey(userId: string) {
-  return `taskq:summary:${userId}`;
+  return `taskq:v2:summary:${userId}`;
 }

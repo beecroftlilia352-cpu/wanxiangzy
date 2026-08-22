@@ -101,8 +101,8 @@ describe("AWS EC2 zero-downtime PM2 deployment contract", () => {
 
     expect(manifest).toEqual({
       schemaVersion: 1,
-      contractVersion: "2026-08-22.6",
-      contractHash: "f6989e953f92e638603f8369bf5d10cbfb651dfc8145417ccb096ef1a40aeedf",
+      contractVersion: "2026-08-22.7",
+      contractHash: "d55a0cf49e5deb81aedc516300b9648447a2bd25421426d2d035f680163e2dff",
     });
     expect(deploy).toContain("release_matches_runtime_contract()");
     expect(deploy).toContain('if ! release_matches_runtime_contract "$PREVIOUS_TARGET"; then');

@@ -173,7 +173,7 @@ Provider 非重试业务失败在 PostgreSQL 原子结算/退款后让当前 Bul
 1. 部署/创建 Redis，确认 PING、`noeviction`、持久化、私网和安全组。
 2. 设置 GitHub Actions secret `REDIS_URL`；生产 env 设置 BullMQ/Redis 模式。
 3. 进入维护窗口，停止旧 Worker/API 写入。
-4. 先备份数据库，再严格按 [Supabase SQL 执行顺序](./supabase-migration-order.md) 应用全部时间戳迁移，最后执行 `20260822100000_generation_service_entitlements.sql`。
+4. 先备份数据库，再严格按 [Supabase SQL 执行顺序](./supabase-migration-order.md) 应用全部时间戳迁移，最后执行 `20260822190000_generation_parent_state_consistency.sql`。
 5. 用 `get_runtime_contract_version()` 确认精确契约；发布脚本会同时校验 RPC 集合、contract version 与 hash。
 6. 部署同一版本 API 与 Worker；部署脚本在切流前强制执行 Redis PING/noeviction、OSS 私有 ACL/镜像、ffprobe 与数据库 contract gate。
 7. 验证管理后台：Redis reachable、workers >= 1、Outbox dead=0、mirror/validation/cleanup 无积压。

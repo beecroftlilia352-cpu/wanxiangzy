@@ -106,6 +106,22 @@ describe("generation service entitlement migration", () => {
     expect(migration).toContain("'f6989e953f92e638603f8369bf5d10cbfb651dfc8145417ccb096ef1a40aeedf'::TEXT");
   });
 
+  it("has a follow-up migration for parent/child status consistency", () => {
+    const followUp = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/20260822190000_generation_parent_state_consistency.sql"),
+      "utf8",
+    );
+    expect(followUp).toContain("normalize_generation_parent_state");
+    expect(followUp).toContain("reset_generation_child_progress_on_capacity_wait");
+    expect(followUp).toContain("sync_generation_task_queue_projection");
+    expect(followUp).toContain("queue_reason := NULL");
+    expect(followUp).toContain("'QUEUED'");
+    expect(followUp).toContain("UPDATE public.task_queue_items AS item");
+    expect(followUp).toContain("status_group = public.task_queue_status_group(generation.status");
+    expect(followUp).toContain("'2026-08-22.7'::TEXT");
+    expect(followUp).toContain("'d55a0cf49e5deb81aedc516300b9648447a2bd25421426d2d035f680163e2dff'::TEXT");
+  });
+
   it("keeps every new privileged function on an empty search path", () => {
     const definitions = migration.match(/CREATE(?: OR REPLACE)? FUNCTION (?:public|private)\.[\s\S]*?\$\$;/g) ?? [];
     expect(definitions.length).toBeGreaterThanOrEqual(7);

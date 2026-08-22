@@ -1009,6 +1009,10 @@ async function completeGenerationRecord(
   });
 
   if (!adjusted) throw new Error(`任务完成结算失败: ${job.id}`);
+  // The durable generation row is the source of truth. Refresh the recent-task
+  // read model after every fenced completion so a stale child FAILED status
+  // cannot remain visible beside successful result URLs.
+  await syncGenerationQueueIndex(job.id, "complete");
 }
 
 async function assertProductRetouchResultUnique(
@@ -1519,7 +1523,10 @@ async function executePayload(
         resultUrls: getSlottedResultUrls(),
         promptTrace: getCompletedPromptTrace(),
         progress: Math.min(99, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount)),
-        externalStatus: "FAILED",
+        // This is one child slot, not the durable parent generation. A plain
+        // FAILED value makes status polling terminate the whole batch before
+        // the worker can persist partial results and settle credits.
+        externalStatus: "BATCH_RUNNING",
       });
     };
 

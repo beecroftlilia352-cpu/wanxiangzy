@@ -103,7 +103,7 @@ describe("normalizeGenerationState", () => {
     expect(state.progress).toBe(100);
   });
 
-  it("treats failed provider progress as failed even when the database row is still processing", () => {
+  it("keeps failed child progress running until the parent database row settles", () => {
     const state = normalizeGenerationState({
       status: "processing_tryon",
       resultUrls: [],
@@ -116,9 +116,21 @@ describe("normalizeGenerationState", () => {
       },
     });
 
-    expect(state.status).toBe("failed");
+    expect(state.status).toBe("processing");
+    expect(state.statusGroup).toBe("running");
+    expect(state.progress).toBe(99);
+  });
+
+  it("always trusts a completed parent over stale failed child diagnostics", () => {
+    const state = normalizeGenerationState({
+      status: "completed",
+      resultUrls: ["https://example.com/one.png", "https://example.com/two.png"],
+      payload: { genCount: 2, asyncTask: { status: "FAILED", progress: 50 } },
+    });
+
+    expect(state.status).toBe("completed");
     expect(state.statusGroup).toBe("finished");
-    expect(state.progress).toBe(100);
+    expect(state.resultCount).toBe(2);
   });
 
   it("does not treat completed rows with only blank result URLs as successful", () => {
