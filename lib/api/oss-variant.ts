@@ -33,8 +33,32 @@ function getOssConfigOrThrow() {
   return config;
 }
 
-function splitBucketAndKey(srcUrl: URL): { bucket: string; objectKey: string; host: string } {
+function splitBucketAndKey(srcUrl: URL, config: ReturnType<typeof getAliyunOssConfig>): { bucket: string; objectKey: string; host: string } {
   const host = srcUrl.hostname;
+  const configuredHosts = new Set<string>();
+  try {
+    configuredHosts.add(new URL(config.publicBaseUrl).hostname.toLowerCase());
+  } catch {
+    // getAliyunOssConfig already validates the public base URL.
+  }
+  for (const value of (process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS || "").split(",")) {
+    const normalized = value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (normalized) configuredHosts.add(normalized);
+  }
+  // CNAME/CDN hosts do not encode the bucket in their hostname. They are
+  // explicitly configured, so resolve their path against the known bucket.
+  const publicHost = configuredHosts.has(host.toLowerCase());
+  const standardHost = host === `${config.bucket}.${config.region}.aliyuncs.com` || host.endsWith(".aliyuncs.com");
+  if (publicHost && !standardHost) {
+    let objectPath = srcUrl.pathname;
+    try {
+      const basePath = new URL(config.publicBaseUrl).pathname.replace(/\/+$/, "");
+      if (basePath && objectPath.startsWith(`${basePath}/`)) objectPath = objectPath.slice(basePath.length);
+    } catch {
+      // keep the source path
+    }
+    return { bucket: config.bucket, objectKey: decodeObjectKey(objectPath), host };
+  }
   // Virtual-hosted style: <bucket>.<region>.aliyuncs.com
   // or <bucket>.<service>.<region>.aliyuncs.com
   const labels = host.split(".");
@@ -50,7 +74,7 @@ function splitBucketAndKey(srcUrl: URL): { bucket: string; objectKey: string; ho
   return { bucket, objectKey, host };
 }
 
-function buildPublicHost(config: ReturnType<typeof getAliyunOssConfig>, srcHost: string): string {
+function buildPublicHost(config: ReturnType<typeof getAliyunOssConfig>): string {
   const publicBase = config.publicBaseUrl?.trim();
   if (publicBase) {
     try {
@@ -71,7 +95,7 @@ function buildPublicHost(config: ReturnType<typeof getAliyunOssConfig>, srcHost:
  */
 export function createSignedOssVariantUrl(srcUrl: URL, variant: keyof typeof OSS_VARIANT_PIPELINES): string {
   const config = getOssConfigOrThrow();
-  const { bucket, objectKey, host } = splitBucketAndKey(srcUrl);
+  const { bucket, objectKey, host } = splitBucketAndKey(srcUrl, config);
   if (!bucket || !objectKey) {
     throw new Error("cannot derive bucket or key from src");
   }
@@ -85,7 +109,7 @@ export function createSignedOssVariantUrl(srcUrl: URL, variant: keyof typeof OSS
     throw new Error(`unknown variant: ${String(variant)}`);
   }
 
-  const publicHost = buildPublicHost(config, host);
+  const publicHost = buildPublicHost(config);
   const expires = String(Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS);
 
   // Sort query params alphabetically before signing (OSS requirement)

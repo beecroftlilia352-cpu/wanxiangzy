@@ -65,8 +65,18 @@ export function isAliyunOssImageUrl(url: string): boolean {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
     if (!parsed.protocol.startsWith("http")) return false;
-    return host.endsWith(".aliyuncs.com") || host.includes(".oss-");
+    if (host.endsWith(".aliyuncs.com") || host.includes(".oss-")) return true;
+    return configuredImageHosts().has(host);
   } catch {
     return false;
   }
+}
+
+function configuredImageHosts() {
+  return new Set(
+    (process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS || "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, ""))
+      .filter(Boolean),
+  );
 }

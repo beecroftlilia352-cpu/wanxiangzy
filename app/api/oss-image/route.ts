@@ -7,6 +7,15 @@ export const dynamic = "force-dynamic";
 const ALLOWED_HOST_RE =
   /^(?:[a-z0-9-]+\.)+aliyuncs\.com$/i;
 
+function isAllowedImageHost(hostname: string) {
+  if (ALLOWED_HOST_RE.test(hostname)) return true;
+  return (process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, ""))
+    .filter(Boolean)
+    .includes(hostname.toLowerCase());
+}
+
 type RouteContext = { params: Promise<Record<string, never>> };
 
 export async function GET(request: Request, _ctx: RouteContext) {
@@ -34,7 +43,7 @@ export async function GET(request: Request, _ctx: RouteContext) {
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
     return NextResponse.json({ error: "non-http(s) src" }, { status: 400 });
   }
-  if (!ALLOWED_HOST_RE.test(parsed.hostname)) {
+  if (!isAllowedImageHost(parsed.hostname)) {
     return NextResponse.json(
       { error: `disallowed host: ${parsed.hostname}` },
       { status: 400 },

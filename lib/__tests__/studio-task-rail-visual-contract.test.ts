@@ -14,10 +14,10 @@ const studioStyles = readFileSync(
 describe("studio task rail visual contract", () => {
   it("renders compact task thumbnails edge to edge", () => {
     expect(taskRailSource).toContain(
-      'expanded ? "space-y-2 px-3 py-3" : "space-y-1.5 px-1 py-1.5"',
+      'expanded ? "space-y-2 px-3 py-3" : "space-y-1.5 px-1.5 py-1.5"',
     );
     expect(taskRailSource).toContain(
-      "studio-task-card studio-task-card--compact group relative flex aspect-square w-full items-center justify-center p-0 text-left",
+      "studio-task-card studio-task-card--compact group relative flex aspect-square w-full items-center justify-center p-1 text-left",
     );
     expect(taskRailSource).toContain(
       'className="relative z-[1] h-full w-full object-cover"',

@@ -12,15 +12,16 @@ describe("image variants", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("adds OSS image processing to Aliyun image URLs", async () => {
+  it("routes OSS image variants through the signed image proxy", async () => {
     const { getImageVariantUrl } = await loadImageVariants();
     const url = getImageVariantUrl(
       "https://vasthk.oss-cn-hongkong.aliyuncs.com/generated-results/original/image.png",
       "thumb"
     );
 
-    expect(url).toContain("x-oss-process=");
-    expect(decodeURIComponent(url)).toContain("image/resize,m_lfit,w_320");
+    expect(url.startsWith("/api/oss-image?")).toBe(true);
+    expect(url).toContain("variant=thumb");
+    expect(decodeURIComponent(url)).toContain("src=https://vasthk.oss-cn-hongkong.aliyuncs.com/generated-results/original/image.png");
   });
 
   it("uses configured custom OSS image hosts", async () => {
@@ -29,7 +30,9 @@ describe("image variants", () => {
 
     const url = getImageVariantUrl("https://vasthk.cn-hongkong.thepacificgls.com/site-assets/original/banner.jpg", "card");
 
-    expect(decodeURIComponent(url)).toContain("image/resize,m_lfit,w_640");
+    expect(url.startsWith("/api/oss-image?")).toBe(true);
+    expect(url).toContain("variant=card");
+    expect(decodeURIComponent(url)).toContain("src=https://vasthk.cn-hongkong.thepacificgls.com/site-assets/original/banner.jpg");
   });
 
   it("leaves non-OSS URLs unchanged", async () => {
