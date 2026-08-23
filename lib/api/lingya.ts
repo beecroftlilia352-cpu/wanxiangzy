@@ -315,23 +315,27 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
       const immediateResult = extractGeneratedImages(json);
       logger.info(`[api:${provider.name}] 生成响应: ok=${res.ok}, async=${shouldRequestAsyncImageTask(provider)}, hasTask=${Boolean(taskId)}, imageCount=${immediateResult.urls.length + (immediateResult.b64Json ? 1 : 0)}`);
 
-      if (!taskId) {
-        if (immediateResult.urls.length || immediateResult.b64Json) {
-          await requestInput.onProgress?.({
-            status: "completed",
-            providerStatus: "SYNC_COMPLETED",
-            progress: 100,
-            urls: immediateResult.urls,
-          });
-          return {
-            url: immediateResult.urls[0],
-            b64_json: normalizeB64Image(immediateResult.b64Json),
-            prompt: requestInput.prompt,
-            compiledPrompt,
-          };
-        }
+      // Some synchronous Gemini gateways include a provider trace task_id next
+      // to the final inline image. The image is authoritative: polling that ID
+      // through the generic async endpoint discards a valid result.
+      if (immediateResult.urls.length || immediateResult.b64Json) {
+        await requestInput.onProgress?.({
+          status: "completed",
+          providerStatus: "SYNC_COMPLETED",
+          progress: 100,
+          urls: immediateResult.urls,
+        });
+        return {
+          url: immediateResult.urls[0],
+          b64_json: normalizeB64Image(immediateResult.b64Json),
+          prompt: requestInput.prompt,
+          compiledPrompt,
+        };
+      }
+
+      if (!taskId || !isAsyncSubmit) {
         throw new NonRetryableGenerationError(
-          `图片生成接口未返回任务 ID 或图片结果，响应字段: ${describeResponseKeys(json)}`,
+          `图片生成接口未返回图片结果，响应字段: ${describeResponseKeys(json)}`,
           "PROVIDER_AMBIGUOUS_RESPONSE",
         );
       }

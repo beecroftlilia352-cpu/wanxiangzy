@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { __lingyaTaskResponseTestUtils } from "../lingya";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AiResolvedDeployment } from "@/lib/ai-control-plane/types";
+import { NonRetryableGenerationError } from "@/lib/api/generation-errors";
+import { __lingyaTaskResponseTestUtils, generateImage } from "../lingya";
 
 const {
   buildImageEditRequest,
@@ -20,6 +22,44 @@ const {
   shouldUseImageEditEndpoint,
   shouldRequestAsyncImageTask,
 } = __lingyaTaskResponseTestUtils;
+
+function nativeLiteDeployment(): AiResolvedDeployment {
+  return {
+    id: "banana2-lite-default",
+    modelId: "nano-banana-2-lite",
+    providerId: "banana2-lite-default",
+    upstreamModel: "gemini-3.1-flash-lite-image",
+    protocol: "gemini-native",
+    enabled: true,
+    priority: 10,
+    weight: 100,
+    maxConcurrency: 24,
+    requestsPerMinute: 60,
+    burst: 24,
+    provider: {
+      id: "banana2-lite-default",
+      name: "yunwu-native",
+      baseUrl: "https://api.new.bi",
+      enabled: true,
+      timeoutMs: 120_000,
+    },
+    apiKey: "test-key",
+    health: {
+      deploymentId: "banana2-lite-default",
+      circuitState: "closed",
+      consecutiveFailures: 0,
+      sampleCount: 0,
+      ewmaSuccessRate: 1,
+      ewmaLatencyMs: 0,
+    },
+    score: 1,
+    selectionReason: {},
+  };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("lingya async task response parsing", () => {
   it("forwards a stable idempotency key on image submissions", () => {
@@ -100,6 +140,50 @@ describe("lingya async task response parsing", () => {
 
     expect(images.urls).toEqual([]);
     expect(images.b64Json).toBe("data:image/jpeg;base64,aGVsbG8=");
+  });
+
+  it("completes a native response that contains both an inline image and task_id without polling", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      task_id: "provider-trace-task",
+      candidates: [{
+        content: {
+          parts: [{ inlineData: { mimeType: "image/jpeg", data: "aGVsbG8=" } }],
+        },
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateImage({
+      model: "nano-banana-2-lite",
+      prompt: "generate a red cup",
+      image_size: "1K",
+      aspect_ratio: "1:1",
+      routingDeployment: nativeLiteDeployment(),
+    });
+
+    expect(result.b64_json).toBe("data:image/jpeg;base64,aGVsbG8=");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("never polls a task_id returned by a synchronous native protocol without an image", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      task_id: "provider-trace-without-image",
+      candidates: [],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const promise = generateImage({
+      model: "nano-banana-2-lite",
+      prompt: "generate a red cup",
+      image_size: "1K",
+      aspect_ratio: "1:1",
+      routingDeployment: nativeLiteDeployment(),
+    });
+
+    await expect(promise).rejects.toMatchObject<Partial<NonRetryableGenerationError>>({
+      code: "PROVIDER_AMBIGUOUS_RESPONSE",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("uses synchronous image generation for Plato and async tasks for Lingya", () => {
