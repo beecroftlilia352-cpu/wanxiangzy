@@ -1,24 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AiResolvedDeployment } from "@/lib/ai-control-plane/types";
-import { NonRetryableGenerationError } from "@/lib/api/generation-errors";
 import { __lingyaTaskResponseTestUtils, generateImage } from "../lingya";
 
 const {
   buildImageEditRequest,
   buildImageGenerationRequest,
-  buildLaozhangNativeImageRequest,
+  buildGeminiNativeImageRequest,
   buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,
   extractGeneratedImages,
   getImageEditUrl,
   getImageGenerationUrl,
-  getImageProvider,
-  getLaozhangGenerateContentUrl,
-  getPlatoApiBaseUrl,
+  getGeminiGenerateContentUrl,
   normalizeImageTaskResponse,
   resolveGptImage2Size,
   resolveProviderImageModel,
-  shouldUseLaozhangNativeEndpoint,
+  shouldUseGeminiNativeEndpoint,
   shouldUseImageEditEndpoint,
   shouldRequestAsyncImageTask,
 } = __lingyaTaskResponseTestUtils;
@@ -66,7 +63,7 @@ describe("lingya async task response parsing", () => {
     const request = buildImageGenerationRequest({
       apiBase: "https://api.example.com/v1",
       apiKey: "test-key",
-      provider: { name: "plato" },
+      provider: { name: "admin" },
       body: { model: "gpt-image-2", prompt: "test" },
       idempotencyKey: "gen-image:test:abc123",
     });
@@ -124,7 +121,7 @@ describe("lingya async task response parsing", () => {
     expect(images.urls).toEqual([]);
   });
 
-  it("extracts inline images from LaoZhang native Gemini responses", () => {
+  it("extracts inline images from native Gemini responses", () => {
     const images = extractGeneratedImages({
       candidates: [{
         content: {
@@ -180,42 +177,78 @@ describe("lingya async task response parsing", () => {
       routingDeployment: nativeLiteDeployment(),
     });
 
-    await expect(promise).rejects.toMatchObject<Partial<NonRetryableGenerationError>>({
+    await expect(promise).rejects.toMatchObject({
       code: "PROVIDER_AMBIGUOUS_RESPONSE",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("uses synchronous image generation for Plato and async tasks for Lingya", () => {
-    expect(shouldRequestAsyncImageTask({ name: "plato" })).toBe(false);
-    expect(shouldRequestAsyncImageTask({ name: "catrouter" })).toBe(false);
-    expect(shouldRequestAsyncImageTask({ name: "laozhang" })).toBe(false);
-    expect(shouldRequestAsyncImageTask({ name: "yunwu-native" })).toBe(false);
-    expect(shouldRequestAsyncImageTask({ name: "lingya" })).toBe(true);
-    expect(getImageGenerationUrl("https://api.bltcy.ai/v1", { name: "plato" }))
-      .toBe("https://api.bltcy.ai/v1/images/generations");
-    expect(getImageGenerationUrl("https://api.lingyaai.cn/v1", { name: "lingya" }))
-      .toBe("https://api.lingyaai.cn/v1/images/generations?async=true");
+  it("preserves safe diagnostics for an explicit transient upstream 404", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "UPSTREAM_ROUTE_NOT_FOUND", message: "untrusted internal detail" },
+    }), {
+      status: 404,
+      headers: { "Content-Type": "application/json", "x-request-id": "newbi-trace-123" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generateImage({
+      model: "nano-banana-2-lite",
+      prompt: "generate a red cup",
+      image_size: "1K",
+      aspect_ratio: "1:1",
+      routingDeployment: nativeLiteDeployment(),
+    })).rejects.toMatchObject({
+      name: "ProviderHttpResponseError",
+      status: 404,
+      code: "UPSTREAM_ROUTE_NOT_FOUND",
+      providerRequestId: "newbi-trace-123",
+      safeToFailover: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("routes nano banana models through LaoZhang native generateContent", async () => {
-    const request = await buildLaozhangNativeImageRequest({
-      apiBase: "https://api.laozhang.ai",
+  it("does not mark an ambiguous upstream 5xx as safe for cross-provider replay", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("bad gateway", { status: 503 })));
+
+    await expect(generateImage({
+      model: "nano-banana-2-lite",
+      prompt: "generate a red cup",
+      image_size: "1K",
+      aspect_ratio: "1:1",
+      routingDeployment: nativeLiteDeployment(),
+    })).rejects.toMatchObject({
+      name: "ProviderHttpResponseError",
+      status: 503,
+      safeToFailover: false,
+    });
+  });
+
+  it("uses synchronous image generation for unified control-plane deployments", () => {
+    expect(shouldRequestAsyncImageTask({ name: "admin" })).toBe(false);
+    expect(getImageGenerationUrl("https://provider.example/v1", { name: "admin" }))
+      .toBe("https://provider.example/v1/images/generations");
+  });
+
+  it("routes Gemini-native deployments through generateContent", async () => {
+    const request = await buildGeminiNativeImageRequest({
+      apiBase: "https://provider.example",
       apiKey: "test-key",
-      model: "gemini-3.1-flash-image-preview",
+      model: "gemini-3.1-flash-image",
       prompt: "generate a red cup",
       imageUrls: [],
       aspectRatio: "3:4",
       imageSize: "2K",
     });
 
-    expect(shouldUseLaozhangNativeEndpoint({ model: "nano-banana-2" }, { name: "laozhang" }))
+    expect(shouldUseGeminiNativeEndpoint(
+      { model: "nano-banana-2" },
+      { name: "admin", responseType: "gemini-native" },
+    ))
       .toBe(true);
-    expect(shouldUseLaozhangNativeEndpoint({ model: "nano-banana-2" }, { name: "yunwu-native" }))
-      .toBe(true);
-    expect(getLaozhangGenerateContentUrl("https://api.laozhang.ai", "gemini-3.1-flash-image-preview"))
-      .toBe("https://api.laozhang.ai/v1beta/models/gemini-3.1-flash-image-preview:generateContent");
-    expect(request.url).toBe("https://api.laozhang.ai/v1beta/models/gemini-3.1-flash-image-preview:generateContent");
+    expect(getGeminiGenerateContentUrl("https://provider.example", "gemini-3.1-flash-image"))
+      .toBe("https://provider.example/v1beta/models/gemini-3.1-flash-image:generateContent");
+    expect(request.url).toBe("https://provider.example/v1beta/models/gemini-3.1-flash-image:generateContent");
     expect(request.init.headers).toMatchObject({ "x-goog-api-key": "test-key", "Content-Type": "application/json" });
     expect(JSON.parse(String(request.init.body))).toMatchObject({
       contents: [{ role: "user", parts: [{ text: "generate a red cup" }] }],
@@ -235,11 +268,12 @@ describe("lingya async task response parsing", () => {
       image_size: "1K",
     }, "compiled prompt");
 
-    expect(shouldUseImageEditEndpoint({ model: "gpt-image-2", image: ["https://example.com/source.png"] }, { name: "plato" }))
+    expect(shouldUseImageEditEndpoint(
+      { model: "gpt-image-2", image: ["https://example.com/source.png"] },
+      { name: "admin", responseType: "openai-image" },
+    ))
       .toBe(true);
-    expect(shouldUseImageEditEndpoint({ model: "gpt-image-2", image: ["https://example.com/source.png"] }, { name: "catrouter" }))
-      .toBe(true);
-    expect(getImageEditUrl("https://yunwu.ai/v1")).toBe("https://yunwu.ai/v1/images/edits");
+    expect(getImageEditUrl("https://provider.example/v1")).toBe("https://provider.example/v1/images/edits");
     expect(body).toMatchObject({
       model: "gpt-image-2",
       prompt: "compiled prompt",
@@ -253,7 +287,7 @@ describe("lingya async task response parsing", () => {
 
   it("builds gpt-image-2 edits as multipart form data", async () => {
     const request = await buildImageEditRequest({
-      apiBase: "https://yunwu.ai/v1",
+      apiBase: "https://provider.example/v1",
       apiKey: "test-key",
       body: {
         model: "gpt-image-2",
@@ -265,7 +299,7 @@ describe("lingya async task response parsing", () => {
       maskUrl: "data:image/png;base64,bWFzaw==",
     });
 
-    expect(request.url).toBe("https://yunwu.ai/v1/images/edits");
+    expect(request.url).toBe("https://provider.example/v1/images/edits");
     expect(request.init.headers).toMatchObject({
       Authorization: "Bearer test-key",
       Accept: "application/json",
@@ -281,7 +315,7 @@ describe("lingya async task response parsing", () => {
 
   it("rejects too many gpt-image-2 edit reference images before calling the provider", async () => {
     await expect(buildImageEditRequest({
-      apiBase: "https://yunwu.ai/v1",
+      apiBase: "https://provider.example/v1",
       apiKey: "test-key",
       body: {
         model: "gpt-image-2",
@@ -321,85 +355,6 @@ describe("lingya async task response parsing", () => {
     }, "compiled prompt");
 
     expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x864", quality: "auto" });
-  });
-
-  it("uses CatRouter as the default GPT provider and can switch to Plato", async () => {
-    const previousProvider = process.env.GPT_IMAGE_PROVIDER;
-    const previousCatrouterKey = process.env.CATROUTER_API_KEY;
-    const previousCatrouterBase = process.env.CATROUTER_BASE_URL;
-    const previousPlatoKey = process.env.PLATO_API_KEY;
-
-    delete process.env.GPT_IMAGE_PROVIDER;
-    delete process.env.CATROUTER_BASE_URL;
-    process.env.CATROUTER_API_KEY = "catrouter-key";
-    process.env.PLATO_API_KEY = "plato-key";
-
-    await expect(getImageProvider("gpt-image-2")).resolves.toMatchObject({
-      name: "catrouter",
-      apiBase: "https://api.catrouter.net/v1",
-      apiKey: "catrouter-key",
-    });
-
-    process.env.GPT_IMAGE_PROVIDER = "plato";
-    await expect(getImageProvider("gpt-image-2")).resolves.toMatchObject({
-      name: "plato",
-      apiBase: "https://yunwu.ai/v1",
-      apiKey: "plato-key",
-    });
-
-    if (previousProvider === undefined) delete process.env.GPT_IMAGE_PROVIDER;
-    else process.env.GPT_IMAGE_PROVIDER = previousProvider;
-    if (previousCatrouterKey === undefined) delete process.env.CATROUTER_API_KEY;
-    else process.env.CATROUTER_API_KEY = previousCatrouterKey;
-    if (previousCatrouterBase === undefined) delete process.env.CATROUTER_BASE_URL;
-    else process.env.CATROUTER_BASE_URL = previousCatrouterBase;
-    if (previousPlatoKey === undefined) delete process.env.PLATO_API_KEY;
-    else process.env.PLATO_API_KEY = previousPlatoKey;
-  });
-
-  it("uses Yunwu native as the default Nano Banana provider and can switch to LaoZhang or CatRouter", async () => {
-    const previousProvider = process.env.NANO_BANANA_PROVIDER;
-    const previousYunwuKey = process.env.YUNWU_NATIVE_API_KEY;
-    const previousYunwuSharedKey = process.env.YUNWU_API_KEY;
-    const previousLaozhangKey = process.env.LAOZHANG_API_KEY;
-    const previousCatrouterKey = process.env.CATROUTER_API_KEY;
-
-    delete process.env.NANO_BANANA_PROVIDER;
-    delete process.env.YUNWU_API_KEY;
-    process.env.YUNWU_NATIVE_API_KEY = "yunwu-native-key";
-    process.env.LAOZHANG_API_KEY = "laozhang-key";
-    process.env.CATROUTER_API_KEY = "catrouter-key";
-
-    await expect(getImageProvider("nano-banana-2")).resolves.toMatchObject({
-      name: "yunwu-native",
-      apiBase: "https://yunwu.ai",
-      apiKey: "yunwu-native-key",
-    });
-
-    process.env.NANO_BANANA_PROVIDER = "laozhang";
-    await expect(getImageProvider("nano-banana-2")).resolves.toMatchObject({
-      name: "laozhang",
-      apiBase: "https://api.laozhang.ai",
-      apiKey: "laozhang-key",
-    });
-
-    process.env.NANO_BANANA_PROVIDER = "catrouter";
-    await expect(getImageProvider("nano-banana-2")).resolves.toMatchObject({
-      name: "catrouter",
-      apiBase: "https://api.catrouter.net",
-      apiKey: "catrouter-key",
-    });
-
-    if (previousProvider === undefined) delete process.env.NANO_BANANA_PROVIDER;
-    else process.env.NANO_BANANA_PROVIDER = previousProvider;
-    if (previousYunwuKey === undefined) delete process.env.YUNWU_NATIVE_API_KEY;
-    else process.env.YUNWU_NATIVE_API_KEY = previousYunwuKey;
-    if (previousYunwuSharedKey === undefined) delete process.env.YUNWU_API_KEY;
-    else process.env.YUNWU_API_KEY = previousYunwuSharedKey;
-    if (previousLaozhangKey === undefined) delete process.env.LAOZHANG_API_KEY;
-    else process.env.LAOZHANG_API_KEY = previousLaozhangKey;
-    if (previousCatrouterKey === undefined) delete process.env.CATROUTER_API_KEY;
-    else process.env.CATROUTER_API_KEY = previousCatrouterKey;
   });
 
   it("preserves gpt-image-2 2K and 4K selections in request bodies", () => {
@@ -445,7 +400,10 @@ describe("lingya async task response parsing", () => {
       image_size: "1K",
     }, "compiled prompt");
 
-    expect(shouldUseImageEditEndpoint({ model: "nano-banana-2", image: ["https://example.com/source.png"] }, { name: "lingya" }))
+    expect(shouldUseImageEditEndpoint(
+      { model: "nano-banana-2", image: ["https://example.com/source.png"] },
+      { name: "admin", responseType: "gemini-native" },
+    ))
       .toBe(false);
     expect(body).toMatchObject({
       model: "nano-banana-2",
@@ -457,44 +415,16 @@ describe("lingya async task response parsing", () => {
     });
   });
 
-  it("keeps Plato gpt-image-2 pinned to the official model id", () => {
-    const previous = process.env.PLATO_GPT_IMAGE_MODEL;
-
-    expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2");
-
-    process.env.PLATO_GPT_IMAGE_MODEL = "gpt-image-2-custom";
-
-    expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2");
-    expect(resolveProviderImageModel("gpt-image-2", { name: "catrouter" })).toBe("gpt-image-2");
-    expect(resolveProviderImageModel("gpt-image-2", { name: "lingya" })).toBe("gpt-image-2");
-    expect(resolveProviderImageModel("nano-banana-2", { name: "catrouter" })).toBe("gemini-3.1-flash-image-preview");
-    expect(resolveProviderImageModel("nano-banana-pro", { name: "catrouter" })).toBe("gemini-3-pro-image-preview");
-    expect(resolveProviderImageModel("nano-banana-2", { name: "yunwu-native" })).toBe("gemini-3.1-flash-image-preview");
-    expect(resolveProviderImageModel("nano-banana-pro", { name: "yunwu-native" })).toBe("gemini-3-pro-image-preview");
-    expect(resolveProviderImageModel("nano-banana-2", { name: "laozhang" })).toBe("gemini-3.1-flash-image-preview");
-    expect(resolveProviderImageModel("nano-banana-pro", { name: "laozhang" })).toBe("gemini-3-pro-image-preview");
-
-    if (previous === undefined) {
-      delete process.env.PLATO_GPT_IMAGE_MODEL;
-    } else {
-      process.env.PLATO_GPT_IMAGE_MODEL = previous;
-    }
-  });
-
-  it("routes deprecated Plato base URL to the default GPT image provider", () => {
-    const previous = process.env.PLATO_BASE_URL;
-    process.env.PLATO_BASE_URL = "https://api.bltcy.ai";
-
-    expect(getPlatoApiBaseUrl()).toBe("https://yunwu.ai/v1");
-
-    process.env.PLATO_BASE_URL = "https://api.example.com/proxy";
-    expect(getPlatoApiBaseUrl()).toBe("https://api.example.com/proxy/v1");
-
-    if (previous === undefined) {
-      delete process.env.PLATO_BASE_URL;
-    } else {
-      process.env.PLATO_BASE_URL = previous;
-    }
+  it("uses the deployment's upstream model code as the source of truth", () => {
+    expect(resolveProviderImageModel("gpt-image-2", {
+      name: "admin",
+      upstreamModel: "provider-gpt-image-code",
+    })).toBe("provider-gpt-image-code");
+    expect(resolveProviderImageModel("nano-banana-2", {
+      name: "admin",
+      upstreamModel: "gemini-3.1-flash-image",
+    })).toBe("gemini-3.1-flash-image");
+    expect(resolveProviderImageModel("nano-banana-2", { name: "admin" })).toBe("nano-banana-2");
   });
 
   it("eases synchronous request progress while leaving room for completion", () => {

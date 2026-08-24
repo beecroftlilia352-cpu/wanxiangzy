@@ -27,6 +27,49 @@ export class NonRetryableGenerationError extends Error {
 }
 
 /**
+ * A completed HTTP response from an image provider. Unlike a network error,
+ * this proves that the provider returned a decision and lets the router make
+ * a conservative failover decision without parsing an error message.
+ */
+export class ProviderHttpResponseError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly retryAfterSeconds?: number;
+  readonly providerRequestId?: string;
+  readonly safeToFailover: boolean;
+
+  constructor(message: string, options: {
+    status: number;
+    code?: string;
+    retryAfterSeconds?: number;
+    providerRequestId?: string;
+    safeToFailover?: boolean;
+  }) {
+    super(sanitizeGenerationErrorMessage(message));
+    this.name = "ProviderHttpResponseError";
+    this.status = options.status;
+    this.code = options.code;
+    this.retryAfterSeconds = options.retryAfterSeconds;
+    this.providerRequestId = options.providerRequestId;
+    this.safeToFailover = options.safeToFailover === true;
+  }
+}
+
+export function isProviderHttpResponseError(error: unknown): error is ProviderHttpResponseError {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as {
+    name?: unknown;
+    status?: unknown;
+    safeToFailover?: unknown;
+  };
+  return candidate.name === "ProviderHttpResponseError"
+    && Number.isInteger(candidate.status)
+    && Number(candidate.status) >= 400
+    && Number(candidate.status) <= 599
+    && typeof candidate.safeToFailover === "boolean";
+}
+
+/**
  * The database has already moved this execution to a newer delivery fence.
  * This is an expected race between a stale worker and recovery, not a job
  * failure that BullMQ should retry.

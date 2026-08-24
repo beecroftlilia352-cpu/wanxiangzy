@@ -107,6 +107,26 @@ describe("uploadImage", () => {
     expect(submittedFields.at(-1)).toBe("file");
   });
 
+  it("uses JPEG bytes when a downloaded .png file carries a stale image/png MIME type", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ mode: "server" }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("crypto", {
+      subtle: { digest: vi.fn(async () => new Uint8Array(32).buffer) },
+    });
+    installMockXhr();
+
+    const downloadedJpeg = new File(
+      [new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])],
+      "downloaded-image.png",
+      { type: "image/png" },
+    );
+    await expect(uploadImage(downloadedJpeg)).resolves.toEqual(SUCCESS_RESULT);
+    expect(fetchMock).toHaveBeenCalledWith("/api/upload-image", expect.objectContaining({
+      body: expect.stringContaining('"contentType":"image/jpeg"'),
+    }));
+  });
+
   it("rejects an invalid XHR status instead of leaving the upload pending", async () => {
     installMockXhr(0, {});
 

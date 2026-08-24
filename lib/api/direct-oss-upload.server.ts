@@ -394,6 +394,28 @@ export async function inspectImageBytes(bytes: Buffer, contentType: string, expe
   }
 }
 
+/** Prefer the file signature over a browser-supplied MIME type. Downloaded
+ * files are commonly reported as application/octet-stream (or keep the
+ * download filename's stale extension), while the bytes themselves are valid
+ * JPEG/PNG/WebP images. */
+export function resolveSupportedImageContentType(
+  bytes: Buffer,
+  declaredContentType?: string | null,
+  filename?: string | null,
+) {
+  const detected = detectSupportedImageContentType(bytes);
+  if (detected) return detected;
+
+  const declared = normalizeContentType(declaredContentType || "");
+  if (IMAGE_TYPES.has(declared)) return declared;
+
+  const extension = filename?.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return declared;
+}
+
 export function inspectVideoHeader(bytes: Buffer, contentType: string) {
   const type = normalizeContentType(contentType);
   if (!VIDEO_TYPES.has(type) || bytes.length < 12 || bytes.subarray(4, 8).toString("ascii") !== "ftyp") {
@@ -854,6 +876,13 @@ function matchesImageMagic(bytes: Buffer, contentType: string) {
   if (contentType === "image/png") return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   if (contentType === "image/webp") return bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
   return false;
+}
+
+function detectSupportedImageContentType(bytes: Buffer) {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "image/png";
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp";
+  return null;
 }
 
 function sha256(bytes: Buffer) {

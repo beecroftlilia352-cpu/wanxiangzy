@@ -8,6 +8,7 @@ import {
   inspectImageBytes,
   prepareDirectUpload,
   serverFallbackMaxBytes,
+  resolveSupportedImageContentType,
 } from "@/lib/api/direct-oss-upload.server";
 import { storeImage } from "@/lib/api/image-storage";
 
@@ -82,7 +83,7 @@ async function uploadSmallImageFallback(request: Request, userId: string) {
     return NextResponse.json({ error: `服务端回退仅支持 ${Math.floor(maxBytes / 1024 / 1024)}MB 以内图片` }, { status: 413 });
   }
   const bytes = Buffer.from(await file.arrayBuffer());
-  const contentType = (file.type || "").split(";", 1)[0].toLowerCase();
+  const contentType = resolveSupportedImageContentType(bytes, file.type, file.name);
   const dimensions = await inspectImageBytes(bytes, contentType);
   const admission = await admitServerFallback({ userId, kind: "image", bytes, contentType });
   try {

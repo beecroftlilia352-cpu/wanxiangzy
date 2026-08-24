@@ -78,7 +78,6 @@ jobs:
               -e 's/sk-[A-Za-z0-9_-]+/sk-***/g' \
               -e 's/(SUPABASE_SERVICE_ROLE_KEY=).*/\1<set>/g' \
               -e 's/(NEXT_PUBLIC_SUPABASE_ANON_KEY=).*/\1<set>/g' \
-              -e 's/(PLATO_API_KEY=).*/\1<set>/g' \
               -e 's/(LINGYA_API_KEY=).*/\1<set>/g' \
               -e 's/(IMGBB_API_KEY=).*/\1<set>/g'
           }
@@ -107,7 +106,7 @@ jobs:
 
           echo "## env"
           if [ -f "$ENV_FILE" ]; then
-            grep -E '^(NEXT_PUBLIC_APP_URL|NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|PLATO_BASE_URL|PLATO_API_KEY|PLATO_GPT_IMAGE_MODEL|LINGYA_BASE_URL|LINGYA_API_KEY|IMAGE_STORAGE_PROVIDER|PORT)=' "$ENV_FILE" | mask || true
+            grep -E '^(NEXT_PUBLIC_APP_URL|NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|LINGYA_BASE_URL|LINGYA_API_KEY|IMAGE_STORAGE_PROVIDER|PORT)=' "$ENV_FILE" | mask || true
           else
             echo "missing env file: $ENV_FILE"
           fi

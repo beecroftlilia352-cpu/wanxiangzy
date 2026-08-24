@@ -39,8 +39,8 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   if (loadError || !current) {
     return NextResponse.json({ error: loadError?.message || "配置版本不存在" }, { status: 404 });
   }
-  if (current.config_key === "model.routing") {
-    return NextResponse.json({ error: "model.routing 已废弃，只能查看历史记录，不能再次发布或归档" }, { status: 409 });
+  if (current.config_key === "model.routing" || current.config_key === "model.providers") {
+    return NextResponse.json({ error: `${current.config_key} 已废弃，只能查看历史记录，不能再次发布或归档` }, { status: 409 });
   }
 
   if (action === "publish") {

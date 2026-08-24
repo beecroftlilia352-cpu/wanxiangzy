@@ -31,7 +31,6 @@ const DEFAULT_ALLOWED_HOSTS = [
   "cn-hongkong.thepacificgls.com",
   "webstatic.aiproxy.vip",
   "oss.filenest.top",
-  "yunwu.ai",
 ];
 const downloadRateBuckets = new Map<string, { count: number; resetAt: number }>();
 

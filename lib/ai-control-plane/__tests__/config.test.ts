@@ -1,25 +1,55 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_DEPLOYMENT_BURST,
+  DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
+  DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
   createDefaultAiControlPlaneConfig,
   validateAiControlPlaneConfig,
 } from "@/lib/ai-control-plane/config";
+import type { AiControlPlaneConfig } from "@/lib/ai-control-plane/types";
+
+function addBananaDeployment(config: AiControlPlaneConfig, suffix = "primary") {
+  config.models[0].enabled = true;
+  config.providers.push({
+    id: `image-${suffix}`,
+    name: `Image ${suffix}`,
+    baseUrl: `https://${suffix}.provider.example`,
+    apiKey: "encrypted:test-key",
+    enabled: true,
+    timeoutMs: 120_000,
+    capacityMaxConcurrency: 24,
+    capacityRequestsPerMinute: 60,
+    capacityBurst: 24,
+  });
+  config.deployments.push({
+    id: `banana2-${suffix}`,
+    modelId: "nano-banana-2",
+    providerId: `image-${suffix}`,
+    upstreamModel: "provider-image-model-code",
+    protocol: "gemini-native",
+    enabled: true,
+    priority: 10,
+    weight: 100,
+    maxConcurrency: 24,
+    requestsPerMinute: 60,
+    burst: 24,
+    capabilities: ["generation", "edit"],
+    qualityScore: 0.8,
+  });
+}
 
 describe("AI control-plane configuration", () => {
-  it("ships a production-scale image pool baseline instead of saturating at four jobs", () => {
+  it("ships an unconfigured provider baseline with safe capacity defaults", () => {
     const config = createDefaultAiControlPlaneConfig();
-    const imageDeployments = config.deployments.filter((deployment) =>
-      config.models.find((model) => model.id === deployment.modelId)?.modality === "image"
-    );
-    expect(imageDeployments.length).toBeGreaterThan(0);
-    expect(imageDeployments.every((deployment) => deployment.maxConcurrency === 24)).toBe(true);
-    expect(imageDeployments.every((deployment) => deployment.requestsPerMinute === 60)).toBe(true);
-    expect(imageDeployments.every((deployment) => deployment.burst === 24)).toBe(true);
+    expect(config.providers).toEqual([]);
+    expect(config.deployments).toEqual([]);
+    expect(config.models.filter((model) => model.modality === "image").every((model) => !model.enabled)).toBe(true);
+    expect(DEFAULT_DEPLOYMENT_MAX_CONCURRENCY).toBe(24);
+    expect(DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE).toBe(60);
+    expect(DEFAULT_DEPLOYMENT_BURST).toBe(24);
     expect(config.policy.leaseTtlSeconds).toBe(60);
     expect(config.policy.maxAttempts).toBe(2);
-    expect(config.providers.every((provider) => provider.capacityMaxConcurrency === 24)).toBe(true);
-    expect(config.providers.every((provider) => provider.capacityRequestsPerMinute === 60)).toBe(true);
-    expect(config.providers.every((provider) => provider.capacityBurst === 24)).toBe(true);
   });
 
   it("caps legacy routing policies at two supplier deployments", () => {
@@ -37,21 +67,9 @@ describe("AI control-plane configuration", () => {
 
   it("accepts a valid multi-provider priority pool", () => {
     const config = createDefaultAiControlPlaneConfig();
-    config.providers.push({
-      id: "backup-image",
-      name: "Backup",
-      baseUrl: "https://example.com/v1",
-      apiKey: "env:BACKUP_IMAGE_KEY",
-      enabled: true,
-      timeoutMs: 120_000,
-    });
-    config.deployments.push({
-      ...config.deployments[0],
-      id: "banana2-backup",
-      providerId: "backup-image",
-      priority: config.deployments[0].priority,
-      weight: 50,
-    });
+    addBananaDeployment(config, "primary");
+    addBananaDeployment(config, "backup");
+    config.deployments[1].weight = 50;
 
     const result = validateAiControlPlaneConfig(config);
     expect(result.issues.filter((issue) => issue.severity === "error")).toEqual([]);
@@ -69,6 +87,7 @@ describe("AI control-plane configuration", () => {
       capabilities: ["generation", "edit"],
       defaultRoutingMode: "smart",
     });
+    addBananaDeployment(config);
     config.deployments.push({
       ...config.deployments[0],
       id: "qwen-image-3-primary",
@@ -86,6 +105,7 @@ describe("AI control-plane configuration", () => {
 
   it("rejects protocols that cannot execute a model modality", () => {
     const config = createDefaultAiControlPlaneConfig();
+    addBananaDeployment(config);
     config.deployments[0] = { ...config.deployments[0], protocol: "openai-chat" };
     const result = validateAiControlPlaneConfig(config);
     expect(result.issues).toContainEqual(expect.objectContaining({
@@ -96,6 +116,7 @@ describe("AI control-plane configuration", () => {
 
   it("preserves model presentation metadata and safe adapter overrides", () => {
     const config = createDefaultAiControlPlaneConfig();
+    addBananaDeployment(config);
     config.models[0].presentation = {
       shortTitle: "香蕉 2",
       badge: "推荐",
@@ -119,6 +140,7 @@ describe("AI control-plane configuration", () => {
 
   it("rejects unsafe adapter paths and non-HTTPS catalog images", () => {
     const config = createDefaultAiControlPlaneConfig();
+    addBananaDeployment(config);
     config.models[0].presentation = { iconUrl: "javascript:alert(1)" };
     config.deployments[0].adapterConfig = { generationPath: "https://attacker.invalid/capture" };
     const result = validateAiControlPlaneConfig(config);

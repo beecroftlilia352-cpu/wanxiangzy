@@ -42,10 +42,8 @@ export const DEFAULT_AI_ROUTING_POLICY: AiRoutingPolicy = {
 };
 
 /**
- * Default per-deployment in-flight ceiling used by the `deployment()`
- * factory. Centralised so that consumers (e.g. the offline / unconfigured
- * fallback in `resolveImageBatchConcurrency`) can stay aligned with the
- * exact value the factory writes into published configs.
+ * Safe capacity defaults used when a newly added deployment omits an
+ * explicit limit. Provider endpoints and model codes are never defaulted.
  */
 export const DEFAULT_DEPLOYMENT_MAX_CONCURRENCY = 24;
 export const DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE = 60;
@@ -64,22 +62,11 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
       { ...baseModel("video-minimax", "MiniMax 视频", "video", false, false), capabilities: ["image-to-video", "first-last-frame"], defaultRoutingMode: "smart", creditPrices: { "pro:768p:minimum": 15, "pro:768p:perSecond": 3, "pro:2k:minimum": 20, "pro:2k:perSecond": 4 } },
       { ...baseModel("video-seedance", "Seedance 视频", "video", false, false), capabilities: ["image-to-video", "motion-control", "first-last-frame"], defaultRoutingMode: "smart", creditPrices: { "mini:720p:minimum": 20, "mini:720p:perSecond": 5, "fast:480p:minimum": 16, "fast:480p:perSecond": 4, "fast:720p:minimum": 24, "fast:720p:perSecond": 6, "pro:720p:minimum": 28, "pro:720p:perSecond": 7, "pro:1080p:minimum": 80, "pro:1080p:perSecond": 20 } },
     ],
-    providers: [
-      provider("yunwu-openai", "云雾 OpenAI 兼容", "https://yunwu.ai/v1", "env:PLATO_API_KEY"),
-      provider("yunwu-native", "云雾 Gemini Native", "https://yunwu.ai", "env:YUNWU_NATIVE_API_KEY"),
-      provider("minimax", "MiniMax", "https://api.minimaxi.com/v1", "env:MINIMAX_API_KEY"),
-      provider("newapi-video", "NewAPI 视频", "https://api.new.bi", "env:VIDEO_API_KEY"),
-    ],
-    deployments: [
-      deployment("banana2-yunwu", "nano-banana-2", "yunwu-native", "gemini-3.1-flash-image-preview", "gemini-native", 10),
-      deployment("banana2-lite-yunwu", "nano-banana-2-lite", "yunwu-native", "gemini-3.1-flash-lite-image", "gemini-native", 20),
-      deployment("gpt2-yunwu", "gpt-image-2", "yunwu-openai", "gpt-image-2", "openai-image", 10),
-      deployment("banana-pro-yunwu", "nano-banana-pro", "yunwu-native", "gemini-3-pro-image-preview", "gemini-native", 10),
-      deployment("text-minimax", "text-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
-      deployment("vision-minimax", "vision-default", "minimax", "MiniMax-M3", "openai-chat", 10, false),
-      { ...deployment("video-minimax-newapi", "video-minimax", "newapi-video", "minimax", "newapi-video", 10, false), capabilities: ["image-to-video", "first-last-frame"], maxConcurrency: 2, requestsPerMinute: 30, burst: 2 },
-      { ...deployment("video-seedance-newapi", "video-seedance", "newapi-video", "seedance", "newapi-video", 10, false), capabilities: ["image-to-video", "motion-control", "first-last-frame"], maxConcurrency: 2, requestsPerMinute: 30, burst: 2 },
-    ],
+    // Provider endpoints and real upstream model codes are deployment data,
+    // not source-code defaults. A new installation starts unconfigured and
+    // must publish them through the unified model control plane.
+    providers: [],
+    deployments: [],
     policy: DEFAULT_AI_ROUTING_POLICY,
   };
 }
@@ -325,46 +312,11 @@ function imageModel(id: string, displayName: string, creditPrices: Record<string
     : id === "gpt-image-2"
       ? { shortTitle: "GPT Image 2", badge: "NEW", iconUrl: `${assetBase}/gpt-image-2.png`, sortOrder: 20, featured: false }
       : { shortTitle: "香蕉Pro", badge: "PRO", iconUrl: `${assetBase}/banana-pro.png`, sortOrder: 30, featured: false };
-  return { ...baseModel(id, displayName, "image", true), capabilities: ["generation", "edit"], creditPrices, presentation };
+  return { ...baseModel(id, displayName, "image", true, false), capabilities: ["generation", "edit"], creditPrices, presentation };
 }
 
 function baseModel(id: string, displayName: string, modality: AiModality, userVisible: boolean, enabled = true): AiLogicalModel {
   return { id, displayName, modality, enabled, userVisible, capabilities: [], defaultRoutingMode: "stable" };
-}
-
-function provider(id: string, name: string, baseUrl: string, apiKey: string): AiProviderEndpoint {
-  return {
-    id,
-    name,
-    baseUrl,
-    apiKey,
-    enabled: true,
-    region: "global",
-    timeoutMs: 120_000,
-    capacityGroup: id,
-    capacityMaxConcurrency: DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
-    capacityRequestsPerMinute: DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
-    capacityBurst: DEFAULT_DEPLOYMENT_BURST,
-  };
-}
-
-function deployment(id: string, modelId: string, providerId: string, upstreamModel: string, protocol: AiProviderProtocol, priority: number, enabled = true): AiModelDeployment {
-  const capabilities = protocol === "openai-image" || protocol === "gemini-native" ? ["generation", "edit"] : [];
-  return {
-    id,
-    modelId,
-    providerId,
-    upstreamModel,
-    protocol,
-    enabled,
-    priority,
-    weight: 100,
-    maxConcurrency: DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
-    requestsPerMinute: DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
-    burst: DEFAULT_DEPLOYMENT_BURST,
-    capabilities,
-    qualityScore: 0.8,
-  };
 }
 
 function checkUnique(items: Array<{ id: string }>, path: string, issues: AiControlPlaneIssue[]) {

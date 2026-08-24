@@ -138,10 +138,8 @@ function ModelLabel({ config, model }: { config: AiConfig; model: string }) {
     );
 }
 
-// Show the "（channelName）" suffix only when the model name appears in more
-// than one channel. When all matches live in one channel (the common case for
-// yunwu's single platform channel), the suffix is redundant visual noise that
-// forces long model names to truncate.
+// Show the "（channelName）" suffix only when the same model name appears in
+// more than one user-configured channel.
 function shouldShowChannelSuffix(config: AiConfig, modelName: string): boolean {
     const matches = config.channels.filter((channel) => channel.models.includes(modelName));
     return matches.length > 1;

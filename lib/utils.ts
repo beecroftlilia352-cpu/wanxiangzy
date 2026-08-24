@@ -537,7 +537,7 @@ async function tryDirectOssUpload(
       body: JSON.stringify({
         action: "prepare",
         purpose,
-        file: { name: file.name, size: file.size, contentType: normalizeBrowserUploadType(file), sha256 },
+        file: { name: file.name, size: file.size, contentType: await resolveBrowserUploadType(file, apiPath), sha256 },
       }),
     });
   } catch {
@@ -667,7 +667,33 @@ async function sha256File(file: File) {
 
 function normalizeBrowserUploadType(file: File) {
   const type = (file.type || "").split(";", 1)[0].trim().toLowerCase();
-  return type === "video/mov" ? "video/quicktime" : type;
+  if (type === "image/jpg") return "image/jpeg";
+  if (type === "video/mov") return "video/quicktime";
+  if (type) return type;
+  const extension = file.name.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  if (extension === "mp4") return "video/mp4";
+  if (extension === "mov") return "video/quicktime";
+  return "";
+}
+
+async function resolveBrowserUploadType(file: File, apiPath: "/api/upload-image" | "/api/upload-video") {
+  const declared = normalizeBrowserUploadType(file);
+  if (apiPath !== "/api/upload-image") return declared;
+
+  try {
+    const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+    if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+      && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) return "image/png";
+    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
+  } catch {
+    // The declared type/extension remains the best available fallback.
+  }
+  return declared;
 }
 
 export async function uploadAudio(file: File): Promise<UploadResult> {

@@ -44,10 +44,19 @@ describe("downloadMediaFile", () => {
     expect(clickedHref).toBe("blob:local-result");
   });
 
-  it("routes canonical media assets through an authenticated redirect without proxying bytes", async () => {
+  it("uses the canonical asset MIME to correct a misleading png download name", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      strategy: "direct",
+      url: "https://oss.example.com/result-object?signed=1",
+      filename: "result.jpg",
+      mime_type: "image/jpeg",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
     let clickedHref = "";
+    let clickedFilename = "";
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
       clickedHref = this.href;
+      clickedFilename = this.download;
     });
 
     await downloadMediaFile(
@@ -55,12 +64,14 @@ describe("downloadMediaFile", () => {
       "result.png",
     );
 
-    const downloadUrl = new URL(clickedHref);
-    expect(downloadUrl.pathname).toBe(
+    expect(clickedHref).toBe("https://oss.example.com/result-object?signed=1");
+    expect(clickedFilename).toBe("result.jpg");
+    const resolveUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(resolveUrl.pathname).toBe(
       "/api/media-assets/123e4567-e89b-12d3-a456-426614174000",
     );
-    expect(downloadUrl.searchParams.get("filename")).toBe("result.png");
-    expect(downloadUrl.searchParams.get("proxy")).toBeNull();
+    expect(resolveUrl.searchParams.get("filename")).toBe("result.png");
+    expect(resolveUrl.searchParams.get("resolve")).toBe("1");
   });
 
   it("hands every prepared OSS result to the browser as an individual download", async () => {
@@ -99,8 +110,8 @@ describe("downloadMediaFile", () => {
 
   it("resolves canonical media to signed direct URLs without proxying image bytes", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(Response.json({ strategy: "direct", url: "https://oss.example.com/one.png?signed=1" }))
-      .mockResolvedValueOnce(Response.json({ strategy: "direct", url: "https://oss.example.com/two.png?signed=1" }));
+      .mockResolvedValueOnce(Response.json({ strategy: "direct", url: "https://oss.example.com/one.jpg?signed=1", filename: "results-01.jpg" }))
+      .mockResolvedValueOnce(Response.json({ strategy: "direct", url: "https://oss.example.com/two.webp?signed=1", filename: "results-02.webp" }));
     vi.stubGlobal("fetch", fetchMock);
 
     const prepared = await prepareMediaDownloads({
@@ -112,11 +123,12 @@ describe("downloadMediaFile", () => {
     });
 
     expect(prepared.map((item) => item.url)).toEqual([
-      "https://oss.example.com/one.png?signed=1",
-      "https://oss.example.com/two.png?signed=1",
+      "https://oss.example.com/one.jpg?signed=1",
+      "https://oss.example.com/two.webp?signed=1",
     ]);
+    expect(prepared.map((item) => item.filename)).toEqual(["results-01.jpg", "results-02.webp"]);
     const resolveUrls = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(resolveUrls.every((value) => value.includes("/api/download-image"))).toBe(true);
+    expect(resolveUrls.every((value) => value.includes("/api/media-assets/"))).toBe(true);
     expect(resolveUrls.every((value) => value.includes("resolve=1"))).toBe(true);
     expect(resolveUrls.every((value) => !value.includes("proxy=1"))).toBe(true);
   });

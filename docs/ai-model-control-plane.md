@@ -87,4 +87,4 @@ OpenAI Images 兼容模型使用 `openai-image`；Gemini 原生 `generateContent
 
 ## 降级原则
 
-旧版 `model.providers`、`llm.providers`、`video.providers` 在首次发布统一配置前会被只读适配，避免上线瞬间中断。统一配置一经发布，即以 `ai.control-plane.v1` 为唯一运行时事实来源。不要同时修改旧配置期待覆盖新控制面。
+旧版 `model.providers` 与 `model.routing` 已彻底退出生图运行时，只保留历史记录且禁止重新发布。`llm.providers`、`video.providers` 在首次发布统一配置前仍可只读适配；统一配置一经发布，即以 `ai.control-plane.v1` 为唯一运行时事实来源。

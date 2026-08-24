@@ -12,7 +12,9 @@ export async function GET(request: Request, { params }: RouteContext) {
   const { supabase, user, response } = await requireApiUser();
   if (!user) return response;
   const { assetId } = await params;
-  const filename = new URL(request.url).searchParams.get("filename") || undefined;
+  const requestUrl = new URL(request.url);
+  const filename = requestUrl.searchParams.get("filename") || undefined;
+  const wantsResolvedDownload = requestUrl.searchParams.get("resolve") === "1";
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(assetId)) {
     return NextResponse.json({ error: "无效的媒体资产 ID" }, { status: 400 });
   }
@@ -29,7 +31,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     });
   }
 
-  const wantsStatus = new URL(request.url).searchParams.get("status") === "1";
+  const wantsStatus = requestUrl.searchParams.get("status") === "1";
   if (record && record.status !== "verified") {
     const terminal = record.status === "quarantined" || record.status === "deleted";
     return NextResponse.json({
@@ -67,8 +69,18 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
 
   try {
+    const resolvedFilename = buildMediaDownloadFilename(filename, resolved.mimeType, resolved.objectKey);
+    const signedUrl = createAliyunOssRegistryReadUrl(resolved.objectKey, resolved.bucketName, resolvedFilename);
+    if (wantsResolvedDownload) {
+      return NextResponse.json({
+        strategy: "direct",
+        url: signedUrl,
+        filename: resolvedFilename,
+        mime_type: resolved.mimeType || null,
+      }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.redirect(
-      createAliyunOssRegistryReadUrl(resolved.objectKey, resolved.bucketName, filename),
+      signedUrl,
       {
       status: 302,
       headers: {
@@ -83,4 +95,31 @@ export async function GET(request: Request, { params }: RouteContext) {
       headers: { "Cache-Control": "private, no-store", "Retry-After": "5" },
     });
   }
+}
+
+function buildMediaDownloadFilename(filename: string | undefined, mimeType: string | undefined, objectKey: string) {
+  const safeFilename = (filename || "download")
+    .replace(/[\\/:*?"<>|\r\n]+/g, "-")
+    .slice(0, 120) || "download";
+  const extension = extensionForMedia(mimeType) || extensionFromObjectKey(objectKey);
+  if (!extension) return safeFilename;
+  const stem = safeFilename.replace(/\.(?:png|jpe?g|webp|gif|avif)$/i, "");
+  return `${stem}.${extension}`;
+}
+
+function extensionForMedia(mimeType?: string) {
+  switch (mimeType?.split(";", 1)[0].trim().toLowerCase()) {
+    case "image/jpeg": return "jpg";
+    case "image/png": return "png";
+    case "image/webp": return "webp";
+    case "image/gif": return "gif";
+    case "image/avif": return "avif";
+    default: return undefined;
+  }
+}
+
+function extensionFromObjectKey(objectKey: string) {
+  const match = objectKey.match(/\.((?:png|jpe?g|webp|gif|avif))$/i);
+  if (!match) return undefined;
+  return match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
 }

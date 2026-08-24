@@ -12,9 +12,6 @@ import {
   type AiModality,
 } from "@/lib/ai-control-plane/types";
 import {
-  DEFAULT_DEPLOYMENT_BURST,
-  DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
-  DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
   createDefaultAiControlPlaneConfig,
   validateAiControlPlaneConfig,
 } from "@/lib/ai-control-plane/config";
@@ -222,44 +219,18 @@ async function loadConfig(allowLegacy: boolean) {
 
 async function buildLegacyControlPlaneConfig(): Promise<AiControlPlaneConfig | null> {
   try {
-    const [imageModule, imageServer, llmModule, llmServer, videoModule, videoServer] = await Promise.all([
-      import("@/lib/api/model-provider-registry"),
-      import("@/lib/api/model-provider-registry.server"),
+    const [llmModule, llmServer, videoModule, videoServer] = await Promise.all([
       import("@/lib/api/llm-provider-registry"),
       import("@/lib/api/llm-provider-registry.server"),
       import("@/lib/api/video-provider-registry"),
       import("@/lib/api/video-provider-registry.server"),
     ]);
-    const [imageRaw, llmRaw, videoRaw] = await Promise.all([
-      imageServer.getPublishedModelProviderRawValue(),
+    const [llmRaw, videoRaw] = await Promise.all([
       llmServer.getPublishedLlmProviderRawValue(),
       videoServer.getPublishedVideoProviderRawValue(),
     ]);
-    if (!imageRaw && !llmRaw && !videoRaw) return null;
+    if (!llmRaw && !videoRaw) return null;
     const config = createDefaultAiControlPlaneConfig();
-    config.providers = [];
-    config.deployments = [];
-
-    const image = imageModule.parseModelProviderOverrides(imageRaw);
-    for (const [modelId, override] of Object.entries(image)) {
-      if (!override) continue;
-      const providerId = `legacy-${modelId}`;
-      config.providers.push({ id: providerId, name: `Legacy ${modelId}`, baseUrl: override.baseUrl, apiKey: override.apiKey, enabled: override.enabled, timeoutMs: 120_000 });
-      config.deployments.push({
-        id: `${providerId}-deployment`,
-        modelId,
-        providerId,
-        upstreamModel: override.upstreamModel,
-        protocol: override.responseType,
-        enabled: override.enabled,
-        priority: 10,
-        weight: 100,
-        maxConcurrency: DEFAULT_DEPLOYMENT_MAX_CONCURRENCY,
-        requestsPerMinute: DEFAULT_DEPLOYMENT_REQUESTS_PER_MINUTE,
-        burst: DEFAULT_DEPLOYMENT_BURST,
-        qualityScore: 0.8,
-      });
-    }
 
     const llm = llmModule.parseLlmProviderOverrides(llmRaw);
     for (const kind of ["text", "vision"] as const) {

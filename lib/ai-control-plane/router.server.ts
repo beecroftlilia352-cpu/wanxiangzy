@@ -34,17 +34,22 @@ import type {
   AiRouteContext,
   AiRoutingMode,
 } from "@/lib/ai-control-plane/types";
+import { isProviderHttpResponseError } from "@/lib/api/generation-errors";
 
 export class AiProviderHttpError extends Error {
   readonly status: number;
   readonly code?: string;
   readonly retryAfterSeconds?: number;
-  constructor(message: string, options: { status: number; code?: string; retryAfterSeconds?: number }) {
+  readonly providerRequestId?: string;
+  readonly safeToFailover: boolean;
+  constructor(message: string, options: { status: number; code?: string; retryAfterSeconds?: number; providerRequestId?: string; safeToFailover?: boolean }) {
     super(message);
     this.name = "AiProviderHttpError";
     this.status = options.status;
     this.code = options.code;
     this.retryAfterSeconds = options.retryAfterSeconds;
+    this.providerRequestId = options.providerRequestId;
+    this.safeToFailover = options.safeToFailover ?? [401, 403, 404, 429].includes(options.status);
   }
 }
 
@@ -558,6 +563,7 @@ type ClassifiedError = {
   retryable: boolean;
   failoverable?: boolean;
   retryAfterSeconds?: number;
+  providerRequestId?: string;
   message: string;
 };
 
@@ -575,13 +581,18 @@ export function classifyAiProviderError(error: unknown): ClassifiedError {
       message,
     };
   }
-  const explicitStatus = error instanceof AiProviderHttpError ? error.status : undefined;
+  const structuredHttpError = error instanceof AiProviderHttpError || isProviderHttpResponseError(error)
+    ? error
+    : null;
+  const explicitStatus = structuredHttpError?.status;
   const status = explicitStatus || parseStatus(message);
-  const code = error instanceof AiProviderHttpError ? error.code : undefined;
-  if (status === 429) return { category: "rate_limit", status, code, retryable: true, retryAfterSeconds: error instanceof AiProviderHttpError ? error.retryAfterSeconds : 60, message };
+  const code = structuredHttpError?.code;
+  const providerRequestId = structuredHttpError?.providerRequestId;
+  const explicitlySafeToFailover = structuredHttpError?.safeToFailover === true;
+  if (status === 429) return { category: "rate_limit", status, code, retryable: true, failoverable: explicitlySafeToFailover, retryAfterSeconds: structuredHttpError?.retryAfterSeconds ?? 60, providerRequestId, message };
   if (status === 408 || status === 504 || error instanceof Error && error.name === "AbortError") return { category: "timeout", status, code, retryable: true, message };
-  if (status === 401 || status === 403) return { category: "auth", status, code, retryable: false, failoverable: true, message };
-  if (status === 404) return { category: "configuration", status, code, retryable: false, failoverable: true, message };
+  if (status === 401 || status === 403) return { category: "auth", status, code, retryable: false, failoverable: explicitlySafeToFailover, providerRequestId, message };
+  if (status === 404) return { category: "upstream_not_found", status, code, retryable: false, failoverable: explicitlySafeToFailover, providerRequestId, message };
   if (status === 451) return { category: "content_policy", status, code, retryable: false, message };
   if (status && status >= 500) return { category: "provider", status, code, retryable: true, message };
   if (status && status >= 400) return { category: "validation", status, code, retryable: false, message };
@@ -649,6 +660,7 @@ async function finishAttempt(
     // normalized operational category, status and code.
     error_message: `${input.error.category}${input.error.status ? ` (HTTP ${input.error.status})` : ""}`,
     http_status: input.error.status,
+    metadata: safeMetadata({ providerRequestId: input.error.providerRequestId }),
   };
   try {
     const { error } = await getAdminClient().from("ai_route_attempts").update(payload).eq("id", attemptId);

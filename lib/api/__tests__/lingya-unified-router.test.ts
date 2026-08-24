@@ -6,6 +6,7 @@ vi.mock("@/lib/api/lingya", () => ({ generateImage: upstreamGenerateImage }));
 
 import { generateImageWithControlPlane as generateImage } from "@/lib/api/lingya-routing.server";
 import { runWithAiRouteContext } from "@/lib/ai-control-plane/context.server";
+import { ProviderHttpResponseError } from "@/lib/api/generation-errors";
 
 describe("image unified model routing", () => {
   beforeEach(() => {
@@ -51,5 +52,25 @@ describe("image unified model routing", () => {
     await runWithAiRouteContext({ generationId: "10000000-0000-4000-8000-000000000001", slotIndex: 0 }, () => generateImage(input));
     await runWithAiRouteContext({ generationId: "10000000-0000-4000-8000-000000000001", slotIndex: 1 }, () => generateImage(input));
     expect(upstreamGenerateImage.mock.calls[0][0].idempotencyKey).not.toBe(upstreamGenerateImage.mock.calls[1][0].idempotencyKey);
+  });
+
+  it("allows fallback only after an explicit response known not to have accepted the job", async () => {
+    await generateImage({
+      model: "nano-banana-2",
+      prompt: "studio product image",
+      aspect_ratio: "1:1",
+      image_size: "1K",
+    });
+    const canFailover = executeAiRouted.mock.calls[0][0].canFailover as (error: unknown) => boolean;
+
+    expect(canFailover(new ProviderHttpResponseError("not found", {
+      status: 404,
+      safeToFailover: true,
+    }))).toBe(true);
+    expect(canFailover(new ProviderHttpResponseError("upstream failed", {
+      status: 503,
+      safeToFailover: false,
+    }))).toBe(false);
+    expect(canFailover(new Error("fetch failed after POST"))).toBe(false);
   });
 });

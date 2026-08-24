@@ -24,11 +24,9 @@ type DownloadOptions = {
  *
  * Public OSS URLs (e.g. `https://*.oss-cn-*.aliyuncs.com/...`) are handed to
  * the browser directly so we never proxy image bytes through the Next.js
- * server. The endpoint only returns a redirect to a signed attachment URL in
- * a few narrow cases: a public bucket read times out, an internal staging
- * host is not whitelisted, or the URL still points at a private canonical
- * asset (`/api/media-assets/<uuid>`) which has to keep going through the
- * server for ownership and verification checks.
+ * server. Canonical assets (`/api/media-assets/<uuid>`) first resolve through
+ * the authenticated server route so ownership, verification and the registry
+ * MIME type can determine the signed OSS URL and correct attachment filename.
  */
 export async function downloadMediaFile(
   url: string,
@@ -37,17 +35,19 @@ export async function downloadMediaFile(
 ) {
   if (!url) throw new Error("没有可下载的文件");
 
+  const requiresResolution = !isInlineBrowserUrl(url) && !isDirectlyDownloadableUrl(url);
   options.onProgress?.({
-    phase: "saving",
-    completed: 1,
+    phase: requiresResolution ? "resolving" : "saving",
+    completed: requiresResolution ? 0 : 1,
     total: 1,
-    percent: 100,
+    percent: requiresResolution ? null : 100,
   });
 
-  const downloadUrl = isInlineBrowserUrl(url)
-    ? url
-    : buildBrowserDownloadUrl(url, filename);
-  triggerUrlDownload(downloadUrl, filename);
+  const download = await resolveBrowserDownload(url, filename, options.signal);
+  if (requiresResolution) {
+    options.onProgress?.({ phase: "saving", completed: 1, total: 1, percent: 100 });
+  }
+  triggerUrlDownload(download.url, download.filename);
 
   options.onProgress?.({ phase: "completed", completed: 1, total: 1, percent: 100 });
 }
@@ -61,10 +61,7 @@ export async function prepareMediaDownloads(options: {
   const stamp = buildDownloadStamp();
   return Promise.all(urls.map(async (url, index) => {
     const filename = buildIndexedFilename(options.filenamePrefix, url, index, stamp);
-    return {
-      url: await resolveBrowserDownloadUrl(url, filename, options.signal),
-      filename,
-    };
+    return resolveBrowserDownload(url, filename, options.signal);
   }));
 }
 
@@ -115,39 +112,30 @@ export async function downloadMediaFiles(options: {
   return { successCount: downloads.length, failedCount: 0 };
 }
 
-async function resolveBrowserDownloadUrl(url: string, filename: string, signal?: AbortSignal) {
-  if (isInlineBrowserUrl(url) || isDirectlyDownloadableUrl(url)) return url;
+async function resolveBrowserDownload(url: string, filename: string, signal?: AbortSignal) {
+  if (isInlineBrowserUrl(url) || isDirectlyDownloadableUrl(url)) return { url, filename };
 
-  const endpoint = new URL("/api/download-image", window.location.origin);
-  endpoint.searchParams.set("url", url);
+  const endpoint = isCanonicalMediaAssetUrl(url)
+    ? new URL(url, window.location.origin)
+    : new URL("/api/download-image", window.location.origin);
+  if (!isCanonicalMediaAssetUrl(url)) endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("filename", filename);
   endpoint.searchParams.set("resolve", "1");
   const response = await fetch(endpoint, { credentials: "same-origin", signal });
   if (!response.ok) throw new Error("下载地址准备失败，请重试");
-  const payload = await response.json() as { strategy?: unknown; url?: unknown };
+  const payload = await response.json() as { strategy?: unknown; url?: unknown; filename?: unknown };
   if (payload.strategy !== "direct" || typeof payload.url !== "string" || !/^https?:\/\//i.test(payload.url)) {
     throw new Error("下载地址准备失败，请重试");
   }
-  return payload.url;
+  const resolvedFilename = typeof payload.filename === "string"
+    ? sanitizeResolvedFilename(payload.filename, filename)
+    : filename;
+  return { url: payload.url, filename: resolvedFilename };
 }
 
-function buildBrowserDownloadUrl(url: string, filename: string) {
-  // Public OSS objects and the few non-OSS hosts we already allow are handed
-  // to the browser as-is so Chrome (and other user agents that block
-  // cross-origin downloads) can save the file directly. Canonical media
-  // assets always use the authenticated route first so ownership and
-  // verification are checked before the browser is redirected to OSS.
-  if (isCanonicalMediaAssetUrl(url)) {
-    const endpoint = new URL(url, window.location.origin);
-    endpoint.searchParams.set("filename", filename);
-    return endpoint.toString();
-  }
-  if (isDirectlyDownloadableUrl(url)) return url;
-  const endpoint = new URL("/api/download-image", window.location.origin);
-  endpoint.searchParams.set("url", url);
-  endpoint.searchParams.set("filename", filename);
-  endpoint.searchParams.set("proxy", "1");
-  return endpoint.toString();
+function sanitizeResolvedFilename(value: string, fallback: string) {
+  const safe = value.replace(/[\\/:*?"<>|\r\n]+/g, "-").slice(0, 120);
+  return safe || fallback;
 }
 
 function isInlineBrowserUrl(url: string) {
@@ -170,7 +158,6 @@ function isDirectlyDownloadableUrl(url: string) {
     if (host === "vasthk.cn-hongkong.thepacificgls.com" || host === "cn-hongkong.thepacificgls.com") return true;
     if (host === "replicate.delivery") return true;
     if (host === "i.ibb.co" || host.endsWith(".ibb.co")) return true;
-    if (host === "yunwu.ai") return true;
     if (host === "webstatic.aiproxy.vip") return true;
     if (host.endsWith(".fashn.ai") || host === "fashn.ai") return true;
     if (host.endsWith(".lingyaai.cn") || host === "lingyaai.cn") return true;

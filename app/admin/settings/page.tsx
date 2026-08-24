@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 const CONFIG_KEY_LABELS: Record<string, string> = {
   "model.routing": "生图通道（已废弃）",
-  "model.providers": "生图供应商",
+  "model.providers": "生图供应商（已废弃）",
   "llm.providers": "识别与提示词供应商",
   "video.providers": "视频供应商",
   "tryon.reference_config": "试衣参考图配置",
@@ -25,7 +25,7 @@ const CONFIG_KEY_LABELS: Record<string, string> = {
   "features.flags": "功能开关",
   "rate_limit.config": "访问限流",
 };
-const RETIRED_CONFIG_KEYS = new Set(["model.routing"]);
+const RETIRED_CONFIG_KEYS = new Set(["model.routing", "model.providers"]);
 
 function configKeyLabel(value: string) {
   return CONFIG_KEY_LABELS[value] || value;

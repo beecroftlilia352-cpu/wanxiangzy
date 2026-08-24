@@ -138,7 +138,6 @@ export default async function RootLayout({
         <link rel="dns-prefetch" href="https://oss.filenest.top" />
         <link rel="preconnect" href="https://api.lingyaai.cn" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.lingyaai.cn" />
-        <link rel="dns-prefetch" href="https://yunwu.ai" />
       </head>
       <body className="min-h-screen antialiased transition-colors">
         <NextIntlClientProvider messages={messages}>

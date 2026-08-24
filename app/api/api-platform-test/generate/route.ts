@@ -8,7 +8,7 @@ const IMAGE_FETCH_TIMEOUT_MS = 60000;
 const MAX_IMAGE_DATA_URL_LENGTH = 21 * 1024 * 1024;
 const MAX_EDIT_IMAGE_COUNT = 15;
 const MAX_EDIT_IMAGE_BYTES = 50 * 1024 * 1024;
-const DEFAULT_ALLOWED_API_HOSTS = ["yunwu.ai", "value.apiqik.online", "hk-api.gptbest.vip", "api.bltcy.ai", "api.whatai.cc"];
+const DEFAULT_ALLOWED_API_HOSTS = ["api.new.bi", "value.apiqik.online", "hk-api.gptbest.vip", "api.bltcy.ai", "api.whatai.cc"];
 
 type ImageSize = "1K" | "2K" | "4K";
 type ImageQuality = "auto" | "low" | "medium";

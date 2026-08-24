@@ -53,8 +53,8 @@ function getLegacyEnvLlmConfigForProvider(provider: LlmProviderName, kind: LlmKi
     model: (kind === "vision" ? process.env.MINIMAX_VISION_MODEL : process.env.MINIMAX_TEXT_MODEL) || process.env.MINIMAX_MODEL || MINIMAX_DEFAULT_MODEL,
   };
   if (provider === "yunwu") return {
-    provider: "yunwu", apiKey: process.env.YUNWU_API_KEY || process.env.YUNWU_NATIVE_API_KEY || "",
-    baseUrl: normalizeOpenAiCompatibleBaseUrl(process.env.YUNWU_API_BASE_URL || process.env.YUNWU_NATIVE_BASE_URL || YUNWU_DEFAULT_BASE_URL),
+    provider: "yunwu", apiKey: process.env.YUNWU_API_KEY || "",
+    baseUrl: normalizeOpenAiCompatibleBaseUrl(process.env.YUNWU_API_BASE_URL || YUNWU_DEFAULT_BASE_URL),
     model: (kind === "vision" ? process.env.YUNWU_VISION_MODEL || process.env.LINGYA_VISION_MODEL : process.env.YUNWU_TEXT_MODEL || process.env.LINGYA_TEXT_MODEL) || YUNWU_DEFAULT_MODEL,
   };
   if (provider === "lingya") return {

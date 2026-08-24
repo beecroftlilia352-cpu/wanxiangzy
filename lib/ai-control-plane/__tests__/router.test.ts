@@ -50,11 +50,13 @@ describe("AI router error policy", () => {
       .toMatchObject({ category: "validation", retryable: false });
   });
 
-  it("fails over without queue-retrying provider auth or configuration errors", () => {
+  it("fails over without queue-retrying explicit auth or upstream-not-found responses", () => {
     expect(classifyAiProviderError(new AiProviderHttpError("forbidden", { status: 403 })))
       .toMatchObject({ category: "auth", retryable: false, failoverable: true });
     expect(classifyAiProviderError(new AiProviderHttpError("missing endpoint", { status: 404 })))
-      .toMatchObject({ category: "configuration", retryable: false, failoverable: true });
+      .toMatchObject({ category: "upstream_not_found", retryable: false, failoverable: true });
+    expect(classifyAiProviderError(new Error("temporary upstream HTTP 404")))
+      .toMatchObject({ category: "upstream_not_found", retryable: false, failoverable: false });
   });
 
   it("classifies HTTP 451 as a non-retryable content policy rejection", () => {

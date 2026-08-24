@@ -21,12 +21,6 @@ describe("environment contract", () => {
     delete process.env.APP_URL;
     delete process.env.URL;
     delete process.env.LINGYA_API_KEY;
-    delete process.env.GPT_IMAGE_PROVIDER;
-    delete process.env.CATROUTER_API_KEY;
-    delete process.env.PLATO_API_KEY;
-    delete process.env.NANO_BANANA_PROVIDER;
-    delete process.env.YUNWU_NATIVE_API_KEY;
-    delete process.env.LAOZHANG_API_KEY;
     delete process.env.HAPPYHORSE_API_KEY;
     delete process.env.YUNWU_HAPPYHORSE_API_KEY;
     delete process.env.YUNWU_API_KEY;
@@ -191,29 +185,18 @@ describe("environment contract", () => {
     );
   });
 
-  // 供应商密钥（Lingya/CatRouter/Xiaomi/MiniMax/Yunwu/Laozhang 等）已改为
-  // 后台加密配置（lib/api/model-provider-secrets.ts），env 仅作开发回退，
-  // validateEnv 不再对它们发出启动告警。
+  // 生图供应商仅由统一控制平面管理；文本/视觉供应商密钥也不会作为
+  // 全局启动条件，只有实际启用对应能力时才校验。
   it("does not warn about provider keys now managed in admin config", () => {
     process.env.ANALYZE_LLM_PROVIDER = "yunwu";
-    process.env.NANO_BANANA_PROVIDER = "laozhang";
-    process.env.GPT_IMAGE_PROVIDER = "plato";
 
     const issues = validateEnv({ nodeEnv: "development" });
     const providerKeyNames = new Set([
       "LINGYA_API_KEY",
-      "CATROUTER_API_KEY",
       "XIAOMI_MIMO_API_KEY",
       "MINIMAX_API_KEY",
       "IMGBB_API_KEY",
       "YUNWU_API_KEY",
-      "YUNWU_NATIVE_API_KEY",
-      "LAOZHANG_API_KEY",
-      "PLATO_API_KEY",
-      "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY",
-      "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY",
-      "LAOZHANG_API_KEY",
-      "PLATO_API_KEY or LINGYA_API_KEY",
     ]);
 
     for (const issue of issues) {

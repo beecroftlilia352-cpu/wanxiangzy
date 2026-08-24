@@ -7,6 +7,7 @@ import {
   completeDirectUpload,
   inspectVideoHeader,
   prepareDirectUpload,
+  resolveSupportedImageContentType,
 } from "@/lib/api/direct-oss-upload.server";
 import { MediaAssetRegistryError } from "@/lib/api/media-asset-registry.server";
 
@@ -306,6 +307,15 @@ describe("commercial OSS direct upload", () => {
     expect(() => inspectVideoHeader(header, "video/mp4")).not.toThrow();
     expect(() => inspectVideoHeader(Buffer.from("fake.mp4"), "video/mp4"))
       .toThrowError(expect.objectContaining({ code: "UNSAFE_CONTENT" }));
+  });
+
+  it("accepts JPEG bytes even when the downloaded file is named and declared as PNG", async () => {
+    const bytes = await sharp({
+      create: { width: 4, height: 4, channels: 3, background: "#00aa55" },
+    }).jpeg().toBuffer();
+
+    expect(resolveSupportedImageContentType(bytes, "image/png", "downloaded.png"))
+      .toBe("image/jpeg");
   });
 
   it("keeps direct video pending until the durable validation worker verifies the full stream", async () => {

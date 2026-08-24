@@ -64,7 +64,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # AI providers (image / vision / text / video) are managed in the admin portal
-# and stored in Supabase (model.providers / llm.providers / video.providers).
+# and stored in Supabase. Image providers use ai.control-plane.v1 exclusively;
+# llm.providers / video.providers remain read-only migration inputs.
 # Bootstrap them via /admin/providers, or one-time seed scripts:
 #   npx tsx --env-file-if-exists=.env.local scripts/seed-provider-configs.ts
 #   npx tsx --env-file-if-exists=.env.local scripts/seed-video-provider-config.ts

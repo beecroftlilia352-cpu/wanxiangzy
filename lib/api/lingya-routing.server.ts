@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { executeAiRouted } from "@/lib/ai-control-plane/router.server";
 import { getAiRouteContext } from "@/lib/ai-control-plane/context.server";
 import { generateImage, type GenerateInput, type GenerateResult } from "@/lib/api/lingya";
+import { isProviderHttpResponseError } from "@/lib/api/generation-errors";
 
 /** Server-only image execution entrypoint. Keep the catalog/core module browser-safe. */
 export async function generateImageWithControlPlane(input: GenerateInput, retries = 1): Promise<GenerateResult> {
-  let upstreamSubmitted = false;
   const routeContext = getAiRouteContext();
   // A provider POST is not safely replayable when the response is lost. The
   // router owns bounded cross-deployment failover; keep each adapter to one
@@ -18,12 +18,11 @@ export async function generateImageWithControlPlane(input: GenerateInput, retrie
     modelId: input.model,
     modality: "image",
     context: { requiredCapabilities: [input.image?.length ? "edit" : "generation"] },
-    canFailover: () => !upstreamSubmitted,
+    // Fail over only after a structured HTTP rejection that proves the first
+    // provider did not accept the job. Timeouts, disconnects, 5xx responses
+    // and malformed 2xx bodies remain ambiguous and must not be replayed.
+    canFailover: (error) => isProviderHttpResponseError(error) && error.safeToFailover,
     execute: (deployment) => {
-      // Once the adapter POST starts, a lost response is indistinguishable from
-      // an accepted upstream job. Never fail over blindly; the stable key lets
-      // a provider deduplicate a retry/reconciliation instead.
-      upstreamSubmitted = true;
       return generateImage({
         ...input,
         idempotencyKey,

@@ -10,7 +10,7 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 
-const DEFAULT_API_URL = "https://yunwu.ai";
+const DEFAULT_API_URL = "https://api.new.bi";
 const DEFAULT_API_KEY = "";
 
 const MODEL_OPTIONS = [
@@ -30,12 +30,8 @@ const MODEL_OPTIONS = [
   { value: "nano-banana-pro-2k", label: "Nano Banana Pro 2K" },
   { value: "nano-banana-pro-4k", label: "Nano Banana Pro 4K" },
   { value: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image" },
-  { value: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image Preview" },
-  { value: "gemini-3-pro-image-preview-2k", label: "Gemini 3 Pro Image Preview 2K" },
-  { value: "gemini-3-pro-image-preview-4k", label: "Gemini 3 Pro Image Preview 4K" },
-  { value: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash Image Preview" },
-  { value: "gemini-3.1-flash-image-preview-2k", label: "Gemini 3.1 Flash Image Preview 2K" },
-  { value: "gemini-3.1-flash-image-preview-4k", label: "Gemini 3.1 Flash Image Preview 4K" },
+  { value: "gemini-3-pro-image", label: "Gemini 3 Pro Image" },
+  { value: "gemini-3.1-flash-image", label: "Gemini 3.1 Flash Image" },
   { value: "qwen-image-edit-2509", label: "Qwen-Image-Edit-2509" },
   { value: "qwen-image-edit", label: "Qwen-Image-Edit" },
   { value: "qwen-image", label: "Qwen Image" },
@@ -242,7 +238,7 @@ export default function ApiPlatformTestPage() {
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[var(--codex-accent-14)]"
-                  placeholder="https://yunwu.ai"
+                  placeholder="https://api.new.bi"
                 />
               </label>
 

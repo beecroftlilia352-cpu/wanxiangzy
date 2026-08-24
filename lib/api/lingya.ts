@@ -4,7 +4,6 @@
  */
 
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
-import { getEnvModelProviderOverride, type ModelProviderOverride } from "@/lib/api/model-provider-registry";
 import { resolveExactAspectPixelSize, resolveSmartImageAspectRatio } from "@/lib/api/image-size";
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
@@ -61,17 +60,14 @@ import {
   type PricedImageSize,
 } from "@/lib/model-pricing";
 import { getRegisteredImageCreditCost, getRegisteredImageSizes } from "@/lib/image-model-catalog";
-import { NonRetryableGenerationError, RetryableGenerationError, sanitizeGenerationErrorMessage } from "@/lib/api/generation-errors";
+import {
+  NonRetryableGenerationError,
+  ProviderHttpResponseError,
+  RetryableGenerationError,
+  sanitizeGenerationErrorMessage,
+} from "@/lib/api/generation-errors";
 import type { AiResolvedDeployment } from "@/lib/ai-control-plane/types";
 
-const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
-const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
-const DEFAULT_YUNWU_NATIVE_API_BASE = "https://yunwu.ai";
-const DEFAULT_LAOZHANG_API_BASE = "https://api.laozhang.ai";
-const DEFAULT_CATROUTER_API_BASE = "https://api.catrouter.net";
-const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2";
-const DEFAULT_NANO_BANANA_PROVIDER_MODEL = "gemini-3.1-flash-image-preview";
-const DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL = "gemini-3-pro-image-preview";
 const CONCISE_TRYON_PROMPT_MODE = true;
 const IMAGE_REQUEST_PROGRESS_INITIAL = 2;
 const IMAGE_REQUEST_PROGRESS_INTERVAL_MS = 8000;
@@ -170,13 +166,12 @@ export type ImageTaskProgress = {
   error?: string;
 };
 
-type ImageProviderName = "lingya" | "plato" | "yunwu-native" | "laozhang" | "catrouter" | "admin";
 type ImageProvider = {
-  name: ImageProviderName;
+  name: "admin";
   apiBase: string;
   apiKey?: string;
   upstreamModel?: string;
-  responseType?: ModelProviderOverride["responseType"];
+  responseType: "openai-image" | "gemini-native";
   enabled?: boolean;
 };
 
@@ -220,9 +215,10 @@ type TryOnRequestPromptOptions = {
 
 export async function generateImage(input: GenerateInput, retries = 1): Promise<GenerateResult> {
   const requestInput = await resolveGenerateInputAspectRatio(input);
-  const provider = requestInput.routingDeployment
-    ? imageProviderFromDeployment(requestInput.routingDeployment)
-    : await getImageProvider(requestInput.model);
+  if (!requestInput.routingDeployment) {
+    throw new Error(`模型 ${requestInput.model} 必须通过统一模型控制平面选择供应商`);
+  }
+  const provider = imageProviderFromDeployment(requestInput.routingDeployment);
   if (provider.enabled === false) {
     throw new Error(`模型 ${requestInput.model} 已在后台关闭，暂不可用`);
   }
@@ -235,15 +231,15 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
     prompt: requestInput.prompt,
   });
 
-  const useLaozhangNativeEndpoint = shouldUseLaozhangNativeEndpoint(requestInput, provider);
-  const useImageEditEndpoint = !useLaozhangNativeEndpoint && shouldUseImageEditEndpoint(requestInput, provider);
+  const useGeminiNativeEndpoint = shouldUseGeminiNativeEndpoint(requestInput, provider);
+  const useImageEditEndpoint = !useGeminiNativeEndpoint && shouldUseImageEditEndpoint(requestInput, provider);
   const body = buildGenerateRequestBody(requestInput, compiledPrompt);
   body.model = resolveProviderImageModel(requestInput.model, provider);
 
   // 日志（不含完整 base64、不含完整 prompt 内容）
   const logBody: Record<string, unknown> = {
     model: body.model,
-    endpoint: useLaozhangNativeEndpoint ? "generateContent" : useImageEditEndpoint ? "images/edits" : "images/generations",
+    endpoint: useGeminiNativeEndpoint ? "generateContent" : useImageEditEndpoint ? "images/edits" : "images/generations",
     aspect_ratio: body.aspect_ratio,
     image_size: body.image_size || body.size,
     quality: body.quality,
@@ -254,7 +250,7 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const isAsyncSubmit = !useLaozhangNativeEndpoint && !useImageEditEndpoint && shouldRequestAsyncImageTask(provider);
+      const isAsyncSubmit = !useGeminiNativeEndpoint && !useImageEditEndpoint && shouldRequestAsyncImageTask(provider);
       await requestInput.onProgress?.({ status: "queued", providerStatus: "REQUEST_QUEUED", progress: 1 });
       let res: Response;
       let resText: string;
@@ -263,8 +259,8 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
         providerStatus: isAsyncSubmit ? "SUBMITTING" : "GENERATING",
       });
       try {
-        const request = useLaozhangNativeEndpoint
-          ? await buildLaozhangNativeImageRequest({
+        const request = useGeminiNativeEndpoint
+          ? await buildGeminiNativeImageRequest({
               apiBase,
               apiKey,
               model: String(body.model),
@@ -288,15 +284,25 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
         // Provider bodies are untrusted and frequently contain signed URLs or
         // internal diagnostics. Keep them out of logs, DB error fields and the
         // user-facing generation payload.
-        console.error(`[api:${provider.name}] 第${attempt}次失败: HTTP ${res.status}`);
+        const providerErrorCode = extractProviderErrorCode(resText);
+        const providerRequestId = extractProviderRequestId(res.headers, resText);
+        const retryAfterSeconds = parseRetryAfterSeconds(res.headers.get("retry-after"));
+        logger.warn(
+          `[api:${provider.name}] 第${attempt}次失败: HTTP ${res.status}`
+          + `${providerErrorCode ? ` code=${providerErrorCode}` : ""}`
+          + `${providerRequestId ? ` request_id=${providerRequestId}` : ""}`,
+        );
         if (isRetryableStatus(res.status) && attempt < retries) {
           await new Promise(r => setTimeout(r, attempt * 5000));
           continue;
         }
-        if (isRetryableStatus(res.status)) {
-          throw new RetryableGenerationError(`供应商暂时不可用（HTTP ${res.status}）`, `PROVIDER_HTTP_${res.status}`);
-        }
-        throw new Error(describeProviderRejection(res.status));
+        throw new ProviderHttpResponseError(describeProviderRejection(res.status), {
+          status: res.status,
+          code: providerErrorCode || `PROVIDER_HTTP_${res.status}`,
+          retryAfterSeconds,
+          providerRequestId,
+          safeToFailover: isDefinitelyUnacceptedProviderStatus(res.status),
+        });
       }
 
       let json: unknown;
@@ -358,7 +364,6 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
       };
 
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
       if (attempt < retries && isRetryableGenerationErrorForAdapter(err)) {
         await new Promise(r => setTimeout(r, attempt * 5000));
         continue;
@@ -375,6 +380,94 @@ function describeProviderRejection(status: number) {
     return "提示词或输入图片可能包含模型暂不支持的敏感、受限或不符合内容政策的信息，请检查并调整后稍后再试（HTTP 451）";
   }
   return `供应商拒绝了生成请求（HTTP ${status}）`;
+}
+
+function isDefinitelyUnacceptedProviderStatus(status: number) {
+  return status === 401 || status === 403 || status === 404 || status === 429;
+}
+
+function parseRetryAfterSeconds(value: string | null) {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(Math.ceil(seconds), 3600);
+  const date = Date.parse(value);
+  if (!Number.isFinite(date)) return undefined;
+  return Math.min(Math.max(Math.ceil((date - Date.now()) / 1000), 0), 3600);
+}
+
+function extractProviderRequestId(headers: Headers, body: string) {
+  for (const name of [
+    "x-request-id",
+    "x-goog-request-id",
+    "request-id",
+    "x-trace-id",
+    "trace-id",
+    "x-correlation-id",
+  ]) {
+    const value = sanitizeProviderDiagnosticToken(headers.get(name));
+    if (value) return value;
+  }
+  if (body && body.length <= 256_000) {
+    try {
+      const parsed = JSON.parse(body) as unknown;
+      for (const candidate of collectProviderRequestIdCandidates(parsed)) {
+        const value = sanitizeProviderDiagnosticToken(candidate);
+        if (value) return value;
+      }
+    } catch {
+      // Provider HTML/plain-text bodies are intentionally not persisted.
+    }
+  }
+  return undefined;
+}
+
+function collectProviderRequestIdCandidates(value: unknown): unknown[] {
+  if (!value || typeof value !== "object") return [];
+  const root = value as Record<string, unknown>;
+  const nested = root.error && typeof root.error === "object"
+    ? root.error as Record<string, unknown>
+    : {};
+  return [
+    nested.request_id,
+    nested.requestId,
+    nested.trace_id,
+    nested.traceId,
+    root.request_id,
+    root.requestId,
+    root.trace_id,
+    root.traceId,
+  ];
+}
+
+function extractProviderErrorCode(body: string) {
+  if (!body || body.length > 256_000) return undefined;
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    const candidates = collectProviderErrorCodeCandidates(parsed);
+    for (const candidate of candidates) {
+      const sanitized = sanitizeProviderDiagnosticToken(candidate);
+      if (sanitized) return sanitized;
+    }
+  } catch {
+    // Provider HTML/plain-text bodies are intentionally not persisted.
+  }
+  return undefined;
+}
+
+function collectProviderErrorCodeCandidates(value: unknown): unknown[] {
+  if (!value || typeof value !== "object") return [];
+  const root = value as Record<string, unknown>;
+  const nested = root.error && typeof root.error === "object"
+    ? root.error as Record<string, unknown>
+    : {};
+  return [nested.code, nested.status, root.code, root.error_code, root.errorCode];
+}
+
+function sanitizeProviderDiagnosticToken(value: unknown) {
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  const token = String(value).trim();
+  if (!token || token.length > 160 || !/^[A-Za-z0-9._:/-]+$/.test(token)) return undefined;
+  return token;
 }
 
 function imageProviderFromDeployment(deployment: AiResolvedDeployment): ImageProvider {
@@ -659,15 +752,13 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
 }
 
 function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image">, provider: Pick<ImageProvider, "name" | "responseType">): boolean {
-  if (provider.responseType === "openai-image") return input.model === "gpt-image-2" && Boolean(input.image?.length);
-  if (provider.responseType === "gemini-native") return false;
-  return (provider.name === "plato" || provider.name === "catrouter") && input.model === "gpt-image-2" && Boolean(input.image?.length);
+  return provider.responseType === "openai-image"
+    && input.model === "gpt-image-2"
+    && Boolean(input.image?.length);
 }
 
-function shouldUseLaozhangNativeEndpoint(input: Pick<GenerateInput, "model">, provider: Pick<ImageProvider, "name" | "responseType">): boolean {
-  if (provider.responseType === "gemini-native") return true;
-  if (provider.responseType === "openai-image") return false;
-  return (provider.name === "laozhang" || provider.name === "yunwu-native" || provider.name === "catrouter") && isNanoBananaModel(input.model);
+function shouldUseGeminiNativeEndpoint(input: Pick<GenerateInput, "model">, provider: Pick<ImageProvider, "name" | "responseType">): boolean {
+  return provider.responseType === "gemini-native" && isNanoBananaModel(input.model);
 }
 
 function buildImageGenerationRequest(params: {
@@ -687,7 +778,7 @@ function buildImageGenerationRequest(params: {
   };
 }
 
-async function buildLaozhangNativeImageRequest(params: {
+async function buildGeminiNativeImageRequest(params: {
   apiBase: string;
   apiKey: string;
   model: string;
@@ -704,7 +795,7 @@ async function buildLaozhangNativeImageRequest(params: {
   ];
 
   return {
-    url: getLaozhangGenerateContentUrl(params.apiBase, params.model),
+    url: getGeminiGenerateContentUrl(params.apiBase, params.model),
     init: {
       method: "POST",
       headers: { "x-goog-api-key": params.apiKey, "Content-Type": "application/json", ...(params.idempotencyKey ? { "Idempotency-Key": params.idempotencyKey } : {}) },
@@ -713,7 +804,7 @@ async function buildLaozhangNativeImageRequest(params: {
         generationConfig: {
           responseModalities: ["IMAGE"],
           imageConfig: {
-            aspectRatio: normalizeLaozhangAspectRatio(params.aspectRatio),
+            aspectRatio: normalizeGeminiAspectRatio(params.aspectRatio),
             imageSize: params.imageSize || "1K",
           },
         },
@@ -1284,87 +1375,9 @@ function getImageTaskPollErrorRetryLimit() {
   return Number.isFinite(value) ? Math.min(Math.max(Math.floor(value), 0), 10) : 3;
 }
 
-function getImageApiBaseUrl(): string {
-  const envValue = process.env.LINGYA_BASE_URL;
-  return envValue ? normalizeOpenAiCompatibleBaseUrl(envValue) : DEFAULT_API_BASE;
-}
-
-function getPlatoApiBaseUrl(): string {
-  const envValue = process.env.PLATO_BASE_URL;
-  const normalized = envValue ? normalizeOpenAiCompatibleBaseUrl(envValue) : "";
-  if (!normalized || isDeprecatedGptImage2ProviderBase(normalized)) return DEFAULT_PLATO_API_BASE;
-  return normalized;
-}
-
-function getLaozhangApiBaseUrl(): string {
-  return normalizeGeminiNativeApiBaseUrl(process.env.LAOZHANG_BASE_URL, DEFAULT_LAOZHANG_API_BASE);
-}
-
-function getCatrouterOpenAiApiBaseUrl(): string {
-  return normalizeOpenAiCompatibleBaseUrl(process.env.CATROUTER_BASE_URL || DEFAULT_CATROUTER_API_BASE);
-}
-
-function getCatrouterNativeApiBaseUrl(): string {
-  return normalizeGeminiNativeApiBaseUrl(process.env.CATROUTER_BASE_URL, DEFAULT_CATROUTER_API_BASE);
-}
-
-function getYunwuNativeApiBaseUrl(): string {
-  return normalizeGeminiNativeApiBaseUrl(
-    process.env.YUNWU_NATIVE_BASE_URL || process.env.YUNWU_API_BASE_URL,
-    DEFAULT_YUNWU_NATIVE_API_BASE
-  );
-}
-
 function normalizeGeminiNativeApiBaseUrl(value: string | undefined, fallback: string): string {
   const raw = (value || fallback).trim().replace(/\/+$/, "");
   return raw.replace(/\/v1beta$/i, "").replace(/\/v1$/i, "");
-}
-
-async function getImageProvider(model: LingyaModel): Promise<ImageProvider> {
-  const adminOverride = await resolveAdminModelProviderOverride(model);
-  if (adminOverride) {
-    return {
-      name: "admin",
-      apiBase: adminOverride.baseUrl,
-      apiKey: adminOverride.apiKey,
-      upstreamModel: adminOverride.upstreamModel,
-      responseType: adminOverride.responseType,
-      enabled: adminOverride.enabled,
-    };
-  }
-
-  if (process.env.NODE_ENV === "test") {
-    const env = getEnvModelProviderOverride(model);
-    return {
-      name: inferTestProviderName(model, env),
-      apiBase: env.baseUrl,
-      apiKey: env.apiKey,
-      upstreamModel: env.upstreamModel,
-      responseType: env.responseType,
-      enabled: env.enabled,
-    };
-  }
-
-  throw new Error(`模型 ${model} 的供应商配置未在后台发布，请先到 /admin/providers 完成配置`);
-}
-
-async function resolveAdminModelProviderOverride(model: LingyaModel): Promise<ModelProviderOverride | null> {
-  if (typeof window !== "undefined") return null;
-  try {
-    const { getAdminModelProviderOverride } = await import("@/lib/api/model-provider-registry.server");
-    return await getAdminModelProviderOverride(model);
-  } catch {
-    return null;
-  }
-}
-
-function inferTestProviderName(model: LingyaModel, env: ModelProviderOverride): ImageProviderName {
-  if (model === "gpt-image-2") {
-    return env.baseUrl.includes("catrouter") ? "catrouter" : "plato";
-  }
-  if (env.baseUrl.includes("catrouter")) return "catrouter";
-  if (env.baseUrl.includes("laozhang")) return "laozhang";
-  return "yunwu-native";
 }
 
 function getImageGenerationUrl(apiBase: string, provider: Pick<ImageProvider, "name">): string {
@@ -1376,50 +1389,17 @@ function getImageEditUrl(apiBase: string): string {
   return `${apiBase}/images/edits`;
 }
 
-function getLaozhangGenerateContentUrl(apiBase: string, model: string): string {
+function getGeminiGenerateContentUrl(apiBase: string, model: string): string {
   return `${apiBase}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 }
 
-function shouldRequestAsyncImageTask(provider: Pick<ImageProvider, "name">): boolean {
-  if (provider.name === "admin") return false;
-  return provider.name !== "plato" && provider.name !== "laozhang" && provider.name !== "yunwu-native" && provider.name !== "catrouter";
+function shouldRequestAsyncImageTask(_provider: Pick<ImageProvider, "name">): boolean {
+  return false;
 }
 
 function resolveProviderImageModel(model: LingyaModel, provider: Pick<ImageProvider, "name" | "upstreamModel">): string {
   if (provider.upstreamModel?.trim()) return provider.upstreamModel.trim();
-  if (provider.name === "catrouter" && model === "gpt-image-2") {
-    return process.env.CATROUTER_GPT_IMAGE_MODEL?.trim() || DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
-  }
-  if (provider.name === "catrouter" && (model === "nano-banana-2" || model === "nano-banana-2-lite")) {
-    return process.env.CATROUTER_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
-  }
-  if (provider.name === "catrouter" && model === "nano-banana-pro") {
-    return process.env.CATROUTER_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL;
-  }
-  if (provider.name === "plato" && model === "gpt-image-2") {
-    return DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
-  }
-  if (provider.name === "yunwu-native" && (model === "nano-banana-2" || model === "nano-banana-2-lite")) {
-    return process.env.YUNWU_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
-  }
-  if (provider.name === "yunwu-native" && model === "nano-banana-pro") {
-    return process.env.YUNWU_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL;
-  }
-  if (provider.name === "laozhang" && (model === "nano-banana-2" || model === "nano-banana-2-lite")) {
-    return process.env.LAOZHANG_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
-  }
-  if (provider.name === "laozhang" && model === "nano-banana-pro") {
-    return process.env.LAOZHANG_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL;
-  }
   return model;
-}
-
-function isDeprecatedGptImage2ProviderBase(apiBase: string) {
-  try {
-    return new URL(apiBase).hostname === "api.bltcy.ai";
-  } catch {
-    return false;
-  }
 }
 
 function resolveGptImage2Size(imageSize: ImageSize | undefined, aspectRatio: AspectRatio): string {
@@ -1484,7 +1464,7 @@ function buildImageFilename(src: string, index: number, mimeType: string): strin
   return safeName;
 }
 
-function normalizeLaozhangAspectRatio(value?: AspectRatio): string {
+function normalizeGeminiAspectRatio(value?: AspectRatio): string {
   return value && value !== "auto" ? value : "1:1";
 }
 
@@ -1516,6 +1496,7 @@ function isRetryableStatus(status: number): boolean {
 
 function isRetryableGenerationErrorForAdapter(error: unknown): boolean {
   if (error instanceof NonRetryableGenerationError) return false;
+  if (error instanceof ProviderHttpResponseError) return isRetryableStatus(error.status);
   if (error instanceof RetryableGenerationError) return true;
   const message = error instanceof Error ? error.message : String(error);
   return /fetch failed|network error|econnreset|econnrefused|enotfound|eai_again|etimedout|internal error/i.test(message);
@@ -2976,19 +2957,17 @@ function buildGarmentDetailPromptGroups(params: {
 export const __lingyaTaskResponseTestUtils = {
   buildImageEditRequest,
   buildImageGenerationRequest,
-  buildLaozhangNativeImageRequest,
+  buildGeminiNativeImageRequest,
   buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,
   extractGeneratedImages,
   getImageEditUrl,
   getImageGenerationUrl,
-  getImageProvider,
-  getLaozhangGenerateContentUrl,
-  getPlatoApiBaseUrl,
+  getGeminiGenerateContentUrl,
   normalizeImageTaskResponse,
   resolveGptImage2Size,
   resolveProviderImageModel,
-  shouldUseLaozhangNativeEndpoint,
+  shouldUseGeminiNativeEndpoint,
   shouldUseImageEditEndpoint,
   shouldRequestAsyncImageTask,
 };

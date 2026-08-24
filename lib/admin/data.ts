@@ -1,7 +1,7 @@
 import { CREDIT_COSTS, DEFAULT_LINGYA_MODEL, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { getPublishedLlmProviderRawValue } from "@/lib/api/llm-provider-registry.server";
-import { getAdminModelProviderSnapshot, getPublishedModelProviderRawValue } from "@/lib/api/model-provider-registry.server";
 import { getPublishedVideoProviderRawValue } from "@/lib/api/video-provider-registry.server";
+import { getAiControlPlanePublicSnapshot } from "@/lib/ai-control-plane/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
@@ -1697,11 +1697,10 @@ function readIntegerEnv(name: string, fallback: number, minimum: number, maximum
 
 
 export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
-  const [llmRaw, modelRaw, videoRaw, modelSnapshot] = await Promise.all([
+  const [llmRaw, videoRaw, controlPlane] = await Promise.all([
     getPublishedLlmProviderRawValue().catch(() => null),
-    getPublishedModelProviderRawValue().catch(() => null),
     getPublishedVideoProviderRawValue().catch(() => null),
-    getAdminModelProviderSnapshot().catch(() => null),
+    getAiControlPlanePublicSnapshot().catch(() => null),
   ]);
 
   const MODEL_NOTES: Record<LingyaModel, string> = {
@@ -1715,26 +1714,25 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
     defaultModel: DEFAULT_LINGYA_MODEL,
     providerPublish: {
       llm: Boolean(llmRaw),
-      model: Boolean(modelRaw),
+      model: controlPlane?.source === "unified",
       video: Boolean(videoRaw),
     },
-  modelProviders: (modelSnapshot?.models || (["nano-banana-2", "nano-banana-2-lite", "gpt-image-2", "nano-banana-pro"] as const).map((model) => ({
-      model,
-      enabled: false,
-      baseUrl: "",
-      upstreamModel: "",
-      apiKeyConfigured: false,
-      source: "env" as const,
-    }))).map((entry) => ({
-      model: entry.model,
-      enabled: entry.enabled,
-      baseUrl: entry.baseUrl,
-      upstreamModel: entry.upstreamModel,
-      apiKeyConfigured: entry.apiKeyConfigured,
-      source: entry.source,
-      costs: CREDIT_COSTS[entry.model],
-      notes: MODEL_NOTES[entry.model],
-    })),
+    modelProviders: (["nano-banana-2", "nano-banana-2-lite", "gpt-image-2", "nano-banana-pro"] as const).map((model) => {
+      const deployment = controlPlane?.config.deployments.find((item) => item.modelId === model && item.enabled);
+      const provider = deployment
+        ? controlPlane?.config.providers.find((item) => item.id === deployment.providerId && item.enabled)
+        : undefined;
+      return {
+        model,
+        enabled: Boolean(deployment && provider),
+        baseUrl: provider?.baseUrl || "",
+        upstreamModel: deployment?.upstreamModel || "",
+        apiKeyConfigured: provider?.apiKeyConfigured === true,
+        source: "admin" as const,
+        costs: CREDIT_COSTS[model],
+        notes: MODEL_NOTES[model],
+      };
+    }),
     modules: [
       { key: "tryon", label: "服装上身", route: "/create", adminHref: "/admin/tryon", risk: "medium" },
       { key: "pose", label: "姿势裂变", route: "/pose", adminHref: "/admin/generations?module=pose", risk: "medium" },
