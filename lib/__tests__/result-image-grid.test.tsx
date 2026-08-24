@@ -74,7 +74,7 @@ describe("ResultImageGrid download button", () => {
     expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 3 张");
   });
 
-  it("keeps the resource-library action in the card focus dock", () => {
+  it("keeps the resource-library action in the card's top-right focus corner", () => {
     renderWithIntl(
       <ResultImageGrid
         urls={[sampleUrls[0]]}
@@ -86,8 +86,28 @@ describe("ResultImageGrid download button", () => {
     );
 
     const favoriteAction = document.querySelector(".studio-result-focus-favorite");
-    expect(favoriteAction).toBeTruthy();
-    expect(favoriteAction?.textContent).toContain("加入资源库");
+    const cornerFavoriteAction = document.querySelector(".studio-result-favorite-corner");
+    expect(favoriteAction).toBeNull();
+    expect(cornerFavoriteAction).toBeTruthy();
+    expect(cornerFavoriteAction?.textContent).toContain("加入资源库");
+    expect(cornerFavoriteAction?.closest(".studio-result-focus-actions")).toBeNull();
+  });
+
+  it("keeps card downloads when the task-wide download entry is hidden", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={sampleUrls.slice(0, 2)}
+        expectedCount={2}
+        statusGroup="completed"
+        showDownloadAction={false}
+        filenamePrefix="image-to-image"
+        onOpen={() => {}}
+        variant="task"
+      />
+    );
+
+    expect(document.querySelector(".studio-result-primary-download")).toBeNull();
+    expect(document.querySelectorAll(".studio-result-focus-download")).toHaveLength(2);
   });
 
   it("uses a single-image action when exactly one result is complete", () => {
@@ -226,6 +246,7 @@ describe("ResultImageGrid download button", () => {
     });
     expect(document.querySelectorAll(".studio-result-batch-download")).toHaveLength(1);
     expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 4 张");
+    expect(document.querySelectorAll(".studio-result-focus-download")).toHaveLength(4);
   });
 
   it("keeps pending cards static while only completed cards receive hover motion", () => {

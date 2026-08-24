@@ -31,6 +31,8 @@ type ResultImageGridProps = {
   expectedCount?: number;
   downloadUrls?: string[];
   downloadExpectedCount?: number;
+  /** Controls the task-wide/header download entry. Successful result cards
+   *  keep their own download action even when this is false. */
   showDownloadAction?: boolean;
   isGenerating?: boolean;
   imageAltPrefix?: string;
@@ -140,6 +142,10 @@ export function ResultImageGrid({
   // images remain downloadable even when sibling slots failed; failed/empty
   // slots are simply excluded from the batch.
   const downloadsReady = actionUrls.length > 0
+    && !isGenerating
+    && statusGroup !== "running"
+    && statusGroup !== "queued";
+  const perCardDownloadsReady = completedUrls.length > 0
     && !isGenerating
     && statusGroup !== "running"
     && statusGroup !== "queued";
@@ -265,7 +271,7 @@ export function ResultImageGrid({
               // Keep each visual slot mounted while switching recent tasks so
               // StableResultImage can preserve the decoded image until the
               // replacement is ready.
-              const perCardDownloadUrl = showDownloadAction && downloadsReady && url ? url : null;
+              const perCardDownloadUrl = perCardDownloadsReady && url ? url : null;
               return (
                 <ResultCard
                   key={`task-result-slot-${index}`}
@@ -334,7 +340,7 @@ export function ResultImageGrid({
         {slots.map((url, index) => {
           const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
           const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
-          const perCardDownloadUrl = showDownloadAction && downloadsReady && url ? url : null;
+          const perCardDownloadUrl = perCardDownloadsReady && url ? url : null;
           return (
             <ResultCard
               key={`result-slot-${index}`}
@@ -409,7 +415,7 @@ type ResultCardProps = {
   /** When provided, the card renders a single-image download action in its
    *  bottom hover/focus dock.
    *  Pass `null` (or omit) to hide the per-card download — the parent gates
-   *  this on `showDownloadAction` + `downloadsReady` + an available URL. */
+   *  this on terminal readiness plus an available URL. */
   downloadUrl?: string | null;
   /** Filename stem for per-card downloads. Falls back to "result" when the
    *  parent didn't supply a contextual prefix (e.g. legacy callers). */
@@ -498,6 +504,11 @@ const ResultCard = memo(function ResultCard({
             <span className="truncate">{cellLabel}</span>
           </span>
         ) : null}
+        <FavoriteAssetButton
+          descriptor={favoriteDescriptor}
+          variant="action"
+          className={`studio-result-favorite-corner ${isBestPick ? "studio-result-favorite-corner-below-badge" : ""}`}
+        />
         <div className="flex items-center justify-center" style={getTileStyle(tileAspectRatio)}>
           {url ? (
             <StableResultImage
@@ -543,11 +554,6 @@ const ResultCard = memo(function ResultCard({
                 <span>{t("view")}</span>
               </Button>
               <div className="studio-result-focus-actions">
-                <FavoriteAssetButton
-                  descriptor={favoriteDescriptor}
-                  variant="action"
-                  className="studio-result-focus-action studio-result-focus-favorite"
-                />
                 <ResultFocusAction
                   label={t("actionRepair")}
                   onClick={openImageRepair}
