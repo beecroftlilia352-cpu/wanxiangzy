@@ -90,13 +90,14 @@ describe("general image running-task switch contract", () => {
     expect(resultStage).toContain("expectedCount={activeResultExpectedCount}");
   });
 
-  it("keeps batch download out of the preview workspace", () => {
+  it("keeps batch download out of the preview while retaining active-image download", () => {
     const previewActions = source.slice(
       source.indexOf("const GENERAL_IMAGE_PREVIEW_ACTIONS"),
       source.indexOf("export function GeneralImageExperience"),
     );
 
-    expect(previewActions).not.toContain('kind: "download"');
+    expect(previewActions).toContain('kind: "download"');
+    expect(previewSource).toContain("StudioSingleDownloadButton");
     expect(previewSource).not.toContain("StudioBatchDownloadButton");
     expect(previewSource).not.toContain("studio-image-preview-batch-download");
     expect(previewSource).not.toContain("studio-image-preview-focus-batch-download");

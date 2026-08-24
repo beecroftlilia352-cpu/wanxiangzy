@@ -102,7 +102,6 @@ export function ResultImageGrid({
   extension = "png",
   expectedCount,
   downloadUrls,
-  downloadExpectedCount,
   showDownloadAction = true,
   isGenerating,
   imageAltPrefix,
@@ -137,11 +136,13 @@ export function ResultImageGrid({
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
   const completedSlotCount = slots.filter(Boolean).length;
   const allExpectedResultsReady = completedSlotCount >= count;
-  const downloadsReady = actionUrls.length >= Math.max(1, downloadExpectedCount || count)
+  // A terminal task may legitimately contain a partial result set. Successful
+  // images remain downloadable even when sibling slots failed; failed/empty
+  // slots are simply excluded from the batch.
+  const downloadsReady = actionUrls.length > 0
     && !isGenerating
     && statusGroup !== "running"
-    && statusGroup !== "queued"
-    && statusGroup !== "failed";
+    && statusGroup !== "queued";
   const incomingReferenceItems = useMemo(
     () => buildReferenceItems(inputReferences, inputThumbnails, t("referenceGroup")),
     [inputReferences, inputThumbnails, t]
@@ -264,7 +265,7 @@ export function ResultImageGrid({
               // Keep each visual slot mounted while switching recent tasks so
               // StableResultImage can preserve the decoded image until the
               // replacement is ready.
-              const perCardDownloadUrl = showDownloadAction && downloadsReady ? actionUrls[index] ?? null : null;
+              const perCardDownloadUrl = showDownloadAction && downloadsReady && url ? url : null;
               return (
                 <ResultCard
                   key={`task-result-slot-${index}`}
@@ -333,7 +334,7 @@ export function ResultImageGrid({
         {slots.map((url, index) => {
           const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
           const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
-          const perCardDownloadUrl = showDownloadAction && downloadsReady ? actionUrls[index] ?? null : null;
+          const perCardDownloadUrl = showDownloadAction && downloadsReady && url ? url : null;
           return (
             <ResultCard
               key={`result-slot-${index}`}
@@ -405,7 +406,8 @@ type ResultCardProps = {
    *  and an accent ring. */
   isBestPick?: boolean;
   favoriteDescriptor?: ResourceFavoriteDescriptor | null;
-  /** When provided, the card renders a top-right single-image download button.
+  /** When provided, the card renders a single-image download action in its
+   *  bottom hover/focus dock.
    *  Pass `null` (or omit) to hide the per-card download — the parent gates
    *  this on `showDownloadAction` + `downloadsReady` + an available URL. */
   downloadUrl?: string | null;
@@ -465,29 +467,17 @@ const ResultCard = memo(function ResultCard({
     <TooltipProvider>
       <div
         className={`studio-result-card ${cardStateClass} group relative min-w-0 overflow-hidden bg-white focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${isSingle ? "mx-auto max-w-full" : ""} ${isNew ? "studio-result-card-new" : ""} ${isBestPick ? "studio-result-card-best" : ""}`}
+        data-result-count={count}
       >
         {isBestPick && (
           <span
             aria-label={t("bestPick")}
             title={t("bestPick")}
-            className={`studio-result-best-pick-badge pointer-events-none absolute top-1.5 z-[3] inline-flex items-center gap-1 rounded-full bg-[var(--codex-accent)] px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm ${hasPerCardDownload ? "right-12" : "right-1.5"}`}
+            className="studio-result-best-pick-badge pointer-events-none absolute right-1.5 top-1.5 z-[3] inline-flex items-center gap-1 rounded-full bg-[var(--codex-accent)] px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm"
           >
             <Sparkles className="h-3 w-3" aria-hidden="true" />
             {t("bestPick")}
           </span>
-        )}
-        {hasPerCardDownload && (
-          <StudioSingleDownloadButton
-            url={downloadUrl as string}
-            filename={generateDownloadFilename(filenamePrefix ?? "result", index, extension)}
-            errorFallback={t("downloadFailed")}
-            label={t("download")}
-            variant="ghost"
-            size="sm"
-            stopPropagation
-            showLabel={false}
-            className="studio-result-card-download"
-          />
         )}
         {url ? (
           <button
@@ -550,15 +540,39 @@ const ResultCard = memo(function ResultCard({
                 onKeyDown={(event) => event.stopPropagation()}
               >
                 <Eye className="h-4 w-4" aria-hidden="true" />
-                {t("view")}
+                <span>{t("view")}</span>
               </Button>
               <div className="studio-result-focus-actions">
                 <FavoriteAssetButton
                   descriptor={favoriteDescriptor}
-                  className="studio-result-focus-action h-8 w-8 p-0"
+                  variant="action"
+                  className="studio-result-focus-action studio-result-focus-favorite"
                 />
-                <ResultFocusAction label={t("actionRepair")} onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
-                <ResultFocusAction label={t("actionAiVideo")} onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
+                <ResultFocusAction
+                  label={t("actionRepair")}
+                  onClick={openImageRepair}
+                  icon={<WandSparkles className="h-3.5 w-3.5" />}
+                  className="studio-result-focus-secondary"
+                />
+                <ResultFocusAction
+                  label={t("actionAiVideo")}
+                  onClick={openAiVideo}
+                  icon={<Clapperboard className="h-3.5 w-3.5" />}
+                  className="studio-result-focus-secondary"
+                />
+                {hasPerCardDownload && (
+                  <StudioSingleDownloadButton
+                    url={downloadUrl as string}
+                    filename={generateDownloadFilename(filenamePrefix ?? "result", index, extension)}
+                    errorFallback={t("downloadFailed")}
+                    label={t("download")}
+                    variant="ghost"
+                    size="sm"
+                    stopPropagation
+                    showLabel={false}
+                    className="studio-result-focus-action studio-result-focus-download"
+                  />
+                )}
               </div>
             </div>
         )}
@@ -596,13 +610,23 @@ function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
   );
 }
 
-function ResultFocusAction({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
+function ResultFocusAction({
+  label,
+  icon,
+  onClick,
+  className,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  className?: string;
+}) {
   return (
     <Button
       type="button"
       variant="ghost"
       size="sm"
-      className="studio-result-focus-action"
+      className={`studio-result-focus-action ${className ?? ""}`}
       onClick={(event) => {
         event.stopPropagation();
         onClick();

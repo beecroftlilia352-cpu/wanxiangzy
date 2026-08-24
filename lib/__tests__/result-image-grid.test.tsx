@@ -36,6 +36,15 @@ vi.mock("@/lib/media-download", () => ({
   prepareMediaDownloads: mediaMocks.prepareMediaDownloads,
 }));
 
+vi.mock("@/hooks/use-resource-favorite", () => ({
+  useResourceFavorite: () => ({
+    isSaved: false,
+    isPending: false,
+    isChecking: false,
+    toggle: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
 const sampleUrls = [
   "https://example.com/result-1.png",
   "https://example.com/result-2.png",
@@ -51,7 +60,7 @@ function renderWithIntl(ui: React.ReactElement) {
 }
 
 describe("ResultImageGrid download button", () => {
-  it("renders one batch action and no card-level download actions for completed multi-image results", () => {
+  it("renders one batch action plus one hover-dock download per completed image", () => {
     renderWithIntl(
       <ResultImageGrid
         urls={sampleUrls}
@@ -60,9 +69,25 @@ describe("ResultImageGrid download button", () => {
         variant="task"
       />
     );
-    expect(document.querySelectorAll(".studio-result-card-download")).toHaveLength(sampleUrls.length);
+    expect(document.querySelectorAll(".studio-result-focus-download")).toHaveLength(sampleUrls.length);
     expect(document.querySelectorAll(".studio-result-primary-download")).toHaveLength(1);
     expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 3 张");
+  });
+
+  it("keeps the resource-library action in the card focus dock", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={[sampleUrls[0]]}
+        filenamePrefix="general-image"
+        onOpen={() => {}}
+        statusGroup="completed"
+        resourceFavorite={{ generationId: "11111111-1111-4111-8111-111111111111", moduleKey: "generalImage", mediaType: "image" }}
+      />
+    );
+
+    const favoriteAction = document.querySelector(".studio-result-focus-favorite");
+    expect(favoriteAction).toBeTruthy();
+    expect(favoriteAction?.textContent).toContain("加入资源库");
   });
 
   it("uses a single-image action when exactly one result is complete", () => {
@@ -96,7 +121,7 @@ describe("ResultImageGrid download button", () => {
     expect(document.querySelector(".studio-result-primary-download")).toBeNull();
   });
 
-  it("does not expose download-all for a completed task with missing results", () => {
+  it("downloads the successful subset when a completed task has missing results", async () => {
     renderWithIntl(
       <ResultImageGrid
         urls={[sampleUrls[0], "", sampleUrls[2]]}
@@ -107,21 +132,47 @@ describe("ResultImageGrid download button", () => {
         variant="task"
       />
     );
-    expect(document.querySelector(".studio-result-primary-download")).toBeNull();
+    await vi.waitFor(() => {
+      expect((document.querySelector(".studio-result-batch-download") as HTMLButtonElement).disabled).toBe(false);
+    });
+    expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 2 张");
+    expect(document.querySelectorAll(".studio-result-focus-download")).toHaveLength(2);
   });
 
-  it("does not expose downloads for a failed task", () => {
+  it("keeps successful images downloadable when the overall task is partially failed", async () => {
     renderWithIntl(
       <ResultImageGrid
-        urls={sampleUrls}
-        expectedCount={3}
+        urls={[sampleUrls[0], "", sampleUrls[2], ""]}
+        expectedCount={4}
         statusGroup="failed"
         filenamePrefix="image-translation"
         onOpen={() => {}}
         variant="task"
       />
     );
-    expect(document.querySelector(".studio-result-primary-download")).toBeNull();
+    await vi.waitFor(() => {
+      expect((document.querySelector(".studio-result-batch-download") as HTMLButtonElement).disabled).toBe(false);
+    });
+    expect(document.querySelector(".studio-result-batch-download")?.textContent).toContain("下载全部 2 张");
+    expect(document.querySelectorAll(".studio-result-focus-download")).toHaveLength(2);
+  });
+
+  it("keeps per-card downloads aligned with sparse successful slots", () => {
+    renderWithIntl(
+      <ResultImageGrid
+        urls={[sampleUrls[0], "", sampleUrls[2]]}
+        expectedCount={3}
+        statusGroup="completed"
+        filenamePrefix="image-translation"
+        onOpen={() => {}}
+        variant="task"
+      />
+    );
+    const readyCards = document.querySelectorAll(".studio-result-card-ready");
+    expect(readyCards).toHaveLength(2);
+    expect(readyCards[0].querySelector(".studio-result-focus-download")).toBeTruthy();
+    expect(readyCards[1].querySelector(".studio-result-focus-download")).toBeTruthy();
+    expect(document.querySelector(".studio-result-card-pending-shell .studio-result-focus-download")).toBeNull();
   });
 
   it("hands every completed URL to the one batch action", async () => {

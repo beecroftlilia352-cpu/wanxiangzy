@@ -664,7 +664,12 @@ function PreviewActionBar({
 }) {
   const t = useTranslations("Shared");
   const actionMap = new Map(actions.map((action) => [action.kind, action]));
-  const downloadAction = actionMap.get("download");
+  // Download is a baseline preview capability. Business pages may customize
+  // the surrounding tools, but should not be able to accidentally remove the
+  // user's primary way to save the active result.
+  const downloadAction = actionMap.get("download") || (activeUrl
+    ? { kind: "download" as const, label: t("actionDownload") }
+    : undefined);
   const renderAction = (kind: ImagePreviewActionKind) => {
     const action = actionMap.get(kind);
     if (!action) return null;

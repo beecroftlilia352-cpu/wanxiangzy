@@ -96,6 +96,7 @@ const ASPECTS: { value: AspectRatio; label: string; labelKey?: string }[] = [
 const IMAGE_PROMPT_PLACEHOLDER_KEY = "imagePromptPlaceholder";
 
 const GENERAL_IMAGE_PREVIEW_ACTIONS: Array<ImagePreviewAction & { labelKey: string }> = [
+  { kind: "download", label: "下载图片", labelKey: "actionDownload" },
   { kind: "copy", label: "复制链接", labelKey: "actionCopy" },
   { kind: "repair", label: "AI修图", labelKey: "actionRepair" },
   { kind: "aiVideo", label: "AI视频", labelKey: "actionAiVideo" },
