@@ -13,6 +13,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](docs/CONFIGURATION.md)
 [![Redis](https://img.shields.io/badge/Redis-BullMQ-DC382D?logo=redis&logoColor=white)](docs/ARCHITECTURE.md)
 [![Stripe](https://img.shields.io/badge/Stripe-Billing-635BFF?logo=stripe&logoColor=white)](docs/CONFIGURATION.md)
+[![Sponsor](https://img.shields.io/badge/Sponsor-Buy%20me%20a%20coffee-ea4aaa?logo=githubsponsors&logoColor=white)](docs/SUPPORT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 [English](README.md) | [简体中文](README.zh-CN.md)
@@ -21,7 +22,9 @@
 
 </div>
 
-<img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png" alt="Pixel Diffusion workspace" width="100%" />
+<a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png">
+  <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png?x-oss-process=image/resize,w_1600/format,webp/quality,q_80" alt="Pixel Diffusion workspace" width="100%" loading="lazy" />
+</a>
 
 Pixel Diffusion is a production-oriented workspace for AI-assisted fashion and e-commerce imagery. It combines virtual try-on, pose variation, model generation, product retouching, product sets, background replacement, material enhancement, image translation, garment 3D, and image-to-video workflows in one application.
 
@@ -41,48 +44,52 @@ The repository is the complete application source: Next.js UI, API routes, Supab
 
 ## Product Screenshots
 
+> Thumbnails below are compressed WebP previews (~20–50 KB each). Click any image for the full-resolution original.
+
 <table>
   <tr>
-    <td width="50%" valign="top">
+    <td width="50%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png" alt="AI virtual try-on and model generation result" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png?x-oss-process=image/resize,w_800/format,webp/quality,q_80" alt="AI virtual try-on and model generation result" width="100%" loading="lazy" />
       </a>
-      <sub><b>Virtual try-on</b> — garment fidelity, reference-guided pose, and model consistency.</sub>
+      <p><b>Virtual try-on</b><br />Garment fidelity, reference-guided pose, and model consistency.</p>
     </td>
-    <td width="50%" valign="top">
+    <td width="50%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png" alt="AI pose variation result grid" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png?x-oss-process=image/resize,w_800/format,webp/quality,q_80" alt="AI pose variation result grid" width="100%" loading="lazy" />
       </a>
-      <sub><b>Pose variation</b> — multiple commercial poses from one source image while preserving garment details.</sub>
+      <p><b>Pose variation</b><br />Multiple commercial poses from one source image while preserving garment details.</p>
     </td>
   </tr>
 </table>
 
-<a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png">
-  <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png" alt="AI outfit fusion result grid" width="100%" />
-</a>
+<p align="center">
+  <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png">
+    <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png?x-oss-process=image/resize,w_1200/format,webp/quality,q_80" alt="AI outfit fusion result grid" width="100%" loading="lazy" />
+  </a>
+</p>
 
-<sub><b>Outfit fusion</b> — combine garments, accessories, references, and model inputs into consistent campaign-ready looks.</sub>
+<p align="center"><b>Outfit fusion</b> — combine garments, accessories, references, and model inputs into consistent campaign-ready looks.</p>
 
 <table>
   <tr>
-    <td width="33%" valign="top">
+    <td width="33%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png" alt="Editorial black floral dress result" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png?x-oss-process=image/resize,w_600/format,webp/quality,q_80" alt="Editorial black floral dress result" width="100%" loading="lazy" />
       </a>
-      <sub><b>Editorial polish</b> — studio-ready garment presentation with consistent lighting and detail.</sub>
+      <p><b>Editorial polish</b><br />Studio-ready garment presentation with consistent lighting and detail.</p>
     </td>
-    <td width="33%" valign="top">
+    <td width="33%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png" alt="White dress by the sea result" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png?x-oss-process=image/resize,w_600/format,webp/quality,q_80" alt="White dress by the sea result" width="100%" loading="lazy" />
       </a>
-      <sub><b>Scene generation</b> — place the same garment into a natural campaign environment without losing material detail.</sub>
+      <p><b>Scene generation</b><br />Place the same garment into a natural campaign environment without losing material detail.</p>
     </td>
-    <td width="33%" valign="top">
+    <td width="33%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg" alt="Navy shirt multi-angle pose grid" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg?x-oss-process=image/resize,w_600/format,webp/quality,q_80" alt="Navy shirt multi-angle pose grid" width="100%" loading="lazy" />
       </a>
-      <sub><b>Multi-angle output</b> — produce a reusable set of poses and crops from one product direction.</sub>
+      <p><b>Multi-angle output</b><br />Produce a reusable set of poses and crops from one product direction.</p>
     </td>
   </tr>
 </table>
@@ -250,6 +257,7 @@ docs/                 Architecture and operations documentation
 ## Documentation
 
 - [Documentation index](docs/README.md)
+- [Support this project](docs/SUPPORT.md)
 - [Configuration reference](docs/CONFIGURATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Supabase migration order](docs/supabase-migration-order.md)
@@ -274,6 +282,23 @@ We actively welcome pull requests from the community. Good contributions include
 Before opening a PR, read [CONTRIBUTING.md](CONTRIBUTING.md) and follow the [Code of Conduct](CODE_OF_CONDUCT.md). Then run `npm run check:release` and include the observed result in the PR description.
 
 [Open a pull request](https://github.com/ganjmeng/wanxiangzy/compare) · [Browse issues](https://github.com/ganjmeng/wanxiangzy/issues) · [Read the contribution guide](CONTRIBUTING.md)
+
+## Support
+
+If this project helps you, consider buying the maintainer a coffee.
+
+<p align="center">
+  <img src="docs/assets/sponsor-wechat-qr.png" alt="WeChat Pay support QR code" width="240" loading="lazy" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/sponsors/ganjmeng">GitHub Sponsors</a> ·
+  <a href="https://pixel-diffusion.com/support">Support page</a> ·
+  <a href="docs/SUPPORT.md">All support options</a>
+</p>
+
+Sponsorship does not change the Apache-2.0 license and does not buy project
+control or feature commitments. See [docs/SUPPORT.md](docs/SUPPORT.md).
 
 ## License
 

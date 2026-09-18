@@ -97,7 +97,7 @@ export function HeaderClient() {
     return <MarketingHeaderWithAccount overlay />;
   }
 
-  if (pathname.startsWith("/pricing")) {
+  if (pathname.startsWith("/pricing") || pathname.startsWith("/support")) {
     return <MarketingHeaderWithAccount />;
   }
 

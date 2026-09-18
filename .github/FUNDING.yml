@@ -1,0 +1,10 @@
+# GitHub Sponsors / community funding config.
+# Shows the "Sponsor" button on the repository header.
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+github: ganjmeng
+
+custom:
+  # Product support page (hosts WeChat Pay QR + international options).
+  # Keep this URL live once the repository goes public.
+  - https://pixel-diffusion.com/support

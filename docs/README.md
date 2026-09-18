@@ -29,6 +29,7 @@ This directory contains the current architecture, configuration, operations, tes
 
 | Document | Purpose |
 | --- | --- |
+| [Support](SUPPORT.md) | Sponsor / coffee channels, WeChat Pay QR, and funding policy |
 | [Release checklist](release-checklist.md) | Local build, migration gate, deployment, smoke test, and rollback procedure |
 | [Backup and restore](backup-restore.md) | Database and object-storage backup scope, restore steps, and verification |
 | [BullMQ load recovery test](bullmq-load-recovery-test.md) | Queue load, restart, failure recovery, and acceptance checks |

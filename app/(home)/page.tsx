@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
+  Coffee,
   ExternalLink,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -394,6 +395,14 @@ function Footer({ t }: { t: (key: string) => string }) {
           <p className="mt-4 max-w-[260px] text-[14px] leading-7 text-codex-muted">
             {t("footNote")}
           </p>
+          <Link
+            href="/support"
+            className="mt-6 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[var(--codex-border)] bg-codex-card px-5 text-[14px] font-semibold text-codex-ink transition hover:-translate-y-px hover:shadow-md"
+            aria-label="Support Pixel Diffusion — buy me a coffee / 请我喝咖啡"
+          >
+            <Coffee aria-hidden="true" className="h-4 w-4" />
+            <span>请我喝咖啡 · Buy me a coffee</span>
+          </Link>
         </div>
         {footerGroups.map((group, index) => (
           <div key={index}>
