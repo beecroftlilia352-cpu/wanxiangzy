@@ -7,8 +7,11 @@ If Pixel Diffusion saves you time, consider supporting maintenance with a coffee
 | Channel | Best for | Link |
 | --- | --- | --- |
 | GitHub Sponsors | Monthly / one-time, visible on the repo | https://github.com/sponsors/ganjmeng |
-| Product support page | WeChat Pay QR + all options in one place | https://pixel-diffusion.com/support |
+| Product support page | WeChat Pay + crypto QR, all options in one place | https://pixel-diffusion.com/support |
+| Crypto (Tron) | USDT / TRX on TRC10/TRC20 | Address below |
 | Issues / PRs | Non-financial support, equally valuable | https://github.com/ganjmeng/wanxiangzy/issues |
+
+Contact: [178153955@qq.com](mailto:178153955@qq.com).
 
 ## WeChat Pay
 
@@ -19,6 +22,20 @@ Scan with WeChat to buy the maintainer a coffee:
 </p>
 
 <p align="center"><b>Thank you for supporting open source.</b></p>
+
+## Crypto (Tron)
+
+USDT / TRX on the **Tron network only (TRC10/TRC20)**. Assets sent on the
+wrong network cannot be recovered.
+
+<p align="center">
+  <img src="./assets/sponsor-tron-qr.png" alt="Tron wallet QR code" width="240" />
+</p>
+
+<p align="center"><code>TDLDHdAhwJ8RuntRyNAv4nnStUiR632CVW</code></p>
+
+- Verify the address before sending: it starts with `TDLD` and ends with `CVW`.
+- Crypto transfers are irreversible and cannot be refunded through GitHub.
 
 ## Notes
 

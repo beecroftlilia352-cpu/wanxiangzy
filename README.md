@@ -300,6 +300,18 @@ If this project helps you, consider buying the maintainer a coffee.
 Sponsorship does not change the Apache-2.0 license and does not buy project
 control or feature commitments. See [docs/SUPPORT.md](docs/SUPPORT.md).
 
+You can also sponsor with crypto — Tron network only (TRC10/TRC20):
+
+<p align="center">
+  <img src="docs/assets/sponsor-tron-qr.png" alt="Tron wallet QR code" width="240" loading="lazy" />
+</p>
+
+<p align="center"><code>TDLDHdAhwJ8RuntRyNAv4nnStUiR632CVW</code></p>
+
+Verify before sending: starts with `TDLD`, ends with `CVW`. Crypto transfers
+are irreversible. Contact: [178153955@qq.com](mailto:178153955@qq.com) ·
+Live service: [pixel-diffusion.com](https://pixel-diffusion.com).
+
 ## License
 
 The source code is licensed under the [Apache License 2.0](LICENSE).

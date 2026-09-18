@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Coffee, Github, HeartHandshake, ShieldCheck } from "lucide-react";
+import { Coffee, Coins, Github, HeartHandshake, Mail, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Support — 请我喝咖啡",
   description:
-    "Support Pixel Diffusion maintenance: WeChat Pay QR, GitHub Sponsors, and contribution options. 支持 Pixel Diffusion 的持续维护。",
+    "Support Pixel Diffusion maintenance: WeChat Pay, crypto (Tron), GitHub Sponsors, and contribution options. 支持 Pixel Diffusion 的持续维护。",
 };
 
 const cardClass =
@@ -15,7 +15,7 @@ const cardClass =
 export default function SupportPage() {
   return (
     <main className="min-h-screen bg-codex-surface text-codex-ink">
-      <div className="mx-auto max-w-[880px] px-5 py-16 sm:px-8 sm:py-20">
+      <div className="mx-auto max-w-[1080px] px-5 py-16 sm:px-8 sm:py-20">
         <p className="inline-flex items-center gap-2 rounded-full border border-[var(--codex-border)] bg-codex-card px-4 py-1.5 text-[13px] font-semibold text-codex-muted">
           <Coffee aria-hidden="true" className="h-4 w-4" />
           Support · 支持
@@ -36,7 +36,7 @@ export default function SupportPage() {
           </span>
         </p>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-[1fr_1fr]">
+        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <section className={cardClass} aria-labelledby="support-wechat">
             <h2
               id="support-wechat"
@@ -62,6 +62,41 @@ export default function SupportPage() {
             </div>
             <p className="mt-4 text-center text-[13px] text-codex-faint">
               二维码只用于自愿赞助，请确认页面域名为 pixel-diffusion.com
+            </p>
+          </section>
+
+          <section className={cardClass} aria-labelledby="support-crypto">
+            <h2
+              id="support-crypto"
+              className="flex items-center gap-2 text-lg font-bold"
+            >
+              <Coins aria-hidden="true" className="h-5 w-5" />
+              数字货币 · Crypto
+            </h2>
+            <p className="mt-2 text-[14px] leading-7 text-codex-muted">
+              仅支持 Tron 网络资产（TRC10/TRC20，如 USDT、TRX）。转错网络无法找回。
+              <span className="block">
+                Tron network only (TRC10/TRC20, e.g. USDT, TRX). Wrong-network
+                transfers cannot be recovered.
+              </span>
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Image
+                src="/images/sponsor-tron-qr.png"
+                alt="Tron wallet QR code · Tron 钱包收款二维码"
+                width={240}
+                height={399}
+                className="h-auto w-[240px] rounded-2xl border border-[var(--codex-border)] bg-white p-2 shadow-sm"
+                loading="lazy"
+              />
+            </div>
+            <p className="mt-4 text-center">
+              <code className="break-all text-[12px] font-semibold text-codex-ink">
+                TDLDHdAhwJ8RuntRyNAv4nnStUiR632CVW
+              </code>
+            </p>
+            <p className="mt-3 text-center text-[13px] leading-6 text-codex-faint">
+              发送前请核对：以 TDLD 开头、CVW 结尾。链上转账不可撤销。
             </p>
           </section>
 
@@ -106,6 +141,36 @@ export default function SupportPage() {
             </p>
           </section>
         </div>
+
+        <section
+          className={`${cardClass} mt-6`}
+          aria-labelledby="support-contact"
+        >
+          <h2
+            id="support-contact"
+            className="flex items-center gap-2 text-lg font-bold"
+          >
+            <Mail aria-hidden="true" className="h-5 w-5" />
+            联系作者 · Contact
+          </h2>
+          <p className="mt-3 text-[14px] leading-7 text-codex-muted">
+            商务合作、发票、企业支持，或赞助后需要确认，请发邮件。发送时请注明你的
+            GitHub 用户名或交易哈希，方便对账。
+            <span className="mt-1 block">
+              For partnerships, invoices, enterprise support, or sponsorship
+              confirmation, email with your GitHub username or transaction hash.
+            </span>
+          </p>
+          <div className="mt-5">
+            <a
+              href="mailto:178153955@qq.com"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[var(--codex-border)] px-5 text-[14px] font-semibold transition hover:shadow-md"
+            >
+              <Mail aria-hidden="true" className="h-4 w-4" />
+              178153955@qq.com
+            </a>
+          </div>
+        </section>
 
         <section
           className={`${cardClass} mt-6`}

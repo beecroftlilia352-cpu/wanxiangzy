@@ -299,6 +299,17 @@ docs/                 架构与运维文档
 
 赞助不改变 Apache-2.0 许可证，也不购买项目控制权或功能承诺。详见 [docs/SUPPORT.md](docs/SUPPORT.md)。
 
+也可以用数字货币赞助——仅支持 Tron 网络（TRC10/TRC20）：
+
+<p align="center">
+  <img src="docs/assets/sponsor-tron-qr.png" alt="Tron 钱包收款二维码" width="240" loading="lazy" />
+</p>
+
+<p align="center"><code>TDLDHdAhwJ8RuntRyNAv4nnStUiR632CVW</code></p>
+
+发送前请核对：以 `TDLD` 开头、`CVW` 结尾。链上转账不可撤销。联系邮箱：[178153955@qq.com](mailto:178153955@qq.com) ·
+在线服务：[pixel-diffusion.com](https://pixel-diffusion.com)。
+
 ## 许可证
 
 源代码采用 [Apache License 2.0](LICENSE)。
