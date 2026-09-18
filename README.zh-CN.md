@@ -33,6 +33,31 @@ Pixel Diffusion 是一个面向服装品牌、电商团队和内容创作者的 
 - **SaaS 基础能力**：Supabase Auth、PostgreSQL、积分、Stripe 订阅与单次购买、退款、邀请奖励、审计日志和管理后台。
 - **国际化界面**：多语言、RTL、响应式布局、明暗主题和可访问性基础组件。
 
+## 产品截图
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png">
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png" alt="AI 服装上身与专属模特生成结果" width="100%" />
+      </a>
+      <sub><b>服装上身</b> — 保持服装细节，参考图控制姿势与场景，并维持模特一致性。</sub>
+    </td>
+    <td width="50%" valign="top">
+      <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png">
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png" alt="AI 姿势裂变结果宫格" width="100%" />
+      </a>
+      <sub><b>姿势裂变</b> — 从一张原图生成多组商业姿势，同时保留服装细节和整体风格。</sub>
+    </td>
+  </tr>
+</table>
+
+<a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png">
+  <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png" alt="AI 搭配融图结果宫格" width="100%" />
+</a>
+
+<sub><b>搭配融图</b> — 将服装、配饰、参考图和模特素材组合成风格一致的商业大片。</sub>
+
 ## 架构
 
 ```mermaid

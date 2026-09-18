@@ -33,6 +33,31 @@ The repository is the complete application source: Next.js UI, API routes, Supab
 - **Built-in SaaS foundation** — Supabase Auth, PostgreSQL, credits, Stripe billing, subscriptions, refunds, invite rewards, audit logging, and an administration console.
 - **Internationalized interface** — multiple locales, RTL support, responsive layouts, light/dark themes, and accessibility-oriented UI primitives.
 
+## Product Screenshots
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png">
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png" alt="AI virtual try-on and model generation result" width="100%" />
+      </a>
+      <sub><b>Virtual try-on</b> — garment fidelity, reference-guided pose, and model consistency.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png">
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png" alt="AI pose variation result grid" width="100%" />
+      </a>
+      <sub><b>Pose variation</b> — multiple commercial poses from one source image while preserving garment details.</sub>
+    </td>
+  </tr>
+</table>
+
+<a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png">
+  <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png" alt="AI outfit fusion result grid" width="100%" />
+</a>
+
+<sub><b>Outfit fusion</b> — combine garments, accessories, references, and model inputs into consistent campaign-ready looks.</sub>
+
 ## Architecture
 
 ```mermaid
