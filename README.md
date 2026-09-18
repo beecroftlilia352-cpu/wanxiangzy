@@ -5,7 +5,7 @@
 **Open-source AI fashion and e-commerce visual production workspace**
 
 [![CI](https://github.com/ganjmeng/wanxiangzy/actions/workflows/ci.yml/badge.svg)](https://github.com/ganjmeng/wanxiangzy/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-22.x-339933?logo=node.js&logoColor=white)](package.json)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](package.json)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](package.json)
@@ -297,7 +297,7 @@ If this project helps you, consider buying the maintainer a coffee.
   <a href="docs/SUPPORT.md">All support options</a>
 </p>
 
-Sponsorship does not change the Apache-2.0 license and does not buy project
+Sponsorship does not change the AGPL-3.0 license and does not buy project
 control or feature commitments. See [docs/SUPPORT.md](docs/SUPPORT.md).
 
 You can also sponsor with crypto — Tron network only (TRC10/TRC20):
@@ -314,6 +314,10 @@ Live service: [pixel-diffusion.com](https://pixel-diffusion.com).
 
 ## License
 
-The source code is licensed under the [Apache License 2.0](LICENSE).
+The source code is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+Personal and learning use is free. If you run this software (modified or not)
+as a commercial or hosted service, the AGPL requires you to make the
+Corresponding Source available to your users under the same license.
 
 Third-party names, logos, trademarks, model images, product images, provider assets, and other media remain the property of their respective owners and are not relicensed by this repository unless explicitly stated. See [NOTICE](NOTICE) for details.

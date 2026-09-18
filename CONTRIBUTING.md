@@ -75,7 +75,7 @@ For UI changes, include screenshots or a short recording and verify keyboard nav
 - Queue, billing, auth, storage, and provider changes describe their failure and retry behavior.
 - No secrets, production identifiers, customer data, or downloaded user media are included.
 - Documentation and `.env.local.example` are updated when configuration changes.
-- The contribution is compatible with the Apache-2.0 license.
+- The contribution is compatible with the AGPL-3.0 license.
 
 ## Database Changes
 
@@ -101,4 +101,4 @@ For UI changes, include screenshots or a short recording and verify keyboard nav
 
 ## License
 
-By contributing, you agree that your contribution may be distributed under the repository's [Apache License 2.0](LICENSE).
+By contributing, you agree that your contribution may be distributed under the repository's [GNU Affero General Public License v3.0](LICENSE).

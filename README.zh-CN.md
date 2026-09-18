@@ -5,7 +5,7 @@
 **开源 AI 服装与电商视觉生产工作台**
 
 [![CI](https://github.com/ganjmeng/wanxiangzy/actions/workflows/ci.yml/badge.svg)](https://github.com/ganjmeng/wanxiangzy/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-22.x-339933?logo=node.js&logoColor=white)](package.json)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](package.json)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](package.json)
@@ -297,7 +297,7 @@ docs/                 架构与运维文档
   <a href="docs/SUPPORT.md">全部支持方式</a>
 </p>
 
-赞助不改变 Apache-2.0 许可证，也不购买项目控制权或功能承诺。详见 [docs/SUPPORT.md](docs/SUPPORT.md)。
+赞助不改变 AGPL-3.0 许可证，也不购买项目控制权或功能承诺。详见 [docs/SUPPORT.md](docs/SUPPORT.md)。
 
 也可以用数字货币赞助——仅支持 Tron 网络（TRC10/TRC20）：
 
@@ -312,6 +312,9 @@ docs/                 架构与运维文档
 
 ## 许可证
 
-源代码采用 [Apache License 2.0](LICENSE)。
+源代码采用 [GNU Affero 通用公共许可证 v3.0](LICENSE)。
+
+个人与学习用途免费。如果你把本软件（无论是否修改）用作商业或托管服务，
+AGPL 要求你向用户提供对应源码，且同样以 AGPL 授权。
 
 第三方名称、Logo、商标、模特图片、商品图片、供应商素材及其他媒体归各自权利人所有；除明确声明外，不随本仓库重新授权。详见 [NOTICE](NOTICE)。

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Open-source AI fashion and e-commerce visual production workspace.",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "homepage": "https://pixel-diffusion.com",
   "repository": {
     "type": "git",

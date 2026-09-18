@@ -28,10 +28,10 @@ export default function SupportPage() {
         </h1>
         <p className="mt-6 max-w-[640px] text-[15px] leading-8 text-codex-muted">
           如果这个项目帮你省了时间，欢迎用一杯咖啡支持持续维护。赞助不会改变
-          Apache-2.0 许可证，也不会购买项目控制权或功能承诺。
+          AGPL-3.0 许可证，也不会购买项目控制权或功能承诺。
           <span className="mt-2 block">
             If this project saves you time, consider supporting maintenance with
-            a coffee. Sponsorship does not change the Apache-2.0 license and
+            a coffee. Sponsorship does not change the AGPL-3.0 license and
             does not buy project control or feature commitments.
           </span>
         </p>

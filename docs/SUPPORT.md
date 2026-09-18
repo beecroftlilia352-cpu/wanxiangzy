@@ -39,7 +39,7 @@ wrong network cannot be recovered.
 
 ## Notes
 
-- Sponsorship does not change the [Apache-2.0](../LICENSE) license.
+- Sponsorship does not change the [AGPL-3.0](../LICENSE) license.
 - Sponsorship does not buy project control, priorities, or feature commitments.
 - Prefer GitHub Sponsors for auditable, refundable payments. A personal
   payment QR is convenient but cannot be audited or refunded through GitHub.
