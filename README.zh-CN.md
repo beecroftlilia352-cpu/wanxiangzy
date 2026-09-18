@@ -13,6 +13,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](docs/CONFIGURATION.md)
 [![Redis](https://img.shields.io/badge/Redis-BullMQ-DC382D?logo=redis&logoColor=white)](docs/ARCHITECTURE.md)
 [![Stripe](https://img.shields.io/badge/Stripe-Billing-635BFF?logo=stripe&logoColor=white)](docs/CONFIGURATION.md)
+[![Sponsor](https://img.shields.io/badge/Sponsor-请我喝咖啡-ea4aaa?logo=githubsponsors&logoColor=white)](docs/SUPPORT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 [English](README.md) | [简体中文](README.zh-CN.md)
@@ -21,7 +22,9 @@
 
 </div>
 
-<img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png" alt="Pixel Diffusion 工作台" width="100%" />
+<a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png">
+  <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png?x-oss-process=image/resize,w_1600/format,webp/quality,q_80" alt="Pixel Diffusion 工作台" width="100%" loading="lazy" />
+</a>
 
 Pixel Diffusion 是一个面向服装品牌、电商团队和内容创作者的 AI 视觉生产工作台。项目将服装上身、姿势裂变、专属模特、商品精修、商品套图、换背景、材质增强、图片翻译、服装 3D 和 AI 视频等能力整合在同一套应用中。
 
@@ -41,48 +44,52 @@ Pixel Diffusion 是一个面向服装品牌、电商团队和内容创作者的 
 
 ## 产品截图
 
+> 以下为压缩后的 WebP 预览图（每张约 20–50 KB），点击任意图片可查看全分辨率原图。
+
 <table>
   <tr>
-    <td width="50%" valign="top">
+    <td width="50%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png" alt="AI 服装上身与专属模特生成结果" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png?x-oss-process=image/resize,w_800/format,webp/quality,q_80" alt="AI 服装上身与专属模特生成结果" width="100%" loading="lazy" />
       </a>
-      <sub><b>服装上身</b> — 保持服装细节，参考图控制姿势与场景，并维持模特一致性。</sub>
+      <p><b>服装上身</b><br />保持服装细节，参考图控制姿势与场景，并维持模特一致性。</p>
     </td>
-    <td width="50%" valign="top">
+    <td width="50%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png" alt="AI 姿势裂变结果宫格" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png?x-oss-process=image/resize,w_800/format,webp/quality,q_80" alt="AI 姿势裂变结果宫格" width="100%" loading="lazy" />
       </a>
-      <sub><b>姿势裂变</b> — 从一张原图生成多组商业姿势，同时保留服装细节和整体风格。</sub>
+      <p><b>姿势裂变</b><br />从一张原图生成多组商业姿势，同时保留服装细节和整体风格。</p>
     </td>
   </tr>
 </table>
 
-<a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png">
-  <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png" alt="AI 搭配融图结果宫格" width="100%" />
-</a>
+<p align="center">
+  <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png">
+    <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png?x-oss-process=image/resize,w_1200/format,webp/quality,q_80" alt="AI 搭配融图结果宫格" width="100%" loading="lazy" />
+  </a>
+</p>
 
-<sub><b>搭配融图</b> — 将服装、配饰、参考图和模特素材组合成风格一致的商业大片。</sub>
+<p align="center"><b>搭配融图</b> — 将服装、配饰、参考图和模特素材组合成风格一致的商业大片。</p>
 
 <table>
   <tr>
-    <td width="33%" valign="top">
+    <td width="33%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png" alt="黑色花卉连衣裙棚拍结果" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png?x-oss-process=image/resize,w_600/format,webp/quality,q_80" alt="黑色花卉连衣裙棚拍结果" width="100%" loading="lazy" />
       </a>
-      <sub><b>商业棚拍</b> — 统一光线和服装细节，生成可直接用于商品展示的棚拍成片。</sub>
+      <p><b>商业棚拍</b><br />统一光线和服装细节，生成可直接用于商品展示的棚拍成片。</p>
     </td>
-    <td width="33%" valign="top">
+    <td width="33%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png" alt="海边白色连衣裙场景结果" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png?x-oss-process=image/resize,w_600/format,webp/quality,q_80" alt="海边白色连衣裙场景结果" width="100%" loading="lazy" />
       </a>
-      <sub><b>场景生成</b> — 将服装自然放入海边场景，同时保持材质、褶皱和品牌视觉一致。</sub>
+      <p><b>场景生成</b><br />将服装自然放入海边场景，同时保持材质、褶皱和品牌视觉一致。</p>
     </td>
-    <td width="33%" valign="top">
+    <td width="33%" valign="top" align="center">
       <a href="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg">
-        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg" alt="藏青衬衫多角度姿势宫格" width="100%" />
+        <img src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg?x-oss-process=image/resize,w_600/format,webp/quality,q_80" alt="藏青衬衫多角度姿势宫格" width="100%" loading="lazy" />
       </a>
-      <sub><b>多角度输出</b> — 从同一商品方向生成可复用的姿势、角度和裁切成片。</sub>
+      <p><b>多角度输出</b><br />从同一商品方向生成可复用的姿势、角度和裁切成片。</p>
     </td>
   </tr>
 </table>
@@ -250,6 +257,7 @@ docs/                 架构与运维文档
 ## 文档索引
 
 - [完整文档索引](docs/README.md)
+- [支持这个项目](docs/SUPPORT.md)
 - [环境变量配置](docs/CONFIGURATION.md)
 - [系统架构](docs/ARCHITECTURE.md)
 - [Supabase 迁移顺序](docs/supabase-migration-order.md)
@@ -274,6 +282,22 @@ docs/                 架构与运维文档
 提交前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 并遵守 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)，运行 `npm run check:release`，并在 PR 描述中写清楚验证结果和生产影响。
 
 [提交 PR](https://github.com/ganjmeng/wanxiangzy/compare) · [浏览 Issues](https://github.com/ganjmeng/wanxiangzy/issues) · [阅读贡献指南](CONTRIBUTING.md)
+
+## 支持
+
+如果这个项目对你有帮助，欢迎请作者喝杯咖啡。
+
+<p align="center">
+  <img src="docs/assets/sponsor-wechat-qr.png" alt="微信支付赞助二维码" width="240" loading="lazy" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/sponsors/ganjmeng">GitHub Sponsors</a> ·
+  <a href="https://pixel-diffusion.com/support">支持页面</a> ·
+  <a href="docs/SUPPORT.md">全部支持方式</a>
+</p>
+
+赞助不改变 Apache-2.0 许可证，也不购买项目控制权或功能承诺。详见 [docs/SUPPORT.md](docs/SUPPORT.md)。
 
 ## 许可证
 
