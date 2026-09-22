@@ -22,7 +22,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "amount 必须是 -10000 到 10000 之间的非零整数" }, { status: 400 });
   }
   if (reason.length < 4 || reason.length > 240) {
-    return NextResponse.json({ error: "reason 需要 4-240 个字符" }, { status: 400 });
+    return NextResponse.json(
+      { error: `原因需 4-240 个字（当前 ${reason.length} 个字，前后空格不计）` },
+      { status: 400 },
+    );
   }
 
   const { data, error } = await getAdminClient().rpc("admin_adjust_user_credits", {

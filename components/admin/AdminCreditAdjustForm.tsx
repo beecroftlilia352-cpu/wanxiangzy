@@ -32,7 +32,7 @@ export function AdminCreditAdjustForm({
         requestType: isRequest ? "credits.adjust" : undefined,
         userId: values.userId,
         amount: Number(values.amount),
-        reason: values.reason,
+        reason: values.reason.trim(),
         generationId: values.generationId || undefined,
       }),
     });
@@ -104,8 +104,26 @@ export function AdminCreditAdjustForm({
         <Form.Item name="generationId" label="关联任务（可选）" extra="如果是某次生成异常补偿，可从任务详情复制任务编号；不知道可留空。">
           <Input placeholder="可选" />
         </Form.Item>
-        <Form.Item name="reason" label="原因" rules={[{ required: true, min: 4, message: "请填写至少 4 个字的原因" }]}>
-          <Input placeholder="例如：客服补偿、异常扣费修正" />
+        <Form.Item
+          name="reason"
+          label="原因"
+          extra="4-240 个字（前后空格不计），会写入审计日志"
+          rules={[
+            { required: true, message: "请填写调整原因" },
+            {
+              // 与后端 admin_adjust_user_credits 的校验保持一致：先 trim 再计长度（4-240）。
+              // 此前只校验 min、且未 trim，导致「前端通过、后端报错」的体验分裂。
+              validator: (_: unknown, value: string) => {
+                const length = String(value ?? "").trim().length;
+                if (length < 4 || length > 240) {
+                  return Promise.reject(new Error(`原因需 4-240 个字（当前 ${length} 个字）`));
+                }
+                return Promise.resolve();
+              },
+            },
+          ]}
+        >
+          <Input placeholder="例如：客服补偿、异常扣费修正" maxLength={240} />
         </Form.Item>
         <Form.Item label=" " className="!mb-0">
           <Button
