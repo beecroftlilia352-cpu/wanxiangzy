@@ -72,6 +72,19 @@ export type KieJobResult = {
   urls: string[];
 };
 
+/**
+ * 提交前的参考图 URL 解析钩子：把 kie 公网取不到的参考图（内网/站内地址）换成公网 URL。
+ * 协议模块本身保持无 node 依赖，实现由服务端注入（见 kie-reference-image.server.ts）。
+ */
+export type KieReferenceImageResolveInput = {
+  imageUrls: string[];
+  apiKey: string;
+  apiBase: string;
+  fetchImpl: typeof fetch;
+};
+
+export type KieReferenceImageResolver = (input: KieReferenceImageResolveInput) => Promise<string[]>;
+
 function adapterText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -422,6 +435,11 @@ export async function generateImageWithKieJob(input: {
   aspectRatio?: string;
   imageSize?: string;
   idempotencyKey?: string;
+  /**
+   * kie 只接受公网可访问的参考图 URL。服务端可注入解析器，把内网/站内参考图
+   * 先转存到 kie 文件服务，再用返回的 downloadUrl 提交；公网 URL 原样保留。
+   */
+  resolveImageUrls?: KieReferenceImageResolver;
   onProgress?: KieJobProgressSink;
   fetchImpl?: typeof fetch;
   sleepImpl?: (ms: number) => Promise<void>;
@@ -429,10 +447,20 @@ export async function generateImageWithKieJob(input: {
   const adapterConfig = input.deployment.adapterConfig;
   const fetchImpl = input.fetchImpl || fetch;
   const sleep = input.sleepImpl || ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  // 参考图必须先变成 kie 公网取得到的 URL，再进入请求体（否则 kie 侧取图失败）。
+  let imageUrls = normalizeKieImageUrls(input.imageUrls);
+  if (input.resolveImageUrls && imageUrls.length) {
+    imageUrls = normalizeKieImageUrls(await input.resolveImageUrls({
+      imageUrls,
+      apiKey: input.apiKey,
+      apiBase: input.apiBase,
+      fetchImpl,
+    }));
+  }
   const body = buildKieCreateTaskBody({
     upstreamModel: input.upstreamModel || input.deployment.upstreamModel,
     prompt: input.prompt,
-    imageUrls: input.imageUrls,
+    imageUrls,
     aspectRatio: input.aspectRatio,
     imageSize: input.imageSize,
     adapterConfig,

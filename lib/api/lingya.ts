@@ -60,7 +60,7 @@ import {
   type PricedImageSize,
 } from "@/lib/model-pricing";
 import { getRegisteredImageCreditCost, getRegisteredImageModel, getRegisteredImageSizes, isPricedImageModel } from "@/lib/image-model-catalog";
-import { generateImageWithKieJob } from "@/lib/api/kie-job";
+import { generateImageWithKieJob, type KieReferenceImageResolver } from "@/lib/api/kie-job";
 import {
   NonRetryableGenerationError,
   ProviderHttpResponseError,
@@ -153,6 +153,11 @@ export interface GenerateInput {
   /** Stable provider submission key used across retries and failover fences. */
   idempotencyKey?: string;
   routingDeployment?: AiResolvedDeployment;
+  /**
+   * 服务端注入：kie 图生图提交前把 kie 公网取不到的参考图转存到 kie 文件服务。
+   * 客户端安全的本模块只透传该钩子，实现见 kie-reference-image.server.ts。
+   */
+  resolveKieImageUrls?: KieReferenceImageResolver;
 }
 
 export interface GenerateResult {
@@ -247,6 +252,7 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
       upstreamModel: provider.upstreamModel,
       prompt: compiledPrompt,
       imageUrls: requestInput.image || [],
+      resolveImageUrls: requestInput.resolveKieImageUrls,
       aspectRatio: requestInput.aspect_ratio,
       imageSize: requestInput.image_size,
       idempotencyKey: requestInput.idempotencyKey,

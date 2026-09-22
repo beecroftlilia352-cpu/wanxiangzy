@@ -2,11 +2,15 @@ import { createHash } from "node:crypto";
 import { executeAiRouted } from "@/lib/ai-control-plane/router.server";
 import { getAiRouteContext } from "@/lib/ai-control-plane/context.server";
 import { generateImage, type GenerateInput, type GenerateResult } from "@/lib/api/lingya";
+import { createKieReferenceImageResolver } from "@/lib/api/kie-reference-image.server";
 import { isProviderHttpResponseError } from "@/lib/api/generation-errors";
 
 /** Server-only image execution entrypoint. Keep the catalog/core module browser-safe. */
 export async function generateImageWithControlPlane(input: GenerateInput, retries = 1): Promise<GenerateResult> {
   const routeContext = getAiRouteContext();
+  // kie 只接受公网可访问的参考图：内网/站内参考图先转存到 kie 文件服务。解析器按调用创建，
+  // 同一次生成（含跨部署重试）内同一张参考图只上传一次。
+  const resolveKieImageUrls = createKieReferenceImageResolver();
   // A provider POST is not safely replayable when the response is lost. The
   // router owns bounded cross-deployment failover; keep each adapter to one
   // submission and rely on Idempotency-Key for provider-side dedupe.
@@ -27,6 +31,7 @@ export async function generateImageWithControlPlane(input: GenerateInput, retrie
         ...input,
         idempotencyKey,
         routingDeployment: deployment,
+        resolveKieImageUrls,
         onProgress: async (progress) => {
           await input.onProgress?.(progress);
         },
