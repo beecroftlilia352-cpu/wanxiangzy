@@ -72,6 +72,23 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
   },
   async headers() {
+    // 本地自建对象存储/直传地址必须进 CSP：页面在 :3000、对象在 :9443，
+    // 不加入 img-src / media-src / connect-src 时浏览器会直接拦掉图片与直传请求
+    // （表现为缩略图空白、点击查看也打不开）。
+    const localOssHosts: string[] = [];
+    const rawOssEndpoint = (process.env.ALIYUN_OSS_ENDPOINT || "")
+      .trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+    if (rawOssEndpoint) {
+      const ossHost = rawOssEndpoint.split("/")[0];
+      const ossPort = ossHost.split(":")[1] || "9443";
+      const ossScheme =
+        (process.env.ALIYUN_OSS_ENDPOINT_SCHEME || "https").trim().toLowerCase() === "http" ? "http" : "https";
+      localOssHosts.push(`${ossScheme}://${ossHost}`, `http://127.0.0.1:${ossPort}`, `http://localhost:${ossPort}`);
+    }
+    const localOss = localOssHosts.length > 0 ? ` ${[...new Set(localOssHosts)].join(" ")}` : "";
+
     return [
       // Production chunks are content-hashed. Development chunks reuse stable
       // filenames, so long-lived caching there serves stale React trees after a
@@ -102,10 +119,10 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.supabase.co https://replicate.delivery https://*.fashn.ai https://*.sssai.vip https://i.ibb.co https://*.ibb.co https://t.filesystem.site https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vasthk.cn-hongkong.thepacificgls.com https://cn-hongkong.thepacificgls.com https://webstatic.aiproxy.vip https://oss.filenest.top",
-              "media-src 'self' data: blob: https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vasthk.cn-hongkong.thepacificgls.com https://cn-hongkong.thepacificgls.com",
+              `img-src 'self' data: blob: https://*.supabase.co https://replicate.delivery https://*.fashn.ai https://*.sssai.vip https://i.ibb.co https://*.ibb.co https://t.filesystem.site https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vasthk.cn-hongkong.thepacificgls.com https://cn-hongkong.thepacificgls.com https://webstatic.aiproxy.vip https://oss.filenest.top${localOss}`,
+              `media-src 'self' data: blob: https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vasthk.cn-hongkong.thepacificgls.com https://cn-hongkong.thepacificgls.com${localOss}`,
               "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co https://api.lingyaai.cn https://api.bltcy.ai https://api.xiaomimimo.com https://api.imgbb.com https://value.apiqik.online https://*.ibb.co https://*.aliyuncs.com",
+              `connect-src 'self' https://*.supabase.co https://api.lingyaai.cn https://api.bltcy.ai https://api.xiaomimimo.com https://api.imgbb.com https://value.apiqik.online https://*.ibb.co https://*.aliyuncs.com${localOss}`,
               "frame-ancestors 'none'",
             ].join("; "),
           },
