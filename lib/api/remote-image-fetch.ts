@@ -273,7 +273,16 @@ function requestPinnedAddress(url: URL, init: RequestInit, resolved: ResolvedAdd
       headers: Object.fromEntries(new Headers(init.headers).entries()),
       signal: init.signal ?? undefined,
       ...tlsServerName,
-      lookup: (_hostname, _options, callback) => {
+      lookup: (_hostname, options, callback) => {
+        // Node 20+ enables autoSelectFamily by default, so net calls this with
+        // { all: true } and expects an ARRAY of addresses; answering with a bare
+        // address/family pair makes it read undefined and fail with
+        // "Invalid IP address: undefined" (observed on Node 22 while mirroring
+        // vendor results into the local object store).
+        if (options && (options as { all?: boolean }).all) {
+          callback(null, [{ address: resolved.address, family: resolved.family }]);
+          return;
+        }
         callback(null, resolved.address, resolved.family);
       },
     }, (incoming) => {
