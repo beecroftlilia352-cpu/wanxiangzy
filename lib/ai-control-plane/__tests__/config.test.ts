@@ -149,4 +149,65 @@ describe("AI control-plane configuration", () => {
       expect.objectContaining({ path: "deployments.0.adapterConfig.generationPath", severity: "error" }),
     ]));
   });
+
+  it("allows the kie.ai job protocol for image models and keeps its declarative switches", () => {
+    const config = createDefaultAiControlPlaneConfig();
+    addBananaDeployment(config);
+    config.deployments[0] = { ...config.deployments[0], protocol: "kie-job", upstreamModel: "nano-banana-2" };
+    config.deployments[0].adapterConfig = {
+      editUpstreamModel: "gpt-image-2-image-to-image",
+      imageInputField: "image_urls",
+      imageSizeField: "none",
+    };
+
+    const result = validateAiControlPlaneConfig(config);
+    expect(result.issues.filter((issue) => issue.severity === "error")).toEqual([]);
+    expect(result.config.deployments[0].adapterConfig).toEqual({
+      authMode: undefined,
+      generationPath: undefined,
+      editPath: undefined,
+      statusPath: undefined,
+      staticParameters: undefined,
+      editUpstreamModel: "gpt-image-2-image-to-image",
+      imageInputField: "image_urls",
+      imageSizeField: "none",
+    });
+  });
+
+  it("rejects malformed kie.ai adapter switches instead of dropping them", () => {
+    const config = createDefaultAiControlPlaneConfig();
+    addBananaDeployment(config);
+    config.deployments[0] = { ...config.deployments[0], protocol: "kie-job" };
+    config.deployments[0].adapterConfig = {
+      editUpstreamModel: "bad model!",
+      imageInputField: "input urls",
+      imageSizeField: "resolution; drop",
+    };
+
+    const result = validateAiControlPlaneConfig(config);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "deployments.0.adapterConfig.editUpstreamModel", severity: "error" }),
+      expect.objectContaining({ path: "deployments.0.adapterConfig.imageInputField", severity: "error" }),
+      expect.objectContaining({ path: "deployments.0.adapterConfig.imageSizeField", severity: "error" }),
+    ]));
+  });
+
+  it("ships the six supported image models with positive 1K/2K/4K pricing", () => {
+    const config = createDefaultAiControlPlaneConfig();
+    const imageModels = config.models.filter((model) => model.modality === "image");
+    expect(imageModels.map((model) => model.id)).toEqual([
+      "nano-banana-2",
+      "nano-banana-2-lite",
+      "gpt-image-2",
+      "nano-banana-pro",
+      "gpt-image-2-5-sunburst",
+      "gpt-image-2-5-flare",
+    ]);
+    for (const model of imageModels) {
+      expect(Number(model.creditPrices?.["1K"] || 0)).toBeGreaterThan(0);
+      expect(model.presentation?.shortTitle).toBeTruthy();
+      // 默认目录是未启用的基线，必须先发布部署。
+      expect(model.enabled).toBe(false);
+    }
+  });
 });

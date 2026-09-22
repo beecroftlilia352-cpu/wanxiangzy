@@ -8,6 +8,7 @@ import type {
 } from "@/lib/ai-tools/types";
 import {
   getImageStorageAdapter,
+  isUpstreamImageHost,
   storeImage,
   type ImageStorageClass,
 } from "@/lib/api/image-storage";
@@ -224,7 +225,11 @@ async function validateAndPersistOutput(
   const userScope = createHash("sha256").update(userId).digest("hex").slice(0, 12);
   let url = output.url;
 
-  if (pixelLock || !isStoredInExpectedOssPrefix(output.url, storageClass, userScope)) {
+  // A vendor-hosted result keeps the vendor URL: the bytes were already fetched
+  // and validated above (dimensions/mime still recorded), but nothing is mirrored
+  // into the local object store. Left unconfigured this is false, i.e. upstream.
+  const keepUpstreamUrl = isUpstreamImageHost(output.url);
+  if (pixelLock || (!keepUpstreamUrl && !isStoredInExpectedOssPrefix(output.url, storageClass, userScope))) {
     try {
       const stored = await storeImage({
         bytes: validated.bytes,
@@ -564,7 +569,10 @@ function isStoredInExpectedOssPrefix(
   try {
     const url = new URL(urlValue);
     const base = new URL(baseValue);
-    if (url.protocol !== "https:" || url.hostname.toLowerCase() !== base.hostname.toLowerCase()) return false;
+    // The stored-output check targets this deployment's own OSS base, which is HTTP locally.
+    const allowLocalHttp = (process.env.ALIYUN_OSS_ENDPOINT_SCHEME || "").trim().toLowerCase() === "http";
+    const protocolOk = url.protocol === "https:" || (allowLocalHttp && url.protocol === "http:");
+    if (!protocolOk || url.hostname.toLowerCase() !== base.hostname.toLowerCase()) return false;
     if (url.search || url.hash) return false;
 
     const basePath = decodePath(base.pathname).replace(/^\/+|\/+$/g, "");

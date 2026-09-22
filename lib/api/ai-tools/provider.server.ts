@@ -413,7 +413,10 @@ function isValidHttpsBaseUrl(value: string | undefined) {
   if (!value?.trim()) return false;
   try {
     const url = new URL(value.trim());
-    return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password;
+    // Local deployments point the OSS base and the Supabase URL at intranet HTTP endpoints.
+    const allowLocalHttp = (process.env.ALIYUN_OSS_ENDPOINT_SCHEME || "").trim().toLowerCase() === "http";
+    return (url.protocol === "https:" || (allowLocalHttp && url.protocol === "http:"))
+      && Boolean(url.hostname) && !url.username && !url.password;
   } catch {
     return false;
   }

@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { ossEndpointScheme } from "@/lib/api/oss-endpoint";
 
 import { decryptProviderSecret, encryptProviderSecret } from "@/lib/api/model-provider-secrets";
 import {
@@ -609,7 +610,7 @@ async function hashStoredOssObject(
   expectedType: SupportedImageType,
 ) {
   const response = await withNetworkPermit(config.networkConcurrency, () => fetch(
-    buildObjectUrl(`https://${config.endpoint}`, objectKey),
+    buildObjectUrl(`${ossEndpointScheme()}://${config.endpoint}`, objectKey),
     {
       method: "GET",
       cache: "no-store",
@@ -770,7 +771,7 @@ async function streamRemoteImageToOss(
     expectedType,
     config.maxBytes,
   );
-  const objectUrl = buildObjectUrl(`https://${config.endpoint}`, row.object_key);
+  const objectUrl = buildObjectUrl(`${ossEndpointScheme()}://${config.endpoint}`, row.object_key);
   let response: Response;
   try {
     response = await withNetworkPermit(config.networkConcurrency, () => fetch(objectUrl, {
@@ -904,7 +905,7 @@ async function inspectStoredOssObject(
   expectedSha256?: string,
   expectedEtag?: string,
 ): Promise<{ status: "matching"; result: MirrorResult } | { status: "mismatch" | "missing" }> {
-  const objectUrl = buildObjectUrl(`https://${config.endpoint}`, objectKey);
+  const objectUrl = buildObjectUrl(`${ossEndpointScheme()}://${config.endpoint}`, objectKey);
   const response = await withNetworkPermit(config.networkConcurrency, () => fetch(objectUrl, {
     method: "HEAD",
     cache: "no-store",
@@ -980,7 +981,7 @@ async function triggerMirrorTransfer(row: MirrorTransferRow, config: MirrorConfi
     throw terminalError("OSS mirror mapping has invalid expected metadata");
   }
 
-  const objectUrl = buildObjectUrl(`https://${config.endpoint}`, row.object_key);
+  const objectUrl = buildObjectUrl(`${ossEndpointScheme()}://${config.endpoint}`, row.object_key);
   const response = await withNetworkPermit(config.networkConcurrency, () => fetch(objectUrl, {
     method: "GET",
     cache: "no-store",
@@ -1118,7 +1119,7 @@ function getRemoteTotalLength(response: Response) {
 async function deleteOssObject(config: MirrorConfig, objectKey: string) {
   try {
     const response = await withNetworkPermit(config.networkConcurrency, () => fetch(
-      buildObjectUrl(`https://${config.endpoint}`, objectKey),
+      buildObjectUrl(`${ossEndpointScheme()}://${config.endpoint}`, objectKey),
       {
         method: "DELETE",
         redirect: "manual",
@@ -1152,7 +1153,7 @@ async function assertOssBucketPrivate(config: MirrorConfig) {
 }
 
 async function enforcePrivateOssObjectAcl(config: MirrorConfig, objectKey: string) {
-  const url = `${buildObjectUrl(`https://${config.endpoint}`, objectKey)}?acl`;
+  const url = `${buildObjectUrl(`${ossEndpointScheme()}://${config.endpoint}`, objectKey)}?acl`;
   const response = await withNetworkPermit(config.networkConcurrency, () => fetch(url, {
     method: "PUT",
     cache: "no-store",
@@ -1219,7 +1220,10 @@ function getMirrorConfig() {
   if (!accessKeyId || !accessKeySecret || !bucket || !region || !publicBaseUrl || !endpoint) {
     throw new Error("OSS remote transfer requires the standard ALIYUN_OSS_* storage configuration");
   }
-  if (endpoint !== `${bucket}.${region}.aliyuncs.com`) {
+  // A local deployment points ALIYUN_OSS_ENDPOINT at the intranet object
+  // service instead of an Aliyun bucket endpoint; ALIYUN_OSS_ENDPOINT_SCHEME=http
+  // is the explicit opt-in for that (see lib/api/oss-endpoint.ts).
+  if (endpoint !== `${bucket}.${region}.aliyuncs.com` && ossEndpointScheme() !== "http") {
     throw new Error("ALIYUN_OSS_ENDPOINT must be the bucket HTTPS endpoint for its configured region");
   }
   if (signingSecret.length < 32) {
@@ -1435,7 +1439,12 @@ function validatePublicBaseUrl(value?: string) {
   if (!normalized) return "";
   const url = new URL(normalized);
   if (
-    url.protocol !== "https:"
+    !(
+      url.protocol === "https:"
+      // Local deployments point this at the intranet object service over plain
+      // HTTP (see lib/api/oss-endpoint.ts); real Aliyun origins stay HTTPS-only.
+      || (url.protocol === "http:" && ossEndpointScheme() === "http")
+    )
     || url.username
     || url.password
     || url.search

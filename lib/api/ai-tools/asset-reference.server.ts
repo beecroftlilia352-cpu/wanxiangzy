@@ -149,7 +149,9 @@ export function assertAiToolOwnedOssAssetUrl(
   try {
     const url = new URL(value);
     const base = new URL(baseValue);
-    if (url.protocol !== "https:"
+    // Owned-asset URLs point at this deployment's own OSS base (HTTP locally).
+    const allowLocalHttp = (process.env.ALIYUN_OSS_ENDPOINT_SCHEME || "").trim().toLowerCase() === "http";
+    if ((url.protocol !== "https:" && !(allowLocalHttp && url.protocol === "http:"))
       || url.hostname.toLowerCase() !== base.hostname.toLowerCase()
       || url.username
       || url.password
@@ -267,7 +269,8 @@ function buildPublicObjectUrl(objectKey: string) {
   if (!base) return "";
   try {
     const parsed = new URL(base);
-    if (parsed.protocol !== "https:") return "";
+    const allowLocalHttp = (process.env.ALIYUN_OSS_ENDPOINT_SCHEME || "").trim().toLowerCase() === "http";
+    if (parsed.protocol !== "https:" && !(allowLocalHttp && parsed.protocol === "http:")) return "";
   } catch {
     return "";
   }

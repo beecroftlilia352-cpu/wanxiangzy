@@ -7,7 +7,9 @@ export type AiProviderProtocol =
   | "openai-image"
   | "gemini-native"
   | "openai-chat"
-  | "newapi-video";
+  | "newapi-video"
+  /** kie.ai 任务制生图：createTask 提交 + recordInfo 轮询。 */
+  | "kie-job";
 
 export type AiDeploymentAdapterConfig = {
   authMode?: "bearer" | "x-api-key" | "x-goog-api-key";
@@ -15,6 +17,16 @@ export type AiDeploymentAdapterConfig = {
   editPath?: string;
   statusPath?: string;
   staticParameters?: Record<string, string | number | boolean>;
+  /**
+   * kie-job：本次请求携带输入图时使用的上游模型 ID。
+   * kie 上 gpt-image-2 与 gpt-image-2-5-* 的文生图 / 图生图是两个不同的模型 ID，
+   * 而一个部署只绑定一个 upstreamModel，因此这里声明图生图模型。
+   */
+  editUpstreamModel?: string;
+  /** kie-job：输入图数组的字段名（默认 image_input；nano-banana-2-lite 为 image_urls，gpt-image 系列为 input_urls）。 */
+  imageInputField?: string;
+  /** kie-job：尺寸字段名（默认 resolution；取 none 表示该上游模型不接受尺寸字段）。 */
+  imageSizeField?: string;
 };
 
 export type AiModelLocalizedPresentation = {

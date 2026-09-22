@@ -59,7 +59,8 @@ import {
   type PricedImageModel,
   type PricedImageSize,
 } from "@/lib/model-pricing";
-import { getRegisteredImageCreditCost, getRegisteredImageSizes } from "@/lib/image-model-catalog";
+import { getRegisteredImageCreditCost, getRegisteredImageModel, getRegisteredImageSizes, isPricedImageModel } from "@/lib/image-model-catalog";
+import { generateImageWithKieJob } from "@/lib/api/kie-job";
 import {
   NonRetryableGenerationError,
   ProviderHttpResponseError,
@@ -105,9 +106,11 @@ const ASPECT_RATIOS: AspectRatio[] = [
 export const CREDIT_COSTS = IMAGE_CREDIT_COSTS;
 
 export function normalizeLingyaModel(value: unknown): LingyaModel {
-  return typeof value === "string" && LINGYA_MODELS.includes(value as LingyaModel)
-    ? (value as LingyaModel)
-    : DEFAULT_LINGYA_MODEL;
+  const requested = typeof value === "string" ? value.trim() : "";
+  if (!requested) return DEFAULT_LINGYA_MODEL;
+  if (LINGYA_MODELS.includes(requested as LingyaModel)) return requested as LingyaModel;
+  // 后台通过控制面动态发布的图片模型同样可以被请求；只有未知 ID 才回落到默认模型。
+  return getRegisteredImageModel(requested) ? requested as LingyaModel : DEFAULT_LINGYA_MODEL;
 }
 
 export function normalizeAspectRatio(value: unknown, fallback: AspectRatio = "3:4"): AspectRatio {
@@ -118,7 +121,10 @@ export function normalizeAspectRatio(value: unknown, fallback: AspectRatio = "3:
 
 export function getCreditCost(model: LingyaModel, size: ImageSize = "1K", aspectRatio?: AspectRatio): number {
   const normalized = normalizeImageSize(model, size, aspectRatio);
-  return getRegisteredImageCreditCost(model, normalized) ?? getImageCreditCost(model, normalized);
+  const registered = getRegisteredImageCreditCost(model, normalized);
+  if (typeof registered === "number") return registered;
+  // 动态发布的图片模型只由控制面目录定价，静态价格表只覆盖内置模型。
+  return isPricedImageModel(model) ? getImageCreditCost(model, normalized) : 0;
 }
 
 export function getSupportedImageSizes(model: LingyaModel, aspectRatio?: AspectRatio): ImageSize[] {
@@ -171,7 +177,7 @@ type ImageProvider = {
   apiBase: string;
   apiKey?: string;
   upstreamModel?: string;
-  responseType: "openai-image" | "gemini-native";
+  responseType: "openai-image" | "gemini-native" | "kie-job";
   enabled?: boolean;
 };
 
@@ -230,6 +236,30 @@ export async function generateImage(input: GenerateInput, retries = 1): Promise<
     model: requestInput.model,
     prompt: requestInput.prompt,
   });
+
+  // kie.ai 是任务制接口：一次提交 + 内部轮询，没有同步/编辑端点分支，也不在这里二次提交。
+  // 上游模型 ID 的图生图切换、输入图字段名、尺寸字段名都由部署的 adapterConfig 声明。
+  if (provider.responseType === "kie-job") {
+    const completed = await generateImageWithKieJob({
+      deployment: requestInput.routingDeployment,
+      apiBase,
+      apiKey,
+      upstreamModel: provider.upstreamModel,
+      prompt: compiledPrompt,
+      imageUrls: requestInput.image || [],
+      aspectRatio: requestInput.aspect_ratio,
+      imageSize: requestInput.image_size,
+      idempotencyKey: requestInput.idempotencyKey,
+      onProgress: requestInput.onProgress,
+    });
+    logger.info(`[api:${provider.name}] kie 任务完成: taskId=${completed.taskId}, imageCount=${completed.urls.length}`);
+    return {
+      url: completed.urls[0],
+      prompt: requestInput.prompt,
+      compiledPrompt,
+      taskId: completed.taskId,
+    };
+  }
 
   const useGeminiNativeEndpoint = shouldUseGeminiNativeEndpoint(requestInput, provider);
   const useImageEditEndpoint = !useGeminiNativeEndpoint && shouldUseImageEditEndpoint(requestInput, provider);
@@ -471,12 +501,16 @@ function sanitizeProviderDiagnosticToken(value: unknown) {
 }
 
 function imageProviderFromDeployment(deployment: AiResolvedDeployment): ImageProvider {
-  if (deployment.protocol !== "openai-image" && deployment.protocol !== "gemini-native") {
+  if (deployment.protocol !== "openai-image" && deployment.protocol !== "gemini-native" && deployment.protocol !== "kie-job") {
     throw new Error(`图片部署 ${deployment.id} 的协议 ${deployment.protocol} 不受支持`);
   }
   const apiBase = deployment.protocol === "gemini-native"
     ? normalizeGeminiNativeApiBaseUrl(deployment.provider.baseUrl, deployment.provider.baseUrl)
-    : normalizeOpenAiCompatibleBaseUrl(deployment.provider.baseUrl);
+    // kie.ai 的 baseUrl 直接拼接 /api/v1/... 路径；normalizeOpenAiCompatibleBaseUrl 会补 /v1，
+    // 拼出来是 /v1/api/v1/jobs/createTask，实测 404。
+    : deployment.protocol === "kie-job"
+      ? deployment.provider.baseUrl.trim().replace(/\/+$/, "")
+      : normalizeOpenAiCompatibleBaseUrl(deployment.provider.baseUrl);
   return {
     name: "admin",
     apiBase,

@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { ossEndpointScheme } from "@/lib/api/oss-endpoint";
 import IORedis from "ioredis";
 import {
   databaseMediaAssetRegistry,
@@ -663,7 +664,7 @@ function getOssUploadConfig() {
     publicBaseUrl,
     securityToken,
     endpoint,
-    uploadBaseUrl: `https://${endpoint}`,
+    uploadBaseUrl: `${ossEndpointScheme()}://${endpoint}`,
   };
 }
 
@@ -712,7 +713,7 @@ async function signedObjectRequest(
     ...extraHeaders,
   };
   if (config.securityToken) headers["x-oss-security-token"] = config.securityToken;
-  return fetch(`https://${config.endpoint}/${encodeObjectKey(objectKey)}`, {
+  return fetch(`${ossEndpointScheme()}://${config.endpoint}/${encodeObjectKey(objectKey)}`, {
     method,
     headers,
     redirect: "error",
@@ -913,7 +914,10 @@ function normalizeBaseUrl(value?: string) {
   const normalized = (value || "").trim().replace(/\/+$/, "");
   try {
     const url = new URL(normalized);
-    if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.search || url.hash) return "";
+    if (
+      !(url.protocol === "https:" || (url.protocol === "http:" && ossEndpointScheme() === "http"))
+      || !url.hostname || url.username || url.password || url.search || url.hash
+    ) return "";
     return normalized;
   } catch {
     return "";

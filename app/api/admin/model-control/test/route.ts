@@ -58,6 +58,9 @@ export async function POST(request: Request) {
 function connectionTestTarget(baseUrl: string, protocol: AiProviderProtocol, apiKey: string): { url: string; method: string; headers: Record<string, string> } {
   const normalized = baseUrl.replace(/\/+$/, "");
   if (protocol === "gemini-native") return { url: `${normalized}/v1beta/models`, method: "GET", headers: { "x-goog-api-key": apiKey } };
+  // kie.ai 的任务查询需要一个 taskId 才会返回 200 信封；假 taskId 拿到 200 即证明鉴权通过，
+  // 无效密钥会在同一路由上直接 401（不会产生计费任务）。
+  if (protocol === "kie-job") return { url: `${normalized}/api/v1/jobs/recordInfo?taskId=connection-probe`, method: "GET", headers: { Authorization: `Bearer ${apiKey}` } };
   const v1 = /\/v1$/i.test(normalized) ? normalized : `${normalized}/v1`;
   return { url: `${v1}/models`, method: "GET", headers: { Authorization: `Bearer ${apiKey}` } };
 }
@@ -83,5 +86,5 @@ function privateAddress(address: string) {
   const normalized = address.toLowerCase();
   return normalized === "::1" || normalized === "::" || normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe8") || normalized.startsWith("fe9") || normalized.startsWith("fea") || normalized.startsWith("feb");
 }
-function normalizeProtocol(value: unknown): AiProviderProtocol | null { return ["openai-image", "gemini-native", "openai-chat", "newapi-video"].includes(text(value)) ? text(value) as AiProviderProtocol : null; }
+function normalizeProtocol(value: unknown): AiProviderProtocol | null { return ["openai-image", "gemini-native", "openai-chat", "newapi-video", "kie-job"].includes(text(value)) ? text(value) as AiProviderProtocol : null; }
 function text(value: unknown) { return typeof value === "string" ? value.trim() : ""; }

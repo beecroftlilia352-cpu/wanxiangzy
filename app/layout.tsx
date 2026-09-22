@@ -14,14 +14,17 @@ import "./styles/workspace-shell.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import { RouteProgress } from "@/components/ui/route-progress";
 import "@/lib/env";
-import { Geist, Syne } from "next/font/google";
+import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import { getSiteMonitoringConfig } from "@/lib/site-config";
 import { SentryBootstrap } from "@/components/SentryBootstrap";
 import { ResourceLibraryProvider } from "@/features/resource-library";
 
-const geist = Geist({
-  subsets: ["latin"],
+const geist = localFont({
+  // Self-hosted Geist variable font (see app/fonts) - no build-time network fetch.
+  src: "./fonts/Geist-Variable.woff2",
+  weight: "100 900",
+  style: "normal",
   variable: "--font-sans",
   display: "swap",
   preload: true,
@@ -39,18 +42,18 @@ const geist = Geist({
     "Noto Sans Devanagari",
     "sans-serif",
   ],
-  adjustFontFallback: false,
 });
 
 // 大师级标题字体：Syne（前卫时尚）。正文沿用 Geist（与 Manrope 功能重叠，去掉冗余字体请求）
-const syne = Syne({
-  subsets: ["latin"],
-  weight: "700", // 仅加载标题所需字重，减小字体体积
+const syne = localFont({
+  // Self-hosted Syne 700 (see app/fonts) - no build-time network fetch.
+  src: "./fonts/Syne-Bold.woff2",
+  weight: "700",
+  style: "normal",
   variable: "--font-display",
   display: "swap",
   preload: true,
   fallback: ["system-ui", "sans-serif"],
-  adjustFontFallback: false,
 });
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -21,7 +21,15 @@
 
 控制台允许部署级选择受限鉴权方式（Bearer、`x-api-key`、`x-goog-api-key`），覆盖安全的相对生成/编辑/状态路径，以及少量 primitive 静态参数。标准的模型、提示词、图片和任务字段最后写入并保持最高优先级，静态参数无法覆盖它们；路径禁止绝对 URL、`..`、query/hash 以及未知占位符。API Key 值仍由服务端适配器注入。若上游拥有全新的请求或响应结构，应在 `lib/ai-control-plane/adapters.ts` 注册并实现代码适配器及契约测试，而不是开放任意脚本或任意 JSONPath。
 
-当前可执行适配器：`openai-image`、`gemini-native`、`openai-chat`、`newapi-video`。模型目录可以登记音频和向量模态，但只有绑定了对应且已实现的协议适配器后才能发布为可执行部署。
+当前可执行适配器：`openai-image`、`gemini-native`、`kie-job`、`openai-chat`、`newapi-video`。模型目录可以登记音频和向量模态，但只有绑定了对应且已实现的协议适配器后才能发布为可执行部署。
+
+`kie-job` 适配 kie.ai 的任务制生图接口：`POST /api/v1/jobs/createTask` 提交，`GET /api/v1/jobs/recordInfo?taskId=...` 轮询到 `state=success`，再从 `resultJson.resultUrls[]` 取图。Base URL 直接使用 `https://api.kie.ai`，不追加 `/v1`。kie 上同一"风格"的文生图与图生图是两个模型 ID，因此该协议在 `adapterConfig` 上多出三个声明式字段：
+
+- `editUpstreamModel`：本次请求带输入图时使用的上游模型 ID（例如 `gpt-image-2-image-to-image`）。
+- `imageInputField`：输入图数组的字段名，默认 `image_input`；`nano-banana-2-lite` 用 `image_urls`，gpt-image 系列用 `input_urls`。
+- `imageSizeField`：尺寸字段名，默认 `resolution`；取 `none` 表示该上游模型不接受尺寸字段（例如 `nano-banana-2-lite`）。
+
+kie 只接受可公网访问的图片 URL，不支持 `data:` 内联图片；内网 OSS 地址对 kie 不可达，必须使用公网可访问的存储。
 
 ### 稳定路由
 
@@ -73,7 +81,7 @@
 6. 配置并发、RPM、成本和质量分，先保存草稿并校验。
 7. 小流量发布，观察 24 小时成功率、P95、429 和熔断状态，再逐步调整权重。
 
-OpenAI Images 兼容模型使用 `openai-image`；Gemini 原生 `generateContent` 使用 `gemini-native`；OpenAI 兼容文本/视觉使用 `openai-chat`；现有 NewAPI 视频网关使用 `newapi-video`。控制台只允许选择已经具备完整请求转换、响应归一化和运行时测试的协议；`OpenAI Responses` 或自定义 HTTP 必须先新增代码适配器和契约测试，不能仅靠配置冒充支持。
+OpenAI Images 兼容模型使用 `openai-image`；Gemini 原生 `generateContent` 使用 `gemini-native`；kie.ai 任务制生图使用 `kie-job`；OpenAI 兼容文本/视觉使用 `openai-chat`；现有 NewAPI 视频网关使用 `newapi-video`。控制台只允许选择已经具备完整请求转换、响应归一化和运行时测试的协议；`OpenAI Responses` 或自定义 HTTP 必须先新增代码适配器和契约测试，不能仅靠配置冒充支持。
 
 默认草稿还为三个内置图片模型提供 `api.new.bi` 的 `openai-image` 低优先级备用部署（`newapi-image`）。它只在同一逻辑模型的主部署失败或不可用时接管，不进行跨模型替换；图片编辑请求的原图与 mask 会继续由协议适配器透传。未配置 `VIDEO_API_KEY` 时该供应商会自动退出候选池。发布前仍需在后台连接测试确认账户实际开放对应上游模型与 `/images/edits`，未通过时应禁用对应部署。
 

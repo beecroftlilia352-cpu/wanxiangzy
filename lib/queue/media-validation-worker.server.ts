@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { ossEndpointScheme } from "@/lib/api/oss-endpoint";
 import { createWriteStream } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -418,7 +419,12 @@ function getOssConfig() {
   const region = process.env.ALIYUN_OSS_REGION?.trim();
   const endpoint = (process.env.ALIYUN_OSS_ENDPOINT?.trim() || (bucket && region ? `${bucket}.${region}.aliyuncs.com` : ""))
     .replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-  if (!accessKeyId || !accessKeySecret || !bucket || !region || endpoint !== `${bucket}.${region}.aliyuncs.com`) {
+  const endpointOverride = process.env.ALIYUN_OSS_ENDPOINT?.trim()
+    .replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  if (
+    !accessKeyId || !accessKeySecret || !bucket || !region
+    || (endpoint !== `${bucket}.${region}.aliyuncs.com` && endpoint !== endpointOverride)
+  ) {
     throw new MediaValidationError("media validation OSS configuration is invalid", false);
   }
   return { accessKeyId, accessKeySecret, bucket, endpoint, securityToken: process.env.ALIYUN_OSS_SECURITY_TOKEN?.trim() };
@@ -449,7 +455,7 @@ function buildOssUrl(endpoint: string, objectKey: string) {
       || objectKey.split("/").some((part) => !part || part === "." || part === "..")) {
     throw new MediaValidationError("media validation object key is invalid", false);
   }
-  return `https://${endpoint}/${objectKey.split("/").map(encodeURIComponent).join("/")}`;
+  return `${ossEndpointScheme()}://${endpoint}/${objectKey.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 function sniffVideoMime(prefix: Buffer) {

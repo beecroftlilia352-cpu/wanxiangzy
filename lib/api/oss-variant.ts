@@ -128,7 +128,14 @@ export function createSignedOssVariantUrl(srcUrl: URL, variant: keyof typeof OSS
     .update(stringToSign)
     .digest("base64");
 
-  const finalUrl = new URL(`https://${publicHost}/${objectKey}`);
+  const publicScheme = (() => {
+    try {
+      return new URL(config.publicBaseUrl).protocol === "http:" ? "http" : "https";
+    } catch {
+      return "https";
+    }
+  })();
+  const finalUrl = new URL(`${publicScheme}://${publicHost}/${objectKey}`);
   finalUrl.searchParams.set("OSSAccessKeyId", config.accessKeyId);
   finalUrl.searchParams.set("Expires", expires);
   for (const [k, v] of queryParams) finalUrl.searchParams.set(k, v);

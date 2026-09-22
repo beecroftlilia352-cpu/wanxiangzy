@@ -55,6 +55,16 @@ export const AI_PROTOCOL_ADAPTERS: Record<AiProviderProtocol, AiProtocolAdapterD
     defaultAuthMode: "bearer",
     defaultPaths: { generation: "/v1/video/generations", status: "/v1/video/generations/{taskId}" },
   },
+  "kie-job": {
+    id: "kie-job",
+    label: "Kie.ai 任务制生图",
+    modalities: ["image"],
+    requestShape: "createTask JSON：model + input{prompt, 输入图数组, aspect_ratio, 尺寸}",
+    responseShape: "data.taskId → recordInfo 轮询 state/resultJson.resultUrls[]",
+    defaultAuthMode: "bearer",
+    // kie.ai 的路径自带 /api 前缀，baseUrl 直接拼路径，不能再补 /v1。
+    defaultPaths: { generation: "/api/v1/jobs/createTask", status: "/api/v1/jobs/recordInfo" },
+  },
 };
 
 export function resolveAiAdapterUrl(input: {

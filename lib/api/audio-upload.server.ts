@@ -486,7 +486,9 @@ function getAudioUploadConfig() {
 function isSafeHttpsBaseUrl(value: string) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password
+    const allowLocalHttp = (process.env.ALIYUN_OSS_ENDPOINT_SCHEME || "").trim().toLowerCase() === "http";
+    return (url.protocol === "https:" || (allowLocalHttp && url.protocol === "http:"))
+      && Boolean(url.hostname) && !url.username && !url.password
       && !url.search && !url.hash;
   } catch {
     return false;

@@ -16,6 +16,7 @@ const PROTOCOLS: readonly AiProviderProtocol[] = [
   "gemini-native",
   "openai-chat",
   "newapi-video",
+  "kie-job",
 ];
 
 export const DEFAULT_AI_ROUTING_POLICY: AiRoutingPolicy = {
@@ -57,6 +58,8 @@ export function createDefaultAiControlPlaneConfig(): AiControlPlaneConfig {
       imageModel("nano-banana-2-lite", "Nano Banana 2 Lite", { "1K": 3 }),
       imageModel("gpt-image-2", "GPT Image 2", { "1K": 3, "2K": 4, "4K": 5 }),
       imageModel("nano-banana-pro", "Nano Banana Pro", { "1K": 8, "2K": 10, "4K": 12 }),
+      imageModel("gpt-image-2-5-sunburst", "GPT Image 2.5 Sunburst", { "1K": 5, "2K": 7, "4K": 9 }),
+      imageModel("gpt-image-2-5-flare", "GPT Image 2.5 Flare", { "1K": 5, "2K": 7, "4K": 9 }),
       baseModel("text-default", "默认文本模型", "text", false, false),
       baseModel("vision-default", "默认视觉模型", "vision", false, false),
       { ...baseModel("video-minimax", "MiniMax 视频", "video", false, false), capabilities: ["image-to-video", "first-last-frame"], defaultRoutingMode: "smart", creditPrices: { "pro:768p:minimum": 15, "pro:768p:perSecond": 3, "pro:2k:minimum": 20, "pro:2k:perSecond": 4 } },
@@ -134,7 +137,7 @@ export function validateAiControlPlaneConfig(value: unknown): {
 }
 
 function protocolsForModality(modality: AiModality): AiProviderProtocol[] {
-  if (modality === "image") return ["openai-image", "gemini-native"];
+  if (modality === "image") return ["openai-image", "gemini-native", "kie-job"];
   if (modality === "video") return ["newapi-video"];
   return ["openai-chat"];
 }
@@ -266,11 +269,38 @@ function parseAdapterConfig(value: unknown, deploymentPath: string, issues: AiCo
   const editPath = adapterPath(item.editPath, `${deploymentPath}.adapterConfig.editPath`, issues);
   const statusPath = adapterPath(item.statusPath, `${deploymentPath}.adapterConfig.statusPath`, issues);
   const staticParameters = primitiveRecord(item.staticParameters, 32);
+  const editUpstreamModel = adapterModelId(item.editUpstreamModel, `${deploymentPath}.adapterConfig.editUpstreamModel`, issues);
+  const imageInputField = adapterFieldName(item.imageInputField, `${deploymentPath}.adapterConfig.imageInputField`, issues);
+  const imageSizeField = adapterFieldName(item.imageSizeField, `${deploymentPath}.adapterConfig.imageSizeField`, issues, true);
   const authMode = ["bearer", "x-api-key", "x-goog-api-key"].includes(text(item.authMode))
     ? text(item.authMode) as "bearer" | "x-api-key" | "x-goog-api-key"
     : undefined;
-  if (!generationPath && !editPath && !statusPath && !staticParameters && !authMode) return undefined;
-  return { authMode, generationPath, editPath, statusPath, staticParameters };
+  if (!generationPath && !editPath && !statusPath && !staticParameters && !authMode
+    && !editUpstreamModel && !imageInputField && !imageSizeField) return undefined;
+  return { authMode, generationPath, editPath, statusPath, staticParameters, editUpstreamModel, imageInputField, imageSizeField };
+}
+
+/** kie-job 的图生图上游模型 ID：普通标识符，长度受限。 */
+function adapterModelId(value: unknown, path: string, issues: AiControlPlaneIssue[]): string | undefined {
+  const raw = text(value);
+  if (!raw) return undefined;
+  if (raw.length > 128 || !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(raw)) {
+    issues.push(error(path, "上游模型 ID 只能包含字母、数字、点、下划线、连字符和斜杠"));
+    return undefined;
+  }
+  return raw;
+}
+
+/** kie-job 的上游字段名：允许 none（imageSizeField 专用，表示不发送该字段）。 */
+function adapterFieldName(value: unknown, path: string, issues: AiControlPlaneIssue[], allowNone = false): string | undefined {
+  const raw = text(value);
+  if (!raw) return undefined;
+  if (allowNone && raw.toLowerCase() === "none") return "none";
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(raw)) {
+    issues.push(error(path, `字段名必须是合法的 JSON 字段名${allowNone ? "，或 none 表示不发送" : ""}`));
+    return undefined;
+  }
+  return raw;
 }
 
 function parsePolicy(value: unknown, issues: AiControlPlaneIssue[]): AiRoutingPolicy {
@@ -311,7 +341,11 @@ function imageModel(id: string, displayName: string, creditPrices: Record<string
       ? { shortTitle: "香蕉2 Lite", badge: "快速", iconUrl: `${assetBase}/banana-2-lite-v2.png`, sortOrder: 15, featured: false }
     : id === "gpt-image-2"
       ? { shortTitle: "GPT Image 2", badge: "NEW", iconUrl: `${assetBase}/gpt-image-2.png`, sortOrder: 20, featured: false }
-      : { shortTitle: "香蕉Pro", badge: "PRO", iconUrl: `${assetBase}/banana-pro.png`, sortOrder: 30, featured: false };
+      : id === "gpt-image-2-5-sunburst"
+        ? { shortTitle: "GPT Image 2.5 Sunburst", badge: "NEW", iconUrl: `${assetBase}/gpt-image-2.png`, sortOrder: 25, featured: false }
+        : id === "gpt-image-2-5-flare"
+          ? { shortTitle: "GPT Image 2.5 Flare", badge: "NEW", iconUrl: `${assetBase}/gpt-image-2.png`, sortOrder: 26, featured: false }
+          : { shortTitle: "香蕉Pro", badge: "PRO", iconUrl: `${assetBase}/banana-pro.png`, sortOrder: 30, featured: false };
   return { ...baseModel(id, displayName, "image", true, false), capabilities: ["generation", "edit"], creditPrices, presentation };
 }
 

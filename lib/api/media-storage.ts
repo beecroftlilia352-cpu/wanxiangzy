@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
+import { ossEndpointScheme } from "@/lib/api/oss-endpoint";
 import { getBase64Payload, isStableStoredImageUrl, type ImageStorageClass } from "@/lib/api/image-storage";
 import { fetchRemoteMediaBuffer } from "@/lib/api/remote-image-fetch";
 import { isRemoteUrl } from "@/lib/utils";
@@ -71,7 +72,7 @@ export async function storeMedia(input: StoreMediaInput, options: StoreMediaOpti
     ? validateExplicitObjectKey(input.objectKey, resolveAliyunObjectPrefix(input))
     : buildAliyunObjectKey(input, upload.extension, upload.bytes);
   const endpoint = config.endpoint || `${config.bucket}.${config.region}.aliyuncs.com`;
-  const uploadUrl = `https://${endpoint}/${encodeObjectKey(objectKey)}`;
+  const uploadUrl = `${ossEndpointScheme()}://${endpoint}/${encodeObjectKey(objectKey)}`;
   const date = new Date().toUTCString();
   const canonicalizedResource = `/${config.bucket}/${objectKey}`;
   const ossHeaders: Record<string, string> = {};
@@ -235,7 +236,7 @@ async function existingObjectMatches(config: ReturnType<typeof getAliyunOssConfi
       .digest("base64");
     const headers: Record<string, string> = { Authorization: `OSS ${config.accessKeyId}:${signature}`, Date: date };
     if (config.securityToken) headers["x-oss-security-token"] = config.securityToken;
-    const response = await fetch(`https://${endpoint}/${encodeObjectKey(objectKey)}`, {
+    const response = await fetch(`${ossEndpointScheme()}://${endpoint}/${encodeObjectKey(objectKey)}`, {
       method: "GET",
       headers,
       redirect: "error",

@@ -279,7 +279,9 @@ function assertGeneratedOssConfigured(env: RuntimeEnv, getStorageProvider: () =>
 function isHttpsBaseUrl(value: string | undefined) {
   try {
     const url = new URL(value || "");
-    return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password;
+    const allowLocalHttp = (process.env.ALIYUN_OSS_ENDPOINT_SCHEME || "").trim().toLowerCase() === "http";
+    return (url.protocol === "https:" || (allowLocalHttp && url.protocol === "http:"))
+      && Boolean(url.hostname) && !url.username && !url.password;
   } catch {
     return false;
   }

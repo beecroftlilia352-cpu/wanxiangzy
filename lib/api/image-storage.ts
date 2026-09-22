@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
+import { ossEndpointScheme } from "@/lib/api/oss-endpoint";
 import { fetchRemoteImageBuffer } from "@/lib/api/remote-image-fetch";
 import { isRemoteUrl } from "@/lib/utils";
 
@@ -70,10 +71,33 @@ export function getBase64Payload(dataUrl: string) {
   return commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
 }
 
+/**
+ * Hosts listed in UPSTREAM_IMAGE_HOSTS are treated as the vendor's own durable
+ * image hosting: their URLs may be persisted as results directly instead of
+ * being mirrored into the local object store. Empty = upstream behaviour.
+ */
+export function isUpstreamImageHost(url: string) {
+  const hosts = (process.env.UPSTREAM_IMAGE_HOSTS || "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  if (hosts.length === 0) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    if (parsed.username || parsed.password) return false;
+    return hosts.includes(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export function isStableStoredImageUrl(url: string) {
   if (/^\/api\/media-assets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i.test(url)) {
     return true;
   }
+  // Vendors on UPSTREAM_IMAGE_HOSTS are our storage of record: keep their URL.
+  if (isUpstreamImageHost(url)) return true;
   // Production business records may only persist an owner-fenced canonical
   // registry capability. Raw OSS URLs (including short-lived signed URLs) are
   // inputs to the mirror/registry pipeline, never durable result identifiers.
@@ -207,7 +231,7 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
       ? validateExplicitObjectKey(input.objectKey, resolveAliyunObjectPrefix(input))
       : buildAliyunObjectKey(input, upload.extension, upload.bytes);
     const endpoint = config.endpoint || `${config.bucket}.${config.region}.aliyuncs.com`;
-    const uploadUrl = `https://${endpoint}/${encodeObjectKey(objectKey)}`;
+    const uploadUrl = `${ossEndpointScheme()}://${endpoint}/${encodeObjectKey(objectKey)}`;
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${config.bucket}/${objectKey}`;
     const ossHeaders: Record<string, string> = {};
@@ -584,7 +608,7 @@ async function existingObjectMatches(config: ReturnType<typeof getAliyunOssConfi
       .digest("base64");
     const headers: Record<string, string> = { Authorization: `OSS ${config.accessKeyId}:${signature}`, Date: date };
     if (config.securityToken) headers["x-oss-security-token"] = config.securityToken;
-    const response = await fetch(`https://${endpoint}/${encodeObjectKey(objectKey)}`, {
+    const response = await fetch(`${ossEndpointScheme()}://${endpoint}/${encodeObjectKey(objectKey)}`, {
       method: "GET",
       headers,
       redirect: "error",
