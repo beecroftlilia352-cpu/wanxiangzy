@@ -54,6 +54,7 @@ import {
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
 import { ImagePromptDialog, type ImagePromptSource } from "@/features/general-image/image-prompt-dialog";
+import { PromptLibraryDialog, SavePromptDialog } from "@/features/general-image/prompt-library-dialog";
 import {
   getGeneralImageDefaultSettings,
   MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
@@ -121,6 +122,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [mode, setMode] = useState<GeneralImageMode>(initialMode);
   const [prompt, setPrompt] = useState("");
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+  // 共享词库（纯新增）：词库弹窗 / 保存提示词弹窗的开关 + 保存成功后让词库列表刷新的令牌。
+  const [promptLibraryOpen, setPromptLibraryOpen] = useState(false);
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
+  const [promptLibraryRefreshToken, setPromptLibraryRefreshToken] = useState(0);
 
   const {
     authChecked,
@@ -1109,6 +1114,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               onOptimizePrompt={optimizePrompt}
               onClear={() => { setPrompt(""); resetOutput(); }}
               onSubmitOnEnter={() => { if (prompt.trim() && !isGenerating) void generate(); }}
+              onOpenWordLibrary={() => setPromptLibraryOpen(true)}
+              onSaveToMyPrompts={() => setSavePromptOpen(true)}
               className="studio-general-image-prompt"
             />
             {!isImageMode && (
@@ -1323,6 +1330,18 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         onGenerate={() => void generateImagePrompt()}
         onTextChange={setImagePromptText}
         onApply={applyImagePromptToDescription}
+      />
+      <PromptLibraryDialog
+        open={promptLibraryOpen}
+        onOpenChange={setPromptLibraryOpen}
+        onUse={(content) => setPrompt(content.slice(0, 4000))}
+        refreshToken={promptLibraryRefreshToken}
+      />
+      <SavePromptDialog
+        open={savePromptOpen}
+        onOpenChange={setSavePromptOpen}
+        promptText={prompt}
+        onSaved={() => setPromptLibraryRefreshToken((token) => token + 1)}
       />
       <StudioMediaLightbox
         src={referenceLightboxSrc}

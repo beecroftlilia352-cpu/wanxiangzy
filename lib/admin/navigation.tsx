@@ -3,6 +3,7 @@ import {
   Activity,
   BadgeDollarSign,
   Banknote,
+  BookMarked,
   Boxes,
   BrainCircuit,
   ClipboardCheck,
@@ -63,6 +64,7 @@ export const ADMIN_NAVIGATION: AdminNavigationGroup[] = [
       { href: "/admin/assets", label: "资产库", description: "素材、结果与存储治理", icon: <Images aria-hidden="true" />, permission: "assets:read" },
       { href: "/admin/moderation", label: "审核记录", description: "处理历史、原因与证据链", icon: <ShieldCheck aria-hidden="true" />, permission: "moderation:read" },
       { href: "/admin/showcase", label: "展示内容", description: "前台示例与运营精选", icon: <LibraryBig aria-hidden="true" />, permission: "assets:read" },
+      { href: "/admin/prompt-library", label: "词库管理", description: "共享提示词词库的增删改查", icon: <BookMarked aria-hidden="true" />, permission: "prompts:read" },
     ],
   },
   {
