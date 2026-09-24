@@ -941,6 +941,44 @@ a,
   min-height: 0;
 }
 
+/* 兼容层的 Menu 根元素是 <nav>（shadcn-compat 的 Menu 不转发 className），
+   所以上面那条 .admin-side-menu 规则在这套 UI 里命中不到任何元素：
+   侧栏功能多的时候菜单会被裁掉、滚不到底部。这里直接打到真实 DOM 上：
+   nav 撑满剩余高度并自己滚动，其余两块（品牌、账号）不参与压缩。 */
+.admin-sider > :not(nav) {
+  flex-shrink: 0;
+}
+
+.admin-sider > nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  padding-bottom: 8px;
+}
+
+/* 让滚动条看得见（浅色主题下默认条很淡，容易以为不能滚） */
+.admin-sider > nav::-webkit-scrollbar {
+  width: 10px;
+}
+
+.admin-sider > nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sider > nav::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--admin-border-strong);
+}
+
+.admin-sider > nav::-webkit-scrollbar-thumb:hover {
+  background-color: var(--admin-fg);
+}
+
 .admin-mobile-trigger {
   display: none !important;
 }
