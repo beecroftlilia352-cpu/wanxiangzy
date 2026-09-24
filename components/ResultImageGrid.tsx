@@ -37,6 +37,9 @@ type ResultImageGridProps = {
   /** 图生图/素材生成专用：把结果区的下载按钮从顶部工具行移到图片右侧、
    *  与图片顶部齐平（默认 false = 保持原来的顶部工具行位置）。 */
   downloadBesideImage?: boolean;
+  /** 图生图/素材生成专用：在「图片右侧下载按钮」正下方追加的额外节点
+   *  （例如「商品标题」按钮）。不传时渲染结果与既有实现逐字节一致。 */
+  besideImageExtra?: ReactNode;
   isGenerating?: boolean;
   imageAltPrefix?: string;
   inputThumbnails?: string[];
@@ -109,6 +112,7 @@ export function ResultImageGrid({
   downloadUrls,
   showDownloadAction = true,
   downloadBesideImage = false,
+  besideImageExtra,
   isGenerating,
   imageAltPrefix,
   inputThumbnails = [],
@@ -329,6 +333,9 @@ export function ResultImageGrid({
                   className="studio-result-primary-download studio-result-batch-download studio-result-beside-download"
                 />
               )}
+              {besideImageExtra ? (
+                <div className="mt-2 w-full">{besideImageExtra}</div>
+              ) : null}
             </div>
           )}
         </div>

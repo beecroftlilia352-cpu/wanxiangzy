@@ -4992,5 +4992,27 @@
     "saveSuccess": "提示词已保存到词库",
     "saveFailed": "提示词保存失败",
     "cancel": "取消"
+  },
+  "ProductTitle": {
+    "button": "商品标题",
+    "dialogTitle": "AI 商品标题",
+    "dialogDescription": "根据当前结果图生成 3 条英文跨境电商标题，可直接复制上架。",
+    "loading": "正在看图生成标题…",
+    "loadingHint": "首次生成约需几秒，请稍候。",
+    "retry": "重试",
+    "regenerate": "换一批",
+    "countLabel": "共 {count} 条候选",
+    "angleLabel": "卖点角度",
+    "copy": "复制",
+    "copied": "已复制",
+    "copyAll": "复制全部",
+    "copySuccess": "已复制该标题",
+    "copyAllSuccess": "已复制全部标题",
+    "copyFailed": "复制失败，请手动选择文本复制",
+    "loadFailed": "商品标题生成失败，请稍后重试",
+    "networkFailed": "网络异常，商品标题生成失败，请重试",
+    "missingImage": "没有可用的结果图，请先生成图片",
+    "aiDisclaimer": "标题由 AI 生成，上架前请人工核对平台规范。",
+    "close": "关闭"
   }
 }

@@ -55,6 +55,7 @@ import {
 } from "@/lib/result-slot-retry";
 import { ImagePromptDialog, type ImagePromptSource } from "@/features/general-image/image-prompt-dialog";
 import { PromptLibraryDialog, SavePromptDialog } from "@/features/general-image/prompt-library-dialog";
+import { ProductTitleButton } from "@/features/general-image/product-title-button";
 import {
   getGeneralImageDefaultSettings,
   MAX_GENERAL_IMAGE_REFERENCE_IMAGES,
@@ -1249,6 +1250,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                         downloadExpectedCount={activeResultExpectedCount}
                         showDownloadAction={groupIndex === 0}
                         downloadBesideImage
+                        besideImageExtra={groupUrls[0] ? <ProductTitleButton imageUrl={groupUrls[0]} /> : null}
                         isGenerating={isGenerating}
                         inputReferences={[{ url: reference.preview || reference.url, label: t("referenceImageLabel", { index: groupIndex + 1 }) }]}
                         createdAt={activeQueueTask?.createdAt}
@@ -1281,6 +1283,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   variant="task"
                   resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
                   downloadBesideImage
+                  besideImageExtra={resultUrls[0] ? <ProductTitleButton imageUrl={resultUrls[0]} /> : null}
                   failureLabel={t("failedLabel")}
                   failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
                   markMissingAsFailed={hasCompletedPartialResults}

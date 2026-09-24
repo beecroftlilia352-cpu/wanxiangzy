@@ -4988,5 +4988,27 @@
     "saveSuccess": "提示詞已儲存到詞庫",
     "saveFailed": "提示詞儲存失敗",
     "cancel": "取消"
+  },
+  "ProductTitle": {
+    "button": "商品標題",
+    "dialogTitle": "AI 商品標題",
+    "dialogDescription": "根據當前結果圖生成 3 條英文跨境電商標題，可直接複製上架。",
+    "loading": "正在看圖生成標題…",
+    "loadingHint": "首次生成約需幾秒，請稍候。",
+    "retry": "重試",
+    "regenerate": "換一批",
+    "countLabel": "共 {count} 條候選",
+    "angleLabel": "賣點角度",
+    "copy": "複製",
+    "copied": "已複製",
+    "copyAll": "複製全部",
+    "copySuccess": "已複製該標題",
+    "copyAllSuccess": "已複製全部標題",
+    "copyFailed": "複製失敗，請手動選擇文字複製",
+    "loadFailed": "商品標題生成失敗，請稍後重試",
+    "networkFailed": "網路異常，商品標題生成失敗，請重試",
+    "missingImage": "沒有可用的結果圖，請先生成圖片",
+    "aiDisclaimer": "標題由 AI 生成，上架前請人工核對平台規範。",
+    "close": "關閉"
   }
 }

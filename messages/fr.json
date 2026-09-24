@@ -4988,5 +4988,27 @@
     "saveSuccess": "Prompt saved to the library",
     "saveFailed": "Failed to save the prompt",
     "cancel": "Cancel"
+  },
+  "ProductTitle": {
+    "button": "Product Title",
+    "dialogTitle": "AI Product Title",
+    "dialogDescription": "Generate 3 English cross-border e-commerce titles from the current result image and copy them for your listing.",
+    "loading": "Reading the image and writing titles…",
+    "loadingHint": "The first run usually takes a few seconds.",
+    "retry": "Retry",
+    "regenerate": "Regenerate",
+    "countLabel": "{count} candidates",
+    "angleLabel": "Angle",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyAll": "Copy all",
+    "copySuccess": "Title copied",
+    "copyAllSuccess": "All titles copied",
+    "copyFailed": "Copy failed, please select the text manually",
+    "loadFailed": "Failed to generate product titles, please try again",
+    "networkFailed": "Network error while generating product titles, please retry",
+    "missingImage": "No result image available yet",
+    "aiDisclaimer": "Titles are AI-generated — review them against your platform rules before publishing.",
+    "close": "Close"
   }
 }
