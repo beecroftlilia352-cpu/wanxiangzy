@@ -5017,6 +5017,7 @@
     "imagesHint": "最大{max}枚、圧縮後は1枚2MBまで。",
     "addImages": "画像を選択",
     "imagesDropHint": "クリックで選択、または画像をここにドラッグ",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "選択中 {count}/{max} 枚",
     "removeImage": "この画像を削除",
     "imageLimitReached": "アップロードできる画像は最大{max}枚です。先に不要な画像を削除してください。",

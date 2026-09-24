@@ -5017,6 +5017,7 @@
     "imagesHint": "अधिकतम {max} तस्वीरें, संपीड़न के बाद हर एक 2MB से कम।",
     "addImages": "तस्वीरें चुनें",
     "imagesDropHint": "चुनने के लिए क्लिक करें या तस्वीरें यहाँ खींचें",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "{count}/{max} चुनी गईं",
     "removeImage": "यह तस्वीर हटाएँ",
     "imageLimitReached": "अधिकतम {max} तस्वीरें अपलोड कर सकते हैं, पहले कुछ हटाएँ।",

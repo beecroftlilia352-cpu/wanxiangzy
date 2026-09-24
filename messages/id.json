@@ -5017,6 +5017,7 @@
     "imagesHint": "Maksimal {max} gambar, masing-masing di bawah 2MB setelah dikompres.",
     "addImages": "Pilih gambar",
     "imagesDropHint": "Klik untuk memilih atau tarik gambar ke sini",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "{count}/{max} dipilih",
     "removeImage": "Hapus gambar ini",
     "imageLimitReached": "Maksimal {max} gambar — hapus beberapa dulu.",

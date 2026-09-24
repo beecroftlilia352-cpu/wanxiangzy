@@ -5017,6 +5017,7 @@
     "imagesHint": "До {max} снимки, всяка под 2MB след компресия.",
     "addImages": "Избор на снимки",
     "imagesDropHint": "Щракнете, за да изберете, или плъзнете снимки тук",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "Избрани {count}/{max}",
     "removeImage": "Премахни тази снимка",
     "imageLimitReached": "Можете да качите най-много {max} снимки — първо премахнете излишните.",

@@ -5017,6 +5017,7 @@
     "imagesHint": "สูงสุด {max} รูป แต่ละรูปหลังบีบอัดไม่เกิน 2MB",
     "addImages": "เลือกรูปภาพ",
     "imagesDropHint": "คลิกเพื่อเลือก หรือลากรูปมาวางที่นี่",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "เลือกแล้ว {count}/{max} รูป",
     "removeImage": "ลบรูปนี้",
     "imageLimitReached": "อัปโหลดได้ไม่เกิน {max} รูป กรุณาลบรูปที่ไม่ต้องการก่อน",

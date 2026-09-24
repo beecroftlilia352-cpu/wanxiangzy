@@ -18,6 +18,10 @@
  *  · 不再自动读取旁边的结果图，也不传任何图片参数 —— 用户点「生成」才发请求；
  *  · 关闭弹窗不丢结果、已选图片、文本框内容与模型选择，再次打开也不会自动重新请求；
  *  · 请求中可取消（AbortController）；再次点「生成」用当前条件重新生成并覆盖旧结果。
+ *  · 弹窗打开期间支持**直接 Ctrl+V 粘贴图片**（截图 / 从文件夹复制的图片文件）：与点击选择、
+ *    拖拽走完全同一条管道（类型校验 → 浏览器侧压缩 → 最多 5 张）；焦点在描述文本框时只让
+ *    「纯图片」的粘贴被收下，带文本的粘贴一律放行给文本框；非图片内容完全忽略、不提示。
+ *    监听器只在弹窗打开期间挂在 document 上，关闭即清理（不留全局监听器）。
  *  · 模型下拉在每次打开弹窗时拉取 GET /api/product-title/models；拉不到就用内置两个选项，绝不阻塞。
  *  · 结果区是 3 条英文标题（每条可选中）+ 每条下方一行中文对照（次要样式）+ 每条一个「字符数」
  *    （服务端复算）+ 单条复制按钮，顶部一个「复制全部」（3 条以换行分隔）；中文对照缺失时那一行
@@ -40,6 +44,7 @@ import {
   compressProductTitleFile,
   estimateProductTitleDataUrlBytes,
   isSupportedProductTitleImageFile,
+  readProductTitleClipboardPaste,
 } from "@/lib/product-title/client";
 import { PRODUCT_TITLE_DEFAULT_DESCRIPTION } from "@/lib/product-title/prompt";
 import {
@@ -122,6 +127,18 @@ function fallbackModelOptions(): ProductTitleModelInfo[] {
 
 function defaultModelId(models: readonly ProductTitleModelInfo[]): string {
   return models.find((model) => model.vision)?.id ?? models[0]?.id ?? PRODUCT_TITLE_DEFAULT_MODEL;
+}
+
+/**
+ * 粘贴事件的落点是否是「可编辑控件」（描述文本框 / 任何 input / textarea / contenteditable）。
+ * 是的话：带文本的剪贴板一律放行，让浏览器按原本的方式插字，绝不拦截。
+ */
+function isEditablePasteTarget(target: EventTarget | null): boolean {
+  if (!target || typeof target !== "object") return false;
+  const element = target as HTMLElement;
+  if (element.isContentEditable === true) return true;
+  const tag = typeof element.tagName === "string" ? element.tagName.toUpperCase() : "";
+  return tag === "INPUT" || tag === "TEXTAREA";
 }
 
 export function ProductTitleButton({ className, disabled = false, defaultDescription }: ProductTitleButtonProps) {
@@ -268,6 +285,28 @@ export function ProductTitleButton({ className, disabled = false, defaultDescrip
     setImageError("");
   }, []);
 
+  // 弹窗打开期间支持直接把图片 Ctrl+V 贴进上传区（截图、从文件夹复制的图片文件都算）。
+  // · 监听器只在 open 期间挂在 document 上，关闭/卸载时立即移除 —— 不留全局监听器；
+  // · 收下的文件直接交给 addFiles，走的是和「点击选择 / 拖拽」完全同一条管道
+  //   （类型校验 → 浏览器侧压缩 → 最多 5 张 / 单张 2MB 上限，提示文案也完全复用）；
+  // · 焦点在文本框 / 输入框（或 contenteditable）时：只要剪贴板带文本就一律放行，
+  //   绝不抢文本框的正常粘贴；只有「纯图片」才拦下来当待上传图片（并阻止默认插入）；
+  // · 非图片内容（纯文本 / PDF 等）完全忽略：不报错、不提示、不插队。
+  useEffect(() => {
+    if (!open) return;
+    const handlePaste = (event: Event) => {
+      const clipboardEvent = event as ClipboardEvent;
+      const { imageFiles, hasText } = readProductTitleClipboardPaste(clipboardEvent.clipboardData);
+      // 文本框里的正常粘贴优先：不拦截、不 preventDefault，让浏览器照常插字。
+      if (hasText && isEditablePasteTarget(clipboardEvent.target)) return;
+      if (!imageFiles.length) return;
+      clipboardEvent.preventDefault();
+      void addFiles(imageFiles);
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open, addFiles]);
+
   const generate = useCallback(async () => {
     const targetDescription = description.trim();
     if (!images.length && !targetDescription) {
@@ -411,6 +450,7 @@ export function ProductTitleButton({ className, disabled = false, defaultDescrip
               }}
             >
               <p className="text-xs text-muted-foreground">{t("imagesDropHint")}</p>
+              <p className="text-xs text-muted-foreground">{t("imagesPasteHint")}</p>
               <Button
                 type="button"
                 variant="outline"

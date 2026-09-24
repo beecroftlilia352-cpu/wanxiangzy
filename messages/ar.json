@@ -5017,6 +5017,7 @@
     "imagesHint": "حتى {max} صور، كل صورة أقل من 2MB بعد الضغط.",
     "addImages": "اختر الصور",
     "imagesDropHint": "اضغط للاختيار أو اسحب الصور إلى هنا",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "تم اختيار {count}/{max}",
     "removeImage": "حذف هذه الصورة",
     "imageLimitReached": "يمكنك رفع {max} صور كحد أقصى، احذف بعضها أولًا.",

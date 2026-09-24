@@ -5017,6 +5017,7 @@
     "imagesHint": "До {max} изображений, каждое не более 2MB после сжатия.",
     "addImages": "Выбрать изображения",
     "imagesDropHint": "Нажмите, чтобы выбрать, или перетащите изображения сюда",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "Выбрано {count}/{max}",
     "removeImage": "Удалить это изображение",
     "imageLimitReached": "Можно загрузить не более {max} изображений — сначала удалите лишние.",

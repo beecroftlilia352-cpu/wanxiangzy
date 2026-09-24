@@ -5017,6 +5017,7 @@
     "imagesHint": "En çok {max} görsel, sıkıştırma sonrası her biri 2MB altında.",
     "addImages": "Görsel seç",
     "imagesDropHint": "Seçmek için tıklayın veya görselleri buraya sürükleyin",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "{count}/{max} seçildi",
     "removeImage": "Bu görseli kaldır",
     "imageLimitReached": "En fazla {max} görsel yükleyebilirsiniz; önce fazlalarını silin.",

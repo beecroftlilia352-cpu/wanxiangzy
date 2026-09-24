@@ -5017,6 +5017,7 @@
     "imagesHint": "最多 {max} 張，每張壓縮後不超過 2MB。",
     "addImages": "選擇圖片",
     "imagesDropHint": "點擊選擇，或把圖片拖到這裡",
+    "imagesPasteHint": "也可以直接貼上圖片：截圖或複製圖片檔案後，按 Ctrl/⌘ + V 貼進來。",
     "imagesCount": "已選 {count}/{max} 張",
     "removeImage": "刪除這張圖片",
     "imageLimitReached": "最多只能上傳 {max} 張圖片，請先刪掉多餘的。",

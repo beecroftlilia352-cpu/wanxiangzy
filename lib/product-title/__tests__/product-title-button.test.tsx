@@ -135,6 +135,51 @@ function modelSelect() {
   return screen.getByTestId("product-title-model-select") as HTMLSelectElement;
 }
 
+/**
+ * 造一个「像 DataTransfer」的剪贴板对象：jsdom 没有 DataTransfer / ClipboardEvent，
+ * 但 readProductTitleClipboardPaste 只要求结构一致（files / items / types / getData）。
+ * 不带 text 时 getData 返回空串 —— 正是截图 / 复制图片文件时真实剪贴板的样子。
+ */
+function clipboardData(input: { files?: File[]; text?: string; html?: string } = {}) {
+  const files = input.files ?? [];
+  return {
+    files,
+    items: files.map((file) => ({ kind: "file", type: file.type, getAsFile: () => file })),
+    types: [
+      ...(files.length ? ["Files"] : []),
+      ...(input.text ? ["text/plain"] : []),
+      ...(input.html ? ["text/html"] : []),
+    ],
+    getData: (format: string) => {
+      if (format === "text/plain") return input.text ?? "";
+      if (format === "text/html") return input.html ?? "";
+      return "";
+    },
+  };
+}
+
+/** 在给定节点上派发一次 paste；返回 false = 被拦截（preventDefault），true = 放行给浏览器。 */
+function pasteAt(node: Element, input: { files?: File[]; text?: string; html?: string } = {}) {
+  return fireEvent.paste(node, { clipboardData: clipboardData(input) });
+}
+
+function dropzone() {
+  return screen.getByTestId("product-title-dropzone");
+}
+
+function selectedImageButtons() {
+  return screen.queryAllByRole("button", { name: "删除这张图片" });
+}
+
+/** 粘贴用的图片文件（截图/复制图片文件在浏览器里就是带着真实 MIME 的 File）。 */
+function pastedImage(name: string, type = "image/png"): File {
+  return new File(["pasted"], name, { type });
+}
+
+function pastedFileNames(): string[] {
+  return mocks.compressProductTitleFile.mock.calls.map((call) => (call[0] as File).name);
+}
+
 describe("ProductTitleButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -718,5 +763,204 @@ describe("ProductTitleButton", () => {
 
     fireEvent.click(copyButtonAt(1));
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("复制失败，请手动选择文本复制"));
+  });
+
+  /* ------------------------------------------------------------------------ *
+   * 第三版：上传区支持直接 Ctrl+V 粘贴图片（截图 / 从文件夹复制的图片文件）。
+   * jsdom 里没有 DataTransfer，用与真实剪贴板同形的普通对象派发 paste 事件。
+   * ------------------------------------------------------------------------ */
+
+  it("上传区有「可以直接粘贴图片」的浅色提示文案（新增 i18n key，不硬编码）", async () => {
+    renderButton();
+    openDialog();
+
+    const hint = await screen.findByText(zhMessages.ProductTitle.imagesPasteHint);
+    // 样式与既有的上传区提示一致：更小字号 + 降低对比度
+    expect(hint.className).toContain("text-xs");
+    expect(hint.className).toContain("text-muted-foreground");
+    expect(zhMessages.ProductTitle.imagesPasteHint).toContain("粘贴");
+    expect(zhMessages.ProductTitle.imagesPasteHint).toContain("Ctrl");
+  });
+
+  it("弹窗内直接粘贴截图 → 走与点击选择同一条管道（压缩 → 待上传列表 → 请求体 data URL）", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const shot = pastedImage("screenshot.png");
+    // 返回 false = 被拦下来当待上传图片处理（阻止默认的「粘成一个文件」行为）
+    expect(pasteAt(dropzone(), { files: [shot] })).toBe(false);
+
+    await waitFor(() => expect(mocks.compressProductTitleFile).toHaveBeenCalledTimes(1));
+    // 送进压缩管道的正是剪贴板里那个 File（与点击选择/拖拽完全同一条路径）
+    expect(mocks.compressProductTitleFile).toHaveBeenCalledWith(shot);
+
+    // 缩略图预览 + 计数
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+    expect(screen.getByText("已选 1/5 张")).toBeTruthy();
+    expect((screen.getByAltText("screenshot.png") as HTMLImageElement).src).toBe(`data:image/jpeg;base64,${btoa("screenshot.png")}`);
+
+    // 清空文本框 → 只图生成，粘贴进来的 data URL 确实进了请求体
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } });
+    fireEvent.click(generateButton());
+
+    await waitFor(() => expect(postCalls()).toHaveLength(1));
+    expect(postBodies[0]).toEqual({
+      images: [`data:image/jpeg;base64,${btoa("screenshot.png")}`],
+      description: "",
+      model: "deepseek-flash",
+    });
+  });
+
+  it("一次粘贴多张图按顺序依次加入；已有 4 张时再粘 2 张只收 1 张并沿用现有上限提示", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const first = pastedImage("pasted-1.png");
+    const second = pastedImage("pasted-2.png");
+    pasteAt(dropzone(), { files: [first, second] });
+
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(2));
+    expect(screen.getByText("已选 2/5 张")).toBeTruthy();
+    // 剪贴板里的顺序 = 加入顺序
+    expect(pastedFileNames()).toEqual(["pasted-1.png", "pasted-2.png"]);
+
+    // 再用「点击选择」补到 4 张（两条路径混用，共用同一个列表）
+    fireEvent.change(fileInput(), { target: { files: fakeFiles(2) } });
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(4));
+
+    // 已有 4 张，剪贴板里 2 张 → 只收 1 张，第 2 张按上限拒绝
+    const third = pastedImage("pasted-3.png");
+    const fourth = pastedImage("pasted-4.png");
+    pasteAt(dropzone(), { files: [third, fourth] });
+
+    await waitFor(() => expect(screen.getByText("已选 5/5 张")).toBeTruthy());
+    expect(selectedImageButtons()).toHaveLength(5);
+    // 沿用既有 key 的文案（没有新造同义文案）
+    expect(await screen.findByText(zhMessages.ProductTitle.imageLimitReached.replace("{max}", "5"))).toBeTruthy();
+    expect(screen.getByAltText("pasted-3.png")).toBeTruthy();
+    expect(screen.queryByAltText("pasted-4.png")).toBeNull();
+    // 超出的那张根本没进压缩管道
+    expect(pastedFileNames()).not.toContain("pasted-4.png");
+  });
+
+  it("焦点在描述文本框、剪贴板是纯文本 → 放行不拦截，文本框正常插字、图片列表不变", async () => {
+    renderButton();
+    openDialog();
+
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    const pasted = "\n\n折叠晾衣架，家用阳台，可伸缩";
+    const before = textarea.value;
+
+    // 返回 true = 没有 preventDefault，浏览器会照常把文字插进文本框
+    expect(pasteAt(textarea, { text: pasted })).toBe(true);
+
+    // jsdom 不实现剪贴板的默认插入行为 —— 这里补上「浏览器本来会做的事」
+    fireEvent.change(textarea, { target: { value: `${before}${pasted}` } });
+    expect(textarea.value).toBe(`${before}${pasted}`);
+    expect(textarea.value.startsWith(PRODUCT_TITLE_DEFAULT_DESCRIPTION)).toBe(true);
+
+    // 图片列表与压缩管道完全没被碰过
+    expect(mocks.compressProductTitleFile).not.toHaveBeenCalled();
+    expect(selectedImageButtons()).toHaveLength(0);
+    expect(screen.getByText("已选 0/5 张")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("焦点在描述文本框、剪贴板只有图片 → 收下图片并阻止默认插入（描述一个字都不变）", async () => {
+    renderButton();
+    openDialog();
+
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+
+    // 返回 false = 拦下来当图片处理
+    expect(pasteAt(textarea, { files: [pastedImage("screenshot.png")] })).toBe(false);
+
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+    expect(screen.getByText("已选 1/5 张")).toBeTruthy();
+    expect(textarea.value).toBe(PRODUCT_TITLE_DEFAULT_DESCRIPTION);
+  });
+
+  it("焦点在描述文本框、剪贴板同时有文本和图片 → 文本框粘贴优先（不拦截、不收图）", async () => {
+    renderButton();
+    openDialog();
+
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    const shot = pastedImage("screenshot.png");
+
+    expect(pasteAt(textarea, { files: [shot], text: "折叠晾衣架" })).toBe(true);
+    expect(mocks.compressProductTitleFile).not.toHaveBeenCalled();
+    expect(selectedImageButtons()).toHaveLength(0);
+
+    // 同一个剪贴板，焦点不在可编辑控件（上传区）时 → 按图片处理
+    expect(pasteAt(dropzone(), { files: [shot], text: "折叠晾衣架" })).toBe(false);
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+  });
+
+  it("剪贴板是非图片文件（PDF / txt）→ 完全忽略：列表不变、不报错、不插队", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const pdf = new File(["x"], "spec.pdf", { type: "application/pdf" });
+    const txt = new File(["x"], "note.txt", { type: "text/plain" });
+
+    // 纯非图片：连拦都不拦（返回 true），更不会有任何提示
+    expect(pasteAt(dropzone(), { files: [pdf] })).toBe(true);
+    expect(pasteAt(dropzone(), { files: [txt] })).toBe(true);
+
+    expect(mocks.compressProductTitleFile).not.toHaveBeenCalled();
+    expect(selectedImageButtons()).toHaveLength(0);
+    expect(screen.getByText("已选 0/5 张")).toBeTruthy();
+    expect(screen.queryByText(/只支持图片文件/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    // 图片 + 非图片混着粘：只收图片，非图片静默丢弃（不报「只支持图片文件」）
+    pasteAt(dropzone(), { files: [txt, pastedImage("shot.png")] });
+
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+    expect(pastedFileNames()).toEqual(["shot.png"]);
+    expect(screen.queryByText(/只支持图片文件/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("MIME 缺失的截图（少数平台只给个空 type）也能按扩展名补回图片类型并正常加入", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const blank = new File(["x"], "Screenshot 2026-09-24.png", { type: "" });
+    pasteAt(dropzone(), { files: [blank] });
+
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+    // 补回 MIME 后走的是正常的类型校验 + 压缩管道（不会被判成「非图片」）
+    expect(mocks.compressProductTitleFile).toHaveBeenCalledTimes(1);
+    expect(screen.getByAltText("Screenshot 2026-09-24.png")).toBeTruthy();
+    expect(screen.queryByText(/只支持图片文件/)).toBeNull();
+  });
+
+  it("弹窗关闭后不再监听：paste 不再被拦截、也不再加入图片（监听器已清理）", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    pasteAt(dropzone(), { files: [pastedImage("screenshot.png")] });
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    await waitFor(() => expect(screen.queryByTestId("product-title-dropzone")).toBeNull());
+
+    // 关闭后再派发 paste（在 document 上，模拟焦点丢失时的粘贴）：没有任何监听器
+    expect(pasteAt(document.body, { files: [pastedImage("later.png")] })).toBe(true);
+    expect(mocks.compressProductTitleFile).toHaveBeenCalledTimes(1);
+    expect(pastedFileNames()).toEqual(["screenshot.png"]);
+
+    // 重新打开：状态照旧（仍是 1 张），说明关闭期间的粘贴确实没生效
+    openDialog();
+    expect(await screen.findByText("已选 1/5 张")).toBeTruthy();
   });
 });

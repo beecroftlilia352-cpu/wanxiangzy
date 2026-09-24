@@ -22,6 +22,155 @@ export function isSupportedProductTitleImageFile(file: File): boolean {
   return typeof file?.type === "string" && file.type.toLowerCase().startsWith("image/");
 }
 
+/* -------------------------------------------------------------------------- *
+ * 第三版：支持「直接 Ctrl+V 粘贴图片」（截图 / 从文件夹复制的图片文件）
+ * -------------------------------------------------------------------------- */
+
+/**
+ * 结构化描述剪贴板数据：真实浏览器传进来的是 DataTransfer（结构兼容即可），
+ * jsdom 里没有 DataTransfer，测试直接传普通对象即可。
+ */
+export type ProductTitleClipboardData = {
+  files?: ArrayLike<File> | null;
+  items?: ArrayLike<ProductTitleClipboardItem> | null;
+  types?: ArrayLike<string> | null;
+  getData?: (format: string) => string;
+};
+
+export type ProductTitleClipboardItem = {
+  kind?: string;
+  type?: string;
+  getAsFile?: () => File | null;
+};
+
+/** 解析剪贴板后的结果：能进管道的图片文件 + 剪贴板里有没有文本。 */
+export type ProductTitleClipboardPaste = {
+  /** 图片文件（保持剪贴板里的原始顺序；已去掉非图片与重复项）。 */
+  imageFiles: File[];
+  /**
+   * 剪贴板里是否有文本内容（text/plain 或 text/html 非空）。
+   * 调用方据此决定：焦点在描述文本框时要不要把这次粘贴让给浏览器（文本框粘贴优先）。
+   */
+  hasText: boolean;
+};
+
+/** 常见图片扩展名 → MIME（只在浏览器没给出 MIME 时兜底，见 toProductTitlePastedImageFile）。 */
+const PRODUCT_TITLE_IMAGE_TYPE_BY_EXTENSION: Readonly<Record<string, string>> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  jpe: "image/jpeg",
+  jfif: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  avif: "image/avif",
+  heic: "image/heic",
+  heif: "image/heif",
+  svg: "image/svg+xml",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+};
+
+function inferProductTitleImageTypeByName(name: string): string | null {
+  const dot = name.lastIndexOf(".");
+  if (dot < 0 || dot === name.length - 1) return null;
+  return PRODUCT_TITLE_IMAGE_TYPE_BY_EXTENSION[name.slice(dot + 1).toLowerCase()] ?? null;
+}
+
+/**
+ * 把剪贴板里的一项文件转成「现有校验/压缩管道能接受」的图片 File；不是图片则返回 null。
+ *
+ * 大多数平台（Chromium 截图、从资源管理器复制图片）都带完整 MIME，直接放行；
+ * 少数平台给的是空 MIME 或 application/octet-stream，这时按扩展名推断并把 MIME **补回**
+ * （不补的话 isSupportedProductTitleImageFile 会把截图误判成非图片而拒绝，且会报「只支持图片文件」）。
+ * 非图片（PDF / txt / zip…）一律 null，调用方完全忽略，不报错、不提示。
+ */
+export function toProductTitlePastedImageFile(file: File | null | undefined): File | null {
+  if (!file || typeof file !== "object") return null;
+  if (isSupportedProductTitleImageFile(file)) return file;
+  const name = typeof file.name === "string" ? file.name : "";
+  const inferred = inferProductTitleImageTypeByName(name);
+  if (!inferred) return null;
+  try {
+    return new File([file], name, {
+      type: inferred,
+      lastModified: typeof file.lastModified === "number" ? file.lastModified : undefined,
+    });
+  } catch {
+    // 某些环境不支持重新构造 File：宁可忽略这一项，也不要抛错打断粘贴。
+    return null;
+  }
+}
+
+function readProductTitleClipboardText(data: ProductTitleClipboardData, format: string): string {
+  if (typeof data.getData !== "function") return "";
+  try {
+    const value = data.getData(format);
+    return typeof value === "string" ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+function listProductTitleClipboardTypes(data: ProductTitleClipboardData): string[] {
+  if (!data.types || typeof data.types.length !== "number") return [];
+  return Array.from(data.types).filter((type): type is string => typeof type === "string");
+}
+
+/**
+ * 解析一次剪贴板粘贴：挑出可以直接进压缩管道的图片文件，并判断这次粘贴里有没有文本。
+ *
+ * 剪贴板的形状在各浏览器里差别很大，所以这里同时看 items 与 files 并按 File 引用去重：
+ *  · Chromium/Edge（截图、从资源管理器复制文件）：items 里有 kind="file" 的项，files 里也有同一个 File；
+ *  · 部分浏览器只填 files（items 为空）；
+ *  · Safari 复制多选文件时只给第一张 —— 这是平台限制，不做特殊处理。
+ *
+ * 文本判定优先看 getData("text/plain"/"text/html") 的实际内容（真实用户粘贴时一定拿得到）；
+ * 只有环境里根本没有 getData 时才退回看 types，避免「types 里永远带 text/plain」造成误判。
+ */
+export function readProductTitleClipboardPaste(
+  data: ProductTitleClipboardData | null | undefined,
+): ProductTitleClipboardPaste {
+  if (!data) return { imageFiles: [], hasText: false };
+
+  const plain = readProductTitleClipboardText(data, "text/plain");
+  const html = readProductTitleClipboardText(data, "text/html");
+  let hasText = plain.trim().length > 0 || html.trim().length > 0;
+  if (!hasText && typeof data.getData !== "function") {
+    hasText = listProductTitleClipboardTypes(data).some(
+      (type) => type === "text/plain" || type === "text/html",
+    );
+  }
+
+  const seen = new Set<File>();
+  const candidates: File[] = [];
+  const push = (file: File | null | undefined) => {
+    if (!file || seen.has(file)) return;
+    seen.add(file);
+    candidates.push(file);
+  };
+
+  const items = data.items;
+  if (items && typeof items.length === "number") {
+    for (const item of Array.from(items)) {
+      if (!item || item.kind !== "file") continue;
+      push(typeof item.getAsFile === "function" ? item.getAsFile() : null);
+    }
+  }
+  const files = data.files;
+  if (files && typeof files.length === "number") {
+    for (const file of Array.from(files)) push(file);
+  }
+
+  const imageFiles: File[] = [];
+  for (const file of candidates) {
+    const image = toProductTitlePastedImageFile(file);
+    if (image) imageFiles.push(image);
+  }
+  return { imageFiles, hasText };
+}
+
 /** 由 data URL 估算字节数（不做解码，纯长度换算）。 */
 export function estimateProductTitleDataUrlBytes(dataUrl: string): number {
   const commaIndex = typeof dataUrl === "string" ? dataUrl.indexOf(",") : -1;

@@ -5021,6 +5021,7 @@
     "imagesHint": "最多 {max} 张，每张压缩后不超过 2MB。",
     "addImages": "选择图片",
     "imagesDropHint": "点击选择，或把图片拖到这里",
+    "imagesPasteHint": "也可以直接粘贴图片：截图或复制图片文件后，按 Ctrl/⌘ + V 贴进来。",
     "imagesCount": "已选 {count}/{max} 张",
     "removeImage": "删除这张图片",
     "imageLimitReached": "最多只能上传 {max} 张图片，请先删掉多余的。",

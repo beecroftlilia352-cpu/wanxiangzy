@@ -5017,6 +5017,7 @@
     "imagesHint": "Tối đa {max} ảnh, mỗi ảnh dưới 2MB sau khi nén.",
     "addImages": "Chọn ảnh",
     "imagesDropHint": "Bấm để chọn hoặc kéo ảnh vào đây",
+    "imagesPasteHint": "You can also paste images directly: screenshot or copy an image file, then press Ctrl/Command + V.",
     "imagesCount": "Đã chọn {count}/{max}",
     "removeImage": "Xóa ảnh này",
     "imageLimitReached": "Chỉ được tải lên tối đa {max} ảnh, hãy xóa bớt trước.",
