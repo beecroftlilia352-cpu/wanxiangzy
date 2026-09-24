@@ -18,6 +18,24 @@ function png(name: string, type = "image/png"): File {
   return new File(["binary"], name, { type });
 }
 
+/**
+ * 还原真实浏览器（Chromium/Edge）粘贴一张图时剪贴板的真实形状：
+ * clipboardData.files 与 clipboardData.items[i].getAsFile() 给的是**两个内容/元数据
+ * 完全相同、但不是同一个对象**的 File —— 「粘一次加两张」就是这么来的。
+ * 现有 mock 在两个来源放的是同一个对象，所以拓不到这一层，这里如实造两个实例。
+ */
+function browserTwin(
+  name = "screenshot.png",
+  type = "image/png",
+  content = "binary",
+  lastModified = 1_700_000_000_000,
+): [File, File] {
+  return [
+    new File([content], name, { type, lastModified }),
+    new File([content], name, { type, lastModified }),
+  ];
+}
+
 /** 造一个「像 DataTransfer」的剪贴板对象。 */
 function clipboard(input: {
   files?: File[];
@@ -67,6 +85,91 @@ describe("readProductTitleClipboardPaste", () => {
 
     expect(result.imageFiles).toHaveLength(1);
     expect(result.imageFiles[0]).toBe(shot);
+  });
+
+  it("真实浏览器：同一张图在 items 与 files 里是两个不同 File 实例 → 只收一张（files 那份）", () => {
+    const [viaFiles, viaItems] = browserTwin();
+    // 前提：两个实例内容相同但不是同一个对象（这正是按 File 引用去重失效的原因）
+    expect(viaFiles).not.toBe(viaItems);
+    expect(viaItems.size).toBe(viaFiles.size);
+    expect(viaItems.name).toBe(viaFiles.name);
+    expect(viaItems.type).toBe(viaFiles.type);
+
+    const result = readProductTitleClipboardPaste(
+      clipboard({ files: [viaFiles], items: [{ kind: "file", type: "image/png", getAsFile: () => viaItems }] }),
+    );
+
+    // 一次粘贴只加一张：绝不能因为两个来源各给了一份就加两张
+    expect(result.imageFiles).toHaveLength(1);
+    expect(result.imageFiles[0]).toBe(viaFiles);
+    expect(result.hasText).toBe(false);
+  });
+
+  it("files 非空时完全以 files 为准，items 里多出来的图不会被叠加进来", () => {
+    const viaFiles = png("from-files.png");
+    const onlyInItems = png("from-items.png");
+
+    const result = readProductTitleClipboardPaste(
+      clipboard({
+        files: [viaFiles],
+        items: [
+          { kind: "file", type: "image/png", getAsFile: () => viaFiles },
+          { kind: "file", type: "image/png", getAsFile: () => onlyInItems },
+        ],
+      }),
+    );
+
+    expect(result.imageFiles).toEqual([viaFiles]);
+  });
+
+  it("files 为空时回退到 items（kind=file 的项才算，string 项忽略）", () => {
+    const first = png("item-1.png");
+    const second = new File(["x"], "item-2.jpg", { type: "image/jpeg" });
+
+    const result = readProductTitleClipboardPaste(
+      clipboard({
+        files: [],
+        items: [
+          { kind: "file", type: "image/png", getAsFile: () => first },
+          { kind: "string", type: "text/plain", getAsFile: () => png("not-a-file.png") },
+          { kind: "file", type: "image/jpeg", getAsFile: () => second },
+        ],
+      }),
+    );
+
+    expect(result.imageFiles).toEqual([first, second]);
+  });
+
+  it("同一次粘贴内内容级去重：指纹相同的两张（两个实例）只留一张", () => {
+    const [first, second] = browserTwin("dup.png");
+    expect(first).not.toBe(second);
+
+    const result = readProductTitleClipboardPaste(clipboard({ files: [first, second], items: [] }));
+
+    expect(result.imageFiles).toHaveLength(1);
+    expect(result.imageFiles[0]).toBe(first);
+  });
+
+  it("同一次粘贴内的多张不同图片全部保留，顺序不乱（内容级去重不错杀）", () => {
+    const [first] = browserTwin("shot.png", "image/png", "one", 1_700_000_000_000);
+    const [second] = browserTwin("shot.png", "image/png", "two-two", 1_700_000_000_001);
+    const [third] = browserTwin("other.jpg", "image/jpeg", "three", 1_700_000_000_000);
+
+    const result = readProductTitleClipboardPaste(clipboard({ files: [first, second, third], items: [] }));
+
+    expect(result.imageFiles).toEqual([first, second, third]);
+  });
+
+  it("MIME 为空的截图在 items/files 各给一份时也只收一次（补回 image/* 后不重复）", () => {
+    const [viaFiles, viaItems] = browserTwin("Screenshot 2026-09-24.png", "");
+
+    const result = readProductTitleClipboardPaste(
+      clipboard({ files: [viaFiles], items: [{ kind: "file", type: "", getAsFile: () => viaItems }] }),
+    );
+
+    expect(result.imageFiles).toHaveLength(1);
+    expect(result.imageFiles[0].type).toBe("image/png");
+    expect(result.imageFiles[0].name).toBe("Screenshot 2026-09-24.png");
   });
 
   it("只有 files（items 为空）的浏览器也能收下多张，并保持剪贴板里的顺序", () => {

@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AiControlPlaneConfig } from "@/lib/ai-control-plane/types";
 
 /**
- * 「商品标题」服务端模块单测（第四版：SHEIN 欧洲站规范 → 3 条纯英文标题 + 逐条字符数）。
+ * 「商品标题」服务端模块单测（第五版：新规范 → 3 条英文标题 + 逐条中文对照 + 逐条字符数）。
+ * lint 只认**禁词**：材质词与尺寸/容量数字属于新规范要求的标题结构，原样保留、不重试；
+ * 超长（>250）只标注 overLimit，同样不重试。
  * 全部使用 vi.mock / fetch mock：不发起任何真实网络请求，不读取真实密钥。
  */
 
@@ -55,7 +57,7 @@ const DECRYPTED_KEY = "sk-dec...-key";
 const NON_VISION_MODEL = "deepseek-v4-pro";
 const TEXT_ONLY_HINT = "不支持图片输入，请填写文字描述或改用 deepseek-flash";
 
-/** 一次请求的 3 条候选（都不含材质词/尺寸数字/禁词，且都 ≤250 字符）。 */
+/** 一次请求的 3 条候选（都不含禁词，且都 ≤250 字符；长度都短于 200 也不影响返回）。 */
 const GOOD_TITLES = [
   "Foldable Laundry Drying Rack for Small Balcony, Space Saving Clothes Hanger",
   "Wall Mounted Clothes Drying Rack for Balcony Apartment, Collapsible Organizer",
@@ -287,7 +289,7 @@ describe("product title server module", () => {
     const userText = textOfPart(body.messages[1].content);
     expect(userText.startsWith(PRODUCT_TITLE_SPEC)).toBe(true);
     expect(userText).toContain("折叠晾衣架，家用阳台");
-    expect(userText.split("### 1. 标题结构")).toHaveLength(2);
+    expect(userText.split("1. 标题结构")).toHaveLength(2);
   });
 
   it("切到「规范放 system」放置时：规范进 system，user 只放文本框内容（依赖注入可切换）", async () => {
@@ -611,16 +613,63 @@ describe("product title server module", () => {
     expect(textOfPart(messages[1].content)).toBe(imageOnly);
   });
 
-  it("任意一条超 250 字符即重试一次：第二次全部合规就返回第二次的 3 条", async () => {
-    const first = titlesContent([GOOD_TITLES[0], OVER_LONG_TITLE, GOOD_TITLES[2]]);
+  it("超长只标注 overLimit：不改写、不重试（fetch 只调用一次，repaired 不出现）", async () => {
+    expect(OVER_LONG_TITLE.length).toBeGreaterThan(PRODUCT_TITLE_MAX_CHARS);
+    fetchMock.mockImplementation(async () => chatResponse(titlesContent([GOOD_TITLES[0], OVER_LONG_TITLE, GOOD_TITLES[2]])));
+
+    const result = await run({ description: "折叠晾衣架" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.titles.map((item) => item.title)).toEqual([GOOD_TITLES[0], OVER_LONG_TITLE, GOOD_TITLES[2]]);
+    // 用服务端复算的长度判断（模型自报的 140 不作数）
+    expect(result.titles.map((item) => item.charCount)).toEqual([
+      GOOD_TITLES[0].length,
+      OVER_LONG_TITLE.length,
+      GOOD_TITLES[2].length,
+    ]);
+    expect(result.titles.map((item) => item.overLimit)).toEqual([false, true, false]);
+    expect(result.titles.every((item) => item.lint?.hits.length === 0)).toBe(true);
+    expect(result.repaired).toBeUndefined();
+  });
+
+  it("3 条都超长也照常返回（逐条 overLimit:true）、不报错、不重试", async () => {
+    fetchMock.mockImplementation(async () => chatResponse(titlesContent([OVER_LONG_TITLE, OVER_LONG_TITLE, OVER_LONG_TITLE])));
+
+    const result = await run({ description: "折叠晾衣架" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.titles.map((item) => item.charCount)).toEqual(Array(3).fill(OVER_LONG_TITLE.length));
+    expect(result.titles.map((item) => item.overLimit)).toEqual([true, true, true]);
+    expect(result.titles.every((item) => item.lint?.hits.length === 0)).toBe(true);
+    expect(result.repaired).toBeUndefined();
+  });
+
+  it("短于 200 字符也照常返回：规范里的「超过200个字符」不做硬校验、不报错、不重试", async () => {
+    const shortTitles = ["Foldable Drying Rack", "Space Saving Hanger", "Portable Laundry Airer"];
+    fetchMock.mockImplementation(async () => chatResponse(titlesContent(shortTitles)));
+
+    const result = await run({ description: "折叠晾衣架" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.titles.map((item) => item.title)).toEqual(shortTitles);
+    expect(result.titles.every((item) => item.charCount < 200)).toBe(true);
+    expect(result.titles.map((item) => item.overLimit)).toEqual([false, false, false]);
+    expect(result.repaired).toBeUndefined();
+  });
+
+  it("只有命中禁词才重试一次：逐条列出「第几条 + 命中原词」，第二次干净就返回第二次的 3 条", async () => {
+    const first = titlesContent([
+      GOOD_TITLES[0],
+      "Eco Friendly Safe Drying Rack for Balcony, Space Saving Airer",
+      GOOD_TITLES[2],
+    ]);
     fetchMock
       .mockImplementationOnce(async () => chatResponse(first))
-      .mockImplementationOnce(async () => chatResponse(VALID_CONTENT));
+      .mockImplementationOnce(async () => chatResponse(CLEAN_CONTENT));
 
     const result = await run({ description: "折叠晾衣架" });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    // 用服务端复算的长度判断（模型自报的 140 不作数）
     const retryBody = lastBody();
     expect(retryBody.messages.map((message) => message.role)).toEqual(["system", "user", "assistant", "user"]);
     // 前两条仍然只由拼装函数生成（规范在 user 文本里，system 只放最小契约）
@@ -628,101 +677,76 @@ describe("product title server module", () => {
     expect(retryBody.messages[0].content).toBe(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT);
     expect(retryBody.messages[2].content).toBe(first);
     const instruction = String(retryBody.messages[3].content);
-    // 只点名第 2 条，并带上 250 上限与「仍然是 3 条」
-    expect(instruction).toContain(`第 2 条标题超过 ${PRODUCT_TITLE_MAX_CHARS} 字符`);
-    expect(instruction).toContain(`精简到 ${PRODUCT_TITLE_MAX_CHARS} 字符以内`);
+    // 只点名第 2 条，并逐字带上命中的禁词原词（第 1、3 条干净，不进纠正指令）
+    const expectedInstruction = buildProductTitleRepairInstruction({
+      items: [{ index: 2, forbiddenHits: ["Eco", "Safe"] }],
+    });
+    expect(instruction).toBe(expectedInstruction);
+    expect(instruction).toContain('第 2 条标题违反了规则：出现了禁词 "Eco"、"Safe"');
     expect(instruction).toContain("仍然只返回同样的 JSON");
     expect(instruction).toContain(`仍然必须返回 ${PRODUCT_TITLE_MAX_CANDIDATES} 条候选英文标题`);
     expect(instruction).not.toContain("第 1 条标题");
+    // 纠正指令只说禁词：绝不再出现「去掉材质词 / 尺寸数字」这类旧说法
+    expect(instruction).not.toContain("去掉所有材质词");
+    expect(instruction).not.toContain("尺寸/容量/规格数字");
     // 重试请求仍然带着原来的 user 输入
     expect(textOfPart(retryBody.messages[1].content)).toContain("折叠晾衣架");
 
-    expect(result.titles.map((item) => item.title)).toEqual(GOOD_TITLES);
-    expect(result.titles.map((item) => item.overLimit)).toEqual([false, false, false]);
+    expect(result.titles.map((item) => item.title)).toEqual(CLEAN_TITLES);
     expect(result.repaired).toBe(true);
     expect(result.titles.every((item) => item.lint?.hits.length === 0)).toBe(true);
   });
 
-  it("重试后仍超长：照常返回 3 条 + 逐条 overLimit:true（repaired:false），不报错、只重试一次", async () => {
-    fetchMock.mockImplementation(async () => chatResponse(titlesContent([OVER_LONG_TITLE, OVER_LONG_TITLE, OVER_LONG_TITLE])));
-
-    const result = await run({ description: "折叠晾衣架" });
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result.titles.map((item) => item.title)).toEqual([OVER_LONG_TITLE, OVER_LONG_TITLE, OVER_LONG_TITLE]);
-    expect(result.titles.map((item) => item.charCount)).toEqual(Array(3).fill(OVER_LONG_TITLE.length));
-    expect(result.titles.map((item) => item.overLimit)).toEqual([true, true, true]);
-    expect(result.titles.every((item) => item.lint?.hits.length === 0)).toBe(true);
-    expect(result.repaired).toBe(false);
-  });
-
-  it("命中材质词时逐条列出「第几条 + 命中原词」重试一次，第二次干净即返回", async () => {
-    const dirty = titlesContent([
-      GOOD_TITLES[0],
-      "Washable Microfiber Cleaning Head for Spin Mop, Space Saving",
-      "Eco Friendly Microfiber Mop Head 45cm Washable",
-    ]);
-    fetchMock
-      .mockImplementationOnce(async () => chatResponse(dirty))
-      .mockImplementationOnce(async () => chatResponse(CLEAN_CONTENT));
+  it("材质词与尺寸/容量数字原样保留、不触发重试（新规范要求标题里就有材质与容量/尺寸）", async () => {
+    const withMaterialAndSize = [
+      "Stainless Steel Spin Mop with Microfiber Cleaning Head, 45cm Adjustable Handle",
+      "500ml Water Spray Bottle with Microfiber Cloth for Home Cleaning",
+      "2-pack Foldable Laundry Rack, Stainless Steel, 30 inch Space Saving Airer",
+    ];
+    fetchMock.mockImplementation(async () => chatResponse(titlesContent(withMaterialAndSize)));
 
     const result = await run({ description: "超细纤维清洁头" });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const retryBody = lastBody();
-    expect(retryBody.messages.map((message) => message.role)).toEqual(["system", "user", "assistant", "user"]);
-    expect(retryBody.messages[2].content).toBe(dirty);
-    // 只报第 2、3 条（第 1 条干净，不进纠正指令）
-    const expectedInstruction = buildProductTitleRepairInstruction({
-      items: [
-        { index: 2, materialHits: ["Microfiber"], measurementHits: [], forbiddenHits: [], overLimit: false },
-        { index: 3, materialHits: ["Microfiber"], measurementHits: ["45cm"], forbiddenHits: ["Eco"], overLimit: false },
-      ],
-    });
-    expect(String(retryBody.messages[3].content)).toBe(expectedInstruction);
-    expect(expectedInstruction).toContain('第 2 条标题违反了规则：出现了材质词 "Microfiber"');
-    expect(expectedInstruction).toContain(
-      '第 3 条标题违反了规则：出现了材质词 "Microfiber"；出现了尺寸/容量/规格数字 "45cm"；出现了禁词 "Eco"',
-    );
-    expect(expectedInstruction).not.toContain("第 1 条标题");
-
-    expect(result.titles.map((item) => item.title)).toEqual(CLEAN_TITLES);
+    // 没有禁词 → 只请求一次；标题一个字都没被改写
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.titles.map((item) => item.title)).toEqual(withMaterialAndSize);
+    expect(result.titles.map((item) => item.charCount)).toEqual(withMaterialAndSize.map((title) => title.length));
     expect(result.titles.map((item) => item.lint)).toEqual([
       { hasForbidden: false, hits: [] },
       { hasForbidden: false, hits: [] },
       { hasForbidden: false, hits: [] },
     ]);
     expect(result.titles.map((item) => item.overLimit)).toEqual([false, false, false]);
-    expect(result.repaired).toBe(true);
+    expect(result.repaired).toBeUndefined();
   });
 
-  it("重试后仍有命中：照常返回（不静默改写）+ 逐条 lint.hits + repaired:false", async () => {
+  it("重试后仍有禁词命中：照常返回（不静默改写）+ 逐条 lint.hits + repaired:false", async () => {
     fetchMock.mockImplementation(async () => chatResponse(titlesContent([
-      "Microfiber Mop Head 45cm Washable",
+      "Safe Microfiber Mop Head 45cm Washable",
       GOOD_TITLES[1],
-      "Safe Non-Toxic Baby Bib",
+      "Recyclable Storage Basket with Microfiber Cloth",
     ])));
 
     const result = await run({ description: "超细纤维清洁头" });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    // 逐条标注：只有命中的那两条带 hits，干净的那条是空数组
+    // 逐条标注：只有命中禁词的那两条带 hits（材质/尺寸词不算），干净的那条是空数组
     expect(result.titles[0]).toEqual({
-      title: "Microfiber Mop Head 45cm Washable",
+      title: "Safe Microfiber Mop Head 45cm Washable",
       zh: "第 1 条中文对照",
-      charCount: "Microfiber Mop Head 45cm Washable".length,
+      charCount: "Safe Microfiber Mop Head 45cm Washable".length,
       overLimit: false,
-      lint: { hasForbidden: true, hits: ["Microfiber", "45cm"] },
+      lint: { hasForbidden: true, hits: ["Safe"] },
     });
     expect(result.titles[1].lint).toEqual({ hasForbidden: false, hits: [] });
-    expect(result.titles[2].lint?.hits).toEqual(["Safe", "Non-Toxic"]);
+    expect(result.titles[2].lint?.hits).toEqual(["Recyclable"]);
     expect(result.titles[2].overLimit).toBe(false);
     expect(result.repaired).toBe(false);
   });
 
   it("重写那一轮返回不可解析内容时：保留第一次的 3 条结果并标 repaired:false，不把请求判失败", async () => {
     const dirty = titlesContent([
-      "Microfiber Mop Head Washable",
+      "Safe Microfiber Mop Head Washable",
       GOOD_TITLES[1],
       GOOD_TITLES[2],
     ]);
@@ -734,12 +758,12 @@ describe("product title server module", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.titles.map((item) => item.title)).toEqual([
-      "Microfiber Mop Head Washable",
+      "Safe Microfiber Mop Head Washable",
       GOOD_TITLES[1],
       GOOD_TITLES[2],
     ]);
-    expect(result.titles[0].charCount).toBe("Microfiber Mop Head Washable".length);
-    expect(result.titles[0].lint?.hits).toEqual(["Microfiber"]);
+    expect(result.titles[0].charCount).toBe("Safe Microfiber Mop Head Washable".length);
+    expect(result.titles[0].lint?.hits).toEqual(["Safe"]);
     expect(result.repaired).toBe(false);
   });
 

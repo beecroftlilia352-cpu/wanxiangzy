@@ -3,17 +3,22 @@ import { describe, expect, it } from "vitest";
 /**
  * 规范原文常量、上游 messages 拼装与本地 lint 词表的单测（纯函数，不发任何网络请求）。
  *
- * 这里锁住三件事：
- *  1) PRODUCT_TITLE_SPEC 必须是运营给定的 SHEIN 欧洲站规范**原文**（含小标题/加粗/空行），
- *     且规范正文里**不带** JSON 契约（契约必须在 system 消息里，避免被用户编辑掉）；
- *  2) 上游 messages 只由 buildProductTitleMessages 拼装：规范放在 system 还是 user
+ * 这里锁住四件事：
+ *  1) PRODUCT_TITLE_SPEC 必须是运营给定的 SHEIN 欧洲站规范**原文（第 5 版）**——
+ *     逐字等于运营给的规范文件（773 字符 / 1915 字节 / 末尾带换行），含空行、行首缩进、
+ *     全角括号与顿号；且规范正文里**不带** JSON 契约（契约必须在 system 消息里）；
+ *  2) 新规范的关键要求都在正文里：材质、容量/尺寸、「每条标题超过200个字符但不超过250个字符」、
+ *     「生成3条…并说明理由」；
+ *  3) 上游 messages 只由 buildProductTitleMessages 拼装：规范放在 system 还是 user
  *     由 PRODUCT_TITLE_SPEC_PLACEMENT 决定（当前默认 "user" = 文本框默认内容），
  *     断言"规范出现在期望的那条消息里"，不写死位置；
- *  3) lint 词表的召回与误报边界（材质词、尺寸/容量数字、禁词；数量词不误报）。
+ *  4) 新 lint 的边界：**只**认禁词——材质词（Microfiber / Stainless Steel）与尺寸/容量数字
+ *     （45cm / 500ml / 2kg / 12 x 8）属于新规范要求的标题结构，**不命中、不触发重写**。
  */
 
 import {
   PRODUCT_TITLE_DEFAULT_DESCRIPTION,
+  PRODUCT_TITLE_FORBIDDEN_PATTERNS,
   PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT,
   PRODUCT_TITLE_OUTPUT_FORMAT,
   PRODUCT_TITLE_SPEC,
@@ -23,11 +28,13 @@ import {
   buildProductTitleOperationalNotes,
   buildProductTitleRepairInstruction,
   lintProductTitle,
-  productTitleHitsByCategory,
 } from "@/lib/product-title/prompt";
 import { PRODUCT_TITLE_MAX_CANDIDATES, PRODUCT_TITLE_MAX_CHARS } from "@/lib/product-title/types";
 
 const SUPPLEMENT = "折叠晾衣架，家用阳台，双层，白色";
+
+/** 规范正文里的第一个小标题（用来断言「规范只出现一次」）。 */
+const STRUCTURE_MARKER = "1. 标题结构";
 
 function contentText(message: { content: unknown }): string {
   if (typeof message.content === "string") return message.content;
@@ -37,56 +44,74 @@ function contentText(message: { content: unknown }): string {
     .join("\n");
 }
 
-describe("PRODUCT_TITLE_SPEC（SHEIN 欧洲站规范原文，全文仅此一份）", () => {
-  it("规范原文未被改动：1230 字符 / 76 行（§5 的「1条」保持原样）", () => {
-    // 这两个数字是用户给定的原文度量；改动规范正文（哪怕一个字）都会让它们变化。
-    expect(PRODUCT_TITLE_SPEC).toHaveLength(1230);
-    expect(PRODUCT_TITLE_SPEC.split("\n")).toHaveLength(76);
-    expect(PRODUCT_TITLE_SPEC.split("\n").filter((line) => line === "只生成 **1条英文商品标题**。")).toHaveLength(1);
-    // 契约里要求的 3 条只存在于机器契约段，不在规范正文里
-    expect(PRODUCT_TITLE_SPEC).not.toContain("3条");
-    expect(PRODUCT_TITLE_SPEC).not.toContain("3 条");
+describe("PRODUCT_TITLE_SPEC（SHEIN 欧洲站规范原文（第 5 版），全文仅此一份）", () => {
+  it("逐字等于运营给的规范文件：773 字符 / 1915 字节 / 29 行（末尾保留文件里的换行）", () => {
+    // 这三个度量是运营给的规范文件的实测值（一个字符变了都会让它们变化）。
+    expect(PRODUCT_TITLE_SPEC).toHaveLength(773);
+    expect(Buffer.byteLength(PRODUCT_TITLE_SPEC, "utf8")).toBe(1915);
+    // 文件末尾有换行 → split("\n") 最后一项是空字符串，共 29 项（28 行正文 + 1）
+    expect(PRODUCT_TITLE_SPEC.split("\n")).toHaveLength(29);
+    expect(PRODUCT_TITLE_SPEC.endsWith("\n")).toBe(true);
+    expect(PRODUCT_TITLE_SPEC.split("\n")[27]).toBe(
+      "生成前自行检查：≤250字符、无禁词、无虚构属性、关键词高度相关、英文自然，符合欧洲消费者搜索表达。",
+    );
   });
 
-  it("开头是给定的第一句，且 1~7 节小标题齐全", () => {
+  it("开头第一句与每节小标题逐字保留（含行首缩进、空行与全角标点）", () => {
     expect(PRODUCT_TITLE_SPEC.startsWith(
-      "根据我提供的商品名称、商品图片或商品信息，生成适用于 SHEIN 欧洲跨境电商的英文商品标题。",
+      "根据我提供的商品名称、图片或商品信息，生成适用于 SHEIN 欧洲跨境电商的英文商品标题。\n\n1. 标题结构：\n",
     )).toBe(true);
-    for (const heading of [
-      "### 1. 标题结构",
-      "### 2. 属性限制",
-      "### 3. SEO要求",
-      "### 4. 字符要求",
-      "### 5. 输出要求",
-      "### 6. 禁词",
-      "### 7. 生成前强制自检",
-    ]) {
+    for (const heading of ["1. 标题结构：", "2. SEO要求：", "3. 输出要求：", "4. 禁词："]) {
       expect(PRODUCT_TITLE_SPEC).toContain(heading);
     }
-    expect(PRODUCT_TITLE_SPEC.trimEnd().endsWith("检查完成后，**只输出最终英文标题和字符数。**")).toBe(true);
+    // 行首 3 空格缩进逐字保留
+    expect(PRODUCT_TITLE_SPEC).toContain("\n   纺织品：数量 + ");
+    expect(PRODUCT_TITLE_SPEC).toContain("\n   按照欧洲消费者真实英文搜索习惯优化标题。");
+    // 空行分隔的两段（一句在缩进行、下一行顶格）也逐字保留
+    expect(PRODUCT_TITLE_SPEC).toContain(
+      "自然加入与商品高度相关的：\n核心产品关键词、常用搜索词、同义产品词、功能词、用途词、使用场景词、季节词。",
+    );
   });
 
-  it("关键约束串逐字保留（含加粗标记与坐标词）", () => {
-    expect(PRODUCT_TITLE_SPEC).toContain("SHEIN");
-    expect(PRODUCT_TITLE_SPEC).toContain("**纺织品：**");
+  it("关键要求都在正文里：材质、容量/尺寸、200~250 字符、生成3条…并说明理由", () => {
+    // 材质 + 容量/尺寸：新规范的标题结构明确要求它们（因此 lint 不能再因它们改写标题）
     expect(PRODUCT_TITLE_SPEC).toContain(
-      "数量 + 图案/颜色 + 产品名称 + 风格/特点 + 形状/细节 + 功能 + 同义产品名称 + 适用场景/节日/季节",
+      "纺织品：数量 + 图案/颜色 + 产品名称 + 风格 + 材质 + 形状/细节 + 功能 + 同义产品名称 + 适用场景/节日/季节。",
     );
-    expect(PRODUCT_TITLE_SPEC).toContain("**标题中不要出现任何材质或材料相关词语。**");
-    expect(PRODUCT_TITLE_SPEC).toContain("每条英文标题**不超过250个字符（包含空格和标点）**。");
-    expect(PRODUCT_TITLE_SPEC).toContain("只生成 **1条英文商品标题**。");
-    expect(PRODUCT_TITLE_SPEC).toContain("禁止出现：");
-    expect(PRODUCT_TITLE_SPEC).toContain("PFAS");
+    expect(PRODUCT_TITLE_SPEC).toContain(
+      "非纺织品：数量 + 容量/尺寸 + 特点词 + 材质 + 产品名称 + 风格 + 图案/颜色 + 形状/细节 + 功能 + 同义产品名称 + 适用场景/节日/季节。",
+    );
+    expect(PRODUCT_TITLE_SPEC).toContain("材质");
+    expect(PRODUCT_TITLE_SPEC).toContain("容量/尺寸");
+    // 字符要求（全角括号逐字保留）
+    expect(PRODUCT_TITLE_SPEC).toContain(
+      "每条标题超过200个字符但不超过250个字符（包含空格和标点）",
+    );
+    // 输出要求：3 条 + 说明理由
+    expect(PRODUCT_TITLE_SPEC).toContain("生成3条最好的最符合的欧洲跨境英文标题供选择，并说明理由。");
+    expect(PRODUCT_TITLE_SPEC).toContain("说明理由");
+    // 禁词（第 4 节）
+    expect(PRODUCT_TITLE_SPEC).toContain("禁止出现 Safe、Safety、Quality Verified");
+    expect(PRODUCT_TITLE_SPEC).toContain("PFAS、PTFE、PFOA、PFOS");
+    expect(PRODUCT_TITLE_SPEC).toContain("可回收");
+    expect(PRODUCT_TITLE_SPEC).toContain("海洋友好");
+  });
+
+  it("新规范不再禁止材质词/尺寸数字（旧版本那两条禁令已随规范一起消失）", () => {
+    expect(PRODUCT_TITLE_SPEC).not.toContain("不要出现任何材质");
+    expect(PRODUCT_TITLE_SPEC).not.toContain("不要出现任何尺寸");
+    expect(PRODUCT_TITLE_SPEC).not.toContain("材质词");
+    expect(PRODUCT_TITLE_SPEC).not.toContain("规格数字");
+    // 也不再是「只生成 1 条」
+    expect(PRODUCT_TITLE_SPEC).not.toContain("1条英文商品标题");
   });
 
   it("规范正文里不含 JSON 契约（契约必须留在 system 消息里，不能被用户编辑掉）", () => {
     expect(PRODUCT_TITLE_SPEC).not.toContain("charCount");
     expect(PRODUCT_TITLE_SPEC).not.toContain("为了程序解析");
-    // §5 的「只生成 1条」是用户给的原文：一个字都不改（数量由机器契约覆盖，见下一个用例）
-    expect(PRODUCT_TITLE_SPEC).toContain("只生成 **1条英文商品标题**。");
   });
 
-  it("机器契约要求恰好 3 条候选标题（每条带中文对照 zh）、只返回 JSON，并显式覆盖规范正文里的「只生成 1 条」", () => {
+  it("机器契约：恰好 3 条候选标题 + 逐条中文对照 zh + 只返回 JSON，并显式压过规范正文的冲突要求", () => {
     expect(PRODUCT_TITLE_MAX_CANDIDATES).toBe(3);
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('{"titles":[');
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"title":"<英文标题1>"');
@@ -98,28 +123,31 @@ describe("PRODUCT_TITLE_SPEC（SHEIN 欧洲站规范原文，全文仅此一份�
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"zh":"<第3条英文标题的中文对照>"');
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("charCount");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("必须恰好返回 3 条候选英文标题（titles 数组长度 = 3）");
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("即使规范正文提到只生成 1 条，本接口也要求输出 3 条候选英文标题");
+    // 契约段的优先级：条数 / 输出格式 / 是否需要理由都以它为准
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("本段是给程序解析的**机器契约**");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("一律**以本段为准**");
+    // 规范正文说「并说明理由」→ 契约里明确不需要输出理由（避免污染标题与破坏 JSON）
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("规范正文说「并说明理由」");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("**不需要**说明理由");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("不要输出理由、不要输出解释");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("只返回这个 JSON，不要代码块标记、不要其它文字");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("不要关键词分析、不要解释、不要备注");
-    // 不能再出现「一句 blanket 地禁止中文翻译」的旧写法（zh 现在是契约要求的字段）；
-    // §5 的那句话只在契约里被显式引用并豁免，见下一个用例。
+    // 不能再出现「一句 blanket 地禁止中文翻译」的旧写法（zh 现在是契约要求的字段）
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).not.toContain("不要提供中文翻译、关键词分析、解释、备注或其他内容");
     // 契约里仍然没有卖点角度字段
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).not.toContain('"angle"');
+    // 新规范允许材质与容量/尺寸：契约里明说该写就写，别为了规避什么而省略
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("属于规范要求的内容");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("不要为了规避什么而省略或改写它们");
   });
 
   it("契约把 zh 的定位写清楚：只是该条英文标题的中文对照，且不参与任何合规约束", () => {
-    // zh = 对应那条英文标题的中文翻译对照（供运营阅读、不用于上架）
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("对应那条英文标题的中文翻译对照");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("供运营阅读，不用于上架");
-    // zh 不参与合规：§2 属性限制 / §6 禁词 / ≤250 字符都只针对英文 title
+    // zh 不参与合规：禁词 / ≤250 字符都只针对英文 title
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("zh **不参与任何合规约束**");
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("§2 属性限制");
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("§6 禁词");
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("「每条不超过 250 字符」都**只针对英文 title**");
-    // 规范 §5 的「不要提供中文翻译」在契约里被显式豁免（zh 仍必须给，但只作对照）
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("规范正文 §5 说「不要提供中文翻译」");
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("仍必须提供");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("规范第 4 节的禁词");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("只针对英文 title");
     // charCount 只算英文 title 的字符数
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("charCount 指的是**英文 title** 的字符数");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("**不是** zh 的字符数");
@@ -140,7 +168,7 @@ describe("system 消息（放置位置由常量决定）", () => {
     expect(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT).toContain('"title"');
     expect(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT).toContain("charCount");
     expect(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT).toContain("必须恰好返回 3 条候选英文标题");
-    expect(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT).not.toContain("### 1. 标题结构");
+    expect(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT).not.toContain("1. 标题结构");
     expect(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT).not.toContain("SHEIN");
   });
 
@@ -171,7 +199,7 @@ describe("buildProductTitleMessages（上游 messages 的唯一拼装入口）",
     expect(userText.startsWith(PRODUCT_TITLE_SPEC)).toBe(true);
     expect(userText).toContain(SUPPLEMENT);
     // 规范只出现一次（不再重复前置）
-    expect(userText.split("### 1. 标题结构")).toHaveLength(2);
+    expect(userText.split(STRUCTURE_MARKER)).toHaveLength(2);
   });
 
   it("切到 system 放置：规范进 system，user 只放文本框内容", () => {
@@ -181,7 +209,7 @@ describe("buildProductTitleMessages（上游 messages 的唯一拼装入口）",
     expect(String(messages[0].content)).toContain(PRODUCT_TITLE_SPEC);
     const userText = contentText(messages[1]);
     expect(userText).toBe(SUPPLEMENT);
-    expect(userText).not.toContain("### 7. 生成前强制自检");
+    expect(userText).not.toContain("4. 禁词");
   });
 
   it("用户改成只有自己的描述时，user 文本就是他的原文（绝不强行回填规范）", () => {
@@ -203,7 +231,7 @@ describe("buildProductTitleMessages（上游 messages 的唯一拼装入口）",
     const userText = contentText(messages[1]);
     expect(userText).toContain("文本框为空");
     expect(userText).toContain("不要编造图片里看不到的信息");
-    expect(userText).not.toContain("### 1. 标题结构");
+    expect(userText).not.toContain("4. 禁词");
     expect(buildProductTitleOperationalNotes({ description: "", imageCount: 1 })).toBe(userText);
   });
 
@@ -234,39 +262,37 @@ describe("buildProductTitleMessages（上游 messages 的唯一拼装入口）",
   });
 });
 
-describe("lintProductTitle（本地自检，不改写标题）", () => {
-  it("命中材质词（保留原标题大小写，长词优先）", () => {
-    const lint = lintProductTitle("Washable Microfiber Cleaning Head for Floor Mop");
-    expect(lint.hasForbidden).toBe(true);
-    expect(lint.hits).toContain("Microfiber");
-
-    const steel = lintProductTitle("Stainless Steel Kitchen Storage Rack");
-    expect(steel.hits).toContain("Stainless Steel");
-    // 长词优先：不该再单独报一个 "Steel"
-    expect(steel.hits).not.toContain("Steel");
-  });
-
-  it("命中尺寸/容量/重量数字与规格组合", () => {
-    expect(lintProductTitle("Adjustable Pole 45cm for Balcony").hits).toContain("45cm");
-    expect(lintProductTitle("Space Saving 30 inch Shelf Organizer").hits).toContain("30 inch");
-    expect(lintProductTitle("500ml Water Spray Bottle").hits).toContain("500ml");
-    expect(lintProductTitle("2kg Adjustable Dumbbell").hits).toContain("2kg");
-    expect(lintProductTitle("Mat 12 x 8 for Kitchen").hits.join("|")).toContain("12 x 8");
-  });
-
-  it("数量词（2-pack / 2 pcs / 3 pieces）不误报为尺寸", () => {
+describe("lintProductTitle（本地自检：只认禁词，不改写标题）", () => {
+  it("材质词不再命中（新规范要求标题里包含材质）", () => {
     for (const title of [
-      "Foldable Storage Bags 2-pack for Wardrobe",
-      "Reusable Kitchen Cloths 2 pcs Set",
-      "Bamboo-free Coasters 3 pieces",
-      "Washable Cleaning Cloths 3pcs Pack",
+      "Washable Microfiber Cleaning Head for Floor Mop",
+      "Stainless Steel Kitchen Storage Rack",
+      "Soft Cotton Bed Sheet Set for Bedroom",
+      "Ceramic Coffee Mug with Handle for Office",
     ]) {
       const lint = lintProductTitle(title);
-      expect(lint.details.filter((item) => item.category === "measurement")).toEqual([]);
+      expect(lint.hasForbidden).toBe(false);
+      expect(lint.hits).toEqual([]);
+      expect(lint.details).toEqual([]);
     }
   });
 
-  it("命中禁词（大小写不敏感）", () => {
+  it("尺寸/容量/重量数字与规格组合也不再命中（新规范的标题结构要求容量/尺寸）", () => {
+    for (const title of [
+      "Adjustable Pole 45cm for Balcony",
+      "Space Saving 30 inch Shelf Organizer",
+      "500ml Water Spray Bottle",
+      "2kg Adjustable Dumbbell",
+      "Mat 12 x 8 for Kitchen",
+      "Foldable Storage Bags 2-pack for Wardrobe",
+    ]) {
+      const lint = lintProductTitle(title);
+      expect(lint.hasForbidden).toBe(false);
+      expect(lint.hits).toEqual([]);
+    }
+  });
+
+  it("命中禁词（大小写不敏感，保留原标题大小写）", () => {
     expect(lintProductTitle("Eco Friendly Reusable Shopping Bag").hits).toContain("Eco");
     expect(lintProductTitle("Safe Non-Toxic Baby Bib").hits).toEqual(
       expect.arrayContaining(["Safe", "Non-Toxic"]),
@@ -276,69 +302,74 @@ describe("lintProductTitle（本地自检，不改写标题）", () => {
       expect.arrayContaining(["PFAS Free", "PFAS"]),
     );
     expect(lintProductTitle("Natural Bamboo Cutting Board").hits.join("|")).toMatch(/Natural/i);
+    expect(lintProductTitle("Quality Verified Storage Box").hits.join("|")).toMatch(/Quality Verified/i);
   });
 
-  it("干净的标题 hits 为空", () => {
+  it("命中类别恒为 forbidden（材质/尺寸没有自己的类别了）", () => {
+    const lint = lintProductTitle("Microfiber Mop 45cm with Safe Lock");
+    expect(lint.details.map((item) => item.category)).toEqual(["forbidden"]);
+    expect(lint.hits).toEqual(["Safe"]);
+    expect(lint.hasForbidden).toBe(true);
+  });
+
+  it("干净的标题（含材质词与尺寸数字）hits 为空", () => {
     const clean = "Foldable Laundry Drying Rack for Small Balcony, Space Saving Hanger";
     const lint = lintProductTitle(clean);
     expect(lint.hasForbidden).toBe(false);
     expect(lint.hits).toEqual([]);
     expect(lintProductTitle("")).toEqual({ hasForbidden: false, hits: [], details: [] });
+    expect(lintProductTitle("Stainless Steel Mop 45cm 500ml").hits).toEqual([]);
   });
 
-  it("同一命中去重且按标题顺序返回，并按类别分组供纠正指令使用", () => {
-    const lint = lintProductTitle("Microfiber Mop with microfiber pad, 45cm Handle");
-    expect(lint.hits).toEqual(["Microfiber", "45cm"]);
-    expect(productTitleHitsByCategory(lint)).toEqual({
-      material: ["Microfiber"],
-      measurement: ["45cm"],
-      forbidden: [],
-    });
+  it("同一命中去重（忽略大小写）且按标题顺序返回", () => {
+    const lint = lintProductTitle("Safe Microfiber Mop with safe pad, 45cm Handle");
+    expect(lint.hits).toEqual(["Safe"]);
+    expect(lint.details).toEqual([{ category: "forbidden", term: "Safe", index: 0 }]);
+  });
+
+  it("禁词表本身仍然保留（服务端 lint 的唯一词表）", () => {
+    expect(PRODUCT_TITLE_FORBIDDEN_PATTERNS.length).toBeGreaterThan(0);
+    expect(PRODUCT_TITLE_FORBIDDEN_PATTERNS.every((pattern) => pattern instanceof RegExp)).toBe(true);
   });
 });
 
-describe("buildProductTitleRepairInstruction", () => {
-  it("只命中材质词的那一条：逐字列出「第几条 + 命中原词」，并重申仍是 3 条", () => {
+describe("buildProductTitleRepairInstruction（只在禁词命中时重写一次）", () => {
+  it("只命中禁词的那一条：逐字列出「第几条 + 命中原词」，并重申仍是 3 条", () => {
     const message = buildProductTitleRepairInstruction({
-      items: [{ index: 1, materialHits: ["Microfiber"], measurementHits: [], forbiddenHits: [], overLimit: false }],
+      items: [{ index: 1, forbiddenHits: ["Safe"] }],
     });
     const lines = message.split("\n");
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe(
-      '第 1 条标题违反了规则：出现了材质词 "Microfiber"，且标题不允许出现任何材质或材料相关词语，'
-      + "也不允许出现尺寸/容量/规格数字。请在不丢失核心产品关键词与搜索覆盖的前提下重写这一条，"
-      + "去掉所有材质词，仍然只返回同样的 JSON。",
+      "第 1 条标题违反了规则：出现了禁词 \"Safe\"，"
+      + "规范禁止出现禁词（含「安全、无害、认证达标」的近义表达、PFAS/PTFE/PFOA/PFOS 的 Free/Without/Non 类声明、"
+      + "以及环保/绿色/天然/可持续等词语及其同义词、近义词和变体）。"
+      + "请在不丢失核心产品关键词与搜索覆盖的前提下重写这一条，只去掉这些禁词"
+      + "（材质词与容量/尺寸数字是规范要求的标题结构，不要一并删掉），仍然只返回同样的 JSON。",
     );
     expect(lines[1]).toContain(`仍然必须返回 ${PRODUCT_TITLE_MAX_CANDIDATES} 条候选英文标题`);
     expect(lines[1]).toContain(`titles 数组长度 = ${PRODUCT_TITLE_MAX_CANDIDATES}`);
+    // 纠正指令里绝不能出现「去掉材质词 / 尺寸数字」这类旧说法
+    expect(message).not.toContain("去掉所有材质词");
+    expect(message).not.toContain("尺寸/容量/规格数字");
   });
 
-  it("多条同时不合规：逐条写出第几条、命中原词与类别，并说明要去掉哪些词", () => {
+  it("多条命中禁词：逐条写出第几条与命中原词", () => {
     const message = buildProductTitleRepairInstruction({
       items: [
-        { index: 2, materialHits: ["Microfiber"], measurementHits: ["45cm"], forbiddenHits: ["Eco"], overLimit: false },
-        { index: 3, materialHits: [], measurementHits: [], forbiddenHits: [], overLimit: true },
+        { index: 2, forbiddenHits: ["Eco"] },
+        { index: 3, forbiddenHits: ["Safe", "Recyclable"] },
       ],
     });
-    expect(message).toContain(
-      '第 2 条标题违反了规则：出现了材质词 "Microfiber"；出现了尺寸/容量/规格数字 "45cm"；出现了禁词 "Eco"',
-    );
-    expect(message).toContain("去掉所有材质词、尺寸/容量/规格数字与禁词");
-    expect(message).toContain(`第 3 条标题超过 ${PRODUCT_TITLE_MAX_CHARS} 字符`);
-    expect(message).toContain(`精简到 ${PRODUCT_TITLE_MAX_CHARS} 字符以内`);
+    expect(message).toContain('第 2 条标题违反了规则：出现了禁词 "Eco"');
+    expect(message).toContain('第 3 条标题违反了规则：出现了禁词 "Safe"、"Recyclable"');
     expect(message.split("\n")).toHaveLength(3);
   });
 
-  it("同一条既命中又超长时，该条的两段指令都要带上", () => {
-    const message = buildProductTitleRepairInstruction({
-      items: [{ index: 2, materialHits: ["Microfiber"], measurementHits: [], forbiddenHits: [], overLimit: true }],
-    });
-    expect(message).toContain('第 2 条标题违反了规则：出现了材质词 "Microfiber"');
-    expect(message).toContain(`第 2 条标题超过 ${PRODUCT_TITLE_MAX_CHARS} 字符`);
-    expect(message.split("\n")).toHaveLength(3);
-  });
-
-  it("没有任何不合规的条数时返回空字符串（不发误导性指令）", () => {
+  it("超长不参与重写（只标注 overLimit）：没有禁词时纠正指令为空字符串", () => {
     expect(buildProductTitleRepairInstruction({ items: [] })).toBe("");
+    // 即使调用方把「只超长、无禁词」的条目传进来，也不会拼出任何指令
+    expect(buildProductTitleRepairInstruction({ items: [{ index: 1, forbiddenHits: [] }] })).toBe("");
+    expect(PRODUCT_TITLE_MAX_CHARS).toBe(250);
   });
 });

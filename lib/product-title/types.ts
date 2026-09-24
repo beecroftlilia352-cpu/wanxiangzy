@@ -13,15 +13,21 @@ export const PRODUCT_TITLE_PROVIDER_ID = "deepseek";
 export const PRODUCT_TITLE_DEFAULT_MODEL = "deepseek-flash";
 export const PRODUCT_TITLE_MODEL_ENV = "PRODUCT_TITLE_MODEL";
 
-/** 标题字符上限（规范 §4：不超过 250 个字符，含空格与标点）。 */
+/**
+ * 标题字符上限（新规范第 2 节：每条标题超过200个字符但不超过250个字符，含空格与标点）。
+ *
+ * 服务端**只**按 250 做上限判断（超长只逐条标注 overLimit，不改写、不报错、不重试）；
+ * 规范里的「超过200个字符」只是给模型参考的下限，服务端**不做**任何硬校验，
+ * 短于 200 字符的标题照常返回。
+ */
 export const PRODUCT_TITLE_MAX_CHARS = 250;
 
 /**
- * 一次请求**要求**的候选标题条数（3 条）。
+ * 一次请求**要求**的候选标题条数（3 条，用户明确要求保持不变）。
  *
- * 规范 §5 写的是「只生成 1条」——那是给人工抄模板用的说法，本接口在机器契约
- * （prompt.ts 的 PRODUCT_TITLE_OUTPUT_FORMAT）里显式要求 3 条候选，且契约里明说
- * 「即使规范正文提到只生成 1 条，本接口也要求输出 3 条」。规范原文一个字都不改。
+ * 新规范正文说「生成3条最好的最符合的欧洲跨境英文标题供选择」，本接口的机器契约段
+ * （prompt.ts 的 PRODUCT_TITLE_OUTPUT_FORMAT）同样显式要求恰好 3 条候选，
+ * 并声明「与规范正文冲突处一律以契约段为准」。规范原文一个字都不改。
  */
 export const PRODUCT_TITLE_MAX_CANDIDATES = 3;
 
@@ -60,9 +66,9 @@ export const PRODUCT_TITLE_RATE_LIMIT = {
 
 /** 单条标题的本地自检结果（服务端只做提醒，不改写标题）。 */
 export type ProductTitleLint = {
-  /** 命中任意一类（材质词 / 尺寸数字 / 禁词）即为 true。 */
+  /** 命中**禁词**（规范第 4 节）即为 true；材质词/尺寸/容量数字不算命中。 */
   hasForbidden: boolean;
-  /** 命中的原词（保留标题里的原始大小写，如 "Microfiber"、"45cm"、"Safe"）。 */
+  /** 命中的禁词原词（保留标题里的原始大小写，如 "Safe"、"Recyclable"）。 */
   hits: string[];
 };
 
@@ -77,9 +83,9 @@ export type ProductTitleTitleItem = {
   zh: string;
   /** 服务端按 title 复算的字符数（英文 title 的长度，含空格与标点；不信任模型自报的数字）。 */
   charCount: number;
-  /** **该条**超过 250 字符上限（自动重写一次后仍超长时为 true）。 */
+  /** **该条**超过 250 字符上限（服务端只标注 overLimit，不改写、不重试）。 */
   overLimit?: boolean;
-  /** **该条**的本地自检结果（只扫英文 title 的材质词 / 尺寸数字 / 禁词；zh 不参与 lint）。 */
+  /** **该条**的本地自检结果（只扫英文 title 的**禁词**；材质/尺寸/容量数字不算命中，zh 不参与 lint）。 */
   lint?: ProductTitleLint;
 };
 
@@ -89,9 +95,9 @@ export type ProductTitleSuccessPayload = {
   /** 候选英文标题（要求恰好 3 条；模型少给也照常返回，前端按实际条数展示）。 */
   titles: ProductTitleTitleItem[];
   /**
-   * 只在「因任意一条超出 250 字符或命中 lint 而触发过一次重写重试」时出现：
-   *   true  = 重写后**全部**条数都已合规（无命中且不超长）；
-   *   false = 重写后仍有命中/仍超长，或重写那一轮不可解析（此时保留第一次的结果）。
+   * 只在「因**命中禁词**而触发过一次重写重试」时出现（超长只标注 overLimit、不触发重试）：
+   *   true  = 重写后全部条数都不再命中禁词；
+   *   false = 重写后仍有命中，或重写那一轮不可解析（此时保留第一次的结果）。
    * 没触发重试时该字段不出现。
    */
   repaired?: boolean;
@@ -114,7 +120,7 @@ export const PRODUCT_TITLE_MAX_IMAGES = 5;
 
 /**
  * 文本框（商品名称/商品信息）长度上限（字符）。
- * 规范原文默认值本身就有一千三百多字，所以上限给到 6000，留出足够的补充描述空间。
+ * 规范原文默认值本身就有七百多字，所以上限给到 6000，留出足够的补充描述空间。
  */
 export const PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH = 6000;
 

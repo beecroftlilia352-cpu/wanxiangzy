@@ -163,6 +163,24 @@ function pasteAt(node: Element, input: { files?: File[]; text?: string; html?: s
   return fireEvent.paste(node, { clipboardData: clipboardData(input) });
 }
 
+/**
+ * 真实浏览器粘贴一张截图时剪贴板的真实形状：clipboardData.files 与
+ * clipboardData.items[i].getAsFile() 是**两个内容/元数据相同但对象不同**的 File。
+ * 上面的 clipboardData() 两个来源放的是同一个对象，拓不到「粘一次加两张」这一层。
+ */
+function browserClipboardData(name = "screenshot.png", type = "image/png") {
+  const viaFiles = new File(["pasted"], name, { type, lastModified: 1_700_000_000_000 });
+  const viaItems = new File(["pasted"], name, { type, lastModified: 1_700_000_000_000 });
+  return {
+    clipboardData: {
+      files: [viaFiles],
+      items: [{ kind: "file", type, getAsFile: () => viaItems }],
+      types: ["Files"],
+      getData: () => "",
+    },
+  };
+}
+
 function dropzone() {
   return screen.getByTestId("product-title-dropzone");
 }
@@ -234,7 +252,8 @@ describe("ProductTitleButton", () => {
     // 默认值与上游拼装同源（prompt.ts 的规范常量），不是组件里写死的另一份文案
     expect(textarea.value).toBe(PRODUCT_TITLE_DEFAULT_DESCRIPTION);
     expect(textarea.value).toContain("SHEIN");
-    expect(textarea.value).toContain("### 7. 生成前强制自检");
+    expect(textarea.value).toContain("4. 禁词：");
+    expect(textarea.value).toContain("生成前自行检查：≤250字符、无禁词、无虚构属性、关键词高度相关、英文自然，符合欧洲消费者搜索表达。");
     expect(textarea.getAttribute("placeholder")).toContain("商品名称");
     expect(textarea.getAttribute("placeholder")).toContain("商品信息");
     expect(textarea.getAttribute("maxlength")).toBe(String(PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH));
@@ -508,7 +527,7 @@ describe("ProductTitleButton", () => {
     expect(charCountAt(1).textContent).toBe(`字符数 ${TITLES[0].length}`);
   });
 
-  it("逐条 lint 命中（材质词/尺寸数字/禁词）时提示并列出该条命中原词", async () => {
+  it("逐条 lint 命中禁词时提示并列出该条命中原词（材质/尺寸词不算命中、不提示）", async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/product-title/models") return modelsResponse();
@@ -517,9 +536,14 @@ describe("ProductTitleButton", () => {
         ok: true,
         model: "deepseek-flash",
         titles: [
-          item(0, { title: "Microfiber Mop Head 45cm Washable", charCount: 34, lint: { hasForbidden: true, hits: ["Microfiber", "45cm"] } }),
-          item(1),
-          item(2, { lint: { hasForbidden: true, hits: ["Safe"] } }),
+          // 材质词（Stainless Steel）与尺寸数字（45cm）属于新规范要求的标题结构：lint 为空、不提示
+          item(0, {
+            title: "Stainless Steel Mop Head 45cm Washable",
+            charCount: "Stainless Steel Mop Head 45cm Washable".length,
+            lint: { hasForbidden: false, hits: [] },
+          }),
+          item(1, { lint: { hasForbidden: true, hits: ["Safe"] } }),
+          item(2, { lint: { hasForbidden: true, hits: ["Recyclable"] } }),
         ],
         repaired: false,
       });
@@ -530,12 +554,12 @@ describe("ProductTitleButton", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "超细纤维清洁头" } });
     fireEvent.click(generateButton());
 
-    expect(await screen.findByText(/Microfiber、45cm/)).toBeTruthy();
-    expect(screen.getByText(/（Safe）/)).toBeTruthy();
-    // 干净的那条不提示 → 一共 2 条提示
-    expect(screen.getAllByText(/标题可能含尺寸\/材质\/平台禁词/)).toHaveLength(2);
+    expect(await screen.findByText(/（Safe）/)).toBeTruthy();
+    expect(screen.getByText(/（Recyclable）/)).toBeTruthy();
+    // 干净的那条（哪怕带材质/尺寸词）不提示 → 一共 2 条提示
+    expect(screen.getAllByText(/标题可能含平台禁词/)).toHaveLength(2);
     // 依然原样展示 3 条，不静默改写
-    expect(titleAt(1).textContent).toBe("Microfiber Mop Head 45cm Washable");
+    expect(titleAt(1).textContent).toBe("Stainless Steel Mop Head 45cm Washable");
     expect(titleAt(2).textContent).toBe(TITLES[1]);
     expect(titleAt(3).textContent).toBe(TITLES[2]);
   });
@@ -843,6 +867,99 @@ describe("ProductTitleButton", () => {
     expect(screen.queryByAltText("pasted-4.png")).toBeNull();
     // 超出的那张根本没进压缩管道
     expect(pastedFileNames()).not.toContain("pasted-4.png");
+  });
+
+  it("真实浏览器：一次粘贴只加入一张（items 与 files 给的是同一张图的两个 File 实例）", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    // files 与 items 里是「内容相同但不是同一个对象」的两个 File —— 真实浏览器就是这样
+    const twin = browserClipboardData("screenshot.png");
+    const viaFiles = twin.clipboardData.files[0];
+    const viaItems = twin.clipboardData.items[0].getAsFile();
+    expect(viaFiles).not.toBe(viaItems);
+
+    // 返回 false = 被拦下来当待上传图片处理
+    expect(fireEvent.paste(dropzone(), twin)).toBe(false);
+
+    // 只加一张：界面上不该出现「已选 2/5 张」+ 两个相同缩略图
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+    expect(screen.getByText("已选 1/5 张")).toBeTruthy();
+    expect(screen.queryByText("已选 2/5 张")).toBeNull();
+    expect(screen.getAllByAltText("screenshot.png")).toHaveLength(1);
+    // 也只走了一次压缩管道（用的是 files 那份）
+    expect(mocks.compressProductTitleFile).toHaveBeenCalledTimes(1);
+    expect(mocks.compressProductTitleFile).toHaveBeenCalledWith(viaFiles);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("一次粘贴两张不同的图（每张都在 items/files 各有一份）→ 只加这两张，不多不少", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const files = [pastedImage("shot-1.png"), pastedImage("shot-2.png")];
+    fireEvent.paste(dropzone(), {
+      clipboardData: {
+        files,
+        items: files.map((file) => ({ kind: "file", type: file.type, getAsFile: () => new File(["pasted"], file.name, { type: file.type, lastModified: 1_700_000_000_000 }) })),
+        types: ["Files"],
+        getData: () => "",
+      },
+    });
+
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(2));
+    expect(screen.getByText("已选 2/5 张")).toBeTruthy();
+    expect(pastedFileNames()).toEqual(["shot-1.png", "shot-2.png"]);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("分两次粘贴同一张图不会被拦（跨次粘贴保持用户自由，不去重、不提示）", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    fireEvent.paste(dropzone(), browserClipboardData("screenshot.png"));
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+
+    fireEvent.paste(dropzone(), browserClipboardData("screenshot.png"));
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(2));
+    expect(screen.getByText("已选 2/5 张")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("只有 files（items 为空）的浏览器同样能粘图：走同一条压缩管道", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const shot = pastedImage("files-only.png");
+    expect(fireEvent.paste(dropzone(), { clipboardData: { files: [shot], items: [], types: ["Files"], getData: () => "" } })).toBe(false);
+
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+    expect(mocks.compressProductTitleFile).toHaveBeenCalledWith(shot);
+    expect(screen.getByText("已选 1/5 张")).toBeTruthy();
+  });
+
+  it("只有 items（files 为空）的浏览器也能回退取图，同样走同一条压缩管道", async () => {
+    renderButton();
+    openDialog();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const shot = pastedImage("items-only.png");
+    expect(fireEvent.paste(dropzone(), {
+      clipboardData: {
+        files: [],
+        items: [{ kind: "file", type: shot.type, getAsFile: () => shot }],
+        types: ["Files"],
+        getData: () => "",
+      },
+    })).toBe(false);
+
+    await waitFor(() => expect(selectedImageButtons()).toHaveLength(1));
+    expect(mocks.compressProductTitleFile).toHaveBeenCalledWith(shot);
+    expect(screen.getByText("已选 1/5 张")).toBeTruthy();
   });
 
   it("焦点在描述文本框、剪贴板是纯文本 → 放行不拦截，文本框正常插字、图片列表不变", async () => {

@@ -5045,7 +5045,7 @@
     "loadingGeneric": "Generating product titles...",
     "charCountLabel": "{count} characters",
     "overLimitWarning": "The title exceeds the {max}-character limit - please shorten it before publishing.",
-    "lintWarning": "The title may contain size, material or forbidden wording - please review it before publishing.",
+    "lintWarning": "The title may contain platform-forbidden wording - please review it before publishing.",
     "resetDescription": "Reset to default",
     "descriptionHint": "The box already contains the full specification - append the product name/info after it; Generate sends the whole text."
   }

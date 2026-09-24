@@ -5045,7 +5045,7 @@
     "loadingGeneric": "正在生成商品标题…",
     "charCountLabel": "字符数 {count}",
     "overLimitWarning": "标题超过 {max} 字符上限，请人工精简后再上架。",
-    "lintWarning": "标题可能含尺寸/材质/平台禁词，请人工核对后再上架。",
+    "lintWarning": "标题可能含平台禁词，请人工核对后再上架。",
     "resetDescription": "恢复默认文案",
     "descriptionHint": "文本框默认已带整份规范，接着在后面补充商品名称/商品信息即可；点「生成」时会把文本框里的全部内容一起发给模型。"
   }

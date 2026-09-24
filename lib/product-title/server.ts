@@ -6,8 +6,11 @@
  *      → DeepSeek OpenAI 兼容 /chat/completions（system = 最小机器契约，含「恰好 3 条」）
  *      → 解析 {"titles":[{"title","zh","charCount"}, ...]} → 每条 charCount 由服务端按**英文 title** 复算，
  *        zh（中文对照）只做容错透传，**不参与**任何 lint / 长度判定
- *      → 本地 lint（材质词/尺寸数字/禁词）+ 长度检查（都只看英文 title）：**任意一条**不合规就带
- *        逐条纠正指令（第几条 + 命中原词）**重写一次**（最多 1 次，不循环）。
+ *      → 本地 lint（只扫**禁词**）+ 长度检查（都只看英文 title）：
+ *        规则 ① 命中禁词 → 带逐条纠正指令（第几条 + 命中原词）**重写一次**（最多 1 次，不循环）；
+ *        规则 ② 超长（>250）→ **只**逐条标注 overLimit，不改写、不重试。
+ *        材质词与尺寸/容量数字属于新规范标题结构要求的内容，**不再参与 lint、绝不触发重写**
+ *        （旧版「命中材质词/尺寸数字就自动纠正重试」的 lint 已拆除）。
  *
  * 为什么直接读 provider 而不走 executeLlmChatRouted：
  *   控制面里的 "deepseek" 供应商刻意没有任何 deployments/models（不参与用户可见的
@@ -35,7 +38,6 @@ import {
   buildProductTitleMessages,
   buildProductTitleRepairInstruction,
   lintProductTitle,
-  productTitleHitsByCategory,
   type ProductTitleChatMessage,
   type ProductTitleLintResult,
   type ProductTitleRepairItem,
@@ -305,9 +307,11 @@ export async function generateProductTitles(
   const firstContent = await callUpstream();
   let inspected = inspectProductTitles(parseProductTitles(firstContent));
 
-  // 本地自检 + 长度检查：**任意一条**超 250 字符或命中材质词/尺寸数字/禁词
+  // 本地自检（只看**禁词**）：**任意一条**命中禁词
   // → 带逐条纠正指令（第几条 + 命中原词）**重写一次**。
-  // 只重试 1 次、不循环；重试后仍不合规就照常返回结果、逐条标注（repaired:false）。
+  // 超长（>250）只逐条标注 overLimit，**不**触发重写；材质词与尺寸/容量数字属于规范要求的
+  // 标题结构，既不命中也不重写。
+  // 只重试 1 次、不循环；重试后仍命中就照常返回结果、逐条标注（repaired:false）。
   const offenders = collectOffenders(inspected);
   let repaired: boolean | undefined;
 
@@ -355,22 +359,18 @@ function inspectProductTitles(candidates: ProductTitleParsedCandidate[]): Produc
   }));
 }
 
-/** 不合规（超长或命中 lint）的那几条；空数组 = 全部合规、不用重试。 */
+/** 不合规（命中禁词）的那几条；空数组 = 全部合规、不用重试。超长不算不合规（只标注 overLimit）。 */
 function collectOffenders(items: ProductTitleInspectedItem[]): ProductTitleOffender[] {
   return items
     .map((item, index) => ({ index, item }))
-    .filter((offender) => offender.item.overLimit || offender.item.lint.hits.length > 0);
+    .filter((offender) => offender.item.lint.hits.length > 0);
 }
 
-/** 把不合规的一条转成纠正指令的一项（index 从 1 开始 = 它在 3 条里的序号）。 */
+/** 把不合规的一条转成纠正指令的一项（index 从 1 开始 = 它在 3 条里的序号；只带禁词）。 */
 function toRepairItem(offender: ProductTitleOffender): ProductTitleRepairItem {
-  const hits = productTitleHitsByCategory(offender.item.lint);
   return {
     index: offender.index + 1,
-    materialHits: hits.material,
-    measurementHits: hits.measurement,
-    forbiddenHits: hits.forbidden,
-    overLimit: offender.item.overLimit,
+    forbiddenHits: offender.item.lint.hits,
   };
 }
 

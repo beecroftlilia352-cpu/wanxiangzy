@@ -5041,7 +5041,7 @@
     "loadingGeneric": "正在生成商品標題…",
     "charCountLabel": "字元數 {count}",
     "overLimitWarning": "標題超過 {max} 字元上限，請人工精簡後再上架。",
-    "lintWarning": "標題可能含尺寸/材質/平台禁用詞，請人工核對後再上架。",
+    "lintWarning": "標題可能含平台禁用詞，請人工核對後再上架。",
     "resetDescription": "恢復預設文案",
     "descriptionHint": "文字框預設已帶整份規範，接著在後面補充商品名稱／商品資訊即可；點「生成」時會把文字框裡的全部內容一起送給模型。"
   }

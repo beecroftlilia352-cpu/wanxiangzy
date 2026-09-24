@@ -113,6 +113,24 @@ function readProductTitleClipboardText(data: ProductTitleClipboardData, format: 
   }
 }
 
+/**
+ * 同一次粘贴内的「内容指纹」：name|size|type|lastModified。
+ *
+ * 真实浏览器里 clipboardData.items 与 clipboardData.files 给的是**同一张图的两个不同 File 实例**
+ * （内容/元数据相同，`origItem === file` 不成立），只按 File 引用去重会漏，同一次粘贴就会加入两张。
+ * 四个字段全都拿不到（理论上不会出现）时返回 null，调用方退回按引用去重，绝不错杀两张不同的图。
+ */
+function fingerprintProductTitlePastedFile(file: File): string | null {
+  const name = typeof file.name === "string" ? file.name : "";
+  const size = typeof file.size === "number" && Number.isFinite(file.size) ? String(file.size) : "";
+  const type = typeof file.type === "string" ? file.type.toLowerCase() : "";
+  const lastModified = typeof file.lastModified === "number" && Number.isFinite(file.lastModified)
+    ? String(file.lastModified)
+    : "";
+  if (!name && !size && !type) return null;
+  return `${name}|${size}|${type}|${lastModified}`;
+}
+
 function listProductTitleClipboardTypes(data: ProductTitleClipboardData): string[] {
   if (!data.types || typeof data.types.length !== "number") return [];
   return Array.from(data.types).filter((type): type is string => typeof type === "string");
@@ -121,10 +139,16 @@ function listProductTitleClipboardTypes(data: ProductTitleClipboardData): string
 /**
  * 解析一次剪贴板粘贴：挑出可以直接进压缩管道的图片文件，并判断这次粘贴里有没有文本。
  *
- * 剪贴板的形状在各浏览器里差别很大，所以这里同时看 items 与 files 并按 File 引用去重：
- *  · Chromium/Edge（截图、从资源管理器复制文件）：items 里有 kind="file" 的项，files 里也有同一个 File；
- *  · 部分浏览器只填 files（items 为空）；
- *  · Safari 复制多选文件时只给第一张 —— 这是平台限制，不做特殊处理。
+ * 剪贴板的形状在各浏览器里差别很大，但**两个来源绝不叠加**：
+ *  · 优先 clipboardData.files（Chromium/Edge 粘贴截图、从资源管理器复制图片时它最完整）；
+ *  · 只有 files 为空时才回退到 items 里 kind="file" 的项（getAsFile()）；
+ *  · 两者永不合并 —— 真实浏览器里同一张图会在两处给出**两个内容相同但对象不同的 File**，
+ *    合并就会「粘一次加两张」（jsdom 测试里两边常放同一个对象，所以测不出来）。
+ *
+ * 同一次粘贴内再按内容指纹去重（name|size|type|lastModified）兜底：指纹相同的只留一张。
+ * 跨次粘贴不去重（用户分两次贴同一张图是自由的），也不为此加任何提示文案。
+ *
+ * 部分浏览器（如 Safari 复制多选文件）只给第一张 —— 这是平台限制，不做特殊处理。
  *
  * 文本判定优先看 getData("text/plain"/"text/html") 的实际内容（真实用户粘贴时一定拿得到）；
  * 只有环境里根本没有 getData 时才退回看 types，避免「types 里永远带 text/plain」造成误判。
@@ -143,24 +167,32 @@ export function readProductTitleClipboardPaste(
     );
   }
 
-  const seen = new Set<File>();
+  const seenFiles = new Set<File>();
+  const seenFingerprints = new Set<string>();
   const candidates: File[] = [];
   const push = (file: File | null | undefined) => {
-    if (!file || seen.has(file)) return;
-    seen.add(file);
+    if (!file || typeof file !== "object") return;
+    // 引用去重 + 内容指纹去重（后者才是真实浏览器里的兜底）
+    if (seenFiles.has(file)) return;
+    const fingerprint = fingerprintProductTitlePastedFile(file);
+    if (fingerprint && seenFingerprints.has(fingerprint)) return;
+    seenFiles.add(file);
+    if (fingerprint) seenFingerprints.add(fingerprint);
     candidates.push(file);
   };
 
-  const items = data.items;
-  if (items && typeof items.length === "number") {
-    for (const item of Array.from(items)) {
-      if (!item || item.kind !== "file") continue;
-      push(typeof item.getAsFile === "function" ? item.getAsFile() : null);
-    }
-  }
   const files = data.files;
-  if (files && typeof files.length === "number") {
+  if (files && typeof files.length === "number" && files.length > 0) {
     for (const file of Array.from(files)) push(file);
+  } else {
+    // 只有 files 为空时才看 items：两者永不叠加。
+    const items = data.items;
+    if (items && typeof items.length === "number") {
+      for (const item of Array.from(items)) {
+        if (!item || item.kind !== "file") continue;
+        push(typeof item.getAsFile === "function" ? item.getAsFile() : null);
+      }
+    }
   }
 
   const imageFiles: File[] = [];

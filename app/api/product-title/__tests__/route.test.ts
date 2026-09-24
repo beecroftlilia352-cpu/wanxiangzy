@@ -279,13 +279,14 @@ describe("POST /api/product-title", () => {
     expect(payload.titles.map((item) => item.title)).toEqual([TITLE, TITLE_2, TITLE_3]);
   });
 
-  it("逐条的 zh / overLimit / lint / repaired 原样透传给前端（哪一条不合规一目了然）", async () => {
+  it("逐条的 zh / overLimit / lint / repaired 原样透传给前端（哪一条命中禁词一目了然）", async () => {
     mocks.generateProductTitles.mockResolvedValueOnce({
       model: "deepseek-flash",
       vision: true,
       titles: [
-        { title: "Microfiber Mop Head Washable", zh: "超细纤维拖把头", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
-        { title: TITLE_2, zh: "阳台壁挂折叠晾衣架", charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: "Safe Microfiber Mop Head Washable", zh: "安全超细纤维拖把头", charCount: "Safe Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Safe"] } },
+        // 材质词与尺寸数字属于新规范要求的标题结构：命中为空、原样透传
+        { title: "Stainless Steel Mop Head 45cm Washable", zh: "不锈钢拖把头 45cm", charCount: "Stainless Steel Mop Head 45cm Washable".length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
         { title: TITLE_3, zh: "", charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
       ],
       repaired: false,
@@ -300,15 +301,15 @@ describe("POST /api/product-title", () => {
       ok: true,
       model: "deepseek-flash",
       titles: [
-        { title: "Microfiber Mop Head Washable", zh: "超细纤维拖把头", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
-        { title: TITLE_2, zh: "阳台壁挂折叠晾衣架", charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: "Safe Microfiber Mop Head Washable", zh: "安全超细纤维拖把头", charCount: "Safe Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Safe"] } },
+        { title: "Stainless Steel Mop Head 45cm Washable", zh: "不锈钢拖把头 45cm", charCount: "Stainless Steel Mop Head 45cm Washable".length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
         { title: TITLE_3, zh: "", charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
       ],
       repaired: false,
     });
   });
 
-  it("重试后仍超长时该条 overLimit:true 也照常返回（不报错）", async () => {
+  it("超长的那条 overLimit:true 照常返回（不改写、不重试，repaired 不出现）", async () => {
     const long = "Keyword ".repeat(40).trim();
     mocks.generateProductTitles.mockResolvedValueOnce({
       model: "deepseek-flash",
@@ -318,7 +319,6 @@ describe("POST /api/product-title", () => {
         { title: TITLE_2, zh: "阳台壁挂折叠晾衣架", charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
         { title: TITLE_3, charCount: TITLE_3.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
       ],
-      repaired: false,
       imageCount: 0,
       imageBytes: 0,
     });
@@ -326,14 +326,15 @@ describe("POST /api/product-title", () => {
     const response = await POST(postRequest({ description: "折叠晾衣架" }));
 
     expect(response.status).toBe(200);
-    const payload = await response.json() as { ok: boolean; titles: Array<{ zh: string; overLimit?: boolean; charCount: number }>; repaired: boolean };
+    const payload = await response.json() as { ok: boolean; titles: Array<{ zh: string; overLimit?: boolean; charCount: number }>; repaired?: boolean };
     expect(payload.ok).toBe(true);
     expect(payload.titles[0].overLimit).toBe(true);
     expect(payload.titles[0].charCount).toBe(`${long} A`.length);
     // zh 照常透传；缺 zh 的那一条给空字符串（不参与任何判定）
     expect(payload.titles.map((item) => item.zh)).toEqual(["超长标题的中文对照", "阳台壁挂折叠晾衣架", ""]);
     expect(payload.titles[1].overLimit).toBe(false);
-    expect(payload.repaired).toBe(false);
+    // 没触发重试（只有禁词才触发）→ repaired 字段不出现
+    expect(payload).not.toHaveProperty("repaired");
   });
 
   it("也接受站内相对路径 / http(s) 图片地址（保留上版资产读取路径）", async () => {

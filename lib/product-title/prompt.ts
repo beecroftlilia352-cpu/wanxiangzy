@@ -2,16 +2,25 @@
  * 「商品标题」的 system prompt（SHEIN 欧洲站规范原文）、上游 messages 的拼装，与本地自检（lint）词表。
  *
  * 为什么单独一个文件：
- *   · 规范原文是由运营给定的**逐字**文本，不能混进服务端逻辑里被顺手改写；
+ *   · 规范原文是由运营给定的**逐字**文本（当前为第 5 版规范，逐字取自运营给的规范文件），
+ *     不能混进服务端逻辑里被顺手改写；
  *   · 词表集中在这里，服务端 lint 与单测都从同一份常量取，避免两处散落不同的词；
  *   · 规范文本的**放置位置**在这里一处可切换（见 PRODUCT_TITLE_SPEC_PLACEMENT），
  *     上游 messages 只在 buildProductTitleMessages 里拼装，别处不得硬编码这两段文本。
  *
- * lint 的定位（重要）：只做**纯本地正则**扫描，不发任何额外上游请求，也**不改写**标题；
- *   命中即视为「违反规范」，服务端会据此自动带纠正指令重试一次（见 server.ts），
- *   重试后仍命中就照常返回结果、并在响应里标明（repaired:false + lint.hits 非空）。
+ * lint 的定位（第 5 版规范，重要）：只做两类检查，不发任何额外上游请求，也**不改写**标题：
+ *   ① 禁词（规范第 4 节：Safe / Safety / Quality Verified 及「安全、无害、认证达标」近义；
+ *      PFAS / PTFE / PFOA / PFOS 的 Free / Without / Non 类声明；环保、绿色、天然、可持续、
+ *      碳中和、低碳、零排放、可降解、可堆肥、生物基、无塑料、回收、可回收、零废弃、海洋友好
+ *      及其同义词/近义词/变体）——命中即视为「违反规范」，服务端据此自动带纠正指令**重试一次**
+ *      （见 server.ts），重试后仍命中就照常返回结果、并在响应里标明（repaired:false）。
+ *   ② 超长（>250 字符）——**只**逐条标注 overLimit，不改写、不报错、不重试（见 server.ts）。
  *
- * 命中词的大小写：hits 里放的是**标题里出现的原词**（如 "Microfiber"、"45cm"、"Safe"），
+ * **材质词与尺寸/容量数字不再参与 lint（第 5 版规范的关键变化）**：新规范的标题结构明确包含
+ *   「材质」与（非纺织品的）「容量/尺寸」，命中它们是**合规**的，绝不能因此重写标题——
+ *   旧版本那套「命中材质词/尺寸数字就自动纠正重试」的 lint 已被拆除。
+ *
+ * 命中词的大小写：hits 里放的是**标题里出现的原词**（如 "Safe"、"Recyclable"），
  *   匹配本身不区分大小写；同一个词（忽略大小写）只记一次。
  *
  * 本文件不依赖任何服务端模块，前端可安全导入（输入框默认值就取自这里的同一个常量）。
@@ -20,34 +29,24 @@
 import { PRODUCT_TITLE_MAX_CANDIDATES, PRODUCT_TITLE_MAX_CHARS } from "./types";
 
 /**
- * 用户提供的 SHEIN 欧洲站商品标题规范原文（逐字保留：小标题、编号、**加粗** 标记、空行都不动）。
- * 全文只此一份，其它地方一律引用它，不要复制字符串。
+ * 用户提供的 SHEIN 欧洲站商品标题规范原文（第 5 版）。
+ *
+ * **逐字**保留：换行、空行、行首空格、全角括号、顿号与加号等标点，一个字符都不自行整理。
+ * 这份常量与运营给的规范文件**逐字节相同**（含文件末尾的换行）；全文只此一份，
+ * 其它地方一律引用它，不要复制字符串。
  */
-export const PRODUCT_TITLE_SPEC = `根据我提供的商品名称、商品图片或商品信息，生成适用于 SHEIN 欧洲跨境电商的英文商品标题。
+export const PRODUCT_TITLE_SPEC = `根据我提供的商品名称、图片或商品信息，生成适用于 SHEIN 欧洲跨境电商的英文商品标题。
 
-### 1. 标题结构
+1. 标题结构：
+   纺织品：数量 + 图案/颜色 + 产品名称 + 风格 + 材质 + 形状/细节 + 功能 + 同义产品名称 + 适用场景/节日/季节。
 
-**纺织品：**
-数量 + 图案/颜色 + 产品名称 + 风格/特点 + 形状/细节 + 功能 + 同义产品名称 + 适用场景/节日/季节
+非纺织品：数量 + 容量/尺寸 + 特点词 + 材质 + 产品名称 + 风格 + 图案/颜色 + 形状/细节 + 功能 + 同义产品名称 + 适用场景/节日/季节。
 
-**非纺织品：**
-数量 + 特点词 + 产品名称 + 风格 + 图案/颜色 + 形状/细节 + 功能 + 同义产品名称 + 适用场景/节日/季节
+2. SEO要求：
+   按照欧洲消费者真实英文搜索习惯优化标题。
 
-标题结构可根据商品实际信息自然调整，不要求机械套用顺序。
-
-### 2. 属性限制
-
-- **标题中不要出现任何尺寸、长度、宽度、高度、厚度、容量、重量、规格等数字信息。**
-- **标题中不要出现任何材质或材料相关词语。**
-- 除必要且明确的商品数量外，尽量避免使用数字。
-- 图片或商品信息中没有明确提供的颜色、图案、款式、功能、结构、用途、适用场景等属性，不得自行推测或虚构。
-- 不确定的商品属性直接省略，不为了增加关键词强行补充。
-
-### 3. SEO要求
-
-按照欧洲消费者真实英文搜索习惯优化标题。
-
-自然加入与商品高度相关的：核心产品关键词、常用搜索词、同义产品词、功能词、用途词、使用场景词、季节词。
+自然加入与商品高度相关的：
+核心产品关键词、常用搜索词、同义产品词、功能词、用途词、使用场景词、季节词。
 
 核心关键词尽量靠前，同时兼顾长尾搜索词，提高搜索覆盖和曝光。
 
@@ -55,67 +54,34 @@ export const PRODUCT_TITLE_SPEC = `根据我提供的商品名称、商品图片
 
 标题必须自然、准确、清晰、易读，并符合欧洲跨境电商商品标题表达习惯。
 
-### 4. 字符要求
+每条标题超过200个字符但不超过250个字符（包含空格和标点），在自然、准确、易读的前提下尽量充分利用字符增加有效搜索关键词。
 
-每条英文标题**不超过250个字符（包含空格和标点）**。
+3. 输出要求：
+   生成3条最好的最符合的欧洲跨境英文标题供选择，并说明理由。
 
-在准确、自然且不堆砌关键词的前提下，尽可能充分利用字符空间增加有效搜索关键词。
+4. 禁词：
+   禁止出现 Safe、Safety、Quality Verified，以及任何与“安全、无害、认证达标”含义相近的表达；禁止任何 PFAS、PTFE、PFOA、PFOS 的 Free / Without / Non 等声明；禁止任何环保、绿色、天然、可持续、碳中和、低碳、零排放、可降解、可堆肥、生物基、无塑料、回收、可回收、零废弃、海洋友好等相关词语及其同义词、近义词或变体。
 
-### 5. 输出要求
-
-只生成 **1条英文商品标题**。
-
-格式：
-
-**英文标题（字符数）**
-
-不要提供中文翻译、关键词分析、解释、备注或其他内容。
-
-### 6. 禁词
-
-禁止出现：
-
-Safe、Safety、Quality Verified，以及任何与“安全、无害、认证达标”等含义相近的表达。
-
-禁止任何关于 PFAS、PTFE、PFOA、PFOS 的 Free、Without、Non 或其他类似声明。
-
-禁止任何环保、绿色、天然、可持续、碳中和、低碳、零排放、可降解、可堆肥、生物基、无塑料、回收、可回收、零废弃、海洋友好等相关词语，以及其英文同义词、近义词和变体。
-
-### 7. 生成前强制自检
-
-输出前自行检查：
-
-- ≤250字符
-- **无尺寸信息**
-- **无规格数字**
-- **无容量或重量信息**
-- **无材质词**
-- 无禁词及其近义表达
-- 无图片或商品信息未提供的虚构属性
-- 核心产品关键词靠前
-- 同义搜索词高度相关
-- 功能词、用途词、场景词与商品真实用途一致
-- 无机械关键词堆砌
-- 英文自然，符合欧洲消费者搜索表达
-
-检查完成后，**只输出最终英文标题和字符数。**`;
+生成前自行检查：≤250字符、无禁词、无虚构属性、关键词高度相关、英文自然，符合欧洲消费者搜索表达。
+`;
 
 /**
  * 给程序解析用的输出格式约定（规范文本之外的唯一附加段）。
  *
- * 输出数量由**本接口**定：恰好 3 条候选英文标题。规范 §5 写的是「只生成 1条」，
- * 那是给人工抄模板用的说法；程序要 3 条候选供运营挑选，所以在契约里显式覆盖
- * （并在契约里明说「即使规范正文提到只生成 1 条，本接口也要求输出 3 条」），
- * 避免模型照着 §5 只返回 1 条。规范原文（PRODUCT_TITLE_SPEC）一个字都不改。
+ * 输出数量由**本接口**定：恰好 3 条候选英文标题（用户明确要求「生成标题数依旧保持三条」）。
+ * 规范正文里的条数说法以本契约段为准；规范第 3 节「并说明理由」也不需要输出
+ * （理由会污染标题并破坏 JSON），这些都在契约里显式写清楚。
+ * 规范原文（PRODUCT_TITLE_SPEC）一个字都不改。
  */
 export const PRODUCT_TITLE_OUTPUT_FORMAT = `为了程序解析，请严格只返回如下 JSON，不要加代码块标记、不要加任何其它文字：
 {"titles":[{"title":"<英文标题1>","zh":"<第1条英文标题的中文对照>","charCount":<第1条英文标题的字符数（含空格与标点）>},{"title":"<英文标题2>","zh":"<第2条英文标题的中文对照>","charCount":<第2条英文标题的字符数>},{"title":"<英文标题3>","zh":"<第3条英文标题的中文对照>","charCount":<第3条英文标题的字符数>}]}
-必须恰好返回 3 条候选英文标题（titles 数组长度 = 3），3 条都要各自满足上面规范里的全部要求（结构、属性限制、SEO、每条不超过 250 字符、禁词、生成前强制自检）。
-即使规范正文提到只生成 1 条，本接口也要求输出 3 条候选英文标题。
-zh 是**对应那条英文标题的中文翻译对照**（直译意思即可，供运营阅读，不用于上架），只作对照，不要写成卖点分析、关键词解释或备注。
-zh **不参与任何合规约束**：规范里的 §2 属性限制（不得出现尺寸/规格数字、材质或材料词）、§6 禁词、以及「每条不超过 250 字符」都**只针对英文 title**；zh 里出现材质、尺寸等词不算违规（中文里自然会出现这些字）。
-规范正文 §5 说「不要提供中文翻译」：那是给人工抄模板用的说法，本接口按上面的 JSON 例外——zh 只作运营对照（不用于上架），仍必须提供。
+本段是给程序解析的**机器契约**：与规范正文冲突的地方（候选条数、输出格式、是否需要说明理由）一律**以本段为准**。
+必须恰好返回 3 条候选英文标题（titles 数组长度 = 3），3 条都要各自满足上面规范里的全部要求（标题结构、SEO要求、每条不超过 250 字符、禁词、生成前自行检查）。
+规范正文说「并说明理由」：本接口**不需要**说明理由——不要输出理由、不要输出解释、不要输出关键词分析、不要输出备注（它们会污染标题并破坏上面的 JSON）。
+zh 是**对应那条英文标题的中文翻译对照**（直译意思即可，供运营阅读，不用于上架）；不要写成卖点分析、关键词解释或备注。
+zh **不参与任何合规约束**：规范第 4 节的禁词、以及「不超过 250 字符」都**只针对英文 title**；zh 里出现任何词都不算违规（中文里自然会出现各种字词）。
 charCount 指的是**英文 title** 的字符数（含空格与标点），**不是** zh 的字符数。
+标题结构里要求的**材质**词与（非纺织品的）**容量/尺寸**数字属于规范要求的内容：该写就写，不要为了规避什么而省略或改写它们。
 仍然只返回这个 JSON，不要代码块标记、不要其它文字，不要关键词分析、不要解释、不要备注。`;
 
 /** 规范 + 输出格式（一律由上面两个常量拼出来，不复制字符串）。 */
@@ -150,7 +116,7 @@ export const PRODUCT_TITLE_SPEC_PLACEMENT: ProductTitleSpecPlacement = "user";
 
 /**
  * 描述输入框的默认内容（前端与上游 messages 拼装共用这一个常量来源，不在两处各写一份文案）。
- * placement = "user" 时就是规范原文本身（§1~§7 全文）；placement = "system" 时输入框默认为空。
+ * placement = "user" 时就是规范原文本身（第 5 版规范全文）；placement = "system" 时输入框默认为空。
  */
 export const PRODUCT_TITLE_DEFAULT_DESCRIPTION = PRODUCT_TITLE_SPEC_PLACEMENT === "user"
   ? PRODUCT_TITLE_SPEC
@@ -238,100 +204,11 @@ export function buildProductTitleMessages(input: ProductTitleMessagesInput): Pro
 export const PRODUCT_TITLE_CHAR_LIMIT = PRODUCT_TITLE_MAX_CHARS;
 
 /* -------------------------------------------------------------------------- *
- * 自检词表（全部小写；匹配时忽略大小写）
+ * 自检词表（第 5 版规范只保留禁词一类；材质词/尺寸数字已全部拆除）
  * -------------------------------------------------------------------------- */
 
 /**
- * 材质/材料词表（规范 §2：标题中不要出现任何材质或材料相关词语）。
- * 刻意不收「iron / paper」这类既是材料、又常作为商品名的词（curling iron、paper towel），
- * 避免误判触发无谓的重试。
- */
-export const PRODUCT_TITLE_MATERIAL_TERMS: readonly string[] = [
-  "microfiber",
-  "microfibre",
-  "stainless steel",
-  "cotton",
-  "polyester",
-  "silk",
-  "satin",
-  "linen",
-  "wool",
-  "woolen",
-  "woollen",
-  "cashmere",
-  "mohair",
-  "acrylic",
-  "nylon",
-  "spandex",
-  "elastane",
-  "lycra",
-  "rayon",
-  "viscose",
-  "velvet",
-  "leather",
-  "leatherette",
-  "suede",
-  "denim",
-  "canvas",
-  "fleece",
-  "flannel",
-  "chiffon",
-  "lace",
-  "tulle",
-  "corduroy",
-  "tweed",
-  "hemp",
-  "jute",
-  "bamboo",
-  "rubber",
-  "silicone",
-  "latex",
-  "neoprene",
-  "plastic",
-  "steel",
-  "aluminum",
-  "aluminium",
-  "brass",
-  "copper",
-  "bronze",
-  "titanium",
-  "alloy",
-  "zinc",
-  "metal",
-  "metallic",
-  "wood",
-  "wooden",
-  "timber",
-  "glass",
-  "ceramic",
-  "porcelain",
-  "stoneware",
-  "terracotta",
-  "clay",
-  "resin",
-  "epoxy",
-  "foam",
-  "sponge",
-  "eva",
-  "tpu",
-  "pvc",
-  "abs",
-];
-
-/**
- * 尺寸/规格/容量/重量数字的识别规则（规范 §2 第一条 + §7）。
- * 只认「带计量单位」或「A x B 组合」的数字；纯数量词（2-pack / 2 pcs / 3 pieces）不算，
- * 因此数量词天然不会被误报。
- */
-export const PRODUCT_TITLE_MEASUREMENT_PATTERNS: readonly RegExp[] = [
-  // 45cm / 30 inch / 12.5 mm / 500ml / 2kg / 8 oz / 128GB / 5W ...
-  /\b\d+(?:[.,]\d+)?\s*-?\s*(?:cm|centimet(?:er|re)s?|mm|millimet(?:er|re)s?|inch|inches|ft|feet|foot|yd|yards?|meters?|metres?|ml|millilit(?:er|re)s?|lit(?:er|re)s?|fl\s*oz|oz|ounces?|lb|lbs|pounds?|kg|kilograms?|kilogrammes?|grams?|grammes?|mg|mah|khz|mhz|ghz|hz|gb|tb|mb|kb|kpa|psi|bar|watts?|kw|volts?|celsius|fahrenheit|°c|°f)\b/i,
-  // 12 x 8 / 10x20 / 2 × 3
-  /\b\d+(?:[.,]\d+)?\s*(?:x|×|✕|\*)\s*\d+(?:[.,]\d+)?\b/i,
-];
-
-/**
- * 禁词表（规范 §6）。
+ * 禁词表（规范第 4 节）。
  * 有变体的词（safe/safely/safety、recycle/recycled/recyclable…）写成正则，
  * 保证命中词能原样报出来（如 "recyclable"）。
  */
@@ -362,12 +239,13 @@ export const PRODUCT_TITLE_FORBIDDEN_PATTERNS: readonly RegExp[] = [
   /\brecycl(?:e|ed|es|ing|able)\b/i,
   /\bzero[\s-]waste\b/i,
   /\bocean[\s-]friendly\b/i,
-  // §6 里「与安全、无害含义相近的表达」的常见变体。
+  // 第 4 节里「与安全、无害含义相近的表达」的常见变体。
   /\bnon-?toxic\b/i,
   /\bharmless\b/i,
 ];
 
-export type ProductTitleLintCategory = "material" | "measurement" | "forbidden";
+/** lint 的唯一命中类别（只能标 overLimit 的是长度，不算 lint 命中）。 */
+export type ProductTitleLintCategory = "forbidden";
 
 export type ProductTitleLintDetail = {
   category: ProductTitleLintCategory;
@@ -378,26 +256,13 @@ export type ProductTitleLintDetail = {
 };
 
 export type ProductTitleLintResult = {
-  /** 只要有任何命中（材质 / 尺寸数字 / 禁词）就是 true。 */
+  /** 只要命中任一禁词就是 true（材质词/尺寸数字/容量数字**不算**命中）。 */
   hasForbidden: boolean;
-  /** 命中的原词（按在标题里出现的先后去重）。 */
+  /** 命中的禁词原词（按在标题里出现的先后去重）。 */
   hits: string[];
   /** 分类明细（服务端拼纠正指令用；不直接返回给前端）。 */
   details: ProductTitleLintDetail[];
 };
-
-/** 材质词的正则（长词优先，避免 "steel" 抢在 "stainless steel" 前面命中）。 */
-const MATERIAL_PATTERN = buildWordPattern(PRODUCT_TITLE_MATERIAL_TERMS);
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** 由词表拼一个「整词匹配、忽略大小写」的正则；长词排前面，保证命中更长的那一个。 */
-function buildWordPattern(terms: readonly string[]): RegExp {
-  const sorted = [...terms].sort((a, b) => b.length - a.length);
-  return new RegExp(`\\b(?:${sorted.map(escapeRegExp).join("|")})\\b`, "gi");
-}
 
 function collectMatches(
   title: string,
@@ -416,19 +281,19 @@ function collectMatches(
 }
 
 /**
- * 本地自检：扫一遍标题，返回命中的材质词 / 尺寸数字 / 禁词。
- * 纯正则、无副作用、不改写标题；同一位置优先保留更长的命中（如 "stainless steel" 优于 "steel"），
- * 同一个词（忽略大小写）只记一次。
+ * 本地自检：扫一遍标题，返回命中的**禁词**。
+ *
+ * 第 5 版规范下只做这一件事：材质词（Microfiber / Stainless Steel …）与尺寸/容量数字（45cm / 500ml …）
+ * 是新规范标题结构要求的内容，**合规**，因此既不命中也不触发重写。
+ * 纯正则、无副作用、不改写标题；同一位置优先保留更长的命中，同一个词（忽略大小写）只记一次。
  */
 export function lintProductTitle(title: string): ProductTitleLintResult {
   const text = typeof title === "string" ? title : "";
   if (!text.trim()) return { hasForbidden: false, hits: [], details: [] };
 
-  const found: ProductTitleLintDetail[] = [
-    ...collectMatches(text, MATERIAL_PATTERN, "material"),
-    ...PRODUCT_TITLE_MEASUREMENT_PATTERNS.flatMap((pattern) => collectMatches(text, pattern, "measurement")),
-    ...PRODUCT_TITLE_FORBIDDEN_PATTERNS.flatMap((pattern) => collectMatches(text, pattern, "forbidden")),
-  ].sort((a, b) => (a.index - b.index) || (b.term.length - a.term.length));
+  const found: ProductTitleLintDetail[] = PRODUCT_TITLE_FORBIDDEN_PATTERNS
+    .flatMap((pattern) => collectMatches(text, pattern, "forbidden"))
+    .sort((a, b) => (a.index - b.index) || (b.term.length - a.term.length));
 
   const seen = new Set<string>();
   const details: ProductTitleLintDetail[] = [];
@@ -446,27 +311,15 @@ export function lintProductTitle(title: string): ProductTitleLintResult {
   };
 }
 
-/** 按类别取命中词（保留标题里的原始大小写），供拼纠正指令使用。 */
-export function productTitleHitsByCategory(
-  lint: ProductTitleLintResult,
-): Record<ProductTitleLintCategory, string[]> {
-  const groups: Record<ProductTitleLintCategory, string[]> = { material: [], measurement: [], forbidden: [] };
-  for (const item of lint.details) groups[item.category].push(item.term);
-  return groups;
-}
-
 export type ProductTitleRepairItem = {
   /** 第几条（从 1 开始，与结果区展示顺序一致）。 */
   index: number;
-  materialHits: readonly string[];
-  measurementHits: readonly string[];
+  /** 该条命中的禁词（标题里出现的原词）。 */
   forbiddenHits: readonly string[];
-  /** 服务端复算的字符数是否超过 250。 */
-  overLimit: boolean;
 };
 
 export type ProductTitleRepairInput = {
-  /** 只列**不合规的那几条**（合规的不用重写，避免整批被改动）。 */
+  /** 只列**命中禁词的那几条**（合规的不用重写，避免整批被改动）。 */
   items: readonly ProductTitleRepairItem[];
 };
 
@@ -477,43 +330,24 @@ function quoteTerms(terms: readonly string[]): string {
 /**
  * 拼「重写一次」的纠正指令（第 2 次请求的 user 消息）。
  *
- * 逐条列出：**第几条**、命中的**原词**（材质词 / 尺寸容量规格数字 / 禁词各不相同），
- * 末尾再要求仍是 3 条。单条只命中材质词时的措辞与实测有效的那一版保持一致：
- *   第 1 条标题违反了规则：出现了材质词 "Microfiber"，且标题不允许出现任何材质或材料相关词语，
- *   也不允许出现尺寸/容量/规格数字。请在不丢失核心产品关键词与搜索覆盖的前提下重写这一条，
- *   去掉所有材质词，仍然只返回同样的 JSON。
- * 超长（>250）的那条再追加规范里的精简要求。
+ * **只在命中禁词时**才会拼出内容（超长只标注 overLimit，不重写，所以这里没有长度那一段）：
+ * 逐条列出**第几条**与命中的**禁词原词**，并明确要求只去掉禁词——
+ * 材质词与容量/尺寸数字属于新规范要求的标题结构，重写时不要一并删掉。
+ * 末尾再要求仍然是 3 条。
  */
 export function buildProductTitleRepairInstruction(input: ProductTitleRepairInput): string {
   const parts: string[] = [];
 
   for (const item of input.items) {
-    const material = [...item.materialHits];
-    const measurement = [...item.measurementHits];
     const forbidden = [...item.forbiddenHits];
-    const label = `第 ${item.index} 条标题`;
-
-    const segments: string[] = [];
-    if (material.length) segments.push(`出现了材质词 ${quoteTerms(material)}`);
-    if (measurement.length) segments.push(`出现了尺寸/容量/规格数字 ${quoteTerms(measurement)}`);
-    if (forbidden.length) segments.push(`出现了禁词 ${quoteTerms(forbidden)}`);
-
-    if (segments.length) {
-      const extra: string[] = [];
-      if (measurement.length) extra.push("、尺寸/容量/规格数字");
-      if (forbidden.length) extra.push("与禁词");
-      parts.push(
-        `${label}违反了规则：${segments.join("；")}，且标题不允许出现任何材质或材料相关词语，`
-        + `也不允许出现尺寸/容量/规格数字。请在不丢失核心产品关键词与搜索覆盖的前提下重写这一条，`
-        + `去掉所有材质词${extra.join("")}，仍然只返回同样的 JSON。`,
-      );
-    }
-    if (item.overLimit) {
-      parts.push(
-        `${label}超过 ${PRODUCT_TITLE_CHAR_LIMIT} 字符，请在不丢失核心关键词的前提下精简到 `
-        + `${PRODUCT_TITLE_CHAR_LIMIT} 字符以内，仍然只返回同样的 JSON。`,
-      );
-    }
+    if (!forbidden.length) continue;
+    parts.push(
+      `第 ${item.index} 条标题违反了规则：出现了禁词 ${quoteTerms(forbidden)}，`
+      + "规范禁止出现禁词（含「安全、无害、认证达标」的近义表达、PFAS/PTFE/PFOA/PFOS 的 Free/Without/Non 类声明、"
+      + "以及环保/绿色/天然/可持续等词语及其同义词、近义词和变体）。"
+      + "请在不丢失核心产品关键词与搜索覆盖的前提下重写这一条，只去掉这些禁词"
+      + "（材质词与容量/尺寸数字是规范要求的标题结构，不要一并删掉），仍然只返回同样的 JSON。",
+    );
   }
 
   if (parts.length) {
