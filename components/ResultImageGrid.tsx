@@ -34,6 +34,9 @@ type ResultImageGridProps = {
   /** Controls the task-wide/header download entry. Successful result cards
    *  keep their own download action even when this is false. */
   showDownloadAction?: boolean;
+  /** 图生图/素材生成专用：把结果区的下载按钮从顶部工具行移到图片右侧、
+   *  与图片顶部齐平（默认 false = 保持原来的顶部工具行位置）。 */
+  downloadBesideImage?: boolean;
   isGenerating?: boolean;
   imageAltPrefix?: string;
   inputThumbnails?: string[];
@@ -105,6 +108,7 @@ export function ResultImageGrid({
   expectedCount,
   downloadUrls,
   showDownloadAction = true,
+  downloadBesideImage = false,
   isGenerating,
   imageAltPrefix,
   inputThumbnails = [],
@@ -228,7 +232,7 @@ export function ResultImageGrid({
         </p>
         <div className="studio-result-download-row">
           <p className="studio-result-time">{timestamp}</p>
-          {showDownloadAction && downloadsReady && actionUrls.length === 1 && (
+          {!downloadBesideImage && showDownloadAction && downloadsReady && actionUrls.length === 1 && (
             <StudioSingleDownloadButton
               url={actionUrls[0]}
               filename={generateDownloadFilename(filenamePrefix, 0, extension)}
@@ -239,7 +243,7 @@ export function ResultImageGrid({
               className="studio-result-primary-download"
             />
           )}
-          {showDownloadAction && downloadsReady && actionUrls.length > 1 && (
+          {!downloadBesideImage && showDownloadAction && downloadsReady && actionUrls.length > 1 && (
             <StudioBatchDownloadButton
               urls={actionUrls}
               filename={`pixel-diffusion-${filenamePrefix}`}
@@ -301,6 +305,32 @@ export function ResultImageGrid({
               );
             })}
           </div>
+
+          {downloadBesideImage && showDownloadAction && downloadsReady && actionUrls.length > 0 && (
+            <div className="shrink-0">
+              {actionUrls.length === 1 ? (
+                <StudioSingleDownloadButton
+                  url={actionUrls[0]}
+                  filename={generateDownloadFilename(filenamePrefix, 0, extension)}
+                  errorFallback={t("downloadFailed")}
+                  label={t("download")}
+                  variant="outline"
+                  size="sm"
+                  className="studio-result-primary-download studio-result-beside-download"
+                />
+              ) : (
+                <StudioBatchDownloadButton
+                  urls={actionUrls}
+                  filename={`pixel-diffusion-${filenamePrefix}`}
+                  resultLabel={t("results")}
+                  label={t("downloadAll", { count: actionUrls.length })}
+                  variant="outline"
+                  size="sm"
+                  className="studio-result-primary-download studio-result-batch-download studio-result-beside-download"
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

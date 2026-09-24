@@ -1248,6 +1248,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                         downloadUrls={groupIndex === 0 ? resultUrls : undefined}
                         downloadExpectedCount={activeResultExpectedCount}
                         showDownloadAction={groupIndex === 0}
+                        downloadBesideImage
                         isGenerating={isGenerating}
                         inputReferences={[{ url: reference.preview || reference.url, label: t("referenceImageLabel", { index: groupIndex + 1 }) }]}
                         createdAt={activeQueueTask?.createdAt}
@@ -1279,6 +1280,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                   variant="task"
                   resourceFavorite={{ generationId: displayedTaskId || undefined, moduleKey: "generalImage", mediaType: "image" }}
+                  downloadBesideImage
                   failureLabel={t("failedLabel")}
                   failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
                   markMissingAsFailed={hasCompletedPartialResults}

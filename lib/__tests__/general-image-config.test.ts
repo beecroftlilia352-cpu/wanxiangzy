@@ -15,16 +15,17 @@ describe("general image configuration", () => {
     expect(MAX_GENERAL_IMAGE_TOTAL_COUNT).toBe(24);
   });
 
+  // 默认比例/清晰度按产品要求改为 1:1 + 1K（标清），两个模式一致。
   it("uses feature-specific models with the reference defaults", () => {
     expect(getGeneralImageDefaultSettings("text-to-image")).toEqual({
       model: "gpt-image-2",
-      aspectRatio: "3:4",
-      imageSize: "2K",
+      aspectRatio: "1:1",
+      imageSize: "1K",
     });
     expect(getGeneralImageDefaultSettings("image-to-image")).toEqual({
       model: "nano-banana-2",
-      aspectRatio: "3:4",
-      imageSize: "2K",
+      aspectRatio: "1:1",
+      imageSize: "1K",
     });
   });
 });
