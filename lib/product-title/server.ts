@@ -4,8 +4,9 @@
  * 流程：用户条件（0~5 张图片 + 商品名称/商品信息 + 模型版本）
  *      → 每张图用 sharp 压成 jpeg（长边 ≤1024, q80）→ base64 data URL 内联
  *      → DeepSeek OpenAI 兼容 /chat/completions（system = 最小机器契约，含「恰好 3 条」）
- *      → 解析 {"titles":[{"title","charCount"}, ...]} → 每条 charCount 由服务端按 title 复算
- *      → 本地 lint（材质词/尺寸数字/禁词）+ 长度检查：**任意一条**不合规就带
+ *      → 解析 {"titles":[{"title","zh","charCount"}, ...]} → 每条 charCount 由服务端按**英文 title** 复算，
+ *        zh（中文对照）只做容错透传，**不参与**任何 lint / 长度判定
+ *      → 本地 lint（材质词/尺寸数字/禁词）+ 长度检查（都只看英文 title）：**任意一条**不合规就带
  *        逐条纠正指令（第几条 + 命中原词）**重写一次**（最多 1 次，不循环）。
  *
  * 为什么直接读 provider 而不走 executeLlmChatRouted：
@@ -100,7 +101,7 @@ export type ProductTitleGenerationResult = {
   model: string;
   /** 该模型是否支持图片输入。 */
   vision: boolean;
-  /** 候选英文标题（要求 3 条；每条带服务端复算的 charCount 与逐条 lint / overLimit）。 */
+  /** 候选英文标题（要求 3 条；每条带中文对照 zh、服务端复算的 charCount 与逐条 lint / overLimit）。 */
   titles: ProductTitleTitleItem[];
   /** 只在触发过重写重试时出现：true = 重写后全部合规，false = 仍有命中/仍超长（含重写不可解析）。 */
   repaired?: boolean;
@@ -113,6 +114,8 @@ export type ProductTitleGenerationResult = {
 /** 内部用的逐条检查结果：多带一份 lint 明细（拼纠正指令用，不直接返回给前端）。 */
 type ProductTitleInspectedItem = {
   title: string;
+  /** 该条英文标题的中文对照（缺失时为空字符串；只透传，不参与任何检查）。 */
+  zh: string;
   overLimit: boolean;
   lint: ProductTitleLintResult;
 };
@@ -339,12 +342,16 @@ export async function generateProductTitles(
   };
 }
 
-/** 逐条检查：复算长度 + 跑本地 lint（明细留着拼纠正指令，不返回给前端）。 */
-function inspectProductTitles(titles: string[]): ProductTitleInspectedItem[] {
-  return titles.map((title) => ({
-    title,
-    overLimit: title.length > PRODUCT_TITLE_MAX_CHARS,
-    lint: lintProductTitle(title),
+/**
+ * 逐条检查：复算**英文 title** 的长度 + 只对英文 title 跑本地 lint
+ * （明细留着拼纠正指令，不返回给前端）；zh 只原样带着，不参与任何检查。
+ */
+function inspectProductTitles(candidates: ProductTitleParsedCandidate[]): ProductTitleInspectedItem[] {
+  return candidates.map((candidate) => ({
+    title: candidate.title,
+    zh: candidate.zh,
+    overLimit: candidate.title.length > PRODUCT_TITLE_MAX_CHARS,
+    lint: lintProductTitle(candidate.title),
   }));
 }
 
@@ -367,10 +374,11 @@ function toRepairItem(offender: ProductTitleOffender): ProductTitleRepairItem {
   };
 }
 
-/** 对外的一条结果：charCount 用服务端复算值，lint 只保留 hasForbidden 与原词。 */
+/** 对外的一条结果：charCount 用服务端复算的英文标题长度，zh 原样透传（空串也照常给）。 */
 function toTitleItem(item: ProductTitleInspectedItem): ProductTitleTitleItem {
   return {
     title: item.title,
+    zh: item.zh,
     charCount: item.title.length,
     overLimit: item.overLimit,
     lint: { hasForbidden: item.lint.hasForbidden, hits: item.lint.hits },
@@ -404,12 +412,20 @@ export function extractChatCompletionText(payload: unknown): string {
   return "";
 }
 
+/** 解析出来的一条候选：英文标题 + 它的中文对照（zh 缺失/非字符串/空串一律按空字符串）。 */
+export type ProductTitleParsedCandidate = {
+  title: string;
+  zh: string;
+};
+
 /**
- * 容错解析模型输出的标题 JSON：取 titles[].title（1~3 条都容忍，超过 3 条截断）。
+ * 容错解析模型输出的标题 JSON：取 titles[].title 与 titles[].zh（1~3 条都容忍，超过 3 条截断）。
  * 容忍 ```json 包裹、前后附加文字与数组里混入的非字符串/空项；**不**信任模型自报的
- * charCount（长度由服务端按每条 title 复算）。空 titles / 全是空字符串 → 可读中文错误。
+ * charCount（长度由服务端按每条英文 title 复算）。
+ * zh 只做容错读取：缺失/非字符串/空串 → 空字符串，**不因此报错**（前端不渲染那一行）。
+ * 空 titles / 全是空字符串的 title → 可读中文错误。
  */
-export function parseProductTitles(content: string): string[] {
+export function parseProductTitles(content: string): ProductTitleParsedCandidate[] {
   const text = stripCodeFence(typeof content === "string" ? content : "").trim();
   if (!text) {
     throw new ProductTitleError(
@@ -429,26 +445,27 @@ export function parseProductTitles(content: string): string[] {
     throw new ProductTitleError("模型返回的内容不是可解析的标题 JSON，请重试。", "PRODUCT_TITLE_INVALID_JSON", 502);
   }
 
-  const titles = readTitleList(parsed)
-    .map(readText)
-    .filter(Boolean)
+  const candidates = readTitleEntries(parsed)
+    .map((entry) => ({ title: readText(entry.title), zh: readText(entry.zh) }))
+    // 英文标题为空的条目跳过；zh 为空不算脏项（照常返回空字符串）。
+    .filter((candidate) => candidate.title.length > 0)
     // 契约要 3 条；模型多给了就只取前 3 条。
     .slice(0, PRODUCT_TITLE_MAX_CANDIDATES);
-  if (!titles.length) {
+  if (!candidates.length) {
     throw new ProductTitleError("模型没有返回可用的商品标题，请重试。", "PRODUCT_TITLE_NO_TITLES", 502);
   }
-  return titles;
+  return candidates;
 }
 
-/** 从解析结果里取 titles 数组；结构不对时给空数组（交给上面统一报可读错误）。 */
-function readTitleList(parsed: unknown): unknown[] {
+/** 从解析结果里取 titles 数组（保留原始项，title / zh 在调用处各自容错读取）；结构不对时给空数组。 */
+function readTitleEntries(parsed: unknown): Array<{ title?: unknown; zh?: unknown }> {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
   const titles = (parsed as { titles?: unknown }).titles;
   if (!Array.isArray(titles)) return [];
   return titles.map((item) => (
     item && typeof item === "object" && !Array.isArray(item)
-      ? (item as { title?: unknown }).title
-      : ""
+      ? (item as { title?: unknown; zh?: unknown })
+      : {}
   ));
 }
 

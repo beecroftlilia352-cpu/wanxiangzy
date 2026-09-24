@@ -86,20 +86,45 @@ describe("PRODUCT_TITLE_SPEC（SHEIN 欧洲站规范原文，全文仅此一份�
     expect(PRODUCT_TITLE_SPEC).toContain("只生成 **1条英文商品标题**。");
   });
 
-  it("机器契约要求恰好 3 条候选标题、只返回 JSON，并显式覆盖规范正文里的「只生成 1 条」", () => {
+  it("机器契约要求恰好 3 条候选标题（每条带中文对照 zh）、只返回 JSON，并显式覆盖规范正文里的「只生成 1 条」", () => {
     expect(PRODUCT_TITLE_MAX_CANDIDATES).toBe(3);
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('{"titles":[');
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"title":"<英文标题1>"');
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"title":"<英文标题2>"');
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"title":"<英文标题3>"');
+    // 每条都必须带中文对照 zh（3 条各一份）
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"zh":"<第1条英文标题的中文对照>"');
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"zh":"<第2条英文标题的中文对照>"');
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain('"zh":"<第3条英文标题的中文对照>"');
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("charCount");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("必须恰好返回 3 条候选英文标题（titles 数组长度 = 3）");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("即使规范正文提到只生成 1 条，本接口也要求输出 3 条候选英文标题");
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("只返回这个 JSON，不要代码块标记、不要其它文字");
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("不要提供中文翻译、关键词分析、解释、备注");
-    // 契约里没有中文对照/卖点角度字段（结果区也不再展示它们）
-    expect(PRODUCT_TITLE_OUTPUT_FORMAT).not.toContain('"zh"');
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("不要关键词分析、不要解释、不要备注");
+    // 不能再出现「一句 blanket 地禁止中文翻译」的旧写法（zh 现在是契约要求的字段）；
+    // §5 的那句话只在契约里被显式引用并豁免，见下一个用例。
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).not.toContain("不要提供中文翻译、关键词分析、解释、备注或其他内容");
+    // 契约里仍然没有卖点角度字段
     expect(PRODUCT_TITLE_OUTPUT_FORMAT).not.toContain('"angle"');
+  });
+
+  it("契约把 zh 的定位写清楚：只是该条英文标题的中文对照，且不参与任何合规约束", () => {
+    // zh = 对应那条英文标题的中文翻译对照（供运营阅读、不用于上架）
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("对应那条英文标题的中文翻译对照");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("供运营阅读，不用于上架");
+    // zh 不参与合规：§2 属性限制 / §6 禁词 / ≤250 字符都只针对英文 title
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("zh **不参与任何合规约束**");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("§2 属性限制");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("§6 禁词");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("「每条不超过 250 字符」都**只针对英文 title**");
+    // 规范 §5 的「不要提供中文翻译」在契约里被显式豁免（zh 仍必须给，但只作对照）
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("规范正文 §5 说「不要提供中文翻译」");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("仍必须提供");
+    // charCount 只算英文 title 的字符数
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("charCount 指的是**英文 title** 的字符数");
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("**不是** zh 的字符数");
+    // zh 不是卖点分析 / 关键词解释 / 备注
+    expect(PRODUCT_TITLE_OUTPUT_FORMAT).toContain("不要写成卖点分析、关键词解释或备注");
   });
 });
 

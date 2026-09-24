@@ -95,11 +95,19 @@ function deepseekConfig(overrides: Partial<Record<string, unknown>> = {}): AiCon
   } as unknown as AiControlPlaneConfig;
 }
 
-/** 按契约造一条模型输出：titles[] + 故意写歪的 charCount（服务端必须自己复算）。 */
+/**
+ * 按契约造一条模型输出：titles[] 每条带 zh（中文对照）与故意写歪的 charCount
+ * （服务端必须自己按英文 title 复算，且 zh 只作对照）。
+ */
 function titlesContent(titles: readonly string[], charCount = 140): string {
   return JSON.stringify({
-    titles: titles.map((title) => ({ title, charCount })),
+    titles: titles.map((title, index) => ({ title, zh: `第 ${index + 1} 条中文对照`, charCount })),
   });
+}
+
+/** 与 titlesContent 的 zh 模板一致：解析结果里逐条的 title + zh（zh 不参与任何计算）。 */
+function candidatesOf(titles: readonly string[]): Array<{ title: string; zh: string }> {
+  return titles.map((title, index) => ({ title, zh: `第 ${index + 1} 条中文对照` }));
 }
 
 const VALID_CONTENT = titlesContent(GOOD_TITLES);
@@ -234,6 +242,7 @@ describe("product title server module", () => {
     expect(body.messages[0].content).toBe(PRODUCT_TITLE_MINIMAL_SYSTEM_PROMPT);
     expect(String(body.messages[0].content)).toContain('"titles"');
     expect(String(body.messages[0].content)).toContain('"title"');
+    expect(String(body.messages[0].content)).toContain('"zh"');
     expect(String(body.messages[0].content)).toContain("charCount");
     expect(String(body.messages[0].content)).toContain("恰好返回 3 条");
     expect(String(body.messages[0].content)).not.toContain(PRODUCT_TITLE_SPEC);
@@ -255,6 +264,7 @@ describe("product title server module", () => {
     expect(result.imageCount).toBe(5);
     expect(result.titles).toHaveLength(PRODUCT_TITLE_MAX_CANDIDATES);
     expect(result.titles.map((item) => item.title)).toEqual(GOOD_TITLES);
+    expect(result.titles.map((item) => item.zh)).toEqual(candidatesOf(GOOD_TITLES).map((item) => item.zh));
     expect(result.titles.map((item) => item.overLimit)).toEqual([false, false, false]);
     expect(result.titles.map((item) => item.lint)).toEqual([
       { hasForbidden: false, hits: [] },
@@ -290,11 +300,13 @@ describe("product title server module", () => {
     expect(textOfPart(body.messages[1].content)).toBe(description);
   });
 
-  it("逐条 charCount 以服务端复算为准（模型自报 140，实际按每条标题长度算）", async () => {
+  it("逐条 charCount 以服务端复算为准（模型自报 140，实际按每条英文标题长度算，与 zh 长度无关）", async () => {
     const result = await run({ description: "折叠晾衣架" });
     expect(result.titles.map((item) => item.charCount)).toEqual(GOOD_TITLES.map((title) => title.length));
     expect(result.titles.every((item) => item.charCount !== 140)).toBe(true);
     result.titles.forEach((item, index) => expect(item.charCount).toBe(GOOD_TITLES[index].length));
+    // zh 的中文对照长度绝不参与 charCount
+    result.titles.forEach((item) => expect(item.charCount).not.toBe(item.zh.length));
   });
 
   it("站内地址（http/相对路径）图片走 loadImageBytes，仍然内联成 data URL", async () => {
@@ -466,26 +478,116 @@ describe("product title server module", () => {
     expect(extractChatCompletionText(null)).toBe("");
   });
 
-  it("parseProductTitles：取 titles[].title，容忍包裹/附加文字/脏项，最多只取 3 条", () => {
-    expect(parseProductTitles(VALID_CONTENT)).toEqual(GOOD_TITLES);
-    expect(parseProductTitles("  ```json\n" + VALID_CONTENT + "\n```  ")).toEqual(GOOD_TITLES);
-    expect(parseProductTitles(`好的：\n${VALID_CONTENT}`)).toEqual(GOOD_TITLES);
-    // 少于 3 条也容忍（模型少给不报错）
-    expect(parseProductTitles(JSON.stringify({ titles: [{ title: GOOD_TITLE }] }))).toEqual([GOOD_TITLE]);
-    // 模型自报的 charCount 不参与解析结果
+  it("parseProductTitles：取 titles[].title 与 titles[].zh，容忍包裹/附加文字/脏项，最多只取 3 条", () => {
+    expect(parseProductTitles(VALID_CONTENT)).toEqual(candidatesOf(GOOD_TITLES));
+    expect(parseProductTitles("  ```json\n" + VALID_CONTENT + "\n```  ")).toEqual(candidatesOf(GOOD_TITLES));
+    expect(parseProductTitles(`好的：\n${VALID_CONTENT}`)).toEqual(candidatesOf(GOOD_TITLES));
+    // 少于 3 条也容忍（模型少给不报错）；缺 zh 时按空字符串
+    expect(parseProductTitles(JSON.stringify({ titles: [{ title: GOOD_TITLE }] }))).toEqual([
+      { title: GOOD_TITLE, zh: "" },
+    ]);
+    // 模型自报的 charCount 不参与解析结果（zh 照常取到）
     expect(parseProductTitles(JSON.stringify({
-      titles: [{ title: "Short Title", charCount: 999 }, { title: "Second Title", charCount: 1 }],
-    }))).toEqual(["Short Title", "Second Title"]);
+      titles: [{ title: "Short Title", zh: "短标题", charCount: 999 }, { title: "Second Title", charCount: 1 }],
+    }))).toEqual([
+      { title: "Short Title", zh: "短标题" },
+      { title: "Second Title", zh: "" },
+    ]);
     // 超过 3 条只取前 3 条
     expect(parseProductTitles(JSON.stringify({
-      titles: ["A", "B", "C", "D"].map((title) => ({ title })),
-    }))).toEqual(["A", "B", "C"]);
-    // 数组里混入字符串/空项就跳过
+      titles: [["A", "甲"], ["B", "乙"], ["C", "丙"], ["D", "丁"]].map(([title, zh]) => ({ title, zh })),
+    }))).toEqual([
+      { title: "A", zh: "甲" },
+      { title: "B", zh: "乙" },
+      { title: "C", zh: "丙" },
+    ]);
+    // 数组里混入字符串/空项就跳过（zh 为空仍然保留那一条）
     expect(parseProductTitles(JSON.stringify({
-      titles: [{ title: "A" }, "B", { title: "   " }, { title: "C" }],
-    }))).toEqual(["A", "C"]);
+      titles: [{ title: "A", zh: "甲" }, "B", { title: "   " }, { title: "C" }],
+    }))).toEqual([
+      { title: "A", zh: "甲" },
+      { title: "C", zh: "" },
+    ]);
     expect(() => parseProductTitles("")).toThrow(ProductTitleError);
     expect(() => parseProductTitles('{"titles":[{"en":"A"}]}')).toThrow(/没有返回可用的商品标题/);
+  });
+
+  it("parseProductTitles：zh 缺失/非字符串/空串/空白一律按空字符串，绝不因此报错", () => {
+    const entries = [
+      { title: "A" },
+      { title: "B", zh: 42 },
+      { title: "C", zh: null },
+      { title: "D", zh: "   " },
+      { title: "E", zh: { text: "对象" } },
+      { title: "F", zh: "" },
+    ];
+    expect(parseProductTitles(JSON.stringify({ titles: entries }))).toEqual([
+      { title: "A", zh: "" },
+      { title: "B", zh: "" },
+      { title: "C", zh: "" },
+      { title: "D", zh: "" },
+      { title: "E", zh: "" },
+      { title: "F", zh: "" },
+    ].slice(0, PRODUCT_TITLE_MAX_CANDIDATES));
+  });
+
+  it("每条都带出中文对照 zh；zh 只作对照，charCount 仍按英文 title 复算", async () => {
+    const result = await run({ description: "折叠晾衣架" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.titles.map((item) => item.zh)).toEqual([
+      "第 1 条中文对照",
+      "第 2 条中文对照",
+      "第 3 条中文对照",
+    ]);
+    expect(result.titles.map((item) => item.charCount)).toEqual(GOOD_TITLES.map((title) => title.length));
+    expect(result.repaired).toBeUndefined();
+  });
+
+  it("zh 里出现材质/禁词/尺寸词绝不触发 lint（英文干净 → hits 为空、不重试）", async () => {
+    // 反例：英文 title 完全干净，但中文对照里出现「不锈钢」「45cm」「环保」「安全」「超细纤维」等
+    fetchMock.mockImplementation(async () => chatResponse(JSON.stringify({
+      titles: [
+        { title: GOOD_TITLES[0], zh: "不锈钢折叠晾衣架，45cm 加厚，环保可回收材质", charCount: 999 },
+        { title: GOOD_TITLES[1], zh: "超细纤维拖把头，500ml 容量，Safe 安全无害", charCount: 999 },
+        { title: GOOD_TITLES[2], zh: "2-pack 可折叠，棉质面料", charCount: 999 },
+      ],
+    })));
+
+    const result = await run({ description: "折叠晾衣架" });
+
+    // 没有命中 → 只请求一次（没有触发带纠正指令的重写重试）
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.titles.map((item) => item.title)).toEqual(GOOD_TITLES);
+    expect(result.titles.map((item) => item.zh)).toEqual([
+      "不锈钢折叠晾衣架，45cm 加厚，环保可回收材质",
+      "超细纤维拖把头，500ml 容量，Safe 安全无害",
+      "2-pack 可折叠，棉质面料",
+    ]);
+    expect(result.titles.map((item) => item.lint)).toEqual([
+      { hasForbidden: false, hits: [] },
+      { hasForbidden: false, hits: [] },
+      { hasForbidden: false, hits: [] },
+    ]);
+    expect(result.titles.map((item) => item.overLimit)).toEqual([false, false, false]);
+    expect(result.repaired).toBeUndefined();
+  });
+
+  it("zh 缺失/非字符串/空串一律按空字符串处理，不报错、不触发重试", async () => {
+    fetchMock.mockImplementation(async () => chatResponse(JSON.stringify({
+      titles: [
+        { title: GOOD_TITLES[0], charCount: 999 },
+        { title: GOOD_TITLES[1], zh: 42, charCount: 999 },
+        { title: GOOD_TITLES[2], zh: "   ", charCount: 999 },
+      ],
+    })));
+
+    const result = await run({ description: "折叠晾衣架" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.titles.map((item) => item.title)).toEqual(GOOD_TITLES);
+    expect(result.titles.map((item) => item.zh)).toEqual(["", "", ""]);
+    expect(result.titles.map((item) => item.charCount)).toEqual(GOOD_TITLES.map((title) => title.length));
+    expect(result.repaired).toBeUndefined();
   });
 
   it("提示词：文本框内容原样带上；多图才追加综合提示；文本框为空时不编造", () => {
@@ -607,6 +709,7 @@ describe("product title server module", () => {
     // 逐条标注：只有命中的那两条带 hits，干净的那条是空数组
     expect(result.titles[0]).toEqual({
       title: "Microfiber Mop Head 45cm Washable",
+      zh: "第 1 条中文对照",
       charCount: "Microfiber Mop Head 45cm Washable".length,
       overLimit: false,
       lint: { hasForbidden: true, hits: ["Microfiber", "45cm"] },

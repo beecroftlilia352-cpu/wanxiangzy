@@ -35,6 +35,13 @@ const TITLES = [
 ];
 const TITLE = TITLES[0];
 
+/** 服务端给的中文对照（逐条对应上面的英文标题；只作展示，不参与任何判定）。 */
+const ZH = [
+  "可折叠晾衣架，适合小阳台，省空间的衣物晾晒架",
+  "阳台公寓用壁挂式衣物晾衣架，可折叠收纳",
+  "室内室外两用的省空间晾衣架，便携式晾衣架",
+];
+
 const MODELS = [
   { id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", vision: true, contextWindow: 1_048_576, maxOutputTokens: 393_216, effortLevels: ["low", "high", "max"] },
   { id: "deepseek-v4-pro", name: "DeepSeek-V4-Pro", vision: false, contextWindow: 1_048_576, maxOutputTokens: 393_216, effortLevels: ["low", "high", "max"] },
@@ -52,10 +59,11 @@ function modelsResponse(payload: unknown = { ok: true, models: MODELS, fallback:
   return jsonResponse(payload);
 }
 
-/** 一条候选（默认干净；按需覆盖 title/charCount/overLimit/lint）。 */
+/** 一条候选（默认干净、带中文对照；按需覆盖 title/zh/charCount/overLimit/lint）。 */
 function item(index: number, overrides: Record<string, unknown> = {}) {
   return {
     title: TITLES[index],
+    zh: ZH[index],
     charCount: TITLES[index].length,
     overLimit: false,
     lint: { hasForbidden: false, hits: [] },
@@ -100,6 +108,11 @@ function titleAt(index: number) {
 
 function charCountAt(index: number) {
   return screen.getByTestId(`product-title-char-count-${index}`);
+}
+
+/** 该条英文标题下方的中文对照行（缺失时这一行不存在）。 */
+function zhAt(index: number) {
+  return screen.getByTestId(`product-title-zh-${index}`);
 }
 
 function copyButtonAt(index: number) {
@@ -228,17 +241,87 @@ describe("ProductTitleButton", () => {
     expect(screen.getAllByTestId(/^product-title-title-\d$/)).toHaveLength(3);
     TITLES.forEach((title, index) => {
       expect(titleAt(index + 1).textContent).toBe(title);
-      // 标题文本就是纯英文（不夹中文对照）
+      // 标题文本就是纯英文（中文对照在它下面单独一行，不混进标题里）
       expect(titleAt(index + 1).textContent).not.toMatch(/[\u4e00-\u9fa5]/);
       expect(charCountAt(index + 1).textContent).toBe(`字符数 ${title.length}`);
+      // 每条英文标题下方都有一行中文对照
+      expect(zhAt(index + 1).textContent).toBe(ZH[index]);
     });
     // 顶部：共 N 条候选 + 「复制全部」
     expect(screen.getByText("共 3 条候选")).toBeTruthy();
     expect(screen.getByRole("button", { name: "复制全部" })).toBeTruthy();
-    // 结果区不再出现中文对照与卖点角度
+    // 结果区不再出现卖点角度
     const resultAreaText = screen.getByTestId("product-title-results").textContent ?? "";
     expect(resultAreaText).not.toContain("卖点角度");
-    expect(resultAreaText).not.toContain("中文");
+  });
+
+  it("中文对照排在英文标题下方，用次要样式（更小字号、降低对比度、可选中、可换行）", async () => {
+    renderButton();
+    openDialog();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "折叠晾衣架" } });
+    fireEvent.click(generateButton());
+
+    await waitFor(() => expect(titleAt(1).textContent).toBe(TITLE));
+
+    const en = titleAt(1);
+    const zh = zhAt(1);
+
+    // 英文标题：原来的主要样式（字号/字重不变）
+    expect(en.className).toContain("text-sm");
+    expect(en.className).toContain("font-semibold");
+    expect(en.className).toContain("text-foreground");
+    expect(en.className).toContain("select-text");
+    // 中文对照：次要样式 + 可选中 + 允许换行
+    expect(zh.className).toContain("text-xs");
+    expect(zh.className).toContain("text-muted-foreground/90");
+    expect(zh.className).toContain("select-text");
+    expect(zh.className).toContain("break-words");
+
+    // 同一行 li 里：英文标题在前、中文对照紧跟其后（中间不是别的元素）
+    const li = en.closest("li") as HTMLElement;
+    const textOrder = li.textContent ?? "";
+    expect(textOrder.indexOf(TITLE)).toBeGreaterThanOrEqual(0);
+    expect(textOrder.indexOf(ZH[0])).toBeGreaterThan(textOrder.indexOf(TITLE));
+    expect(en.nextElementSibling).toBe(zh);
+
+    // 每条都有自己的一行中文对照（共 3 行）
+    expect(screen.getAllByTestId(/^product-title-zh-\d$/)).toHaveLength(3);
+  });
+
+  it("中文对照缺失/非字符串/空白时不渲染那一行（不留空白占位），标题与字符数照常展示", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/product-title/models") return modelsResponse();
+      postBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return jsonResponse({
+        ok: true,
+        model: "deepseek-flash",
+        titles: [
+          item(0),
+          // zh 是空白串 → 当没有
+          item(1, { zh: "   " }),
+          // 完全没有 zh 字段
+          { title: TITLES[2], charCount: TITLES[2].length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        ],
+      });
+    });
+
+    renderButton();
+    openDialog();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "折叠晾衣架" } });
+    fireEvent.click(generateButton());
+
+    await waitFor(() => expect(titleAt(1).textContent).toBe(TITLES[0]));
+
+    // 只有第 1 条有中文对照 → 只渲染 1 行，另外两条不留空白占位
+    expect(screen.getAllByTestId(/^product-title-zh-\d$/)).toHaveLength(1);
+    expect(zhAt(1).textContent).toBe(ZH[0]);
+    expect(screen.queryByTestId("product-title-zh-2")).toBeNull();
+    expect(screen.queryByTestId("product-title-zh-3")).toBeNull();
+    // 3 条英文标题与字符数都不受影响
+    expect(screen.getAllByTestId(/^product-title-title-\d$/)).toHaveLength(3);
+    expect(titleAt(3).textContent).toBe(TITLES[2]);
+    expect(charCountAt(3).textContent).toBe(`字符数 ${TITLES[2].length}`);
   });
 
   it("模型少给 1 条时按实际条数展示（不报错、不硬凑 3 条）", async () => {
@@ -314,17 +397,22 @@ describe("ProductTitleButton", () => {
     expect(titleAt(1).textContent).toBe(TITLE);
   });
 
-  it("单条复制只复制那一条纯英文标题（不带字符数），并且只高亮那一条", async () => {
+  it("单条复制只复制那一条纯英文标题（不带字符数、不带中文对照），并且只高亮那一条", async () => {
     renderButton();
     openDialog();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "折叠晾衣架" } });
     fireEvent.click(generateButton());
     await waitFor(() => expect(result().textContent).toBe(TITLE));
 
+    // 那一条确实带着中文对照（在英文标题下面一行）
+    expect(zhAt(2).textContent).toBe(ZH[1]);
+
     fireEvent.click(copyButtonAt(2));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(TITLES[1]));
     expect(writeText).toHaveBeenCalledTimes(1);
+    // 复制内容里绝不包含中文对照
+    expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining(ZH[1]));
     expect(mocks.toastSuccess).toHaveBeenCalledWith("已复制第 2 条标题");
     // 只有被点的那一条切成「已复制」状态，其余两条仍是「复制第 N 条」
     expect(screen.getByRole("button", { name: "已复制" })).toBeTruthy();
@@ -332,17 +420,21 @@ describe("ProductTitleButton", () => {
     expect(screen.getByRole("button", { name: "复制第 3 条" })).toBeTruthy();
   });
 
-  it("「复制全部」把 3 条以换行分隔复制（只复制英文标题）", async () => {
+  it("「复制全部」把 3 条以换行分隔复制（只复制英文标题，不含中文对照）", async () => {
     renderButton();
     openDialog();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "折叠晾衣架" } });
     fireEvent.click(generateButton());
     await waitFor(() => expect(result().textContent).toBe(TITLE));
 
+    // 三条都带中文对照，但复制全部只取英文
+    expect(screen.getAllByTestId(/^product-title-zh-\d$/)).toHaveLength(3);
+
     fireEvent.click(screen.getByRole("button", { name: "复制全部" }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(TITLES.join("\n")));
     expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining(ZH[0]));
     expect(mocks.toastSuccess).toHaveBeenCalledWith("已复制全部标题");
   });
 

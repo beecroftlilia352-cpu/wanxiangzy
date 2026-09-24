@@ -46,10 +46,11 @@ const TITLE = "Foldable Laundry Drying Rack for Small Balcony, Space Saving Clot
 const TITLE_2 = "Wall Mounted Clothes Drying Rack for Balcony Apartment, Collapsible Organizer";
 const TITLE_3 = "Space Saving Laundry Drying Rack for Indoor Outdoor Use, Portable Airer";
 
-/** 生成函数返回的 3 条干净候选（路由只做逐条透传）。 */
+/** 生成函数返回的 3 条干净候选（路由只做逐条透传：title + 中文对照 zh + charCount + lint）。 */
 function cleanTitles() {
-  return [TITLE, TITLE_2, TITLE_3].map((title) => ({
+  return [TITLE, TITLE_2, TITLE_3].map((title, index) => ({
     title,
+    zh: `第 ${index + 1} 条中文对照`,
     charCount: title.length,
     overLimit: false,
     lint: { hasForbidden: false, hits: [] },
@@ -231,15 +232,20 @@ describe("POST /api/product-title", () => {
     await expect(response.json()).resolves.toMatchObject({ code: PRODUCT_TITLE_ERROR_CODES.invalidInput });
   });
 
-  it("成功时返回 { ok, model, titles: [{ title, charCount, overLimit, lint }] }，并把入参（含默认模型）交给生成函数", async () => {
+  it("成功时返回 { ok, model, titles: [{ title, zh, charCount, overLimit, lint }] }，并把入参（含默认模型）交给生成函数", async () => {
     const response = await POST(postRequest({ images: [DATA_URL], description: "  折叠晾衣架  " }));
 
     expect(response.status).toBe(200);
     const payload = await response.json() as Record<string, unknown>;
     expect(payload.ok).toBe(true);
     expect(payload.model).toBe("deepseek-flash");
-    // 3 条逐条透传：title + 服务端复算的 charCount + overLimit + lint
+    // 3 条逐条透传：title + 中文对照 zh + 服务端复算的 charCount + overLimit + lint
     expect(payload.titles).toEqual(cleanTitles());
+    expect((payload.titles as Array<{ zh: string }>).map((item) => item.zh)).toEqual([
+      "第 1 条中文对照",
+      "第 2 条中文对照",
+      "第 3 条中文对照",
+    ]);
     // 没触发重试时 repaired 字段不出现；也不再返回顶层的 title/charCount/lint
     expect(payload).not.toHaveProperty("repaired");
     expect(payload).not.toHaveProperty("title");
@@ -252,14 +258,35 @@ describe("POST /api/product-title", () => {
     });
   });
 
-  it("逐条的 overLimit / lint / repaired 原样透传给前端（哪一条不合规一目了然）", async () => {
+  it("缺 zh（或 zh 不是字符串）时兜底空字符串，绝不因此报错", async () => {
     mocks.generateProductTitles.mockResolvedValueOnce({
       model: "deepseek-flash",
       vision: true,
       titles: [
-        { title: "Microfiber Mop Head Washable", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
-        { title: TITLE_2, charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
-        { title: TITLE_3, charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE, charCount: TITLE.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_2, zh: 42, charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_3, zh: "", charCount: TITLE_3.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+      ],
+      imageCount: 0,
+      imageBytes: 0,
+    });
+
+    const response = await POST(postRequest({ description: "折叠晾衣架" }));
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { titles: Array<{ title: string; zh: string }> };
+    expect(payload.titles.map((item) => item.zh)).toEqual(["", "", ""]);
+    expect(payload.titles.map((item) => item.title)).toEqual([TITLE, TITLE_2, TITLE_3]);
+  });
+
+  it("逐条的 zh / overLimit / lint / repaired 原样透传给前端（哪一条不合规一目了然）", async () => {
+    mocks.generateProductTitles.mockResolvedValueOnce({
+      model: "deepseek-flash",
+      vision: true,
+      titles: [
+        { title: "Microfiber Mop Head Washable", zh: "超细纤维拖把头", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
+        { title: TITLE_2, zh: "阳台壁挂折叠晾衣架", charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_3, zh: "", charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
       ],
       repaired: false,
       imageCount: 0,
@@ -273,9 +300,9 @@ describe("POST /api/product-title", () => {
       ok: true,
       model: "deepseek-flash",
       titles: [
-        { title: "Microfiber Mop Head Washable", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
-        { title: TITLE_2, charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
-        { title: TITLE_3, charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
+        { title: "Microfiber Mop Head Washable", zh: "超细纤维拖把头", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
+        { title: TITLE_2, zh: "阳台壁挂折叠晾衣架", charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_3, zh: "", charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
       ],
       repaired: false,
     });
@@ -287,8 +314,8 @@ describe("POST /api/product-title", () => {
       model: "deepseek-flash",
       vision: true,
       titles: [
-        { title: `${long} A`, charCount: `${long} A`.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
-        { title: TITLE_2, charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: `${long} A`, zh: "超长标题的中文对照", charCount: `${long} A`.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_2, zh: "阳台壁挂折叠晾衣架", charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
         { title: TITLE_3, charCount: TITLE_3.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
       ],
       repaired: false,
@@ -299,10 +326,12 @@ describe("POST /api/product-title", () => {
     const response = await POST(postRequest({ description: "折叠晾衣架" }));
 
     expect(response.status).toBe(200);
-    const payload = await response.json() as { ok: boolean; titles: Array<{ overLimit?: boolean; charCount: number }>; repaired: boolean };
+    const payload = await response.json() as { ok: boolean; titles: Array<{ zh: string; overLimit?: boolean; charCount: number }>; repaired: boolean };
     expect(payload.ok).toBe(true);
     expect(payload.titles[0].overLimit).toBe(true);
     expect(payload.titles[0].charCount).toBe(`${long} A`.length);
+    // zh 照常透传；缺 zh 的那一条给空字符串（不参与任何判定）
+    expect(payload.titles.map((item) => item.zh)).toEqual(["超长标题的中文对照", "阳台壁挂折叠晾衣架", ""]);
     expect(payload.titles[1].overLimit).toBe(false);
     expect(payload.repaired).toBe(false);
   });

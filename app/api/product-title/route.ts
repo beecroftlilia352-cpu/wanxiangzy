@@ -10,10 +10,12 @@ import { PRODUCT_TITLE_RATE_LIMIT, type ProductTitleResponse } from "@/lib/produ
  * 「商品标题」接口（本功能自己的路由）。
  *
  * POST { images?: string[], description?: string, model?: string }
- *   →  { ok: true, model, titles: [{ title, charCount, overLimit?, lint? }], repaired? }
+ *   →  { ok: true, model, titles: [{ title, zh, charCount, overLimit?, lint? }], repaired? }
  * 失败 →  { ok: false, error: 中文提示, code }
  *
- * 输出为**3 条纯英文标题 + 逐条字符数**（SHEIN 欧洲站规范，每条 ≤250 字符；不含中文对照/卖点角度）。
+ * 输出为**3 条纯英文标题 + 逐条中文对照 zh + 逐条字符数**（SHEIN 欧洲站规范，每条 ≤250 字符）。
+ * zh 是该条英文标题的中文翻译对照（供运营阅读，不用于上架），只做容错透传：缺失时给空字符串，
+ * 且**不参与**任何 lint / 长度判定（材质词、禁词、250 字符都只针对英文 title）。
  * 条件说明：不再自动读取结果图，改由用户在弹窗里给条件 —— 0~5 张图片、商品名称/商品信息、
  * deepseek 模型版本，三者至少给其一（图片或描述）；图片可用 data URL 内联（前端 canvas 压缩后），
  * 也兼容站内相对路径 / http(s) 地址（沿用上版资产读取路径）。
@@ -62,9 +64,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       model: result.model,
-      // 逐条原样透传：title / 服务端复算的 charCount / 该条是否超长 / 该条 lint。
+      // 逐条原样透传：title / 中文对照 zh（缺失时兜底空字符串）/ 服务端复算的 charCount /
+      // 该条是否超长 / 该条 lint（只针对英文 title）。
       titles: result.titles.map((item) => ({
         title: item.title,
+        zh: typeof item.zh === "string" ? item.zh : "",
         charCount: item.charCount,
         overLimit: item.overLimit === true,
         lint: item.lint ?? { hasForbidden: false, hits: [] },

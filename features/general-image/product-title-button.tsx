@@ -19,8 +19,9 @@
  *  · 关闭弹窗不丢结果、已选图片、文本框内容与模型选择，再次打开也不会自动重新请求；
  *  · 请求中可取消（AbortController）；再次点「生成」用当前条件重新生成并覆盖旧结果。
  *  · 模型下拉在每次打开弹窗时拉取 GET /api/product-title/models；拉不到就用内置两个选项，绝不阻塞。
- *  · 结果区是 3 条英文标题（每条可选中）+ 每条一个「字符数」（服务端复算）+ 单条复制按钮，
- *    顶部一个「复制全部」（3 条以换行分隔）；不显示中文、不显示卖点角度、不显示任何分析。
+ *  · 结果区是 3 条英文标题（每条可选中）+ 每条下方一行中文对照（次要样式）+ 每条一个「字符数」
+ *    （服务端复算）+ 单条复制按钮，顶部一个「复制全部」（3 条以换行分隔）；中文对照缺失时那一行
+ *    不渲染（不留空占位）；不显示卖点角度、不显示任何分析。
  *    逐条超长或本地 lint 命中时给低对比度提示。
  *
  * 所有文案走 next-intl（命名空间 ProductTitle），组件内不硬编码中文。
@@ -65,9 +66,10 @@ type SelectedImage = {
   bytes: number;
 };
 
-/** 结果区展示用的单条标题（字符数一律用服务端复算的值）。 */
+/** 结果区展示用的单条标题（字符数一律用服务端复算的值；zh = 中文对照，空串表示没有）。 */
 type ProductTitleResultItem = {
   title: string;
+  zh: string;
   charCount: number;
   overLimit: boolean;
   lint: ProductTitleLint;
@@ -79,7 +81,7 @@ type ProductTitleResult = {
   repaired?: boolean;
 };
 
-/** 校验/归一化服务端的 titles[]：丢空项、逐条兜底，字符数用服务端值。 */
+/** 校验/归一化服务端的 titles[]：丢空项、逐条兜底，字符数用服务端值，zh 缺失按空串。 */
 function readResultItems(raw: ProductTitleTitleItem[] | undefined): ProductTitleResultItem[] {
   if (!Array.isArray(raw)) return [];
   const items: ProductTitleResultItem[] = [];
@@ -87,8 +89,11 @@ function readResultItems(raw: ProductTitleTitleItem[] | undefined): ProductTitle
     const title = typeof entry?.title === "string" ? entry.title.trim() : "";
     if (!title) continue;
     const hits = entry?.lint && Array.isArray(entry.lint.hits) ? entry.lint.hits : [];
+    // 中文对照只作展示：缺失/非字符串/空串一律当没有（那一行不渲染），绝不影响标题与复制。
+    const zh = typeof entry?.zh === "string" ? entry.zh.trim() : "";
     items.push({
       title,
+      zh,
       // 字符数一律用服务端复算的值（模型自报的数字不可信）；缺失时才退回前端按标题长度算。
       charCount: typeof entry?.charCount === "number" && Number.isFinite(entry.charCount)
         ? entry.charCount
@@ -623,6 +628,16 @@ export function ProductTitleButton({ className, disabled = false, defaultDescrip
                         >
                           {item.title}
                         </p>
+                        {/* 该条英文标题的中文对照（次要样式：更小字号 + 降低对比度，可选中、可换行）。
+                            缺失时整行不渲染（不留空白占位）；它不参与任何合规判定，复制也不带它。 */}
+                        {item.zh ? (
+                          <p
+                            data-testid={`product-title-zh-${index + 1}`}
+                            className="mt-1 select-text text-xs leading-relaxed text-muted-foreground/90 break-words"
+                          >
+                            {item.zh}
+                          </p>
+                        ) : null}
                         <p
                           data-testid={`product-title-char-count-${index + 1}`}
                           className="mt-2 text-xs text-muted-foreground"
