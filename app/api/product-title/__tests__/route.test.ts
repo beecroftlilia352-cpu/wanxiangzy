@@ -42,11 +42,19 @@ const DATA_URL = `data:image/jpeg;base64,${Buffer.from("fake-image-bytes").toStr
 const IMAGE_URL = "http://192.168.31.213:3000/api/media-assets/123e4567-e89b-42d3-a456-426614174000";
 const RELATIVE_URL = "/api/media-assets/123e4567-e89b-42d3-a456-426614174000";
 
-const TITLES = [
-  { en: "Ceramic Pour-Over Coffee Dripper for Home Brewing", zh: "家用陶瓷手冲咖啡滤杯", angle: "功能卖点" },
-  { en: "Minimalist Kitchen Gift for Coffee Lovers", zh: "送给咖啡爱好者的极简厨房礼物", angle: "场景人群" },
-  { en: "Matte Glazed Stoneware Dripper 1-2 Cups", zh: "哑光釉面陶瓷滤杯 1-2 人份", angle: "材质规格" },
-];
+const TITLE = "Foldable Laundry Drying Rack for Small Balcony, Space Saving Clothes Hanger";
+const TITLE_2 = "Wall Mounted Clothes Drying Rack for Balcony Apartment, Collapsible Organizer";
+const TITLE_3 = "Space Saving Laundry Drying Rack for Indoor Outdoor Use, Portable Airer";
+
+/** 生成函数返回的 3 条干净候选（路由只做逐条透传）。 */
+function cleanTitles() {
+  return [TITLE, TITLE_2, TITLE_3].map((title) => ({
+    title,
+    charCount: title.length,
+    overLimit: false,
+    lint: { hasForbidden: false, hits: [] },
+  }));
+}
 
 function postRequest(body: unknown) {
   return new NextRequest("http://localhost/api/product-title", {
@@ -76,7 +84,7 @@ describe("POST /api/product-title", () => {
     mocks.generateProductTitles.mockResolvedValue({
       model: "deepseek-flash",
       vision: true,
-      titles: TITLES,
+      titles: cleanTitles(),
       imageCount: 1,
       imageBytes: 140_000,
     });
@@ -167,7 +175,13 @@ describe("POST /api/product-title", () => {
     expect(mocks.generateProductTitles).not.toHaveBeenCalled();
   });
 
-  it("description 超长返回 400", async () => {
+  it("description 上限是 6000：正好 6000 通过，6001 返回 400", async () => {
+    expect(PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH).toBe(6000);
+
+    const ok = await POST(postRequest({ description: "描".repeat(PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH) }));
+    expect(ok.status).toBe(200);
+    expect(mocks.generateProductTitles).toHaveBeenCalledTimes(1);
+
     const response = await POST(postRequest({
       description: "描".repeat(PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH + 1),
     }));
@@ -176,7 +190,7 @@ describe("POST /api/product-title", () => {
     const payload = await response.json() as { code: string; error: string };
     expect(payload.code).toBe(PRODUCT_TITLE_ERROR_CODES.descriptionTooLong);
     expect(payload.error).toContain(String(PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH));
-    expect(mocks.generateProductTitles).not.toHaveBeenCalled();
+    expect(mocks.generateProductTitles).toHaveBeenCalledTimes(1);
   });
 
   it("model 不在允许列表里返回 400", async () => {
@@ -217,16 +231,80 @@ describe("POST /api/product-title", () => {
     await expect(response.json()).resolves.toMatchObject({ code: PRODUCT_TITLE_ERROR_CODES.invalidInput });
   });
 
-  it("成功时返回 { ok, model, titles }，并把入参（含默认模型）交给生成函数", async () => {
-    const response = await POST(postRequest({ images: [DATA_URL], description: "  陶瓷手冲滤杯  " }));
+  it("成功时返回 { ok, model, titles: [{ title, charCount, overLimit, lint }] }，并把入参（含默认模型）交给生成函数", async () => {
+    const response = await POST(postRequest({ images: [DATA_URL], description: "  折叠晾衣架  " }));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, model: "deepseek-flash", titles: TITLES });
+    const payload = await response.json() as Record<string, unknown>;
+    expect(payload.ok).toBe(true);
+    expect(payload.model).toBe("deepseek-flash");
+    // 3 条逐条透传：title + 服务端复算的 charCount + overLimit + lint
+    expect(payload.titles).toEqual(cleanTitles());
+    // 没触发重试时 repaired 字段不出现；也不再返回顶层的 title/charCount/lint
+    expect(payload).not.toHaveProperty("repaired");
+    expect(payload).not.toHaveProperty("title");
+    expect(payload).not.toHaveProperty("charCount");
+    expect(payload).not.toHaveProperty("lint");
     expect(mocks.generateProductTitles).toHaveBeenCalledWith({
       images: [DATA_URL],
-      description: "陶瓷手冲滤杯",
+      description: "折叠晾衣架",
       model: "deepseek-flash",
     });
+  });
+
+  it("逐条的 overLimit / lint / repaired 原样透传给前端（哪一条不合规一目了然）", async () => {
+    mocks.generateProductTitles.mockResolvedValueOnce({
+      model: "deepseek-flash",
+      vision: true,
+      titles: [
+        { title: "Microfiber Mop Head Washable", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
+        { title: TITLE_2, charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_3, charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
+      ],
+      repaired: false,
+      imageCount: 0,
+      imageBytes: 0,
+    });
+
+    const response = await POST(postRequest({ description: "超细纤维清洁头" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      model: "deepseek-flash",
+      titles: [
+        { title: "Microfiber Mop Head Washable", charCount: "Microfiber Mop Head Washable".length, overLimit: false, lint: { hasForbidden: true, hits: ["Microfiber"] } },
+        { title: TITLE_2, charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_3, charCount: TITLE_3.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
+      ],
+      repaired: false,
+    });
+  });
+
+  it("重试后仍超长时该条 overLimit:true 也照常返回（不报错）", async () => {
+    const long = "Keyword ".repeat(40).trim();
+    mocks.generateProductTitles.mockResolvedValueOnce({
+      model: "deepseek-flash",
+      vision: true,
+      titles: [
+        { title: `${long} A`, charCount: `${long} A`.length, overLimit: true, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_2, charCount: TITLE_2.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+        { title: TITLE_3, charCount: TITLE_3.length, overLimit: false, lint: { hasForbidden: false, hits: [] } },
+      ],
+      repaired: false,
+      imageCount: 0,
+      imageBytes: 0,
+    });
+
+    const response = await POST(postRequest({ description: "折叠晾衣架" }));
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { ok: boolean; titles: Array<{ overLimit?: boolean; charCount: number }>; repaired: boolean };
+    expect(payload.ok).toBe(true);
+    expect(payload.titles[0].overLimit).toBe(true);
+    expect(payload.titles[0].charCount).toBe(`${long} A`.length);
+    expect(payload.titles[1].overLimit).toBe(false);
+    expect(payload.repaired).toBe(false);
   });
 
   it("也接受站内相对路径 / http(s) 图片地址（保留上版资产读取路径）", async () => {

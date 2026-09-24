@@ -1,7 +1,8 @@
 /**
  * 「商品标题」功能的共享类型与常量（客户端可安全导入：不含任何服务端依赖与密钥）。
  *
- * 功能边界：看图 → 生成英文（附中文对照）跨境电商商品标题，供运营复制上架。
+ * 功能边界：看图/看描述 → 生成 **3 条**符合 SHEIN 欧洲站规范的纯英文商品标题（每条 ≤250 字符），
+ * 供运营挑选后一键复制上架。system prompt 原文见 ./prompt.ts。
  * 与既有功能完全隔离：只新增文件，不改动任何既有模块的导出或行为。
  */
 
@@ -12,7 +13,16 @@ export const PRODUCT_TITLE_PROVIDER_ID = "deepseek";
 export const PRODUCT_TITLE_DEFAULT_MODEL = "deepseek-flash";
 export const PRODUCT_TITLE_MODEL_ENV = "PRODUCT_TITLE_MODEL";
 
-/** 期望的候选标题条数（提示词要求 3 条；解析阶段按 1~3 条容错）。 */
+/** 标题字符上限（规范 §4：不超过 250 个字符，含空格与标点）。 */
+export const PRODUCT_TITLE_MAX_CHARS = 250;
+
+/**
+ * 一次请求**要求**的候选标题条数（3 条）。
+ *
+ * 规范 §5 写的是「只生成 1条」——那是给人工抄模板用的说法，本接口在机器契约
+ * （prompt.ts 的 PRODUCT_TITLE_OUTPUT_FORMAT）里显式要求 3 条候选，且契约里明说
+ * 「即使规范正文提到只生成 1 条，本接口也要求输出 3 条」。规范原文一个字都不改。
+ */
 export const PRODUCT_TITLE_MAX_CANDIDATES = 3;
 
 /** 前端传入 imageUrl 的长度上限（绝对内网地址或相对路径都算）。 */
@@ -48,19 +58,38 @@ export const PRODUCT_TITLE_RATE_LIMIT = {
   label: "商品标题",
 } as const;
 
-export type ProductTitleCandidate = {
-  /** 英文标题（可直接上架） */
-  en: string;
-  /** 中文对照 */
-  zh: string;
-  /** 这条标题的卖点角度（中文简述） */
-  angle: string;
+/** 单条标题的本地自检结果（服务端只做提醒，不改写标题）。 */
+export type ProductTitleLint = {
+  /** 命中任意一类（材质词 / 尺寸数字 / 禁词）即为 true。 */
+  hasForbidden: boolean;
+  /** 命中的原词（保留标题里的原始大小写，如 "Microfiber"、"45cm"、"Safe"）。 */
+  hits: string[];
+};
+
+/** 结果区逐条展示的一条候选标题（字符数一律是服务端复算值）。 */
+export type ProductTitleTitleItem = {
+  /** 英文标题（可直接上架的纯英文；无中文对照、无解释）。 */
+  title: string;
+  /** 服务端按 title 复算的字符数（含空格与标点；不信任模型自报的数字）。 */
+  charCount: number;
+  /** **该条**超过 250 字符上限（自动重写一次后仍超长时为 true）。 */
+  overLimit?: boolean;
+  /** **该条**的本地自检结果（材质词 / 尺寸数字 / 禁词；不做改写，仅提示）。 */
+  lint?: ProductTitleLint;
 };
 
 export type ProductTitleSuccessPayload = {
   ok: true;
   model: string;
-  titles: ProductTitleCandidate[];
+  /** 候选英文标题（要求恰好 3 条；模型少给也照常返回，前端按实际条数展示）。 */
+  titles: ProductTitleTitleItem[];
+  /**
+   * 只在「因任意一条超出 250 字符或命中 lint 而触发过一次重写重试」时出现：
+   *   true  = 重写后**全部**条数都已合规（无命中且不超长）；
+   *   false = 重写后仍有命中/仍超长，或重写那一轮不可解析（此时保留第一次的结果）。
+   * 没触发重试时该字段不出现。
+   */
+  repaired?: boolean;
 };
 
 export type ProductTitleErrorPayload = {
@@ -78,8 +107,11 @@ export type ProductTitleResponse = ProductTitleSuccessPayload | ProductTitleErro
 /** 单次请求最多上传的图片张数（0~5）。 */
 export const PRODUCT_TITLE_MAX_IMAGES = 5;
 
-/** 文字描述长度上限（字符）。 */
-export const PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH = 2000;
+/**
+ * 文本框（商品名称/商品信息）长度上限（字符）。
+ * 规范原文默认值本身就有一千三百多字，所以上限给到 6000，留出足够的补充描述空间。
+ */
+export const PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH = 6000;
 
 /** 单个图片 data URL 的字符串长度上限（≈2MB；前端 canvas 压缩后按此校验）。 */
 export const PRODUCT_TITLE_IMAGE_DATA_URL_MAX_LENGTH = 2 * 1024 * 1024;

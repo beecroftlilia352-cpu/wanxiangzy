@@ -17,7 +17,7 @@ import {
  *  · images：0~5 张；每项必须是非空字符串；data URL 必须以 data:image/ 开头且长度 ≤2MB；
  *    也接受站内相对路径（/api/media-assets/<id>）或 http(s) 绝对地址（沿用上版的资产读取路径），
  *    此时长度 ≤2048；全部图片长度总和 ≤8MB；协议相对地址（//host）直接拒绝。
- *  · description：字符串，trim 后 ≤2000 字。
+ *  · description：字符串，trim 后 ≤ PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH（6000）字。
  *  · model：必须在允许列表里（调用方传入当前能力表的 id 列表），缺省用 deepseek-flash。
  *  · images 与 description 至少给一个。
  *

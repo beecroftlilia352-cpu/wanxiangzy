@@ -1,25 +1,34 @@
 "use client";
 
 /**
- * 「商品标题」按钮 + 弹窗（第二版：由用户给出条件，点「生成」才请求）。
+ * 「商品标题」按钮 + 弹窗（第四版：按 SHEIN 欧洲站规范产出 3 条纯英文标题 + 逐条字符数）。
  *
  * 放在结果图右侧、下载按钮正下方（由 ResultImageGrid 的 besideImageExtra 插槽渲染）：
  * 点击打开弹窗，里面可以 ① 上传最多 5 张图片（浏览器侧 canvas 压到长边 ≤1024 / jpeg 0.8）
- * ② 填写文字描述 ③ 选择 deepseek 模型版本，然后点「生成」，由 /api/product-title 按
- * 「图片 + 描述 + 模型」多重条件产出 3 条双语（英文 + 中文对照 + 卖点角度）标题，可逐条复制。
+ * ② 在一个文本框里写商品名称/商品信息 ③ 选择 deepseek 模型版本，然后点「生成」，
+ * 由 /api/product-title 按「图片 + 文本框内容 + 模型」多重条件产出 **3 条**可直接上架的
+ * 纯英文标题（每条 ≤250 字符）。
+ *
+ * 文本框默认内容 = 运营给定的整段规范原文（与 prompt.ts 的 PRODUCT_TITLE_SPEC 同源，
+ * PRODUCT_TITLE_DEFAULT_DESCRIPTION），用户在后面接着写补充描述即可；发送时把文本框里的
+ * 全部内容一起发出去。旁边有一个「恢复默认文案」小按钮可一键还原；用户手动清空或改写
+ * 都按实际内容走，绝不强行回填。
  *
  * 关键行为：
  *  · 不再自动读取旁边的结果图，也不传任何图片参数 —— 用户点「生成」才发请求；
- *  · 关闭弹窗不丢结果、已选图片、描述与模型选择，再次打开也不会自动重新请求；
+ *  · 关闭弹窗不丢结果、已选图片、文本框内容与模型选择，再次打开也不会自动重新请求；
  *  · 请求中可取消（AbortController）；再次点「生成」用当前条件重新生成并覆盖旧结果。
  *  · 模型下拉在每次打开弹窗时拉取 GET /api/product-title/models；拉不到就用内置两个选项，绝不阻塞。
+ *  · 结果区是 3 条英文标题（每条可选中）+ 每条一个「字符数」（服务端复算）+ 单条复制按钮，
+ *    顶部一个「复制全部」（3 条以换行分隔）；不显示中文、不显示卖点角度、不显示任何分析。
+ *    逐条超长或本地 lint 命中时给低对比度提示。
  *
  * 所有文案走 next-intl（命名空间 ProductTitle），组件内不硬编码中文。
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AlertCircle, Check, Copy, ImagePlus, Loader2, RefreshCw, Tags, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Copy, ImagePlus, Loader2, RefreshCw, RotateCcw, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,16 +40,19 @@ import {
   estimateProductTitleDataUrlBytes,
   isSupportedProductTitleImageFile,
 } from "@/lib/product-title/client";
+import { PRODUCT_TITLE_DEFAULT_DESCRIPTION } from "@/lib/product-title/prompt";
 import {
   PRODUCT_TITLE_DEFAULT_MODEL,
   PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH,
   PRODUCT_TITLE_FALLBACK_MODELS,
   PRODUCT_TITLE_IMAGE_DATA_URL_MAX_LENGTH,
+  PRODUCT_TITLE_MAX_CHARS,
   PRODUCT_TITLE_MAX_IMAGES,
-  type ProductTitleCandidate,
+  type ProductTitleLint,
   type ProductTitleModelInfo,
   type ProductTitleModelsResponse,
   type ProductTitleResponse,
+  type ProductTitleTitleItem,
 } from "@/lib/product-title/types";
 
 type RequestStatus = "idle" | "loading" | "success" | "error";
@@ -53,9 +65,49 @@ type SelectedImage = {
   bytes: number;
 };
 
+/** 结果区展示用的单条标题（字符数一律用服务端复算的值）。 */
+type ProductTitleResultItem = {
+  title: string;
+  charCount: number;
+  overLimit: boolean;
+  lint: ProductTitleLint;
+};
+
+/** 结果区数据：3 条候选 + 是否经过重写重试。 */
+type ProductTitleResult = {
+  titles: ProductTitleResultItem[];
+  repaired?: boolean;
+};
+
+/** 校验/归一化服务端的 titles[]：丢空项、逐条兜底，字符数用服务端值。 */
+function readResultItems(raw: ProductTitleTitleItem[] | undefined): ProductTitleResultItem[] {
+  if (!Array.isArray(raw)) return [];
+  const items: ProductTitleResultItem[] = [];
+  for (const entry of raw as Array<Partial<ProductTitleTitleItem> | null | undefined>) {
+    const title = typeof entry?.title === "string" ? entry.title.trim() : "";
+    if (!title) continue;
+    const hits = entry?.lint && Array.isArray(entry.lint.hits) ? entry.lint.hits : [];
+    items.push({
+      title,
+      // 字符数一律用服务端复算的值（模型自报的数字不可信）；缺失时才退回前端按标题长度算。
+      charCount: typeof entry?.charCount === "number" && Number.isFinite(entry.charCount)
+        ? entry.charCount
+        : title.length,
+      overLimit: entry?.overLimit === true || title.length > PRODUCT_TITLE_MAX_CHARS,
+      lint: { hasForbidden: entry?.lint?.hasForbidden === true || hits.length > 0, hits },
+    });
+  }
+  return items;
+}
+
 export type ProductTitleButtonProps = {
   className?: string;
   disabled?: boolean;
+  /**
+   * 文本框默认内容；不传时用 prompt.ts 的 PRODUCT_TITLE_DEFAULT_DESCRIPTION
+   * （= 当前放置方式下的规范原文，与上游拼装同一个常量来源）。
+   */
+  defaultDescription?: string;
 };
 
 /** 内置下拉选项（模型清单拉取失败时使用，与 types.ts 的兜底清单同一份数据）。 */
@@ -67,11 +119,13 @@ function defaultModelId(models: readonly ProductTitleModelInfo[]): string {
   return models.find((model) => model.vision)?.id ?? models[0]?.id ?? PRODUCT_TITLE_DEFAULT_MODEL;
 }
 
-export function ProductTitleButton({ className, disabled = false }: ProductTitleButtonProps) {
+export function ProductTitleButton({ className, disabled = false, defaultDescription }: ProductTitleButtonProps) {
   const t = useTranslations("ProductTitle");
+  const initialDescription = defaultDescription ?? PRODUCT_TITLE_DEFAULT_DESCRIPTION;
   const [open, setOpen] = useState(false);
   const [images, setImages] = useState<SelectedImage[]>([]);
-  const [description, setDescription] = useState("");
+  // 只初始化一次：用户之后清空或改写都按实际内容走，绝不强行回填默认值。
+  const [description, setDescription] = useState<string>(() => initialDescription);
   const [models, setModels] = useState<ProductTitleModelInfo[]>(() => fallbackModelOptions());
   const [model, setModel] = useState<string>(PRODUCT_TITLE_DEFAULT_MODEL);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -79,13 +133,14 @@ export function ProductTitleButton({ className, disabled = false }: ProductTitle
   const [imageError, setImageError] = useState<ImageErrorKey>("");
   const [dragActive, setDragActive] = useState(false);
   const [status, setStatus] = useState<RequestStatus>("idle");
-  const [titles, setTitles] = useState<ProductTitleCandidate[]>([]);
+  const [result, setResult] = useState<ProductTitleResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const trimmedDescription = description.trim();
   const hasInput = images.length > 0 || trimmedDescription.length > 0;
@@ -138,6 +193,15 @@ export function ProductTitleButton({ className, disabled = false }: ProductTitle
     requestIdRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
+  }, []);
+
+  // 打开弹窗时把光标放到文本框末尾：默认值是一整段规范，用户接着往后写更顺手。
+  // 用回调 ref（挂载即定位）而不是 effect，避免依赖 Portal 的挂载时机。
+  const attachDescriptionNode = useCallback((node: HTMLTextAreaElement | null) => {
+    descriptionRef.current = node;
+    if (!node) return;
+    const end = node.value.length;
+    if (typeof node.setSelectionRange === "function") node.setSelectionRange(end, end);
   }, []);
 
   const addFiles = useCallback(async (fileList: FileList | File[] | null | undefined) => {
@@ -231,14 +295,20 @@ export function ProductTitleButton({ className, disabled = false }: ProductTitle
         setErrorMessage(payload && payload.ok === false && payload.error ? payload.error : t("loadFailed"));
         return;
       }
-      setTitles(payload.titles);
+      const titles = readResultItems(payload.titles);
+      if (!titles.length) {
+        setStatus("error");
+        setErrorMessage(t("loadFailed"));
+        return;
+      }
+      setResult({ titles, repaired: payload.repaired });
       setCopiedIndex(null);
       setStatus("success");
     } catch (error) {
       if (requestIdRef.current !== requestId) return;
       if (error instanceof Error && error.name === "AbortError") {
         // 用户主动取消：不报错，保留旧结果。
-        setStatus(titles.length ? "success" : "idle");
+        setStatus(result ? "success" : "idle");
         setErrorMessage("");
         return;
       }
@@ -247,15 +317,15 @@ export function ProductTitleButton({ className, disabled = false }: ProductTitle
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [description, images, model, t, titles.length]);
+  }, [description, images, model, result, t]);
 
   const cancelGenerate = useCallback(() => {
     requestIdRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
-    setStatus((current) => (current === "loading" ? (titles.length ? "success" : "idle") : current));
+    setStatus((current) => (current === "loading" ? (result ? "success" : "idle") : current));
     setErrorMessage("");
-  }, [titles.length]);
+  }, [result]);
 
   const copyText = useCallback(async (text: string, message: string) => {
     const ok = await writeClipboard(text);
@@ -264,7 +334,16 @@ export function ProductTitleButton({ className, disabled = false }: ProductTitle
     return ok;
   }, [t]);
 
-  const allTitlesText = titles.map((item) => `${item.en}\n${item.zh}`).join("\n\n");
+  /** 单条复制：只复制纯英文标题（不带字符数、不带任何中文），并短暂高亮那一行。 */
+  const copyTitleAt = useCallback(async (item: ProductTitleResultItem, index: number) => {
+    const ok = await copyText(item.title, t("copyIndexSuccess", { index: index + 1 }));
+    if (!ok) return;
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex((current) => (current === index ? null : current)), 1600);
+  }, [copyText, t]);
+
+  /** 「复制全部」：3 条以换行分隔（只复制英文标题本身）。 */
+  const allTitlesText = result ? result.titles.map((item) => item.title).join("\n") : "";
 
   return (
     <>
@@ -386,28 +465,44 @@ export function ProductTitleButton({ className, disabled = false }: ProductTitle
             ) : null}
           </section>
 
-          {/* ② 文字描述 */}
+          {/* ② 商品名称 / 商品信息（默认已带整段规范，用户接着往后补充） */}
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <label className="text-sm font-medium text-foreground" htmlFor="product-title-description">
                 {t("descriptionLabel")}
               </label>
-              <span className="text-xs text-muted-foreground">
-                {t("descriptionCounter", {
-                  count: description.length,
-                  max: PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH,
-                })}
-              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-muted-foreground"
+                  aria-label={t("resetDescription")}
+                  title={t("resetDescription")}
+                  onClick={() => setDescription(PRODUCT_TITLE_DEFAULT_DESCRIPTION)}
+                >
+                  <RotateCcw className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t("resetDescription")}</span>
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {t("descriptionCounter", {
+                    count: description.length,
+                    max: PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH,
+                  })}
+                </span>
+              </div>
             </div>
             <Textarea
+              ref={attachDescriptionNode}
               id="product-title-description"
               value={description}
               maxLength={PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH}
               placeholder={t("descriptionPlaceholder")}
               aria-label={t("descriptionLabel")}
-              className="min-h-20"
+              className="min-h-40"
               onChange={(event) => setDescription(event.target.value.slice(0, PRODUCT_TITLE_DESCRIPTION_MAX_LENGTH))}
             />
+            <p className="text-xs text-muted-foreground">{t("descriptionHint")}</p>
           </section>
 
           {/* ③ 模型版本 */}
@@ -496,64 +591,70 @@ export function ProductTitleButton({ className, disabled = false }: ProductTitle
             </div>
           ) : null}
 
-          {status === "success" && titles.length ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">{t("countLabel", { count: titles.length })}</span>
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="ghost" size="sm" disabled={!hasInput} onClick={() => void generate()}>
-                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                    <span>{t("regenerate")}</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!allTitlesText}
-                    onClick={() => void copyText(allTitlesText, t("copyAllSuccess"))}
-                  >
-                    <Copy className="h-4 w-4" aria-hidden="true" />
-                    <span>{t("copyAll")}</span>
-                  </Button>
-                </div>
+          {status === "success" && result ? (
+            <div className="flex flex-col gap-2" data-testid="product-title-results">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">{t("countLabel", { count: result.titles.length })}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!allTitlesText}
+                  aria-label={t("copyAll")}
+                  title={t("copyAll")}
+                  onClick={() => void copyText(allTitlesText, t("copyAllSuccess"))}
+                >
+                  <Copy className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{t("copyAll")}</span>
+                </Button>
               </div>
 
-              <ul className="flex max-h-[45vh] flex-col gap-2 overflow-y-auto pr-1">
-                {titles.map((item, index) => (
+              <ul className="flex flex-col gap-2">
+                {result.titles.map((item, index) => (
                   <li
-                    key={`product-title-${index}-${item.en.slice(0, 24)}`}
-                    className="rounded-lg border border-border/60 bg-card/60 p-3"
+                    key={`product-title-${index}-${item.title.slice(0, 24)}`}
+                    className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/60 p-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold leading-relaxed text-foreground break-words">{item.en}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground break-words">{item.zh}</p>
-                        {item.angle ? (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            <span className="font-medium text-foreground/70">{t("angleLabel")}：</span>
-                            {item.angle}
-                          </p>
-                        ) : null}
+                        <p
+                          data-testid={`product-title-title-${index + 1}`}
+                          className="select-text text-sm font-semibold leading-relaxed text-foreground break-words"
+                        >
+                          {item.title}
+                        </p>
+                        <p
+                          data-testid={`product-title-char-count-${index + 1}`}
+                          className="mt-2 text-xs text-muted-foreground"
+                        >
+                          {t("charCountLabel", { count: item.charCount })}
+                        </p>
                       </div>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        aria-label={t("copy")}
-                        title={t("copy")}
-                        onClick={() => void copyText(`${item.en}\n${item.zh}`, t("copySuccess")).then((ok) => {
-                          if (ok) {
-                            setCopiedIndex(index);
-                            setTimeout(() => setCopiedIndex((current) => (current === index ? null : current)), 1600);
-                          }
-                        })}
+                        aria-label={copiedIndex === index ? t("copied") : t("copyIndex", { index: index + 1 })}
+                        title={copiedIndex === index ? t("copied") : t("copyIndex", { index: index + 1 })}
+                        onClick={() => void copyTitleAt(item, index)}
                       >
                         {copiedIndex === index
                           ? <Check className="h-4 w-4" aria-hidden="true" />
                           : <Copy className="h-4 w-4" aria-hidden="true" />}
-                        <span>{copiedIndex === index ? t("copied") : t("copy")}</span>
                       </Button>
                     </div>
+                    {/* 该条超长 / 命中材质词·尺寸数字·禁词：只做低对比度提醒，不自动改写标题。 */}
+                    {item.overLimit ? (
+                      <p className="text-xs text-muted-foreground/80" role="status">
+                        {t("overLimitWarning", { max: PRODUCT_TITLE_MAX_CHARS })}
+                      </p>
+                    ) : null}
+                    {item.lint.hasForbidden ? (
+                      <p className="text-xs text-muted-foreground/80" role="status">
+                        {t("lintWarning")}
+                        {item.lint.hits.length ? `（${item.lint.hits.join("、")}）` : ""}
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

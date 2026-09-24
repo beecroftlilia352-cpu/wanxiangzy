@@ -1,9 +1,12 @@
 /**
- * 「商品标题」服务端模块（第二版：用户自选条件 → 3 条双语标题）。
+ * 「商品标题」服务端模块（第四版：SHEIN 欧洲站规范 → 输出 3 条纯英文标题 + 逐条字符数）。
  *
- * 流程：用户条件（0~5 张图片 + 文字描述 + 模型版本）
+ * 流程：用户条件（0~5 张图片 + 商品名称/商品信息 + 模型版本）
  *      → 每张图用 sharp 压成 jpeg（长边 ≤1024, q80）→ base64 data URL 内联
- *      → DeepSeek OpenAI 兼容 /chat/completions → 解析 JSON。
+ *      → DeepSeek OpenAI 兼容 /chat/completions（system = 最小机器契约，含「恰好 3 条」）
+ *      → 解析 {"titles":[{"title","charCount"}, ...]} → 每条 charCount 由服务端按 title 复算
+ *      → 本地 lint（材质词/尺寸数字/禁词）+ 长度检查：**任意一条**不合规就带
+ *        逐条纠正指令（第几条 + 命中原词）**重写一次**（最多 1 次，不循环）。
  *
  * 为什么直接读 provider 而不走 executeLlmChatRouted：
  *   控制面里的 "deepseek" 供应商刻意没有任何 deployments/models（不参与用户可见的
@@ -28,18 +31,29 @@ import type { AiControlPlaneConfig, AiProviderEndpoint } from "@/lib/ai-control-
 import { extractMediaAssetIdFromUrl } from "@/lib/api/kie-reference-image.server";
 import { getProductTitleModelCatalog } from "./models";
 import {
+  buildProductTitleMessages,
+  buildProductTitleRepairInstruction,
+  lintProductTitle,
+  productTitleHitsByCategory,
+  type ProductTitleChatMessage,
+  type ProductTitleLintResult,
+  type ProductTitleRepairItem,
+  type ProductTitleSpecPlacement,
+} from "./prompt";
+import {
   PRODUCT_TITLE_DEFAULT_MODEL,
   PRODUCT_TITLE_ERROR_CODES,
   PRODUCT_TITLE_IMAGE_JPEG_QUALITY,
   PRODUCT_TITLE_IMAGE_MAX_LONG_EDGE,
   PRODUCT_TITLE_MAX_CANDIDATES,
+  PRODUCT_TITLE_MAX_CHARS,
   PRODUCT_TITLE_MAX_IMAGE_BYTES,
   PRODUCT_TITLE_MAX_IMAGES,
   PRODUCT_TITLE_MAX_TOKENS,
   PRODUCT_TITLE_MODEL_ENV,
   PRODUCT_TITLE_PROVIDER_ID,
   PRODUCT_TITLE_TIMEOUT_MS,
-  type ProductTitleCandidate,
+  type ProductTitleTitleItem,
 } from "./types";
 
 /** 本功能自己的错误类型：携带面向用户的中文提示与 HTTP 状态码。 */
@@ -71,6 +85,8 @@ export type ProductTitleDependencies = {
   fetchImpl?: typeof fetch;
   /** 模型名注入（测试用；一般由请求入参决定）。 */
   model?: string;
+  /** 规范文本放置位置注入（测试用）；默认用 prompt.ts 的 PRODUCT_TITLE_SPEC_PLACEMENT。 */
+  specPlacement?: ProductTitleSpecPlacement;
 };
 
 /** 生成条件：图片（data URL 或站内地址）+ 文字描述 + 模型版本；三者可选，但图片与描述至少要有其一。 */
@@ -84,29 +100,33 @@ export type ProductTitleGenerationResult = {
   model: string;
   /** 该模型是否支持图片输入。 */
   vision: boolean;
-  titles: ProductTitleCandidate[];
+  /** 候选英文标题（要求 3 条；每条带服务端复算的 charCount 与逐条 lint / overLimit）。 */
+  titles: ProductTitleTitleItem[];
+  /** 只在触发过重写重试时出现：true = 重写后全部合规，false = 仍有命中/仍超长（含重写不可解析）。 */
+  repaired?: boolean;
   /** 实际内联给上游的图片张数（非 vision 模型恒为 0）。 */
   imageCount: number;
   /** 实际内联给上游的图片压缩字节总量。 */
   imageBytes: number;
 };
 
-const SYSTEM_PROMPT = `你是资深跨境电商运营，长期负责欧美市场（Amazon / Etsy / Shopify）的商品上架。
-你的任务：根据用户提供的商品图片与文字描述（可能只有其一），判断商品的品类、主体、材质、颜色、风格
-与典型使用场景，写出可直接上架的英文商品标题，并给出中文对照。
+/** 内部用的逐条检查结果：多带一份 lint 明细（拼纠正指令用，不直接返回给前端）。 */
+type ProductTitleInspectedItem = {
+  title: string;
+  overLimit: boolean;
+  lint: ProductTitleLintResult;
+};
 
-必须遵守：
-1. 标题为纯英文，长度尽量落在 120~200 个字符之间，词序按欧美买家的搜索习惯排列
-   （核心品类词 + 关键属性 + 使用场景/受众）。
-2. 若收到多张图片，且它们属于同一商品的多个角度、多个部件或组成套装，请综合所有图片的信息产出
-   统一的商品标题（例如把多个部件概括成一个套装卖点），不要只描述其中一张。
-3. 文字描述用于补充图片里看不到的信息（材质、尺寸、用途等）；描述与图片冲突时，以图片中真实
-   可见的信息为准。只有文字描述、没有图片时，完全基于描述写标题，不要编造描述里没有的细节。
-4. 只客观描述真实可见或用户明确给出的信息，不夸大、不承诺效果。
-5. 禁止使用 best、No.1、#1、free、cheapest、guarantee、100% off 等违反平台规范的词。
-6. 不编造具体品牌名；确有必要时用 [Brand] 占位。
-7. 中文对照是英文标题的准确翻译，不要额外发挥。
-8. 只输出 JSON，不要输出解释、标题、列表符号或额外文字。`;
+/** 不合规的一条 + 它在本次结果里的**下标**（0 起；对外说「第 N 条」时 +1）。 */
+type ProductTitleOffender = {
+  index: number;
+  item: ProductTitleInspectedItem;
+};
+
+/**
+ * system prompt 已抽到 ./prompt.ts（用户给定的 SHEIN 欧洲站规范原文 + 末尾的输出格式段），
+ * 这里只保留常量引用，避免规范文本被顺手改写。
+ */
 
 /** 模型名：显式入参优先，其次 PRODUCT_TITLE_MODEL 环境变量，最后默认 deepseek-flash。 */
 export function resolveProductTitleModel(override?: string): string {
@@ -222,94 +242,139 @@ export async function generateProductTitles(
   };
   const timeoutMs = Math.min(provider.timeoutMs || PRODUCT_TITLE_TIMEOUT_MS, PRODUCT_TITLE_TIMEOUT_MS);
 
-  const userText = buildProductTitleUserPrompt({ description, imageCount: imageDataUrls.length });
-  const requestBody = {
-    model,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        // 有图 → 多模态 content parts；纯文字（或非 vision 模型）→ 纯字符串，绝不带 image_url。
-        content: imageDataUrls.length
-          ? [
-              { type: "text", text: userText },
-              ...imageDataUrls.map((url) => ({ type: "image_url", image_url: { url } })),
-            ]
-          : userText,
-      },
-    ],
-    stream: false,
-    temperature: 0.7,
-    max_tokens: PRODUCT_TITLE_MAX_TOKENS,
-    // deepseek-flash 是推理模型：必须显式关闭 thinking，否则 max_tokens 会被推理过程吃光、
-    // 出现「HTTP 200 但 content 为空」。
-    thinking: { type: "disabled" },
+  // system / user 两段文本只在 buildProductTitleMessages 里拼装（规范默认放在文本框内容里，
+  // 见 prompt.ts 的 PRODUCT_TITLE_SPEC_PLACEMENT）；这里只追加图片与重写重试的后续消息。
+  const messages: ProductTitleChatMessage[] = buildProductTitleMessages({
+    description,
+    imageDataUrls,
+    specPlacement: dependencies.specPlacement,
+  });
+
+  /** 调一次上游并取回正文（不为空；空/非 JSON 交给解析层给可读错误）。 */
+  const callUpstream = async (): Promise<string> => {
+    const requestBody = {
+      model,
+      messages,
+      stream: false,
+      temperature: 0.7,
+      max_tokens: PRODUCT_TITLE_MAX_TOKENS,
+      // deepseek-flash 是推理模型：必须显式关闭 thinking，否则 max_tokens 会被推理过程吃光、
+      // 出现「HTTP 200 但 content 为空」。
+      thinking: { type: "disabled" },
+    };
+
+    let response: Response;
+    try {
+      response = await fetchImpl(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      const aborted = error instanceof Error
+        && (error.name === "TimeoutError" || error.name === "AbortError");
+      throw new ProductTitleError(
+        aborted ? "生成商品标题超时，请重试。" : "无法连接 DeepSeek 服务，请稍后重试。",
+        aborted ? "PRODUCT_TITLE_TIMEOUT" : "PRODUCT_TITLE_UPSTREAM_UNAVAILABLE",
+        aborted ? 504 : 502,
+      );
+    }
+
+    if (!response.ok) {
+      // 只回状态码，绝不把上游响应正文抛给前端。
+      throw new ProductTitleError(
+        `DeepSeek 服务返回错误（HTTP ${response.status}），请稍后重试。`,
+        `PRODUCT_TITLE_UPSTREAM_HTTP_${response.status}`,
+        502,
+      );
+    }
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new ProductTitleError("DeepSeek 返回内容不是合法 JSON，请重试。", "PRODUCT_TITLE_UPSTREAM_INVALID_RESPONSE", 502);
+    }
+    return extractChatCompletionText(payload);
   };
 
-  let response: Response;
-  try {
-    response = await fetchImpl(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(timeoutMs),
+  const firstContent = await callUpstream();
+  let inspected = inspectProductTitles(parseProductTitles(firstContent));
+
+  // 本地自检 + 长度检查：**任意一条**超 250 字符或命中材质词/尺寸数字/禁词
+  // → 带逐条纠正指令（第几条 + 命中原词）**重写一次**。
+  // 只重试 1 次、不循环；重试后仍不合规就照常返回结果、逐条标注（repaired:false）。
+  const offenders = collectOffenders(inspected);
+  let repaired: boolean | undefined;
+
+  if (offenders.length) {
+    messages.push({ role: "assistant", content: firstContent.trim() });
+    messages.push({
+      role: "user",
+      content: buildProductTitleRepairInstruction({ items: offenders.map(toRepairItem) }),
     });
-  } catch (error) {
-    const aborted = error instanceof Error
-      && (error.name === "TimeoutError" || error.name === "AbortError");
-    throw new ProductTitleError(
-      aborted ? "生成商品标题超时，请重试。" : "无法连接 DeepSeek 服务，请稍后重试。",
-      aborted ? "PRODUCT_TITLE_TIMEOUT" : "PRODUCT_TITLE_UPSTREAM_UNAVAILABLE",
-      aborted ? 504 : 502,
-    );
+
+    let retried: ProductTitleInspectedItem[] | null = null;
+    try {
+      retried = inspectProductTitles(parseProductTitles(await callUpstream()));
+    } catch (error) {
+      // 重写那一轮没给出可解析的标题（空内容 / 非 JSON / 上游抖动）：
+      // 保留第一次的 3 条结果并标 repaired:false，而不是把一次本来有结果的请求判失败。
+      if (!(error instanceof ProductTitleError)) throw error;
+    }
+
+    if (retried) inspected = retried;
+    repaired = retried !== null && collectOffenders(retried).length === 0;
   }
 
-  if (!response.ok) {
-    // 只回状态码，绝不把上游响应正文抛给前端。
-    throw new ProductTitleError(
-      `DeepSeek 服务返回错误（HTTP ${response.status}），请稍后重试。`,
-      `PRODUCT_TITLE_UPSTREAM_HTTP_${response.status}`,
-      502,
-    );
-  }
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new ProductTitleError("DeepSeek 返回内容不是合法 JSON，请重试。", "PRODUCT_TITLE_UPSTREAM_INVALID_RESPONSE", 502);
-  }
-
-  const titles = parseProductTitles(extractChatCompletionText(payload));
-  return { model, vision, titles, imageCount: imageDataUrls.length, imageBytes };
+  return {
+    model,
+    vision,
+    // charCount 一律由服务端按每条 title 复算（模型自报的 charCount 实测会偏大，不可信）。
+    titles: inspected.map(toTitleItem),
+    repaired,
+    imageCount: imageDataUrls.length,
+    imageBytes,
+  };
 }
 
-/** 组装送给模型的用户提示词（图片张数 / 文字描述 / 输出格式）。 */
-export function buildProductTitleUserPrompt(input: { description: string; imageCount: number }): string {
-  const parts: string[] = [];
-  if (input.imageCount > 1) {
-    parts.push(
-      `请综合这 ${input.imageCount} 张商品图片生成 3 条面向欧美买家的英文商品标题：它们可能是同一商品的`
-      + "不同角度或不同部件（也可能组成套装），请综合所有图片的信息给出统一标题，不要只描述其中一张。"
-      + "三条标题的角度必须各不相同：",
-    );
-  } else if (input.imageCount === 1) {
-    parts.push("请根据这张商品图片生成 3 条面向欧美买家的英文商品标题，三条的角度必须各不相同：");
-  } else {
-    parts.push("请只根据下面的文字描述生成 3 条面向欧美买家的英文商品标题，三条的角度必须各不相同：");
-  }
-  parts.push("第 1 条偏功能与卖点，第 2 条偏使用场景与目标人群，第 3 条偏材质与规格。");
-  if (input.description) {
-    parts.push(`商品文字描述（用户提供，按它补充图片里看不到的信息）：\n${input.description}`);
-  }
-  if (!input.imageCount) {
-    parts.push("没有图片可用，请完全基于上面的文字描述写标题，不要编造描述里没有的细节。");
-  }
-  parts.push(
-    "只输出下面这个 JSON（不要输出任何其他内容）：\n"
-    + '{"titles":[{"en":"英文标题","zh":"中文对照","angle":"这条标题的卖点角度，20 字以内的中文"}]}',
-  );
-  return parts.join("\n\n");
+/** 逐条检查：复算长度 + 跑本地 lint（明细留着拼纠正指令，不返回给前端）。 */
+function inspectProductTitles(titles: string[]): ProductTitleInspectedItem[] {
+  return titles.map((title) => ({
+    title,
+    overLimit: title.length > PRODUCT_TITLE_MAX_CHARS,
+    lint: lintProductTitle(title),
+  }));
+}
+
+/** 不合规（超长或命中 lint）的那几条；空数组 = 全部合规、不用重试。 */
+function collectOffenders(items: ProductTitleInspectedItem[]): ProductTitleOffender[] {
+  return items
+    .map((item, index) => ({ index, item }))
+    .filter((offender) => offender.item.overLimit || offender.item.lint.hits.length > 0);
+}
+
+/** 把不合规的一条转成纠正指令的一项（index 从 1 开始 = 它在 3 条里的序号）。 */
+function toRepairItem(offender: ProductTitleOffender): ProductTitleRepairItem {
+  const hits = productTitleHitsByCategory(offender.item.lint);
+  return {
+    index: offender.index + 1,
+    materialHits: hits.material,
+    measurementHits: hits.measurement,
+    forbiddenHits: hits.forbidden,
+    overLimit: offender.item.overLimit,
+  };
+}
+
+/** 对外的一条结果：charCount 用服务端复算值，lint 只保留 hasForbidden 与原词。 */
+function toTitleItem(item: ProductTitleInspectedItem): ProductTitleTitleItem {
+  return {
+    title: item.title,
+    charCount: item.title.length,
+    overLimit: item.overLimit,
+    lint: { hasForbidden: item.lint.hasForbidden, hits: item.lint.hits },
+  };
 }
 
 /**
@@ -339,8 +404,12 @@ export function extractChatCompletionText(payload: unknown): string {
   return "";
 }
 
-/** 容错解析模型输出的标题 JSON（容忍 ```json 包裹、前后附加文字）。 */
-export function parseProductTitles(content: string): ProductTitleCandidate[] {
+/**
+ * 容错解析模型输出的标题 JSON：取 titles[].title（1~3 条都容忍，超过 3 条截断）。
+ * 容忍 ```json 包裹、前后附加文字与数组里混入的非字符串/空项；**不**信任模型自报的
+ * charCount（长度由服务端按每条 title 复算）。空 titles / 全是空字符串 → 可读中文错误。
+ */
+export function parseProductTitles(content: string): string[] {
   const text = stripCodeFence(typeof content === "string" ? content : "").trim();
   if (!text) {
     throw new ProductTitleError(
@@ -360,15 +429,27 @@ export function parseProductTitles(content: string): ProductTitleCandidate[] {
     throw new ProductTitleError("模型返回的内容不是可解析的标题 JSON，请重试。", "PRODUCT_TITLE_INVALID_JSON", 502);
   }
 
-  const rawList = readTitleList(parsed);
-  const titles = rawList
-    .map(normalizeCandidate)
-    .filter((item): item is ProductTitleCandidate => item !== null)
+  const titles = readTitleList(parsed)
+    .map(readText)
+    .filter(Boolean)
+    // 契约要 3 条；模型多给了就只取前 3 条。
     .slice(0, PRODUCT_TITLE_MAX_CANDIDATES);
   if (!titles.length) {
     throw new ProductTitleError("模型没有返回可用的商品标题，请重试。", "PRODUCT_TITLE_NO_TITLES", 502);
   }
   return titles;
+}
+
+/** 从解析结果里取 titles 数组；结构不对时给空数组（交给上面统一报可读错误）。 */
+function readTitleList(parsed: unknown): unknown[] {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+  const titles = (parsed as { titles?: unknown }).titles;
+  if (!Array.isArray(titles)) return [];
+  return titles.map((item) => (
+    item && typeof item === "object" && !Array.isArray(item)
+      ? (item as { title?: unknown }).title
+      : ""
+  ));
 }
 
 /** 解 data URL → 字节（图片类型与空内容在这里兜底）。 */
@@ -539,27 +620,6 @@ function extractJsonSegment(value: string): string | null {
   const end = Math.max(value.lastIndexOf("}"), value.lastIndexOf("]"));
   if (end <= start) return null;
   return value.slice(start, end + 1);
-}
-
-function readTitleList(parsed: unknown): unknown[] {
-  if (Array.isArray(parsed)) return parsed;
-  if (parsed && typeof parsed === "object") {
-    const titles = (parsed as { titles?: unknown }).titles;
-    if (Array.isArray(titles)) return titles;
-  }
-  return [];
-}
-
-function normalizeCandidate(value: unknown): ProductTitleCandidate | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as { en?: unknown; zh?: unknown; angle?: unknown };
-  const en = readText(record.en);
-  if (!en) return null;
-  return {
-    en,
-    zh: readText(record.zh) || en,
-    angle: readText(record.angle),
-  };
 }
 
 function readText(value: unknown): string {

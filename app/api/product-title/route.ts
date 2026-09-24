@@ -10,13 +10,16 @@ import { PRODUCT_TITLE_RATE_LIMIT, type ProductTitleResponse } from "@/lib/produ
  * 「商品标题」接口（本功能自己的路由）。
  *
  * POST { images?: string[], description?: string, model?: string }
- *   →  { ok: true, model, titles: [{ en, zh, angle }] }
+ *   →  { ok: true, model, titles: [{ title, charCount, overLimit?, lint? }], repaired? }
  * 失败 →  { ok: false, error: 中文提示, code }
  *
- * 条件说明（第二版需求）：不再自动读取结果图，改由用户在弹窗里给条件 —— 0~5 张图片、
- * 文字描述、deepseek 模型版本，三者至少给其一（图片或描述）；图片可用 data URL 内联
- * （前端 canvas 压缩后），也兼容站内相对路径 / http(s) 地址（沿用上版资产读取路径）。
+ * 输出为**3 条纯英文标题 + 逐条字符数**（SHEIN 欧洲站规范，每条 ≤250 字符；不含中文对照/卖点角度）。
+ * 条件说明：不再自动读取结果图，改由用户在弹窗里给条件 —— 0~5 张图片、商品名称/商品信息、
+ * deepseek 模型版本，三者至少给其一（图片或描述）；图片可用 data URL 内联（前端 canvas 压缩后），
+ * 也兼容站内相对路径 / http(s) 地址（沿用上版资产读取路径）。
  * 非 vision 模型（deepseek-v4-pro）不发送任何 image part，且只给图不给描述时直接 400。
+ * 本地 lint 命中材质词/尺寸数字/禁词或任意一条超长时，服务端会自动带逐条纠正指令重写一次
+ * （最多 1 次）；重试后仍不合规就照常返回并在响应里标 repaired:false，不报错、也不静默改写标题。
  *
  * 鉴权：必须已登录（未登录 401）；限流：本功能自己的桶（触发 429 + 中文提示）；
  * 参数错 400 / 图片过大 413 / 上游或服务器错 502·500 / 超时 504。
@@ -59,7 +62,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       model: result.model,
-      titles: result.titles,
+      // 逐条原样透传：title / 服务端复算的 charCount / 该条是否超长 / 该条 lint。
+      titles: result.titles.map((item) => ({
+        title: item.title,
+        charCount: item.charCount,
+        overLimit: item.overLimit === true,
+        lint: item.lint ?? { hasForbidden: false, hits: [] },
+      })),
+      ...(result.repaired === undefined ? {} : { repaired: result.repaired }),
     } satisfies ProductTitleResponse);
   } catch (error) {
     if (error instanceof ProductTitleError) {
